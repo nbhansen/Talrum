@@ -9,10 +9,10 @@ import styles from './PictogramMedia.module.css';
 interface PictogramMediaProps {
   picto: Pictogram;
   size: number;
-  selected?: boolean;
+  selected?: boolean | undefined;
   /** Override border radius (rarely needed). */
-  radius?: string;
-  className?: string;
+  radius?: string | undefined;
+  className?: string | undefined;
 }
 
 /**

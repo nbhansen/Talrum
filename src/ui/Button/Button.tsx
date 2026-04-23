@@ -6,7 +6,7 @@ export type ButtonVariant = 'primary' | 'ghost' | 'pill';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant: ButtonVariant;
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   children: ReactNode;
 }
 

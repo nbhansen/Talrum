@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, JSX, ReactNode } from 'react';
 import styles from './Chip.module.css';
 
 interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  active?: boolean;
+  active?: boolean | undefined;
   children: ReactNode;
 }
 

@@ -1,0 +1,112 @@
+.choices {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  padding: 12px 40px 20px;
+}
+
+.choice {
+  background: var(--tal-surface);
+  border-radius: var(--tal-r-xl);
+  padding: 24px;
+  box-shadow: var(--tal-shadow-1);
+  border: 3px solid var(--tal-line-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.3, 1.1);
+  font-family: inherit;
+  color: inherit;
+}
+
+.choicePicked {
+  box-shadow: var(--tal-shadow-3);
+  transform: scale(1.02);
+}
+
+.choiceDim {
+  opacity: 0.45;
+}
+
+.marker {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 6px 16px;
+  border-radius: var(--tal-r-pill);
+}
+
+.mediaWrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 260px;
+  position: relative;
+  border-radius: var(--tal-r-lg);
+  overflow: hidden;
+}
+
+.pickedBadge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--tal-r-pill);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--tal-shadow-2);
+}
+
+.label {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--tal-ink);
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.bottom {
+  padding: 12px 40px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmBtn {
+  padding: 20px 40px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-ink);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--tal-shadow-2);
+}
+
+.confirmCheck {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tal-ink-muted);
+  padding: 16px 24px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  border: 1px dashed var(--tal-line);
+}

@@ -1,0 +1,126 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  margin-top: -4px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-ink-soft);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.crumbSep {
+  color: var(--tal-ink-muted);
+}
+
+.crumbPath {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-ink);
+}
+
+.titleInput {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--tal-ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+
+.titleInput:focus {
+  border-bottom-color: var(--tal-line);
+}
+
+.track {
+  background: var(--tal-surface);
+  border-radius: var(--tal-r-lg);
+  padding: 28px 24px;
+  box-shadow: var(--tal-shadow-1);
+  border: 1px solid var(--tal-line-soft);
+}
+
+.rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.connector {
+  align-self: center;
+  color: var(--tal-ink-muted);
+  margin-top: 14px;
+  flex-shrink: 0;
+}
+
+.orPill {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--tal-ink-muted);
+  padding: 6px 10px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-bg);
+}
+
+.addTile {
+  margin-top: 14px;
+  width: 132px;
+  height: 132px;
+  border-radius: var(--tal-r-lg);
+  border: 2px dashed var(--tal-line);
+  background: transparent;
+  color: var(--tal-ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.quickAdd {
+  margin-top: 32px;
+}
+
+.quickAddHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+
+.quickAddHeading {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tal-ink);
+}
+
+.browseAll {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-sky-ink);
+}
+
+.quickAddGrid {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}

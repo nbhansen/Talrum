@@ -1,0 +1,72 @@
+.rightActions {
+  display: flex;
+  gap: 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.newTile {
+  min-height: 260px;
+  border-radius: var(--tal-r-lg);
+  border: 2px dashed var(--tal-line);
+  background: transparent;
+  color: var(--tal-ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.newTileIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--tal-r-md);
+  background: var(--tal-surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tal-ink-soft);
+}
+
+.recent {
+  margin-top: 36px;
+}
+
+.recentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+
+.recentHeading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tal-ink);
+}
+
+.seeAll {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-sky-ink);
+}
+
+.recentStrip {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.recentItem {
+  flex-shrink: 0;
+}
