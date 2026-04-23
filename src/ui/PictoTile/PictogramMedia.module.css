@@ -1,0 +1,18 @@
+.media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  border-radius: var(--tal-r-lg);
+  box-shadow: var(--tal-shadow-1);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.selected {
+  box-shadow: 0 0 0 3px var(--tal-sky-ink), var(--tal-shadow-2);
+}
+
+.photo {
+  background: var(--tal-surface-alt);
+}

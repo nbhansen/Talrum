@@ -1,0 +1,55 @@
+/*
+ * Talrum design tokens.
+ * Soft, calm, low-stim palette. Warm off-white base, muted pastels, pen-ink text.
+ * All accents share low chroma (~0.05) so nothing visually screams.
+ * Applied via the `:global(.tal)` scope — matches the prototype's `.tal` wrapper.
+ */
+
+:global(.tal) {
+  /* Surfaces */
+  --tal-bg: oklch(97.5% 0.008 85);
+  --tal-surface: oklch(99% 0.004 85);
+  --tal-surface-alt: oklch(95% 0.012 85);
+  --tal-line: oklch(88% 0.012 85);
+  --tal-line-soft: oklch(92% 0.008 85);
+
+  /* Ink */
+  --tal-ink: oklch(28% 0.02 260);
+  --tal-ink-soft: oklch(45% 0.02 260);
+  --tal-ink-muted: oklch(62% 0.015 260);
+
+  /* Accents — pastel tiles and their matching darker inks */
+  --tal-sage: oklch(86% 0.05 155);
+  --tal-sage-ink: oklch(42% 0.06 155);
+  --tal-sky: oklch(86% 0.05 240);
+  --tal-sky-ink: oklch(42% 0.06 240);
+  --tal-peach: oklch(86% 0.05 45);
+  --tal-peach-ink: oklch(42% 0.06 45);
+  --tal-lavender: oklch(86% 0.05 300);
+  --tal-lavender-ink: oklch(42% 0.06 300);
+  --tal-sun: oklch(90% 0.06 90);
+  --tal-sun-ink: oklch(42% 0.06 90);
+
+  /* Glyph line + fill (shared across all illustrated pictograms) */
+  --tal-glyph-stroke: oklch(30% 0.03 260);
+  --tal-glyph-fill: oklch(99% 0.005 85);
+
+  /* Photo-placeholder stripe colors */
+  --tal-photo-stripe-a: oklch(93% 0.01 85);
+  --tal-photo-stripe-b: oklch(88% 0.014 85);
+
+  /* Radii */
+  --tal-r-sm: 10px;
+  --tal-r-md: 16px;
+  --tal-r-lg: 24px;
+  --tal-r-xl: 32px;
+  --tal-r-pill: 999px;
+
+  /* Shadows — very soft, warm ink */
+  --tal-shadow-1: 0 1px 2px rgb(40 30 20 / 4%), 0 2px 8px rgb(40 30 20 / 4%);
+  --tal-shadow-2: 0 2px 6px rgb(40 30 20 / 6%), 0 12px 28px rgb(40 30 20 / 6%);
+  --tal-shadow-3: 0 4px 12px rgb(40 30 20 / 8%), 0 24px 48px rgb(40 30 20 / 8%);
+
+  /* Font */
+  --tal-font: 'Nunito Variable', -apple-system, system-ui, sans-serif;
+}

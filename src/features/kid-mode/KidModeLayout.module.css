@@ -1,0 +1,59 @@
+.layout {
+  width: 100%;
+  height: 100%;
+  background: var(--tal-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.topBar {
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.titleBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tal-ink-muted);
+  letter-spacing: 0.3px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tal-ink);
+  margin-top: -2px;
+}
+
+.titleLarge {
+  font-size: 20px;
+}
+
+.exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  border: 1px solid var(--tal-line);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--tal-ink-soft);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

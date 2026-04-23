@@ -1,0 +1,40 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  border: 1px solid var(--tal-line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-ink);
+}
+
+.track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-line);
+  transition: background 0.15s;
+}
+
+.trackOn {
+  background: var(--tal-sage-ink);
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--tal-r-pill);
+  background: #fff;
+  transition: left 0.15s;
+}
+
+.thumbOn {
+  left: 16px;
+}

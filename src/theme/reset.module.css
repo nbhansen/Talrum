@@ -1,0 +1,65 @@
+/*
+ * Base reset scoped to the `.tal` app root. No global resets —
+ * if this app is ever embedded elsewhere, everything stays contained.
+ */
+
+:global(html),
+:global(body) {
+  margin: 0;
+  padding: 0;
+}
+
+:global(#root) {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+:global(.tal),
+:global(.tal) *,
+:global(.tal) *::before,
+:global(.tal) *::after {
+  box-sizing: border-box;
+}
+
+:global(.tal) {
+  font-family: var(--tal-font);
+  color: var(--tal-ink);
+  background: var(--tal-bg);
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  height: 100%;
+}
+
+:global(.tal) button {
+  font-family: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+}
+
+:global(.tal) input,
+:global(.tal) textarea {
+  font-family: inherit;
+}
+
+:global(.tal) ::selection {
+  background: var(--tal-sun);
+}
+
+/* Reusable quiet scrollbar, opt-in via className="tal-scroll" */
+:global(.tal-scroll)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:global(.tal-scroll)::-webkit-scrollbar-thumb {
+  background: var(--tal-line);
+  border-radius: 4px;
+}
+
+:global(.tal-scroll)::-webkit-scrollbar-track {
+  background: transparent;
+}

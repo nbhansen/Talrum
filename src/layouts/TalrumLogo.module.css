@@ -1,0 +1,13 @@
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  box-shadow: var(--tal-shadow-1);
+  flex-shrink: 0;
+}
+
+.diamond {
+  border-radius: 6px;
+  transform: rotate(45deg);
+}

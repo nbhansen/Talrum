@@ -1,0 +1,120 @@
+.shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--tal-bg);
+}
+
+.sidebar {
+  width: 88px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+  border-right: 1px solid var(--tal-line-soft);
+  background: var(--tal-surface);
+  gap: 28px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navItem {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--tal-r-md);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--tal-ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.navItemActive {
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+}
+
+.bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-peach);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--tal-peach-ink);
+}
+
+.kidBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--tal-sky);
+  color: var(--tal-sky-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  box-shadow: var(--tal-shadow-1);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  padding: 28px 40px 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--tal-ink);
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 16px;
+  color: var(--tal-ink-soft);
+  font-weight: 500;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 40px 32px;
+}

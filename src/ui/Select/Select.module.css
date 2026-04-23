@@ -1,0 +1,33 @@
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 16px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  border: 1px solid var(--tal-line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tal-ink);
+  position: relative;
+}
+
+.label {
+  color: var(--tal-ink-soft);
+}
+
+.native {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  padding-right: 20px;
+  cursor: pointer;
+  outline: none;
+}
+
+.chevron {
+  color: var(--tal-ink-soft);
+  pointer-events: none;
+}

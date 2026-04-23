@@ -1,0 +1,19 @@
+import { describe, expect, it } from 'vitest';
+
+import { accentForIndex, cssVar } from './tokens';
+
+describe('cssVar', () => {
+  it('wraps a color token in a CSS var reference', () => {
+    expect(cssVar('sage')).toBe('var(--tal-sage)');
+    expect(cssVar('ink-muted')).toBe('var(--tal-ink-muted)');
+  });
+});
+
+describe('accentForIndex', () => {
+  it('cycles through the five accent pairs', () => {
+    expect(accentForIndex(0)).toEqual({ bg: 'sage', ink: 'sage-ink' });
+    expect(accentForIndex(1)).toEqual({ bg: 'sky', ink: 'sky-ink' });
+    expect(accentForIndex(2)).toEqual({ bg: 'peach', ink: 'peach-ink' });
+    expect(accentForIndex(5)).toEqual(accentForIndex(0));
+  });
+});

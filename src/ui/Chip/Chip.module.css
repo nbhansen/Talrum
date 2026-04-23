@@ -1,0 +1,17 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--tal-r-pill);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tal-ink-soft);
+  border: 1px solid var(--tal-line);
+  background: transparent;
+}
+
+.active {
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+  border-color: transparent;
+}
