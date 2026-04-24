@@ -10,8 +10,10 @@ import { supabase } from './supabase';
 export const useUserInitial = (): string | undefined => {
   const [initial, setInitial] = useState<string | undefined>();
   useEffect(() => {
-    const toInitial = (email: string | undefined): string | undefined =>
-      email && email.length > 0 ? email[0]!.toUpperCase() : undefined;
+    const toInitial = (email: string | undefined): string | undefined => {
+      const first = email?.[0];
+      return first ? first.toUpperCase() : undefined;
+    };
     let cancelled = false;
     void supabase.auth.getSession().then(({ data }) => {
       if (!cancelled) setInitial(toInitial(data.session?.user.email));
