@@ -32,6 +32,8 @@ export type GlyphName =
 
 interface IllustratedPictogram {
   id: string;
+  /** Stable text slug present on seed-cloned rows; absent for user uploads. */
+  slug?: string;
   label: string;
   style: 'illus';
   glyph: GlyphName;
@@ -41,6 +43,7 @@ interface IllustratedPictogram {
 
 interface PhotoPictogram {
   id: string;
+  slug?: string;
   label: string;
   style: 'photo';
   /** Storage key or inline blob URL. Undefined in Phase 1 for seed data. */
@@ -56,6 +59,7 @@ export type VoiceMode = 'tts' | 'parent' | 'none';
 
 export interface Board {
   id: string;
+  slug?: string;
   ownerId: string;
   kidId: string;
   name: string;

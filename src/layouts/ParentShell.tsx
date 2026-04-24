@@ -25,6 +25,7 @@ interface ParentShellProps {
   active?: ParentNavKey;
   onNav?: (id: ParentNavKey) => void;
   onKidMode?: () => void;
+  onSignOut?: () => void;
   title?: string;
   subtitle?: string;
   right?: ReactNode;
@@ -36,6 +37,7 @@ export const ParentShell = ({
   active,
   onNav,
   onKidMode,
+  onSignOut,
   title,
   subtitle,
   right,
@@ -68,7 +70,15 @@ export const ParentShell = ({
           <LockIcon size={22} />
           <span>KID</span>
         </button>
-        <div className={styles.avatar}>{userInitial}</div>
+        <button
+          type="button"
+          className={styles.avatar}
+          onClick={onSignOut}
+          title="Sign out"
+          aria-label="Sign out"
+        >
+          {userInitial}
+        </button>
       </div>
     </aside>
     <main className={styles.main}>

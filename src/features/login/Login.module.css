@@ -1,0 +1,91 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tal-bg);
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--tal-surface);
+  border: 1px solid var(--tal-line);
+  border-radius: var(--tal-r-lg);
+  padding: 32px;
+  box-shadow: var(--tal-shadow-1);
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--tal-ink);
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--tal-ink-soft);
+  margin: 0 0 24px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tal-ink-soft);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.input {
+  font: inherit;
+  padding: 12px 14px;
+  border: 1px solid var(--tal-line);
+  border-radius: var(--tal-r-md);
+  background: var(--tal-bg);
+  color: var(--tal-ink);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--tal-sky-ink);
+}
+
+.otp {
+  font-size: 22px;
+  letter-spacing: 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--tal-coral-ink, var(--tal-ink));
+  background: var(--tal-coral, var(--tal-surface-alt));
+  padding: 8px 12px;
+  border-radius: var(--tal-r-md);
+}

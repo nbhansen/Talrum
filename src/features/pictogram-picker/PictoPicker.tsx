@@ -35,7 +35,7 @@ const TITLE_ID = 'tal-picker-title';
 
 export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Element => {
   const [tab, setTab] = useState<PickerTab>('library');
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(['apple', 'cup']));
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
   const [editingVoice, setEditingVoice] = useState<Pictogram | null>(null);
   const { data: pictograms = [] } = usePictograms();
