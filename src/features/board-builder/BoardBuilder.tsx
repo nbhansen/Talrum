@@ -1,4 +1,4 @@
-import { Fragment, type JSX, useMemo } from 'react';
+import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
@@ -20,6 +20,8 @@ import { StepTile } from './StepTile';
 import { Reorderable } from './useReorderable';
 
 const QUICK_ADD_IDS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
+
+const TITLE_DEBOUNCE_MS = 300;
 
 interface BoardBuilderProps {
   board: Board;
@@ -60,6 +62,27 @@ export const BoardBuilder = ({
   const setLabels = useSetLabelsVisible();
   const setVoice = useSetVoiceMode();
   const setStepIds = useSetStepIds();
+
+  // Local title state keeps the input snappy; the mutation fires once the user
+  // pauses typing. Re-sync only when navigating to a different board — syncing
+  // on every board.name change would clobber in-progress typing when the
+  // previous debounced write lands.
+  const [titleDraft, setTitleDraft] = useState(board.name);
+  useEffect(() => setTitleDraft(board.name), [board.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueTitleWrite = (next: string): void => {
+    setTitleDraft(next);
+    if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current);
+    pendingTitleWrite.current = setTimeout(() => {
+      renameBoard.mutate({ boardId: board.id, name: next });
+    }, TITLE_DEBOUNCE_MS);
+  };
+  useEffect(
+    () => () => {
+      if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current);
+    },
+    [],
+  );
 
   const steps = useMemo(
     () => buildSteps(board.stepIds, pictogramsById),
@@ -110,8 +133,8 @@ export const BoardBuilder = ({
 
       <input
         className={styles.titleInput}
-        value={board.name}
-        onChange={(e) => renameBoard.mutate({ boardId: board.id, name: e.target.value })}
+        value={titleDraft}
+        onChange={(e) => queueTitleWrite(e.target.value)}
       />
 
       <SettingsRow
