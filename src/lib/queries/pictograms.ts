@@ -6,8 +6,10 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { slugifyLabel } from '@/lib/image';
 import {
   AUDIO_BUCKET,
+  IMAGES_BUCKET,
   invalidateSignedUrl,
   removeFromBucket,
   uploadBlob,
@@ -130,6 +132,50 @@ interface ClearAudioInput {
   pictogramId: string;
   path: string;
 }
+
+interface CreatePhotoInput {
+  label: string;
+  blob: Blob;
+  extension: string;
+}
+
+interface CreatedPhotoPictogram {
+  id: string;
+  imagePath: string;
+}
+
+export const useCreatePhotoPictogram = (): UseMutationResult<
+  CreatedPhotoPictogram,
+  Error,
+  CreatePhotoInput
+> => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ label, blob, extension }) => {
+      const ownerId = await currentUserId();
+      const slug = slugifyLabel(label);
+      const id = `photo-${slug}-${Date.now().toString(36)}`;
+      const path = `${ownerId}/${id}.${extension}`;
+      await uploadBlob(IMAGES_BUCKET, path, blob);
+      invalidateSignedUrl(IMAGES_BUCKET, path);
+      const { error } = await supabase.from('pictograms').insert({
+        id,
+        owner_id: ownerId,
+        label: label.trim(),
+        style: 'photo',
+        image_path: path,
+      });
+      if (error) {
+        await removeFromBucket(IMAGES_BUCKET, [path]).catch(() => undefined);
+        throw error;
+      }
+      return { id, imagePath: path };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
 
 export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAudioInput> => {
   const qc = useQueryClient();

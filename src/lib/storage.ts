@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 export const AUDIO_BUCKET = 'pictogram-audio';
+export const IMAGES_BUCKET = 'pictogram-images';
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();

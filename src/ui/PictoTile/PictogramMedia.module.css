@@ -16,3 +16,10 @@
 .photo {
   background: var(--tal-surface-alt);
 }
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

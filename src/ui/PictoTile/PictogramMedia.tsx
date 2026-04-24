@@ -2,6 +2,8 @@ import type { CSSProperties, JSX } from 'react';
 
 import { Glyph } from '@/glyphs/Glyph';
 import { PhotoPlaceholder } from '@/glyphs/PhotoPlaceholder';
+import { IMAGES_BUCKET } from '@/lib/storage';
+import { useSignedUrl } from '@/lib/useSignedUrl';
 import type { Pictogram } from '@/types/domain';
 
 import styles from './PictogramMedia.module.css';
@@ -17,8 +19,9 @@ interface PictogramMediaProps {
 
 /**
  * Renders just the square pictogram surface: tinted background for
- * illustrated pictos, striped placeholder for photo pictos. Used standalone
- * (e.g. the big NOW card in kid-sequence) and composed inside PictoTile.
+ * illustrated pictos, uploaded photo (or striped placeholder) for photo
+ * pictos. Used standalone (e.g. the big NOW card in kid-sequence) and
+ * composed inside PictoTile.
  */
 export const PictogramMedia = ({
   picto,
@@ -28,6 +31,8 @@ export const PictogramMedia = ({
   className,
 }: PictogramMediaProps): JSX.Element => {
   const isPhoto = picto.style === 'photo';
+  const photoPath = isPhoto ? picto.imagePath : undefined;
+  const signedUrl = useSignedUrl(IMAGES_BUCKET, photoPath);
   const style: CSSProperties = {
     width: size,
     height: size,
@@ -40,7 +45,11 @@ export const PictogramMedia = ({
   return (
     <div className={classes} style={style}>
       {isPhoto ? (
-        <PhotoPlaceholder label={picto.label} />
+        signedUrl ? (
+          <img className={styles.photoImg} src={signedUrl} alt={picto.label} />
+        ) : (
+          <PhotoPlaceholder label={picto.label} />
+        )
       ) : (
         <Glyph name={picto.glyph} size={size * 0.58} />
       )}
