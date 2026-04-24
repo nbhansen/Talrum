@@ -48,6 +48,7 @@ const updateBoard = async (
     labels_visible: boolean;
     voice_mode: VoiceMode;
     step_ids: string[];
+    kid_reorderable: boolean;
   }>,
 ): Promise<void> => {
   const { error } = await supabase.from('boards').update(patch).eq('id', boardId);
@@ -111,4 +112,15 @@ export const useSetStepIds = (): UseMutationResult<
   useBoardPatch(
     ({ stepIds }, current) => ({ ...current, stepIds }),
     ({ boardId, stepIds }) => updateBoard(boardId, { step_ids: stepIds }),
+  );
+
+export const useSetKidReorderable = (): UseMutationResult<
+  void,
+  Error,
+  BoardIdInput & { reorderable: boolean },
+  { previous: Board | undefined }
+> =>
+  useBoardPatch(
+    ({ reorderable }, current) => ({ ...current, kidReorderable: reorderable }),
+    ({ boardId, reorderable }) => updateBoard(boardId, { kid_reorderable: reorderable }),
   );

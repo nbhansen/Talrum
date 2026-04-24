@@ -67,6 +67,12 @@ export interface Board {
    * at render time — the board doesn't own the pictogram data.
    */
   stepIds: string[];
+  /**
+   * When true, KidSequence lets the kid drag tiles to reorder. Caregiver-
+   * controlled; off by default because not every kid benefits from the
+   * extra interaction surface.
+   */
+  kidReorderable: boolean;
   accent: ColorToken;
   accentInk: ColorToken;
   updatedLabel: string;

@@ -6,10 +6,14 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   graphql_public: {
-    Tables: Record<never, never>
-    Views: Record<never, never>
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       graphql: {
         Args: {
@@ -21,8 +25,12 @@ export interface Database {
         Returns: Json
       }
     }
-    Enums: Record<never, never>
-    CompositeTypes: Record<never, never>
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -58,6 +66,7 @@ export interface Database {
           accent_ink: string
           id: string
           kid_id: string
+          kid_reorderable: boolean
           kind: string
           labels_visible: boolean
           name: string
@@ -71,6 +80,7 @@ export interface Database {
           accent_ink: string
           id: string
           kid_id: string
+          kid_reorderable?: boolean
           kind: string
           labels_visible?: boolean
           name: string
@@ -84,6 +94,7 @@ export interface Database {
           accent_ink?: string
           id?: string
           kid_id?: string
+          kid_reorderable?: boolean
           kind?: string
           labels_visible?: boolean
           name?: string
@@ -160,10 +171,20 @@ export interface Database {
         Relationships: []
       }
     }
-    Views: Record<never, never>
-    Functions: Record<never, never>
-    Enums: Record<never, never>
-    CompositeTypes: Record<never, never>
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      is_board_editor: { Args: { b_id: string }; Returns: boolean }
+      is_board_member: { Args: { b_id: string }; Returns: boolean }
+      is_board_owner: { Args: { b_id: string }; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 

@@ -97,17 +97,17 @@ insert into pictograms
   ('heart', '00000000-0000-0000-0000-0000000000a1', 'Love', 'illus', 'heart', 'oklch(88% 0.05 20)', null, null);
 
 insert into boards
-  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, accent, accent_ink) values
-  ('morning', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Morning routine', 'sequence', true, 'tts', array['wakeup', 'brush', 'dress', 'breakfast', 'bag', 'car']::text[], 'peach', 'peach-ink');
+  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, kid_reorderable, accent, accent_ink) values
+  ('morning', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Morning routine', 'sequence', true, 'tts', array['wakeup', 'brush', 'dress', 'breakfast', 'bag', 'car']::text[], false, 'peach', 'peach-ink');
 
 insert into boards
-  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, accent, accent_ink) values
-  ('afterschool', '00000000-0000-0000-0000-0000000000a1', 'liam', 'After school', 'sequence', true, 'tts', array['bag', 'apple', 'book', 'bath']::text[], 'sage', 'sage-ink');
+  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, kid_reorderable, accent, accent_ink) values
+  ('afterschool', '00000000-0000-0000-0000-0000000000a1', 'liam', 'After school', 'sequence', true, 'tts', array['bag', 'apple', 'book', 'bath']::text[], false, 'sage', 'sage-ink');
 
 insert into boards
-  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, accent, accent_ink) values
-  ('weekend', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Saturday — where to?', 'choice', true, 'tts', array['park', 'store', 'zoo']::text[], 'sky', 'sky-ink');
+  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, kid_reorderable, accent, accent_ink) values
+  ('weekend', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Saturday — where to?', 'choice', true, 'tts', array['park', 'store', 'zoo']::text[], false, 'sky', 'sky-ink');
 
 insert into boards
-  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, accent, accent_ink) values
-  ('bedtime', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Bedtime', 'sequence', true, 'tts', array['bath', 'book', 'cup', 'bed']::text[], 'lavender', 'lavender-ink');
+  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, kid_reorderable, accent, accent_ink) values
+  ('bedtime', '00000000-0000-0000-0000-0000000000a1', 'liam', 'Bedtime', 'sequence', true, 'tts', array['bath', 'book', 'cup', 'bed']::text[], true, 'lavender', 'lavender-ink');

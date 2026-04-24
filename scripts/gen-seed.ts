@@ -77,8 +77,8 @@ const pictogramRow = (p: Pictogram): string => {
 const boardRow = (b: Board): string =>
   [
     'insert into boards',
-    '  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, accent, accent_ink) values',
-    `  (${quote(b.id)}, ${quote(LOCAL_PARENT_ID)}, ${quote(b.kidId)}, ${quote(b.name)}, ${quote(b.kind)}, ${String(b.labelsVisible)}, ${quote(b.voiceMode)}, ${textArray(b.stepIds)}, ${quote(b.accent)}, ${quote(b.accentInk)});`,
+    '  (id, owner_id, kid_id, name, kind, labels_visible, voice_mode, step_ids, kid_reorderable, accent, accent_ink) values',
+    `  (${quote(b.id)}, ${quote(LOCAL_PARENT_ID)}, ${quote(b.kidId)}, ${quote(b.name)}, ${quote(b.kind)}, ${String(b.labelsVisible)}, ${quote(b.voiceMode)}, ${textArray(b.stepIds)}, ${String(b.kidReorderable)}, ${quote(b.accent)}, ${quote(b.accentInk)});`,
   ].join('\n');
 
 const banner = [

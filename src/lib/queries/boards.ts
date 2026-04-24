@@ -23,6 +23,7 @@ export const rowToBoard = (row: BoardRow): Board => ({
   labelsVisible: row.labels_visible,
   voiceMode: row.voice_mode as VoiceMode,
   stepIds: [...row.step_ids],
+  kidReorderable: row.kid_reorderable,
   accent: row.accent as ColorToken,
   accentInk: row.accent_ink as ColorToken,
   updatedLabel: formatUpdated(row.updated_at),

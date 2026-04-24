@@ -11,6 +11,7 @@ import styles from './BoardBuilder.module.css';
 import {
   useRenameBoard,
   useSetBoardKind,
+  useSetKidReorderable,
   useSetLabelsVisible,
   useSetStepIds,
   useSetVoiceMode,
@@ -62,6 +63,7 @@ export const BoardBuilder = ({
   const setLabels = useSetLabelsVisible();
   const setVoice = useSetVoiceMode();
   const setStepIds = useSetStepIds();
+  const setKidReorderable = useSetKidReorderable();
 
   // Local title state keeps the input snappy; the mutation fires once the user
   // pauses typing. Re-sync only when navigating to a different board — syncing
@@ -144,6 +146,10 @@ export const BoardBuilder = ({
         onLabelsChange={(visible) => setLabels.mutate({ boardId: board.id, visible })}
         voiceMode={board.voiceMode}
         onVoiceModeChange={(mode) => setVoice.mutate({ boardId: board.id, mode })}
+        kidReorderable={board.kidReorderable}
+        onKidReorderableChange={(reorderable) =>
+          setKidReorderable.mutate({ boardId: board.id, reorderable })
+        }
         stepCount={board.stepIds.length}
       />
 

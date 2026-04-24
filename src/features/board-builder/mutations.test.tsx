@@ -24,6 +24,7 @@ const seed: Board = {
   labelsVisible: true,
   voiceMode: 'tts',
   stepIds: ['wakeup'],
+  kidReorderable: false,
   accent: 'peach',
   accentInk: 'peach-ink',
   updatedLabel: 'Edited just now',

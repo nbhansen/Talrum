@@ -12,6 +12,8 @@ interface SettingsRowProps {
   onLabelsChange: (next: boolean) => void;
   voiceMode: VoiceMode;
   onVoiceModeChange: (next: VoiceMode) => void;
+  kidReorderable: boolean;
+  onKidReorderableChange: (next: boolean) => void;
   stepCount: number;
 }
 
@@ -33,6 +35,8 @@ export const SettingsRow = ({
   onLabelsChange,
   voiceMode,
   onVoiceModeChange,
+  kidReorderable,
+  onKidReorderableChange,
   stepCount,
 }: SettingsRowProps): JSX.Element => (
   <div
@@ -46,6 +50,7 @@ export const SettingsRow = ({
   >
     <Segmented value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
     <Toggle label="Labels" value={labelsVisible} onChange={onLabelsChange} />
+    <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
     <Select label="Voice" value={voiceMode} onChange={onVoiceModeChange} options={VOICE_OPTIONS} />
     <div style={{ flex: 1 }} />
     <div

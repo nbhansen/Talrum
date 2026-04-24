@@ -15,6 +15,7 @@ const row = (overrides: Partial<Row> = {}): Row => ({
   labels_visible: true,
   voice_mode: 'tts',
   step_ids: ['wakeup', 'brush', 'dress'],
+  kid_reorderable: false,
   accent: 'peach',
   accent_ink: 'peach-ink',
   updated_at: new Date().toISOString(),
