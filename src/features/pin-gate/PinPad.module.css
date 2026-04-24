@@ -1,0 +1,88 @@
+.wrap {
+  padding: 32px 28px 28px;
+  min-width: 340px;
+  text-align: center;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tal-ink);
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--tal-ink-muted);
+  margin: 0 0 22px;
+}
+
+.dots {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--tal-surface-alt);
+  border: 2px solid var(--tal-ink-muted);
+  transition: background 80ms ease;
+}
+
+.dotFilled {
+  background: var(--tal-ink);
+  border-color: var(--tal-ink);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 12px;
+  justify-content: center;
+}
+
+.key {
+  width: 72px;
+  height: 64px;
+  border-radius: 16px;
+  border: 1px solid var(--tal-line);
+  background: var(--tal-surface);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tal-ink);
+  cursor: pointer;
+}
+
+.key:hover {
+  background: var(--tal-surface-alt);
+}
+
+.key:active {
+  transform: translateY(1px);
+}
+
+.keyGhost {
+  visibility: hidden;
+}
+
+.error {
+  font-size: 13px;
+  color: #b4261a;
+  min-height: 18px;
+  margin-top: 14px;
+}
+
+.cancel {
+  background: none;
+  border: 0;
+  color: var(--tal-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  margin-top: 10px;
+  cursor: pointer;
+}
