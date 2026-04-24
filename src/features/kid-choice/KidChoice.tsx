@@ -2,6 +2,7 @@ import { type JSX, useState } from 'react';
 
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
 import { usePictogramsById } from '@/lib/queries/pictograms';
+import { speak } from '@/lib/speech';
 import { accentForIndex, cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
@@ -21,6 +22,11 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
     .filter((p): p is Pictogram => Boolean(p));
   const [pickedId, setPickedId] = useState<string | null>(null);
   const pickedLabel = options.find((o) => o.id === pickedId)?.label;
+
+  const pick = (p: Pictogram): void => {
+    setPickedId(p.id);
+    if (board.voiceMode !== 'none') speak(p.label);
+  };
 
   return (
     <KidModeLayout
@@ -49,7 +55,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
             <button
               key={p.id}
               type="button"
-              onClick={() => setPickedId(p.id)}
+              onClick={() => pick(p)}
               className={[
                 styles.choice,
                 isPicked && styles.choicePicked,

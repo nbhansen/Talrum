@@ -7,6 +7,7 @@ import {
 } from '@/features/board-builder/useReorderable';
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
 import { usePictogramsById } from '@/lib/queries/pictograms';
+import { speak } from '@/lib/speech';
 import type { Board, Pictogram } from '@/types/domain';
 import { SpeakerIcon } from '@/ui/icons';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
@@ -41,10 +42,14 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const setStepIds = useSetStepIds();
 
-  const speak = (id: string): void => {
-    setSpeakingId(id);
-    setTimeout(() => setSpeakingId((curr) => (curr === id ? null : curr)), SPEAK_FLASH_MS);
-    // TODO(phase 3): wire to SpeechSynthesis / recorded clip playback.
+  const announce = (step: Step): void => {
+    setSpeakingId(step.picto.id);
+    setTimeout(
+      () => setSpeakingId((curr) => (curr === step.picto.id ? null : curr)),
+      SPEAK_FLASH_MS,
+    );
+    // 'parent' voice falls back to TTS until recordings ship (Phase 3 step 3).
+    if (board.voiceMode !== 'none') speak(step.picto.label);
   };
 
   const handleReorder = (nextKeys: string[]): void => {
@@ -61,7 +66,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
       <button
         ref={drag?.setNodeRef}
         type="button"
-        onClick={() => speak(step.picto.id)}
+        onClick={() => announce(step)}
         className={[styles.tile, isSpeaking && styles.tileActive].filter(Boolean).join(' ')}
         style={drag?.style}
         {...(drag?.attributes ?? {})}
