@@ -29,6 +29,8 @@ interface BoardBuilderProps {
   onBack: () => void;
   onOpenPicker: () => void;
   onPreview: (kind: BoardKind) => void;
+  onKidMode: () => void;
+  onSignOut: () => void;
 }
 
 interface Step {
@@ -54,6 +56,8 @@ export const BoardBuilder = ({
   onBack,
   onOpenPicker,
   onPreview,
+  onKidMode,
+  onSignOut,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const { data: allPictograms = [] } = usePictograms();
@@ -119,6 +123,8 @@ export const BoardBuilder = ({
   return (
     <ParentShell
       active="home"
+      onKidMode={onKidMode}
+      onSignOut={onSignOut}
       right={
         <Button variant="primary" icon={<PlayIcon />} onClick={() => onPreview(board.kind)}>
           Preview for Liam
