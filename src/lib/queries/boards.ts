@@ -16,6 +16,7 @@ type BoardRow = Database['public']['Tables']['boards']['Row'];
  */
 export const rowToBoard = (row: BoardRow): Board => ({
   id: row.id,
+  ...(row.slug ? { slug: row.slug } : {}),
   ownerId: row.owner_id,
   kidId: row.kid_id,
   name: row.name,

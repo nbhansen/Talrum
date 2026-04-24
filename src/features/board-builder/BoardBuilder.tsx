@@ -20,7 +20,7 @@ import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 import { Reorderable } from './useReorderable';
 
-const QUICK_ADD_IDS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
+const QUICK_ADD_SLUGS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
 
 const TITLE_DEBOUNCE_MS = 300;
 
@@ -92,7 +92,8 @@ export const BoardBuilder = ({
   );
 
   const quickAdd = useMemo(
-    () => QUICK_ADD_IDS.map((id) => allPictograms.find((p) => p.id === id)).filter(
+    () =>
+      QUICK_ADD_SLUGS.map((slug) => allPictograms.find((p) => p.slug === slug)).filter(
         (p): p is Pictogram => Boolean(p),
       ),
     [allPictograms],

@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -71,6 +72,7 @@ export type Database = {
           labels_visible: boolean
           name: string
           owner_id: string
+          slug: string | null
           step_ids: string[]
           updated_at: string
           voice_mode: string
@@ -78,13 +80,14 @@ export type Database = {
         Insert: {
           accent: string
           accent_ink: string
-          id: string
+          id?: string
           kid_id: string
           kid_reorderable?: boolean
           kind: string
           labels_visible?: boolean
           name: string
           owner_id: string
+          slug?: string | null
           step_ids?: string[]
           updated_at?: string
           voice_mode: string
@@ -99,6 +102,7 @@ export type Database = {
           labels_visible?: boolean
           name?: string
           owner_id?: string
+          slug?: string | null
           step_ids?: string[]
           updated_at?: string
           voice_mode?: string
@@ -122,7 +126,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          id: string
+          id?: string
           name: string
           owner_id: string
         }
@@ -143,6 +147,7 @@ export type Database = {
           image_path: string | null
           label: string
           owner_id: string
+          slug: string | null
           style: string
           tint: string | null
         }
@@ -150,10 +155,11 @@ export type Database = {
           audio_path?: string | null
           created_at?: string
           glyph?: string | null
-          id: string
+          id?: string
           image_path?: string | null
           label: string
           owner_id: string
+          slug?: string | null
           style: string
           tint?: string | null
         }
@@ -165,6 +171,73 @@ export type Database = {
           image_path?: string | null
           label?: string
           owner_id?: string
+          slug?: string | null
+          style?: string
+          tint?: string | null
+        }
+        Relationships: []
+      }
+      template_boards: {
+        Row: {
+          accent: string
+          accent_ink: string
+          kid_reorderable: boolean
+          kind: string
+          labels_visible: boolean
+          name: string
+          slug: string
+          step_slugs: string[]
+          voice_mode: string
+        }
+        Insert: {
+          accent: string
+          accent_ink: string
+          kid_reorderable: boolean
+          kind: string
+          labels_visible: boolean
+          name: string
+          slug: string
+          step_slugs: string[]
+          voice_mode: string
+        }
+        Update: {
+          accent?: string
+          accent_ink?: string
+          kid_reorderable?: boolean
+          kind?: string
+          labels_visible?: boolean
+          name?: string
+          slug?: string
+          step_slugs?: string[]
+          voice_mode?: string
+        }
+        Relationships: []
+      }
+      template_pictograms: {
+        Row: {
+          audio_path: string | null
+          glyph: string | null
+          image_path: string | null
+          label: string
+          slug: string
+          style: string
+          tint: string | null
+        }
+        Insert: {
+          audio_path?: string | null
+          glyph?: string | null
+          image_path?: string | null
+          label: string
+          slug: string
+          style: string
+          tint?: string | null
+        }
+        Update: {
+          audio_path?: string | null
+          glyph?: string | null
+          image_path?: string | null
+          label?: string
+          slug?: string
           style?: string
           tint?: string | null
         }

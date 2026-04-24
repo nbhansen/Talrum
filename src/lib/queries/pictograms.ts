@@ -6,7 +6,6 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import { slugifyLabel } from '@/lib/image';
 import {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
@@ -33,6 +32,7 @@ export const rowToPictogram = (row: PictogramRow): Pictogram => {
       style: 'illus',
       glyph: row.glyph as GlyphName,
       tint: row.tint as string,
+      ...(row.slug ? { slug: row.slug } : {}),
       ...(row.audio_path ? { audioPath: row.audio_path } : {}),
     };
   }
@@ -40,6 +40,7 @@ export const rowToPictogram = (row: PictogramRow): Pictogram => {
     id: row.id,
     label: row.label,
     style: 'photo',
+    ...(row.slug ? { slug: row.slug } : {}),
     ...(row.image_path ? { imagePath: row.image_path } : {}),
     ...(row.audio_path ? { audioPath: row.audio_path } : {}),
   };
@@ -53,6 +54,7 @@ export const pictogramToInsert = (
     ? {
         id: p.id,
         owner_id: ownerId,
+        slug: p.slug ?? null,
         label: p.label,
         style: 'illus',
         glyph: p.glyph,
@@ -62,6 +64,7 @@ export const pictogramToInsert = (
     : {
         id: p.id,
         owner_id: ownerId,
+        slug: p.slug ?? null,
         label: p.label,
         style: 'photo',
         image_path: p.imagePath ?? null,
@@ -87,6 +90,20 @@ export const pictogramsQueryKey = ['pictograms'] as const;
 export const usePictogramsById = (): Map<string, Pictogram> => {
   const { data } = usePictograms();
   return new Map((data ?? []).map((p) => [p.id, p]));
+};
+
+/**
+ * Lookup by seed slug ('apple', 'book') — useful for the few client-side
+ * lists that reference specific seed pictograms by name. User-uploaded
+ * pictograms have no slug and aren't in this map.
+ */
+export const usePictogramsBySlug = (): Map<string, Pictogram> => {
+  const { data } = usePictograms();
+  const out = new Map<string, Pictogram>();
+  for (const p of data ?? []) {
+    if (p.slug) out.set(p.slug, p);
+  }
+  return out;
 };
 
 const currentUserId = async (): Promise<string> => {
@@ -153,8 +170,7 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
   return useMutation({
     mutationFn: async ({ label, blob, extension }) => {
       const ownerId = await currentUserId();
-      const slug = slugifyLabel(label);
-      const id = `photo-${slug}-${Date.now().toString(36)}`;
+      const id = crypto.randomUUID();
       const path = `${ownerId}/${id}.${extension}`;
       await uploadBlob(IMAGES_BUCKET, path, blob);
       invalidateSignedUrl(IMAGES_BUCKET, path);

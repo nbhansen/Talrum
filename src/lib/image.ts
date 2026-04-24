@@ -58,12 +58,3 @@ export const cropToSquareJpeg = async (file: File): Promise<ProcessedImage> => {
   const blob = await canvasToBlob(canvas);
   return { blob, extension: 'jpg', previewUrl: URL.createObjectURL(blob) };
 };
-
-export const slugifyLabel = (label: string): string => {
-  const base = label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return base || 'photo';
-};

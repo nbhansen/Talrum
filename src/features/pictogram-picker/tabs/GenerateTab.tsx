@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { usePictogramsById } from '@/lib/queries/pictograms';
+import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { Chip } from '@/ui/Chip/Chip';
@@ -9,11 +9,11 @@ import { PictoTile } from '@/ui/PictoTile/PictoTile';
 
 import styles from './GenerateTab.module.css';
 
-const RESULT_IDS = ['breakfast', 'apple', 'cup', 'bath'];
+const RESULT_SLUGS = ['breakfast', 'apple', 'cup', 'bath'];
 
 export const GenerateTab = (): JSX.Element => {
-  const pictogramsById = usePictogramsById();
-  const results: Pictogram[] = RESULT_IDS.map((id) => pictogramsById.get(id)).filter(
+  const pictogramsBySlug = usePictogramsBySlug();
+  const results: Pictogram[] = RESULT_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
     (p): p is Pictogram => Boolean(p),
   );
   return (

@@ -63,6 +63,13 @@
   font-size: 15px;
   font-weight: 800;
   color: var(--tal-peach-ink);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.avatar:hover {
+  filter: brightness(0.95);
 }
 
 .kidBtn {

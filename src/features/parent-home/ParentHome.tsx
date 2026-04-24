@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
-import { usePictograms } from '@/lib/queries/pictograms';
+import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
 import { PlusIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
@@ -10,29 +10,31 @@ import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { BoardCard } from './BoardCard';
 import styles from './ParentHome.module.css';
 
-const RECENT_STRIP_IDS = ['wakeup', 'apple', 'zoo', 'bag', 'bath', 'book', 'play'];
+const RECENT_STRIP_SLUGS = ['wakeup', 'apple', 'zoo', 'bag', 'bath', 'book', 'play'];
 
 interface ParentHomeProps {
   kidName?: string;
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
+  onSignOut?: () => void;
 }
 
 export const ParentHome = ({
   kidName = 'Liam',
   onOpenBoard,
   onKidMode,
+  onSignOut,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
-  const pictogramsQuery = usePictograms();
+  const pictogramsBySlug = usePictogramsBySlug();
 
   const boards = boardsQuery.data ?? [];
-  const pictogramsById = new Map((pictogramsQuery.data ?? []).map((p) => [p.id, p]));
 
   return (
     <ParentShell
       active="home"
       {...(onKidMode ? { onKidMode } : {})}
+      {...(onSignOut ? { onSignOut } : {})}
       title={`${kidName}'s boards`}
       subtitle="Pick a board to edit, or start a new one."
       right={
@@ -65,11 +67,11 @@ export const ParentHome = ({
           </button>
         </div>
         <div className={`${styles.recentStrip} tal-scroll`}>
-          {RECENT_STRIP_IDS.map((id) => {
-            const p = pictogramsById.get(id);
+          {RECENT_STRIP_SLUGS.map((slug) => {
+            const p = pictogramsBySlug.get(slug);
             if (!p) return null;
             return (
-              <div key={id} className={styles.recentItem}>
+              <div key={slug} className={styles.recentItem}>
                 <PictoTile picto={p} size={96} />
               </div>
             );
