@@ -9,15 +9,21 @@ import styles from './BoardNotFound.module.css';
 interface BoardNotFoundProps {
   onBack: () => void;
   onKidMode: () => void;
+  userInitial?: string | undefined;
 }
 
-export const BoardNotFound = ({ onBack, onKidMode }: BoardNotFoundProps): JSX.Element => (
+export const BoardNotFound = ({
+  onBack,
+  onKidMode,
+  userInitial,
+}: BoardNotFoundProps): JSX.Element => (
   <ParentShell
     active="home"
     onKidMode={onKidMode}
     onSignOut={() => {
       void supabase.auth.signOut();
     }}
+    userInitial={userInitial}
   >
     <div className={styles.wrap}>
       <h1 className={styles.title}>Board not found</h1>

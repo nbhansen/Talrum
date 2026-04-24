@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
 import { useBoard, useBoards } from '@/lib/queries/boards';
 import { supabase } from '@/lib/supabase';
+import { useUserInitial } from '@/lib/useUserInitial';
 
 import { BoardBuilder } from './BoardBuilder';
 import { BoardNotFound } from './BoardNotFound';
@@ -16,6 +17,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const pickerOpen = searchParams.get('picker') === '1';
+  const userInitial = useUserInitial();
 
   const openPicker = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
@@ -40,6 +42,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onKidMode={() => {
           if (fallbackKid) navigate(`/kid/sequence/${fallbackKid.id}`);
         }}
+        userInitial={userInitial}
       />
     );
   }
@@ -57,6 +60,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onSignOut={() => {
           void supabase.auth.signOut();
         }}
+        userInitial={userInitial}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}
     </>

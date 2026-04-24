@@ -17,6 +17,7 @@ interface ParentHomeProps {
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
   onSignOut?: () => void;
+  userInitial?: string | undefined;
 }
 
 export const ParentHome = ({
@@ -24,6 +25,7 @@ export const ParentHome = ({
   onOpenBoard,
   onKidMode,
   onSignOut,
+  userInitial,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
@@ -35,6 +37,7 @@ export const ParentHome = ({
       active="home"
       {...(onKidMode ? { onKidMode } : {})}
       {...(onSignOut ? { onSignOut } : {})}
+      userInitial={userInitial}
       title={`${kidName}'s boards`}
       subtitle="Pick a board to edit, or start a new one."
       right={
