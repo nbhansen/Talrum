@@ -29,7 +29,8 @@ interface ParentShellProps {
   title?: string;
   subtitle?: string;
   right?: ReactNode;
-  userInitial?: string;
+  /** Undefined renders a blank avatar while the session is loading. */
+  userInitial?: string | undefined;
   children: ReactNode;
 }
 
@@ -41,7 +42,7 @@ export const ParentShell = ({
   title,
   subtitle,
   right,
-  userInitial = 'M',
+  userInitial,
   children,
 }: ParentShellProps): JSX.Element => (
   <div className={styles.shell}>
@@ -77,7 +78,7 @@ export const ParentShell = ({
           title="Sign out"
           aria-label="Sign out"
         >
-          {userInitial}
+          {userInitial ?? ''}
         </button>
       </div>
     </aside>

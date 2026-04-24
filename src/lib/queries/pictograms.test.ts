@@ -10,6 +10,7 @@ type Row = Database['public']['Tables']['pictograms']['Row'];
 const illusRow = (): Row => ({
   id: 'wakeup',
   owner_id: 'owner-uuid',
+  slug: null,
   label: 'Wake up',
   style: 'illus',
   glyph: 'sun',
@@ -22,6 +23,7 @@ const illusRow = (): Row => ({
 const photoRow = (overrides: Partial<Row> = {}): Row => ({
   id: 'park',
   owner_id: 'owner-uuid',
+  slug: null,
   label: 'Park',
   style: 'photo',
   glyph: null,
@@ -77,6 +79,8 @@ describe('pictogramToInsert round-trip', () => {
     const insert = pictogramToInsert(original, 'owner-uuid');
     const row: Row = {
       ...insert,
+      id: insert.id ?? 'bed',
+      slug: insert.slug ?? null,
       audio_path: insert.audio_path ?? null,
       image_path: insert.image_path ?? null,
       glyph: insert.glyph ?? null,

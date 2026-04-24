@@ -10,7 +10,16 @@ interface PictoTileProps {
   size?: number;
   showLabel?: boolean;
   selected?: boolean;
+  /** Only wired when `as === 'button'` (the default). Ignored on a div. */
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  /**
+   * Outer element. Defaults to 'button' (interactive tile). Use 'div' when
+   * the tile is rendered inside an existing interactive element (e.g. the
+   * preview strip on a BoardCard), to avoid nested-button invalid HTML.
+   * `onClick` is intentionally not forwarded to the div — the outer
+   * interactive ancestor is expected to own the click.
+   */
+  as?: 'button' | 'div';
   /** Button-level style override (layout only — don't theme here). */
   style?: CSSProperties;
 }
@@ -21,21 +30,31 @@ export const PictoTile = ({
   showLabel = true,
   selected = false,
   onClick,
+  as = 'button',
   style,
 }: PictoTileProps): JSX.Element => {
   const labelSize = Math.max(13, size * 0.11);
-  const buttonStyle: CSSProperties = { width: size, ...style };
-  return (
-    <button type="button" className={styles.tile} onClick={onClick} style={buttonStyle}>
+  const tileStyle: CSSProperties = { width: size, ...style };
+  const body = (
+    <>
       <PictogramMedia picto={picto} size={size} selected={selected} />
       {showLabel && (
-        <span
-          className={styles.label}
-          style={{ fontSize: labelSize, maxWidth: size }}
-        >
+        <span className={styles.label} style={{ fontSize: labelSize, maxWidth: size }}>
           {picto.label}
         </span>
       )}
+    </>
+  );
+  if (as === 'div') {
+    return (
+      <div className={styles.tile} style={tileStyle}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <button type="button" className={styles.tile} onClick={onClick} style={tileStyle}>
+      {body}
     </button>
   );
 };

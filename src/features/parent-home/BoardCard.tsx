@@ -38,7 +38,7 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
       <div className={styles.preview}>
         {previewSteps.map((p, i) => (
           <Fragment key={`${p.id}-${i}`}>
-            <PictoTile picto={p} size={64} showLabel={false} />
+            <PictoTile picto={p} size={64} showLabel={false} as="div" />
             {i < previewSteps.length - 1 && (
               <span className={styles.previewArrow}>
                 <StepArrowIcon size={14} />

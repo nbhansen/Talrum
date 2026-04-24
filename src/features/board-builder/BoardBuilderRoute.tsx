@@ -2,16 +2,22 @@ import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
-import { useBoard } from '@/lib/queries/boards';
+import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
+import { supabase } from '@/lib/supabase';
+import { useUserInitial } from '@/lib/useUserInitial';
 
 import { BoardBuilder } from './BoardBuilder';
+import { BoardNotFound } from './BoardNotFound';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
-  const { data: board } = useBoard(boardId);
+  const boardQuery = useBoard(boardId);
+  const boardsQuery = useBoards();
+  const board = boardQuery.data;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const pickerOpen = searchParams.get('picker') === '1';
+  const userInitial = useUserInitial();
 
   const openPicker = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
@@ -25,6 +31,32 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  // `.single()` raises PGRST116 when a row is missing or hidden by RLS
+  // (e.g. a pasted URL from another account) — terminal, surface as
+  // not-found. Any other error is transient (network, Supabase down);
+  // offer Retry rather than mis-attributing to a not-found.
+  if (boardQuery.isError || (boardQuery.isSuccess && !board)) {
+    const variant =
+      isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board)
+        ? 'not-found'
+        : 'error';
+    const fallbackKid = boardsQuery.data?.find((b) => b.kind === 'sequence');
+    return (
+      <BoardNotFound
+        variant={variant}
+        onBack={() => navigate('/')}
+        onRetry={() => void boardQuery.refetch()}
+        onKidMode={() => {
+          if (fallbackKid) navigate(`/kid/sequence/${fallbackKid.id}`);
+        }}
+        onSignOut={() => {
+          void supabase.auth.signOut();
+        }}
+        userInitial={userInitial}
+      />
+    );
+  }
+
   if (!board) return null;
 
   return (
@@ -34,6 +66,11 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onBack={() => navigate('/')}
         onOpenPicker={openPicker}
         onPreview={(kind) => navigate(`/kid/${kind}/${board.id}`)}
+        onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
+        onSignOut={() => {
+          void supabase.auth.signOut();
+        }}
+        userInitial={userInitial}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}
     </>
