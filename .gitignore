@@ -10,3 +10,7 @@ coverage
 .env.*.local
 *.log
 *.tsbuildinfo
+
+# Local-only agent operating instructions (per-machine)
+CLAUDE.md
+GEMINI.md
