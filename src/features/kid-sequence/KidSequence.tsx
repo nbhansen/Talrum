@@ -7,7 +7,7 @@ import {
 } from '@/features/board-builder/useReorderable';
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
 import { usePictogramsById } from '@/lib/queries/pictograms';
-import { speak } from '@/lib/speech';
+import { speakPictogram } from '@/lib/voiceOut';
 import type { Board, Pictogram } from '@/types/domain';
 import { SpeakerIcon } from '@/ui/icons';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
@@ -48,8 +48,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
       () => setSpeakingId((curr) => (curr === step.picto.id ? null : curr)),
       SPEAK_FLASH_MS,
     );
-    // 'parent' voice falls back to TTS until recordings ship (Phase 3 step 3).
-    if (board.voiceMode !== 'none') speak(step.picto.label);
+    void speakPictogram(step.picto, board.voiceMode);
   };
 
   const handleReorder = (nextKeys: string[]): void => {

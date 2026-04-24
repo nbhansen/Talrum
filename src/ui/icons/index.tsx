@@ -111,6 +111,28 @@ export const UploadIcon = ({ size = 28, ...rest }: IconProps): JSX.Element => (
   </Svg>
 );
 
+export const MicIcon = ({ size = 18, ...rest }: IconProps): JSX.Element => (
+  <Svg size={size} viewBox="0 0 24 24" strokeWidth={2} {...rest}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11 Q5 18 12 18 Q19 18 19 11" />
+    <line x1="12" y1="18" x2="12" y2="21" />
+  </Svg>
+);
+
+export const StopIcon = ({ size = 16, ...rest }: IconProps): JSX.Element => (
+  <Svg size={size} viewBox="0 0 24 24" fill="currentColor" strokeWidth={0} {...rest}>
+    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+  </Svg>
+);
+
+export const TrashIcon = ({ size = 16, ...rest }: IconProps): JSX.Element => (
+  <Svg size={size} viewBox="0 0 24 24" strokeWidth={2} {...rest}>
+    <path d="M4 7 L20 7" />
+    <path d="M9 7 V4 Q9 3 10 3 L14 3 Q15 3 15 4 V7" />
+    <path d="M6 7 L7 20 Q7 21 8 21 L16 21 Q17 21 17 20 L18 7" />
+  </Svg>
+);
+
 export const SpeakerIcon = ({ size = 24, ...rest }: IconProps): JSX.Element => (
   <Svg size={size} viewBox="0 0 24 24" fill="currentColor" strokeWidth={0} {...rest}>
     <path d="M4 9 L4 15 L9 15 L14 20 L14 4 L9 9 Z" />

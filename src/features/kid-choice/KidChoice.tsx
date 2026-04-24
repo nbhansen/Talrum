@@ -2,7 +2,7 @@ import { type JSX, useState } from 'react';
 
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
 import { usePictogramsById } from '@/lib/queries/pictograms';
-import { speak } from '@/lib/speech';
+import { speakPictogram } from '@/lib/voiceOut';
 import { accentForIndex, cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
@@ -25,7 +25,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
 
   const pick = (p: Pictogram): void => {
     setPickedId(p.id);
-    if (board.voiceMode !== 'none') speak(p.label);
+    void speakPictogram(p, board.voiceMode);
   };
 
   return (

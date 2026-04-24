@@ -1,5 +1,17 @@
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  type UseMutationResult,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
+import {
+  AUDIO_BUCKET,
+  invalidateSignedUrl,
+  removeFromBucket,
+  uploadBlob,
+} from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { GlyphName, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
@@ -73,4 +85,66 @@ export const pictogramsQueryKey = ['pictograms'] as const;
 export const usePictogramsById = (): Map<string, Pictogram> => {
   const { data } = usePictograms();
   return new Map((data ?? []).map((p) => [p.id, p]));
+};
+
+const currentUserId = async (): Promise<string> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw error ?? new Error('not signed in');
+  return data.user.id;
+};
+
+interface SetAudioInput {
+  pictogramId: string;
+  blob: Blob;
+  extension: string;
+  /** Path to remove if the upload replaces a recording with a different ext. */
+  previousPath?: string | null;
+}
+
+export const useSetPictogramAudio = (): UseMutationResult<string, Error, SetAudioInput> => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ pictogramId, blob, extension, previousPath }) => {
+      const ownerId = await currentUserId();
+      const path = `${ownerId}/${pictogramId}.${extension}`;
+      await uploadBlob(AUDIO_BUCKET, path, blob);
+      invalidateSignedUrl(AUDIO_BUCKET, path);
+      const { error } = await supabase
+        .from('pictograms')
+        .update({ audio_path: path })
+        .eq('id', pictogramId);
+      if (error) throw error;
+      if (previousPath && previousPath !== path) {
+        await removeFromBucket(AUDIO_BUCKET, [previousPath]).catch(() => undefined);
+        invalidateSignedUrl(AUDIO_BUCKET, previousPath);
+      }
+      return path;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+interface ClearAudioInput {
+  pictogramId: string;
+  path: string;
+}
+
+export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAudioInput> => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ pictogramId, path }) => {
+      await removeFromBucket(AUDIO_BUCKET, [path]).catch(() => undefined);
+      invalidateSignedUrl(AUDIO_BUCKET, path);
+      const { error } = await supabase
+        .from('pictograms')
+        .update({ audio_path: null })
+        .eq('id', pictogramId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
 };

@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { usePictograms } from '@/lib/queries/pictograms';
+import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
@@ -9,6 +10,7 @@ import styles from './PictoPicker.module.css';
 import { GenerateTab } from './tabs/GenerateTab';
 import { LibraryTab } from './tabs/LibraryTab';
 import { UploadTab } from './tabs/UploadTab';
+import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
 type PickerTab = 'library' | 'upload' | 'ai';
 
@@ -35,7 +37,13 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   const [tab, setTab] = useState<PickerTab>('library');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(['apple', 'cup']));
   const [query, setQuery] = useState('');
+  const [editingVoice, setEditingVoice] = useState<Pictogram | null>(null);
   const { data: pictograms = [] } = usePictograms();
+  // Keep the dialog's pictogram in sync with the query cache so `audio_path`
+  // updates (record → save, delete) flow through without remounting.
+  const editingVoiceLive = editingVoice
+    ? pictograms.find((p) => p.id === editingVoice.id) ?? editingVoice
+    : null;
 
   const toggle = (id: string): void => {
     setSelected((prev) => {
@@ -97,6 +105,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
             onQueryChange={setQuery}
             selected={selected}
             onToggle={toggle}
+            onEditVoice={setEditingVoice}
           />
         )}
         {tab === 'upload' && <UploadTab />}
@@ -113,6 +122,12 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
           </Button>
         </div>
       </footer>
+      {editingVoiceLive && (
+        <VoiceRecorderDialog
+          picto={editingVoiceLive}
+          onClose={() => setEditingVoice(null)}
+        />
+      )}
     </Modal>
   );
 };
