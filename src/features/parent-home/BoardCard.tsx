@@ -1,8 +1,8 @@
 import { Fragment, type JSX, type MouseEventHandler } from 'react';
 
-import { getPictogram } from '@/data/pictograms';
+import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar } from '@/theme/tokens';
-import type { Board } from '@/types/domain';
+import type { Board, Pictogram } from '@/types/domain';
 import { StepArrowIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 
@@ -16,7 +16,12 @@ interface BoardCardProps {
 const PREVIEW_LIMIT = 4;
 
 export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
-  const previewSteps = board.stepIds.slice(0, PREVIEW_LIMIT).map(getPictogram);
+  const pictogramsById = usePictogramsById();
+  const previewSteps: Pictogram[] = board.stepIds
+    .slice(0, PREVIEW_LIMIT)
+    .map((id) => pictogramsById.get(id))
+    .filter((p): p is Pictogram => Boolean(p));
+
   const kindLabel = board.kind === 'choice' ? 'Choice' : 'Sequence';
   return (
     <button type="button" className={styles.card} onClick={onClick}>

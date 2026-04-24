@@ -1,13 +1,20 @@
-import { Fragment, type JSX, useMemo, useState } from 'react';
+import { Fragment, type JSX, useMemo } from 'react';
 
-import { PICTOGRAMS } from '@/data/pictograms';
 import { ParentShell } from '@/layouts/ParentShell';
-import type { Board, BoardKind, Pictogram, VoiceMode } from '@/types/domain';
+import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
+import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 
 import styles from './BoardBuilder.module.css';
+import {
+  useRenameBoard,
+  useSetBoardKind,
+  useSetLabelsVisible,
+  useSetStepIds,
+  useSetVoiceMode,
+} from './mutations';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 import { Reorderable } from './useReorderable';
@@ -22,18 +29,22 @@ interface BoardBuilderProps {
 }
 
 interface Step {
-  id: string;
+  key: string;
   pictoId: string;
   picto: Pictogram;
 }
 
-let nextStepKey = 0;
-const makeStep = (pictoId: string): Step => {
-  const picto = PICTOGRAMS[pictoId];
-  if (!picto) throw new Error(`Unknown pictogram ${pictoId}`);
-  nextStepKey += 1;
-  return { id: `step-${nextStepKey}`, pictoId, picto };
-};
+/**
+ * React keys must be unique across duplicates of the same pictogram. The
+ * `pictoId` alone collides when a board contains the same pictogram twice.
+ * A positional suffix keeps each rendered step stable during reorder.
+ */
+const buildSteps = (stepIds: string[], byId: Map<string, Pictogram>): Step[] =>
+  stepIds.flatMap((pictoId, index) => {
+    const picto = byId.get(pictoId);
+    if (!picto) return [];
+    return [{ key: `${pictoId}-${index}`, pictoId, picto }];
+  });
 
 export const BoardBuilder = ({
   board,
@@ -41,40 +52,51 @@ export const BoardBuilder = ({
   onOpenPicker,
   onPreview,
 }: BoardBuilderProps): JSX.Element => {
-  const [title, setTitle] = useState(board.name);
-  const [kind, setKind] = useState<BoardKind>(board.kind);
-  const [labelsVisible, setLabelsVisible] = useState(board.labelsVisible);
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>(board.voiceMode);
-  const [steps, setSteps] = useState<Step[]>(() => board.stepIds.map(makeStep));
+  const pictogramsById = usePictogramsById();
+  const { data: allPictograms = [] } = usePictograms();
 
-  const quickAdd = useMemo(
-    () => QUICK_ADD_IDS.map((id) => PICTOGRAMS[id]).filter((p): p is Pictogram => Boolean(p)),
-    [],
+  const renameBoard = useRenameBoard();
+  const setKind = useSetBoardKind();
+  const setLabels = useSetLabelsVisible();
+  const setVoice = useSetVoiceMode();
+  const setStepIds = useSetStepIds();
+
+  const steps = useMemo(
+    () => buildSteps(board.stepIds, pictogramsById),
+    [board.stepIds, pictogramsById],
   );
 
-  const removeAt = (stepId: string): void =>
-    setSteps((prev) => prev.filter((s) => s.id !== stepId));
-  const reorder = (nextIds: string[]): void =>
-    setSteps((prev) => {
-      const byId = new Map(prev.map((s) => [s.id, s]));
-      return nextIds.map((id) => {
-        const found = byId.get(id);
-        if (!found) throw new Error(`Lost step during reorder: ${id}`);
-        return found;
-      });
+  const quickAdd = useMemo(
+    () => QUICK_ADD_IDS.map((id) => allPictograms.find((p) => p.id === id)).filter(
+        (p): p is Pictogram => Boolean(p),
+      ),
+    [allPictograms],
+  );
+
+  const removeAt = (index: number): void =>
+    setStepIds.mutate({
+      boardId: board.id,
+      stepIds: board.stepIds.filter((_, i) => i !== index),
     });
-  const appendPicto = (pictoId: string): void => setSteps((prev) => [...prev, makeStep(pictoId)]);
+
+  const reorder = (nextKeys: string[]): void => {
+    const byKey = new Map(steps.map((s) => [s.key, s.pictoId]));
+    const nextIds = nextKeys
+      .map((k) => byKey.get(k))
+      .filter((id): id is string => typeof id === 'string');
+    setStepIds.mutate({ boardId: board.id, stepIds: nextIds });
+  };
+
+  const appendPicto = (pictoId: string): void =>
+    setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, pictoId] });
 
   return (
     <ParentShell
       active="home"
       right={
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Button variant="ghost">Save</Button>
-          <Button variant="primary" icon={<PlayIcon />} onClick={() => onPreview(kind)}>
-            Preview for Liam
-          </Button>
-        </div>
+        <Button variant="primary" icon={<PlayIcon />} onClick={() => onPreview(board.kind)}>
+          Preview for Liam
+        </Button>
       }
     >
       <div className={styles.breadcrumb}>
@@ -88,38 +110,38 @@ export const BoardBuilder = ({
 
       <input
         className={styles.titleInput}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        value={board.name}
+        onChange={(e) => renameBoard.mutate({ boardId: board.id, name: e.target.value })}
       />
 
       <SettingsRow
-        kind={kind}
-        onKindChange={setKind}
-        labelsVisible={labelsVisible}
-        onLabelsChange={setLabelsVisible}
-        voiceMode={voiceMode}
-        onVoiceModeChange={setVoiceMode}
-        stepCount={steps.length}
+        kind={board.kind}
+        onKindChange={(kind) => setKind.mutate({ boardId: board.id, kind })}
+        labelsVisible={board.labelsVisible}
+        onLabelsChange={(visible) => setLabels.mutate({ boardId: board.id, visible })}
+        voiceMode={board.voiceMode}
+        onVoiceModeChange={(mode) => setVoice.mutate({ boardId: board.id, mode })}
+        stepCount={board.stepIds.length}
       />
 
       <div className={styles.track}>
         <div className={`${styles.rail} tal-scroll`}>
           <Reorderable
-            items={steps}
+            items={steps.map((s) => ({ ...s, id: s.key }))}
             onReorder={reorder}
             renderItem={(step, i, drag) => (
               <Fragment key={step.id}>
                 <StepTile
                   picto={step.picto}
                   index={i}
-                  kind={kind}
-                  labelsVisible={labelsVisible}
-                  onRemove={() => removeAt(step.id)}
+                  kind={board.kind}
+                  labelsVisible={board.labelsVisible}
+                  onRemove={() => removeAt(i)}
                   drag={drag}
                 />
                 {i < steps.length - 1 && (
                   <div className={styles.connector}>
-                    {kind === 'sequence' ? (
+                    {board.kind === 'sequence' ? (
                       <StepArrowIcon size={22} />
                     ) : (
                       <span className={styles.orPill}>OR</span>

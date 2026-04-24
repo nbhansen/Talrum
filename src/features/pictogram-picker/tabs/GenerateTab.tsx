@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 
-import { PICTOGRAMS } from '@/data/pictograms';
+import { usePictogramsById } from '@/lib/queries/pictograms';
+import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { Chip } from '@/ui/Chip/Chip';
 import { SparkleIcon } from '@/ui/icons';
@@ -11,8 +12,9 @@ import styles from './GenerateTab.module.css';
 const RESULT_IDS = ['breakfast', 'apple', 'cup', 'bath'];
 
 export const GenerateTab = (): JSX.Element => {
-  const results = RESULT_IDS.map((id) => PICTOGRAMS[id]).filter(
-    (p): p is NonNullable<typeof p> => Boolean(p),
+  const pictogramsById = usePictogramsById();
+  const results: Pictogram[] = RESULT_IDS.map((id) => pictogramsById.get(id)).filter(
+    (p): p is Pictogram => Boolean(p),
   );
   return (
     <div className={styles.wrap}>

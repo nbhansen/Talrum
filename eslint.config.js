@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage'] },
+  { ignores: ['dist', 'node_modules', 'coverage', 'src/types/supabase.ts'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.strict, ...tseslint.configs.stylistic],
     files: ['**/*.{ts,tsx}'],
@@ -37,6 +37,23 @@ export default tseslint.config(
       'simple-import-sort/exports': 'error',
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['src/features/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/data/*'],
+              message:
+                'Feature code must read through @/lib/queries/* (Phase 2 DRY boundary). @/data/* is the seed source of truth for the DB only.',
+            },
+          ],
+        },
+      ],
     },
   },
 );

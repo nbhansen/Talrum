@@ -1,9 +1,9 @@
 import { type JSX, useState } from 'react';
 
-import { getPictogram } from '@/data/pictograms';
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
+import { usePictogramsById } from '@/lib/queries/pictograms';
 import { accentForIndex, cssVar } from '@/theme/tokens';
-import type { Board } from '@/types/domain';
+import type { Board, Pictogram } from '@/types/domain';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
 
@@ -15,7 +15,10 @@ interface KidChoiceProps {
 }
 
 export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
-  const options = board.stepIds.map(getPictogram);
+  const pictogramsById = usePictogramsById();
+  const options: Pictogram[] = board.stepIds
+    .map((id) => pictogramsById.get(id))
+    .filter((p): p is Pictogram => Boolean(p));
   const [pickedId, setPickedId] = useState<string | null>(null);
   const pickedLabel = options.find((o) => o.id === pickedId)?.label;
 

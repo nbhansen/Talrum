@@ -1,6 +1,6 @@
 import { type JSX, useState } from 'react';
 
-import { PICTOGRAMS } from '@/data/pictograms';
+import { usePictograms } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
 import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
@@ -35,6 +35,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   const [tab, setTab] = useState<PickerTab>('library');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(['apple', 'cup']));
   const [query, setQuery] = useState('');
+  const { data: pictograms = [] } = usePictograms();
 
   const toggle = (id: string): void => {
     setSelected((prev) => {
@@ -91,7 +92,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
       <div className={styles.body}>
         {tab === 'library' && (
           <LibraryTab
-            pictograms={Object.values(PICTOGRAMS)}
+            pictograms={pictograms}
             query={query}
             onQueryChange={setQuery}
             selected={selected}

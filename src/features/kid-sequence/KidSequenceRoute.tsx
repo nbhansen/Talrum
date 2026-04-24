@@ -1,13 +1,14 @@
 import type { JSX } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { getBoard } from '@/data/boards';
+import { useBoard } from '@/lib/queries/boards';
 
 import { KidSequence } from './KidSequence';
 
-export const KidSequenceRoute = (): JSX.Element => {
+export const KidSequenceRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
-  const board = getBoard(boardId);
+  const { data: board } = useBoard(boardId);
   const navigate = useNavigate();
+  if (!board) return null;
   return <KidSequence board={board} onExit={() => navigate(`/boards/${board.id}/edit`)} />;
 };
