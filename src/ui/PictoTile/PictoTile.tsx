@@ -10,11 +10,14 @@ interface PictoTileProps {
   size?: number;
   showLabel?: boolean;
   selected?: boolean;
+  /** Only wired when `as === 'button'` (the default). Ignored on a div. */
   onClick?: MouseEventHandler<HTMLButtonElement>;
   /**
    * Outer element. Defaults to 'button' (interactive tile). Use 'div' when
    * the tile is rendered inside an existing interactive element (e.g. the
    * preview strip on a BoardCard), to avoid nested-button invalid HTML.
+   * `onClick` is intentionally not forwarded to the div — the outer
+   * interactive ancestor is expected to own the click.
    */
   as?: 'button' | 'div';
   /** Button-level style override (layout only — don't theme here). */

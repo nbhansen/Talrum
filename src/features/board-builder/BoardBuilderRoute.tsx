@@ -2,7 +2,7 @@ import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
-import { useBoard, useBoards } from '@/lib/queries/boards';
+import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
 import { supabase } from '@/lib/supabase';
 import { useUserInitial } from '@/lib/useUserInitial';
 
@@ -31,16 +31,26 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  // `.single()` in useBoard returns a 406 when RLS hides the row (e.g. a
-  // pasted URL from another account). Treat any settled query without a
-  // row as not-found rather than rendering a blank screen.
+  // `.single()` raises PGRST116 when a row is missing or hidden by RLS
+  // (e.g. a pasted URL from another account) — terminal, surface as
+  // not-found. Any other error is transient (network, Supabase down);
+  // offer Retry rather than mis-attributing to a not-found.
   if (boardQuery.isError || (boardQuery.isSuccess && !board)) {
+    const variant =
+      isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board)
+        ? 'not-found'
+        : 'error';
     const fallbackKid = boardsQuery.data?.find((b) => b.kind === 'sequence');
     return (
       <BoardNotFound
+        variant={variant}
         onBack={() => navigate('/')}
+        onRetry={() => void boardQuery.refetch()}
         onKidMode={() => {
           if (fallbackKid) navigate(`/kid/sequence/${fallbackKid.id}`);
+        }}
+        onSignOut={() => {
+          void supabase.auth.signOut();
         }}
         userInitial={userInitial}
       />

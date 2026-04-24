@@ -15,9 +15,16 @@ export const useUserInitial = (): string | undefined => {
       return first ? first.toUpperCase() : undefined;
     };
     let cancelled = false;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setInitial(toInitial(data.session?.user.email));
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!cancelled) setInitial(toInitial(data.session?.user.email));
+      })
+      .catch(() => {
+        // Avatar is cosmetic; a blank circle is fine. AuthGate surfaces the
+        // real error. onAuthStateChange will still fire once the session
+        // arrives via a later network recovery.
+      });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setInitial(toInitial(session?.user.email));
     });

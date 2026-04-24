@@ -37,7 +37,7 @@ const makeWrapper = (qc: QueryClient, initialPath: string): (() => JSX.Element) 
 };
 
 describe('BoardBuilderRoute', () => {
-  it('renders BoardNotFound when useBoard errors (RLS-blocked row)', async () => {
+  it('renders the not-found variant when useBoard hits PGRST116 (RLS-hidden row)', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(boardsQueryKey, []);
     singleMock.mockResolvedValueOnce({
@@ -49,6 +49,30 @@ describe('BoardBuilderRoute', () => {
     await waitFor(() => {
       expect(screen.getByText('Board not found')).toBeInTheDocument();
     });
-    expect(screen.getByText('Back to boards')).toBeInTheDocument();
+    // No Retry button on the not-found variant — retrying a 404 is pointless.
+    expect(screen.queryByText('Retry')).not.toBeInTheDocument();
+  });
+
+  it('renders the error variant with Retry for non-PGRST116 errors', async () => {
+    // useBoard's retry policy retries non-PGRST116 errors up to 3× with
+    // default backoff. Speed that up with retryDelay: 0 and persist the
+    // mock response so every attempt sees the same failure.
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+    });
+    qc.setQueryData(boardsQueryKey, []);
+    singleMock.mockResolvedValue({
+      data: null,
+      error: { message: 'network error', code: 'NETWORK' },
+    });
+    const Wrap = makeWrapper(qc, '/boards/00000000-0000-0000-0000-000000000000/edit');
+    render(<Wrap />);
+    await waitFor(
+      () => {
+        expect(screen.getByText('Could not load board')).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 });
