@@ -19,7 +19,7 @@ export const App = (): React.JSX.Element => {
   return (
     <div className="tal">
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
       </QueryClientProvider>
     </div>
   );
