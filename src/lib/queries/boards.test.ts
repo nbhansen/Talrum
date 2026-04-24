@@ -10,6 +10,7 @@ const row = (overrides: Partial<Row> = {}): Row => ({
   id: 'morning',
   owner_id: 'owner-uuid',
   kid_id: 'liam',
+  slug: null,
   name: 'Morning routine',
   kind: 'sequence',
   labels_visible: true,
