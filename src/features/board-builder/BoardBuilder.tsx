@@ -10,9 +10,8 @@ import {
   useSetVoiceMode,
 } from '@/lib/queries/boards';
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
-import type { Board, BoardKind, Pictogram } from '@/types/domain';
-import { Button } from '@/ui/Button/Button';
-import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
+import type { Board, Pictogram } from '@/types/domain';
+import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { Reorderable } from '@/ui/Reorderable/Reorderable';
 
@@ -28,7 +27,6 @@ interface BoardBuilderProps {
   board: Board;
   onBack: () => void;
   onOpenPicker: () => void;
-  onPreview: (kind: BoardKind) => void;
   onKidMode: () => void;
 }
 
@@ -54,7 +52,6 @@ export const BoardBuilder = ({
   board,
   onBack,
   onOpenPicker,
-  onPreview,
   onKidMode,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
@@ -119,15 +116,7 @@ export const BoardBuilder = ({
     setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, pictoId] });
 
   return (
-    <ParentShell
-      active="home"
-      onKidMode={onKidMode}
-      right={
-        <Button variant="primary" icon={<PlayIcon />} onClick={() => onPreview(board.kind)}>
-          Preview for Liam
-        </Button>
-      }
-    >
+    <ParentShell active="home" onKidMode={onKidMode}>
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>
           <ArrowLeftIcon size={16} />

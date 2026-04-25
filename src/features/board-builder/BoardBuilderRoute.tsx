@@ -58,7 +58,6 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         board={board}
         onBack={() => navigate('/')}
         onOpenPicker={openPicker}
-        onPreview={(kind) => navigate(`/kid/${kind}/${board.id}`)}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}

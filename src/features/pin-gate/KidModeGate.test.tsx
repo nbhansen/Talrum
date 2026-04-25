@@ -44,6 +44,26 @@ const tapDigits = async (
 };
 
 describe('KidModeGate', () => {
+  // Must run first: React deduplicates the "Cannot update a component while
+  // rendering a different component" warning per-process, so once any other
+  // setup→confirm test trips it the regression test would silently pass.
+  // PinPad.tap() used to call submit() from inside a setDigits updater; on
+  // the setup→confirm transition that synchronously schedules a setState on
+  // KidModeGate, which React flags via console.error. Fail if any
+  // console.error fires on the setup→confirm happy path.
+  it('does not emit React state-update warnings during setup→confirm transition', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onExit = vi.fn();
+    const { user } = renderGate(onExit);
+
+    await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
+    await tapDigits(user, '1234');
+    expect(await screen.findByText('Confirm your PIN')).toBeInTheDocument();
+    await tapDigits(user, '1234');
+    expect(onExit).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it('skips the gate entirely when VITE_DISABLE_PIN is set', async () => {
     vi.stubEnv('VITE_DISABLE_PIN', '1');
     try {

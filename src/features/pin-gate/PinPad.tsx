@@ -43,12 +43,14 @@ export const PinPad = ({
       return;
     }
     if (!key) return;
-    setDigits((d) => {
-      if (d.length >= PIN_LENGTH) return d;
-      const next = d + key;
-      if (next.length === PIN_LENGTH) void submit(next);
-      return next;
-    });
+    if (digits.length >= PIN_LENGTH) return;
+    // Read `digits` from closure (not via a setDigits updater) so submit's
+    // parent setStates don't fire while PinPad is mid-render. Trade-off: a
+    // double-tap inside one frame would coalesce to a single digit, which
+    // is fine for a 4-digit PIN entered by a parent on an iPad.
+    const next = digits + key;
+    setDigits(next);
+    if (next.length === PIN_LENGTH) void submit(next);
   };
 
   return (
