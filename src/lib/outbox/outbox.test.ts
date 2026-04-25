@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
-const { drain, getStatus, subscribeStatus } = await import('./drain');
+const { drain, getStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { enqueueAndDrain } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -189,5 +189,22 @@ describe('enqueueAndDrain', () => {
     unsub();
     // First push is the initial status (0); second is post-enqueue (1).
     expect(seen[seen.length - 1]).toBe(1);
+  });
+});
+
+describe('startOutbox', () => {
+  it('primes lastStatus from IDB so cold-boot subscribers see real counts (#29)', async () => {
+    setOnline(false); // drain is offline-noop; emit() is the only source updating lastStatus.
+    await putEntry(baseEntry({ id: '01HZZP' }));
+    await putEntry(baseEntry({ id: '01HZZQ' }));
+    const seen: number[] = [];
+    startOutbox(); // Idempotent — only the first call in the suite primes.
+    const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
+    // Two macrotask ticks: one for emit()'s listEntries, one for the
+    // offline-branch emit() inside drain().
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    unsub();
+    expect(seen).toContain(2);
   });
 });

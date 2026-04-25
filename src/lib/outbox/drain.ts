@@ -114,6 +114,11 @@ let listenersAttached = false;
 export const startOutbox = (): void => {
   if (listenersAttached) return;
   listenersAttached = true;
+  // Prime lastStatus from IDB before any subscribe() call lands a stale zero
+  // pendingCount on a cold boot with persisted entries (#29). emit() is async,
+  // but we'd rather race a microtask than render a "synced" indicator that
+  // snaps to "3 pending" once the first drain completes.
+  void emit();
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
       void drain();
