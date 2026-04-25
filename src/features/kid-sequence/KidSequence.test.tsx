@@ -10,6 +10,10 @@ import type { Board, Pictogram } from '@/types/domain';
 const speakPictogramMock = vi.fn();
 vi.mock('@/lib/voiceOut', () => ({ speakPictogram: speakPictogramMock }));
 
+// Mock supabase so the real client is never constructed and useQuery's
+// background refetch can't replace the seeded cache mid-test.
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+
 const { KidSequence } = await import('./KidSequence');
 
 const apple: Pictogram = {
