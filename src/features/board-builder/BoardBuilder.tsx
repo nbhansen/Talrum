@@ -1,6 +1,7 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
+import { Reorderable } from '@/ui/Reorderable/Reorderable';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -18,7 +19,6 @@ import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import styles from './BoardBuilder.module.css';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
-import { Reorderable } from './useReorderable';
 
 const QUICK_ADD_SLUGS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
 

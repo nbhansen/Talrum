@@ -3,9 +3,9 @@ import type { JSX } from 'react';
 import type { BoardKind, Pictogram } from '@/types/domain';
 import { XIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import type { DragBindings } from '@/ui/Reorderable/Reorderable';
 
 import styles from './StepTile.module.css';
-import type { DragBindings } from './useReorderable';
 
 interface StepTileProps {
   picto: Pictogram;

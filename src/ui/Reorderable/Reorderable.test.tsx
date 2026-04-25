@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { Reorderable } from './useReorderable';
+import { Reorderable } from './Reorderable';
 
 interface Item {
   id: string;
