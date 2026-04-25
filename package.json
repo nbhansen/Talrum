@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "supabase test db",
     "seed:gen": "node --experimental-strip-types scripts/gen-seed.ts",
     "check:seed": "npm run seed:gen && git diff --exit-code supabase/seed.sql",
     "types:db": "supabase gen types typescript --local > src/types/supabase.ts"
