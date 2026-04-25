@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
+import { type BoardRowPatch, enqueueAndDrain } from '@/lib/outbox';
 import { supabase } from '@/lib/supabase';
 import type { ColorToken } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
@@ -79,19 +80,26 @@ export const useBoard = (id: string): UseQueryResult<Board> =>
 
 /**
  * Generic wrapper for every board write. Applies an optimistic patch to the
- * cached board (so the UI snaps instantly), fires the SQL, then invalidates
- * both the per-id and the list caches. On error the previous snapshot is
- * rolled back.
+ * cached board (so the UI snaps instantly), enqueues the SQL through the
+ * outbox so offline edits queue + replay automatically, then invalidates
+ * both the per-id and the list caches. On a non-retryable error (RLS,
+ * validation) the previous snapshot is rolled back; transient network
+ * errors are absorbed by the outbox and the optimistic patch stands.
  *
  * Every public mutation below is a three-line wrapper over this.
  */
 const useBoardPatch = <Input extends { boardId: string }>(
   patch: (input: Input, current: Board) => Board,
-  run: (input: Input) => Promise<void>,
+  toRowPatch: (input: Input) => BoardRowPatch,
 ): UseMutationResult<void, Error, Input, { previous: Board | undefined }> => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: run,
+    mutationFn: (input) =>
+      enqueueAndDrain({
+        kind: 'updateBoard',
+        boardId: input.boardId,
+        patch: toRowPatch(input),
+      }),
     onMutate: async (input) => {
       const { boardId } = input;
       await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });
@@ -111,21 +119,6 @@ const useBoardPatch = <Input extends { boardId: string }>(
   });
 };
 
-const updateBoard = async (
-  boardId: string,
-  patch: Partial<{
-    name: string;
-    kind: BoardKind;
-    labels_visible: boolean;
-    voice_mode: VoiceMode;
-    step_ids: string[];
-    kid_reorderable: boolean;
-  }>,
-): Promise<void> => {
-  const { error } = await supabase.from('boards').update(patch).eq('id', boardId);
-  if (error) throw error;
-};
-
 interface BoardIdInput {
   boardId: string;
 }
@@ -138,7 +131,7 @@ export const useRenameBoard = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ name }, current) => ({ ...current, name }),
-    ({ boardId, name }) => updateBoard(boardId, { name }),
+    ({ name }) => ({ name }),
   );
 
 export const useSetBoardKind = (): UseMutationResult<
@@ -149,7 +142,7 @@ export const useSetBoardKind = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ kind }, current) => ({ ...current, kind }),
-    ({ boardId, kind }) => updateBoard(boardId, { kind }),
+    ({ kind }) => ({ kind }),
   );
 
 export const useSetLabelsVisible = (): UseMutationResult<
@@ -160,7 +153,7 @@ export const useSetLabelsVisible = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ visible }, current) => ({ ...current, labelsVisible: visible }),
-    ({ boardId, visible }) => updateBoard(boardId, { labels_visible: visible }),
+    ({ visible }) => ({ labels_visible: visible }),
   );
 
 export const useSetVoiceMode = (): UseMutationResult<
@@ -171,7 +164,7 @@ export const useSetVoiceMode = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ mode }, current) => ({ ...current, voiceMode: mode }),
-    ({ boardId, mode }) => updateBoard(boardId, { voice_mode: mode }),
+    ({ mode }) => ({ voice_mode: mode }),
   );
 
 export const useSetStepIds = (): UseMutationResult<
@@ -182,7 +175,7 @@ export const useSetStepIds = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ stepIds }, current) => ({ ...current, stepIds }),
-    ({ boardId, stepIds }) => updateBoard(boardId, { step_ids: stepIds }),
+    ({ stepIds }) => ({ step_ids: stepIds }),
   );
 
 export const useSetKidReorderable = (): UseMutationResult<
@@ -193,5 +186,5 @@ export const useSetKidReorderable = (): UseMutationResult<
 > =>
   useBoardPatch(
     ({ reorderable }, current) => ({ ...current, kidReorderable: reorderable }),
-    ({ boardId, reorderable }) => updateBoard(boardId, { kid_reorderable: reorderable }),
+    ({ reorderable }) => ({ kid_reorderable: reorderable }),
   );

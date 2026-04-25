@@ -5,7 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Board } from '@/types/domain';
 
-const eqMock = vi.fn<(column: string, value: string) => Promise<{ error: Error | null }>>();
+interface MockPostgrestError {
+  code: string;
+  message: string;
+  details: string;
+  hint: string;
+}
+const eqMock =
+  vi.fn<(column: string, value: string) => Promise<{ error: MockPostgrestError | null }>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 
@@ -67,11 +74,17 @@ describe('useRenameBoard (useBoardPatch)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
-  it('rolls back the cache when the DB write errors', async () => {
+  it('rolls back the cache on a non-retryable DB error (RLS denial)', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     qc.setQueryData(boardQueryKey('morning'), seed);
 
-    eqMock.mockResolvedValueOnce({ error: new Error('row-level-security') });
+    // The outbox classifies coded errors (Postgres / PostgREST) as
+    // permanent — that's the path that triggers React Query's onError,
+    // which rolls the optimistic patch back. A plain TypeError without
+    // a code would instead enqueue silently.
+    eqMock.mockResolvedValueOnce({
+      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+    });
 
     const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
 
