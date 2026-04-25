@@ -25,8 +25,10 @@ const TITLE_DEBOUNCE_MS = 300;
 
 interface BoardBuilderProps {
   board: Board;
+  isOwner: boolean;
   onBack: () => void;
   onOpenPicker: () => void;
+  onOpenShare: () => void;
   onKidMode: () => void;
 }
 
@@ -50,8 +52,10 @@ const buildSteps = (stepIds: string[], byId: Map<string, Pictogram>): Step[] =>
 
 export const BoardBuilder = ({
   board,
+  isOwner,
   onBack,
   onOpenPicker,
+  onOpenShare,
   onKidMode,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
@@ -124,6 +128,11 @@ export const BoardBuilder = ({
         </button>
         <span className={styles.crumbSep}>/</span>
         <span className={styles.crumbPath}>Editing</span>
+        {isOwner && (
+          <button type="button" onClick={onOpenShare} className={styles.shareBtn}>
+            Share
+          </button>
+        )}
       </div>
 
       <input
