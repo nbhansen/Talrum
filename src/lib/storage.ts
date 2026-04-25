@@ -59,6 +59,10 @@ export const removeFromBucket = async (
  * resolves a valid `<img>` for a previously-viewed pictogram.
  */
 export const signedUrlFor = async (bucket: string, path: string): Promise<string> => {
+  // Optimistic offline-create paths render via URL.createObjectURL until the
+  // outbox uploads the blob. The hook contract says "give me a usable src for
+  // this path" — for blob URLs the path IS the URL; no signing needed.
+  if (path.startsWith('blob:')) return path;
   const cacheKey = `${bucket}/${path}`;
   const now = Date.now();
 

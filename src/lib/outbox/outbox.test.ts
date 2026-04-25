@@ -1,7 +1,7 @@
 import { clear, keys } from 'idb-keyval';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OutboxEntry } from './types';
+import type { UpdateBoardEntry } from './types';
 
 interface MockPostgrestError {
   code: string;
@@ -21,7 +21,7 @@ const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, subscribeStatus } = await import('./drain');
 const { enqueueAndDrain } = await import('./index');
 
-const baseEntry = (over: Partial<OutboxEntry> = {}): OutboxEntry => ({
+const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
   kind: 'updateBoard',
   boardId: 'board-1',

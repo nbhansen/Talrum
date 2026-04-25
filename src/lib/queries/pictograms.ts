@@ -7,13 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { useSessionUser } from '@/app/session';
-import {
-  AUDIO_BUCKET,
-  IMAGES_BUCKET,
-  invalidateSignedUrl,
-  removeFromBucket,
-  uploadBlob,
-} from '@/lib/storage';
+import { enqueueAndDrain } from '@/lib/outbox';
 import { supabase } from '@/lib/supabase';
 import type { GlyphName, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
@@ -107,6 +101,12 @@ export const usePictogramsBySlug = (): Map<string, Pictogram> => {
   return out;
 };
 
+const patchPictogramInList = (
+  list: Pictogram[] | undefined,
+  id: string,
+  patch: (p: Pictogram) => Pictogram,
+): Pictogram[] | undefined => list?.map((p) => (p.id === id ? patch(p) : p));
+
 interface SetAudioInput {
   pictogramId: string;
   blob: Blob;
@@ -115,25 +115,30 @@ interface SetAudioInput {
   previousPath?: string | null;
 }
 
-export const useSetPictogramAudio = (): UseMutationResult<string, Error, SetAudioInput> => {
+/**
+ * Optimistically points the pictogram at a local blob URL and queues the
+ * upload through the outbox. Drain replaces the blob URL with the real
+ * server path on success; offline writes wait for `online` and replay.
+ */
+export const useSetPictogramAudio = (): UseMutationResult<void, Error, SetAudioInput> => {
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
   return useMutation({
-    mutationFn: async ({ pictogramId, blob, extension, previousPath }) => {
-      const path = `${ownerId}/${pictogramId}.${extension}`;
-      await uploadBlob(AUDIO_BUCKET, path, blob);
-      invalidateSignedUrl(AUDIO_BUCKET, path);
-      const { error } = await supabase
-        .from('pictograms')
-        .update({ audio_path: path })
-        .eq('id', pictogramId);
-      if (error) throw error;
-      if (previousPath && previousPath !== path) {
-        await removeFromBucket(AUDIO_BUCKET, [previousPath]).catch(() => undefined);
-        invalidateSignedUrl(AUDIO_BUCKET, previousPath);
-      }
-      return path;
+    onMutate: ({ pictogramId, blob }) => {
+      const blobUrl = URL.createObjectURL(blob);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl })),
+      );
     },
+    mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
+      enqueueAndDrain({
+        kind: 'setPictoAudio',
+        pictogramId,
+        ownerId,
+        blob,
+        extension,
+        ...(previousPath ? { previousPath } : {}),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
@@ -166,23 +171,31 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
   return useMutation({
     mutationFn: async ({ label, blob, extension }) => {
       const id = crypto.randomUUID();
-      const path = `${ownerId}/${id}.${extension}`;
-      await uploadBlob(IMAGES_BUCKET, path, blob);
-      invalidateSignedUrl(IMAGES_BUCKET, path);
-      const { error } = await supabase.from('pictograms').insert({
+      const blobUrl = URL.createObjectURL(blob);
+      const optimistic: Pictogram = {
         id,
-        owner_id: ownerId,
         label: label.trim(),
         style: 'photo',
-        image_path: path,
+        imagePath: blobUrl,
+      };
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) => [...(list ?? []), optimistic]);
+      await enqueueAndDrain({
+        kind: 'createPhotoPicto',
+        pictogramId: id,
+        ownerId,
+        label: label.trim(),
+        blob,
+        extension,
       });
-      if (error) {
-        await removeFromBucket(IMAGES_BUCKET, [path]).catch(() => undefined);
-        throw error;
-      }
-      return { id, imagePath: path };
+      // Real path the server will end up serving; the cache invalidation in
+      // onSuccess refetches and replaces the blob URL with the signed path.
+      return { id, imagePath: `${ownerId}/${id}.${extension}` };
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+    onError: (_err, _input, _ctx) => {
+      // Drop the optimistic row; the user got an error.
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
   });
@@ -191,15 +204,16 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
 export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAudioInput> => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ pictogramId, path }) => {
-      await removeFromBucket(AUDIO_BUCKET, [path]).catch(() => undefined);
-      invalidateSignedUrl(AUDIO_BUCKET, path);
-      const { error } = await supabase
-        .from('pictograms')
-        .update({ audio_path: null })
-        .eq('id', pictogramId);
-      if (error) throw error;
+    onMutate: ({ pictogramId }) => {
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) => {
+          const { audioPath: _audioPath, ...rest } = p;
+          return rest as Pictogram;
+        }),
+      );
     },
+    mutationFn: ({ pictogramId, path }) =>
+      enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId, path }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },

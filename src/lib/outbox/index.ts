@@ -9,7 +9,17 @@ import type { OutboxEntry } from './types';
 export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
 export { kick, startOutbox, UnretryableOutboxError };
 
-type EntryInput = Omit<OutboxEntry, 'id' | 'enqueuedAt' | 'attemptCount' | 'status'>;
+/**
+ * Distribute the Omit over each member of the union so caller payloads keep
+ * their per-kind required fields. A plain `Omit<OutboxEntry, ...>` collapses
+ * to the intersection of common props, dropping `boardId`, `pictogramId`,
+ * `blob`, etc.
+ */
+type DistributiveOmit<T, K extends keyof OutboxEntry> = T extends OutboxEntry ? Omit<T, K> : never;
+type EntryInput = DistributiveOmit<
+  OutboxEntry,
+  'id' | 'enqueuedAt' | 'attemptCount' | 'status' | 'lastError'
+>;
 
 /**
  * The hot path for every mutation. Online: try the handler immediately; on

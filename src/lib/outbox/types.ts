@@ -31,7 +31,36 @@ export interface UpdateBoardEntry extends OutboxEntryBase {
   patch: BoardRowPatch;
 }
 
-/** Discriminated union; step 6 adds CreatePhotoPicto / SetPictoAudio / ClearPictoAudio. */
-export type OutboxEntry = UpdateBoardEntry;
+export interface CreatePhotoPictogramEntry extends OutboxEntryBase {
+  kind: 'createPhotoPicto';
+  pictogramId: string;
+  ownerId: string;
+  label: string;
+  /** Stored as Blob inside IDB so the upload survives a page refresh. */
+  blob: Blob;
+  extension: string;
+}
+
+export interface SetPictogramAudioEntry extends OutboxEntryBase {
+  kind: 'setPictoAudio';
+  pictogramId: string;
+  ownerId: string;
+  blob: Blob;
+  extension: string;
+  /** Path of an older recording to clean up after the new one lands. */
+  previousPath?: string;
+}
+
+export interface ClearPictogramAudioEntry extends OutboxEntryBase {
+  kind: 'clearPictoAudio';
+  pictogramId: string;
+  path: string;
+}
+
+export type OutboxEntry =
+  | UpdateBoardEntry
+  | CreatePhotoPictogramEntry
+  | SetPictogramAudioEntry
+  | ClearPictogramAudioEntry;
 
 export type OutboxEntryKind = OutboxEntry['kind'];
