@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from 'react';
 import { useSignOut, useUserInitial } from '@/app/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
+import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';
 
 import styles from './ParentShell.module.css';
 import { TalrumLogo } from './TalrumLogo';
@@ -93,7 +94,10 @@ export const ParentShell = ({
               <h1 className={styles.title}>{title}</h1>
               {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
             </div>
-            {right && <div>{right}</div>}
+            <div className={styles.headerRight}>
+              <OfflineIndicator />
+              {right}
+            </div>
           </header>
         )}
         <div className={`${styles.body} tal-scroll`}>{children}</div>
