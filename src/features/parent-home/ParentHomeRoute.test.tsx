@@ -28,7 +28,10 @@ const makeWrap = (initialPath: string): (() => JSX.Element) => {
   return (): JSX.Element => (
     <TestSessionProvider>
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[initialPath]}>
+        <MemoryRouter
+          initialEntries={[initialPath]}
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
           <Routes>
             <Route path="/" element={<ParentHomeRoute />} />
             <Route
