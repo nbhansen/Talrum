@@ -41,6 +41,11 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'talrum-storage-v1',
+              // Strip the ?token=... query so hourly-rotating signed URLs all
+              // resolve to the same cache entry. Without this, the 200-entry
+              // cap fills with rotation-duplicates of the same storage path
+              // instead of 200 distinct paths.
+              matchOptions: { ignoreSearch: true },
               expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 30 * 24 * 60 * 60,

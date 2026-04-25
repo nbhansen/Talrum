@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { ulid } from 'ulid';
 
-import { drain, getStatus, kick, type OutboxStatus, startOutbox, subscribeStatus } from './drain';
+import {
+  drain,
+  getStatus,
+  kick,
+  type OutboxStatus,
+  refreshStatus,
+  startOutbox,
+  subscribeStatus,
+} from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
@@ -67,6 +75,10 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
+  // The offline path doesn't call drain() (which is what normally emits),
+  // so the indicator wouldn't update its pending count until the next
+  // online/offline event. Push the new status now.
+  await refreshStatus();
 };
 
 /** Drop a single failed entry from the queue (the indicator's "Discard"). */

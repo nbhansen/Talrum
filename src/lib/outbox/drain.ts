@@ -34,6 +34,14 @@ const emit = async (): Promise<void> => {
   subscribers.forEach((fn) => fn(next));
 };
 
+/**
+ * Recompute status from the current IDB state and notify subscribers. Called
+ * after `enqueueAndDrain` paths that don't go through `drain()` (offline
+ * enqueue) so the OfflineIndicator updates immediately rather than waiting
+ * for the next online/offline event.
+ */
+export const refreshStatus = (): Promise<void> => emit();
+
 export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => {
   subscribers.add(fn);
   fn(lastStatus);

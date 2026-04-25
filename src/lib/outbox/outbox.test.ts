@@ -180,4 +180,14 @@ describe('enqueueAndDrain', () => {
     const entries = await listEntries();
     expect(entries).toHaveLength(1);
   });
+
+  it('offline enqueue emits the new pending count to subscribers', async () => {
+    setOnline(false);
+    const seen: number[] = [];
+    const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    unsub();
+    // First push is the initial status (0); second is post-enqueue (1).
+    expect(seen[seen.length - 1]).toBe(1);
+  });
 });
