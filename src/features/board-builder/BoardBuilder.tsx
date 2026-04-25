@@ -1,7 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
-import { Reorderable } from '@/ui/Reorderable/Reorderable';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -15,6 +14,7 @@ import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { Reorderable } from '@/ui/Reorderable/Reorderable';
 
 import styles from './BoardBuilder.module.css';
 import { SettingsRow } from './SettingsRow';

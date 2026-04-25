@@ -34,7 +34,7 @@ describe('session hooks', () => {
 
   it('throws when used outside SessionProvider', () => {
     // Suppress the error boundary noise React logs for a thrown render.
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => renderHook(() => useSession())).toThrow(/outside SessionProvider/);
     spy.mockRestore();
   });

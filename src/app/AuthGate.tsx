@@ -5,7 +5,7 @@ import { Login } from '@/features/login/Login';
 import { supabase } from '@/lib/supabase';
 
 import styles from './AuthGate.module.css';
-import { SessionProvider } from './session';
+import { SessionProvider } from './SessionProvider';
 
 type AuthState =
   | { status: 'loading' }

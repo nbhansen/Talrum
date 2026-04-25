@@ -1,7 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { JSX, ReactNode } from 'react';
 
-import { SessionProvider } from './session';
+import { SessionProvider } from './SessionProvider';
 
 const FAKE_USER: User = {
   id: '00000000-0000-0000-0000-0000000000aa',

@@ -2,8 +2,8 @@ import type { CSSProperties, JSX } from 'react';
 
 import type { Pictogram } from '@/types/domain';
 
-import styles from './PictoTile.module.css';
 import { PictogramMedia } from './PictogramMedia';
+import styles from './PictoTile.module.css';
 
 interface PictoCardProps {
   picto: Pictogram;
