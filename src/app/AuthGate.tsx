@@ -55,7 +55,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   const retry = useCallback(() => setRetryCount((n) => n + 1), []);
 
-  if (state.status === 'loading') return <AuthGateLoading />;
+  if (state.status === 'loading') return <AuthGateLoading onRetry={retry} />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
   if (state.status === 'out') return <Login />;
   return <SessionProvider session={state.session}>{children}</SessionProvider>;
@@ -69,12 +69,42 @@ const AuthGateOfflineHint = (): JSX.Element | null => {
   );
 };
 
-const AuthGateLoading = (): JSX.Element => (
-  <div className={`tal ${styles.loading}`}>
-    <div className={styles.spinner} aria-hidden="true" />
-    <p className={styles.loadingBody}>Loading…</p>
-  </div>
-);
+const HUNG_GETSESSION_HINT_MS = 5000;
+
+/**
+ * If `getSession()` neither resolves nor rejects within 5s and the device
+ * is offline, swap the spinner for the offline hint + Retry button (#30).
+ * supabase-js usually rejects fast on offline, but if a request hangs the
+ * user shouldn't stare at a forever-spinner with no escape hatch.
+ */
+const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
+  const online = useOnline();
+  const [hung, setHung] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setHung(true), HUNG_GETSESSION_HINT_MS);
+    return () => clearTimeout(id);
+  }, []);
+
+  if (hung && !online) {
+    return (
+      <div className={`tal ${styles.error}`}>
+        <h1 className={styles.errorTitle}>You're offline</h1>
+        <p className={styles.errorBody}>
+          We can't reach the server right now. Retry once your connection is back.
+        </p>
+        <button type="button" onClick={onRetry} className={styles.errorRetry}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className={`tal ${styles.loading}`}>
+      <div className={styles.spinner} aria-hidden="true" />
+      <p className={styles.loadingBody}>Loading…</p>
+    </div>
+  );
+};
 
 const AuthGateError = ({
   message,
