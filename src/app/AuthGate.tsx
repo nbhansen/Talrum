@@ -56,7 +56,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 const AuthGateLoading = (): JSX.Element => (
   <div className={`tal ${styles.loading}`}>
     <div className={styles.spinner} aria-hidden="true" />
-    <p className={styles.loadingBody}>Signing in…</p>
+    <p className={styles.loadingBody}>Loading…</p>
   </div>
 );
 

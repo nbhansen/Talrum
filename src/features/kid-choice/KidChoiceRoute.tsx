@@ -1,19 +1,22 @@
 import { type JSX, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { KidModeGate } from '@/features/pin-gate/KidModeGate';
-import { setLastBoard } from '@/lib/lastBoard';
-import { useBoard } from '@/lib/queries/boards';
+import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
+import { isNotFoundError, useBoard } from '@/lib/queries/boards';
 
 import { KidChoice } from './KidChoice';
 
 export const KidChoiceRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
-  const { data: board } = useBoard(boardId);
+  const { data: board, error } = useBoard(boardId);
   const navigate = useNavigate();
+  const stale = isNotFoundError(error);
   useEffect(() => {
-    if (board) setLastBoard({ id: board.id, kind: 'choice' });
-  }, [board]);
+    if (board) setLastBoard({ id: board.id, kind: board.kind });
+    else if (stale) clearLastBoard();
+  }, [board, stale]);
+  if (stale) return <Navigate to="/" replace />;
   if (!board) return null;
   return (
     <KidModeGate onExitConfirmed={() => navigate(`/boards/${board.id}/edit`)}>

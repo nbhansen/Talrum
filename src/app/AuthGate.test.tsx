@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { JSX } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
@@ -30,7 +31,7 @@ describe('AuthGate', () => {
         <div>app body</div>
       </AuthGate>,
     );
-    expect(screen.getByText('Signing in…')).toBeInTheDocument();
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
     expect(screen.queryByText('app body')).not.toBeInTheDocument();
   });
 
