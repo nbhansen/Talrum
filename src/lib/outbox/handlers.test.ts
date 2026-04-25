@@ -119,6 +119,33 @@ describe('runHandler · createPhotoPicto', () => {
     );
   });
 
+  it('treats a 5xx storage error as transient — not Unretryable (#32)', async () => {
+    uploadMock.mockResolvedValue({
+      error: Object.assign(new Error('boom'), { statusCode: 500 }),
+    });
+    const entry: CreatePhotoPictogramEntry = {
+      ...baseProps,
+      kind: 'createPhotoPicto',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      label: 'Park',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+    };
+    let caught: unknown;
+    try {
+      await runHandler(entry);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeDefined();
+    expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
+    // Insert never ran because upload threw first; the bucket cleanup path
+    // only fires when insert fails after a successful upload.
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
   it('cleans up the uploaded blob if insert fails', async () => {
     insertMock.mockResolvedValue({
       error: { code: '23505', message: 'unique violation', details: '', hint: '' },
