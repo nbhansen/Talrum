@@ -1,0 +1,51 @@
+.banner {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--tal-surface);
+  color: var(--tal-ink);
+  border-radius: var(--tal-r-md);
+  box-shadow: var(--tal-shadow-2);
+  font-size: 14px;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.reload {
+  appearance: none;
+  border: 0;
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+  border-radius: var(--tal-r-pill);
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reload:focus-visible {
+  outline: 2px solid var(--tal-ink);
+  outline-offset: 2px;
+}
+
+.dismiss {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--tal-ink-muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid var(--tal-ink);
+  outline-offset: 2px;
+}

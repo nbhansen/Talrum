@@ -30,6 +30,25 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
         navigateFallback: '/index.html',
+        cleanupOutdatedCaches: true,
+        // CacheFirst keeps photo/audio bytes on disk so kid-mode in the car
+        // works even after the signed-URL token has expired. URL persistence
+        // (step 4) ensures we re-issue the same URL across reloads so the
+        // cache key stays stable.
+        runtimeCaching: [
+          {
+            urlPattern: /\/storage\/v1\/object\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'talrum-storage-v1',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       devOptions: {
         // Off in dev: SW + HMR fight each other and the precache turns into noise.
