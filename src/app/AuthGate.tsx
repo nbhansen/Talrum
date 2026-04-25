@@ -55,7 +55,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   const retry = useCallback(() => setRetryCount((n) => n + 1), []);
 
-  if (state.status === 'loading') return <AuthGateLoading onRetry={retry} />;
+  if (state.status === 'loading') return <AuthGateLoading key={retryCount} onRetry={retry} />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
   if (state.status === 'out') return <Login />;
   return <SessionProvider session={state.session}>{children}</SessionProvider>;
