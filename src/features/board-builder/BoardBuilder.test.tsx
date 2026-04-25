@@ -1,0 +1,92 @@
+import { render, screen } from '@testing-library/react';
+import type { JSX } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { Board } from '@/types/domain';
+
+vi.mock('@/lib/queries/boards', () => ({
+  useRenameBoard: () => ({ mutate: vi.fn() }),
+  useSetBoardKind: () => ({ mutate: vi.fn() }),
+  useSetKidReorderable: () => ({ mutate: vi.fn() }),
+  useSetLabelsVisible: () => ({ mutate: vi.fn() }),
+  useSetStepIds: () => ({ mutate: vi.fn() }),
+  useSetVoiceMode: () => ({ mutate: vi.fn() }),
+}));
+
+vi.mock('@/lib/queries/pictograms', () => ({
+  usePictograms: () => ({ data: [] }),
+  usePictogramsById: () => new Map(),
+}));
+
+vi.mock('@/layouts/ParentShell', () => ({
+  ParentShell: ({ children }: { children: JSX.Element }): JSX.Element => <div>{children}</div>,
+}));
+
+const { BoardBuilder } = await import('./BoardBuilder');
+
+const baseBoard: Board = {
+  id: 'board-1',
+  ownerId: 'owner-1',
+  kidId: 'kid-1',
+  name: 'Morning routine',
+  kind: 'sequence',
+  labelsVisible: true,
+  voiceMode: 'tts',
+  stepIds: [],
+  kidReorderable: false,
+  accent: 'peach',
+  accentInk: 'peach-ink',
+  updatedLabel: 'Edited just now',
+};
+
+const noop = (): void => undefined;
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('BoardBuilder Share button', () => {
+  it('renders the Share button when isOwner=true', () => {
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onKidMode={noop}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+  });
+
+  it('hides the Share button when isOwner=false', () => {
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner={false}
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onKidMode={noop}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+  });
+
+  it('invokes onOpenShare when the button is clicked', () => {
+    const onOpenShare = vi.fn();
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={onOpenShare}
+        onKidMode={noop}
+      />,
+    );
+    screen.getByRole('button', { name: 'Share' }).click();
+    expect(onOpenShare).toHaveBeenCalledTimes(1);
+  });
+});

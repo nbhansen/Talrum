@@ -1,11 +1,13 @@
 import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { useSessionUser } from '@/app/session';
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
 import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
 
 import { BoardBuilder } from './BoardBuilder';
 import { BoardNotFound } from './BoardNotFound';
+import { ShareModal } from './ShareModal';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
@@ -13,8 +15,10 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const boardsQuery = useBoards();
   const board = boardQuery.data;
   const navigate = useNavigate();
+  const me = useSessionUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const pickerOpen = searchParams.get('picker') === '1';
+  const shareOpen = searchParams.get('share') === '1';
 
   const openPicker = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
@@ -25,6 +29,18 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const closePicker = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
     next.delete('picker');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const openShare = useCallback((): void => {
+    const next = new URLSearchParams(searchParams);
+    next.set('share', '1');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  const closeShare = useCallback((): void => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('share');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -52,15 +68,22 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
 
   if (!board) return null;
 
+  const isOwner = board.ownerId === me.id;
+
   return (
     <>
       <BoardBuilder
         board={board}
+        isOwner={isOwner}
         onBack={() => navigate('/')}
         onOpenPicker={openPicker}
+        onOpenShare={openShare}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}
+      {shareOpen && (
+        <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />
+      )}
     </>
   );
 };
