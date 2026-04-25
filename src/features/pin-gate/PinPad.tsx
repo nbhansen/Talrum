@@ -43,12 +43,10 @@ export const PinPad = ({
       return;
     }
     if (!key) return;
-    setDigits((d) => {
-      if (d.length >= PIN_LENGTH) return d;
-      const next = d + key;
-      if (next.length === PIN_LENGTH) void submit(next);
-      return next;
-    });
+    if (digits.length >= PIN_LENGTH) return;
+    const next = digits + key;
+    setDigits(next);
+    if (next.length === PIN_LENGTH) void submit(next);
   };
 
   return (
