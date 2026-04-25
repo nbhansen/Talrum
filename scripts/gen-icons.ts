@@ -15,7 +15,7 @@ import sharp from 'sharp';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const src = `${root}src/assets/talrum-logo.png`;
 
-const targets: ReadonlyArray<{ size: number; out: string }> = [
+const targets: readonly { size: number; out: string }[] = [
   { size: 192, out: `${root}public/icon-192.png` },
   { size: 512, out: `${root}public/icon-512.png` },
   { size: 180, out: `${root}public/apple-touch-icon.png` },

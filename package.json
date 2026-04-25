@@ -24,7 +24,10 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/nunito": "^5.1.1",
     "@supabase/supabase-js": "^2.104.1",
+    "@tanstack/query-async-storage-persister": "^5.100.1",
     "@tanstack/react-query": "^5.100.1",
+    "@tanstack/react-query-persist-client": "^5.100.1",
+    "idb-keyval": "^6.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
@@ -44,6 +47,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "eslint-plugin-simple-import-sort": "^12.1.1",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.0.2",
     "prettier": "^3.4.2",
     "sharp": "^0.34.5",

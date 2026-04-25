@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest';
+// Phase 4 wires idb-keyval into queryClient + outbox; jsdom doesn't ship with
+// indexedDB, so provide a Dexie-grade polyfill globally for every test that
+// touches the persistence layer.
+import 'fake-indexeddb/auto';
 
 // Node 25's experimental `localStorage` global (no `--localstorage-file` passed)
 // ends up shadowing jsdom's Storage implementation with an empty shell that has
