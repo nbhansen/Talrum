@@ -117,9 +117,20 @@ const patchPictogramInList = (
  * so the next refetch resolves the real URL into the cache slot we just freed.
  *
  * Called by onSuccess and onError of every pictogram mutation that plants a
- * blob URL. Two concurrent uploads racing here would mean the earlier one's
- * sweep also revokes the still-pending one's blob — accept the brief broken-
- * image flash; this app does not realistically run concurrent uploads.
+ * blob URL. Known accepted races:
+ *
+ *   - Two concurrent uploads: the earlier one's sweep also revokes the later
+ *     one's still-pending blob → brief broken-image flash on the second tile
+ *     until invalidation refetches the real signed URL.
+ *   - Audio mid-buffer: revoking a `blob:` URL while an `<audio>` element is
+ *     mid-load can stop playback. Recordings are small (KBs), uploads are
+ *     normally faster than the user can hit play immediately after recording,
+ *     so this rarely surfaces in practice.
+ *
+ * Both are accepted tradeoffs in exchange for the simpler "scan all blobs"
+ * implementation; the alternative (per-mutation id tracking through
+ * onSuccess/onError contexts) is significantly more wiring for a workflow
+ * that doesn't realistically produce concurrent uploads.
  */
 const revokePictogramBlobs = (qc: QueryClient): void => {
   const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
