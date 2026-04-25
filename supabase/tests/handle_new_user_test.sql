@@ -5,7 +5,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(11);
+SELECT plan(14);
 
 -- Capture template counts so the assertions below survive future seed
 -- changes (add more pictograms, add a fifth board, etc.) without editing
@@ -15,6 +15,18 @@ CREATE TEMP TABLE tt AS
   SELECT
     (SELECT count(*)::int FROM public.template_pictograms) AS pictos,
     (SELECT count(*)::int FROM public.template_boards)     AS boards;
+
+-- Floor checks: if template_* were ever truncated (or RLS hid them from
+-- this session), every subsequent count assertion would pass vacuously
+-- as 0==0. Pin a known-minimum to make that failure mode loud.
+SELECT cmp_ok(
+  (SELECT pictos FROM tt), '>=', 17,
+  'template_pictograms is populated (>=17)'
+);
+SELECT cmp_ok(
+  (SELECT boards FROM tt), '>=', 4,
+  'template_boards is populated (>=4)'
+);
 
 -- Two ephemeral users. is_sso_user / is_anonymous have defaults; only id
 -- is required. Trigger fires AFTER INSERT.
@@ -98,10 +110,29 @@ SELECT is(
   'user A board step_ids never point at user B pictograms'
 );
 
--- 10–11: idempotency. Trigger function guards on existing kid for the
+-- 10: symmetric — user B's step_ids never reference user A's pictograms.
+SELECT is(
+  (SELECT count(*)::int FROM (
+     SELECT unnest(step_ids) AS sid
+       FROM public.boards
+      WHERE owner_id = '22222222-2222-2222-2222-222222222222'
+   ) s
+   WHERE s.sid IN (
+     SELECT id FROM public.pictograms WHERE owner_id = '11111111-1111-1111-1111-111111111111'
+   )),
+  0,
+  'user B board step_ids never point at user A pictograms'
+);
+
+-- 13–14: idempotency. Trigger function guards on existing kid for the
 -- owner. Re-firing must not double-seed. We can't INSERT the same auth.users
 -- id twice (PK collision), so we attach handle_new_user to AFTER UPDATE for
 -- the duration of the test, fire it via a no-op UPDATE, then drop it.
+-- Note: this validates the function body's existing-kid guard, not the
+-- AFTER INSERT wiring on auth.users. A regression that left the guard
+-- intact but altered the INSERT-time conflict handling would not be
+-- caught here; that's covered (implicitly) by the PK collision on
+-- re-inserting auth.users.
 CREATE TRIGGER tmp_retest
   AFTER UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
