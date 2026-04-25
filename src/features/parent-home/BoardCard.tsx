@@ -4,7 +4,7 @@ import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { StepArrowIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { PictoCard } from '@/ui/PictoTile/PictoCard';
 
 import styles from './BoardCard.module.css';
 
@@ -38,7 +38,7 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
       <div className={styles.preview}>
         {previewSteps.map((p, i) => (
           <Fragment key={`${p.id}-${i}`}>
-            <PictoTile picto={p} size={64} showLabel={false} as="div" />
+            <PictoCard picto={p} size={64} showLabel={false} />
             {i < previewSteps.length - 1 && (
               <span className={styles.previewArrow}>
                 <StepArrowIcon size={14} />

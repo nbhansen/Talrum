@@ -6,6 +6,18 @@
   padding: 0;
 }
 
+.tileButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 .label {
   font-weight: 700;
   color: var(--tal-ink);
