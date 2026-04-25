@@ -23,6 +23,17 @@ vi.mock('@/features/login/Login', () => ({
 const { AuthGate } = await import('./AuthGate');
 
 describe('AuthGate', () => {
+  it('shows the loading copy while getSession is pending', () => {
+    getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
+    render(
+      <AuthGate>
+        <div>app body</div>
+      </AuthGate>,
+    );
+    expect(screen.getByText('Signing in…')).toBeInTheDocument();
+    expect(screen.queryByText('app body')).not.toBeInTheDocument();
+  });
+
   it('shows an error screen with Retry when getSession rejects', async () => {
     getSessionMock.mockRejectedValueOnce(new Error('fetch failed: net::ERR'));
     render(

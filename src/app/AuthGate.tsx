@@ -47,11 +47,18 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   const retry = useCallback(() => setRetryCount((n) => n + 1), []);
 
-  if (state.status === 'loading') return <div className="tal" />;
+  if (state.status === 'loading') return <AuthGateLoading />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
   if (state.status === 'out') return <Login />;
   return <SessionProvider session={state.session}>{children}</SessionProvider>;
 };
+
+const AuthGateLoading = (): JSX.Element => (
+  <div className={`tal ${styles.loading}`}>
+    <div className={styles.spinner} aria-hidden="true" />
+    <p className={styles.loadingBody}>Signing in…</p>
+  </div>
+);
 
 const AuthGateError = ({
   message,
