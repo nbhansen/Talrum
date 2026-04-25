@@ -1,6 +1,7 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
 
 import styles from './Login.module.css';
@@ -19,6 +20,7 @@ export const Login = (): JSX.Element => {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const online = useOnline();
 
   const sendCode = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -62,6 +64,11 @@ export const Login = (): JSX.Element => {
       <div className={styles.card}>
         <h1 className={styles.title}>Talrum</h1>
         <p className={styles.subtitle}>Sign in with a one-time code.</p>
+        {!online && (
+          <div role="status" className={styles.offline}>
+            You're offline — sign-in needs a network connection. Reconnect and try again.
+          </div>
+        )}
         {stage === 'email' ? (
           <form className={styles.form} onSubmit={(e) => void sendCode(e)}>
             <label className={styles.field}>
@@ -79,7 +86,11 @@ export const Login = (): JSX.Element => {
               />
             </label>
             {error && <div className={styles.error}>{error}</div>}
-            <Button type="submit" variant="primary" disabled={busy || !email.trim()}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy || !email.trim() || !online}
+            >
               {busy ? 'Sending…' : 'Send code'}
             </Button>
           </form>
@@ -119,7 +130,11 @@ export const Login = (): JSX.Element => {
               >
                 Back
               </Button>
-              <Button type="submit" variant="primary" disabled={busy || code.length < 6}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={busy || code.length < 6 || !online}
+              >
                 {busy ? 'Verifying…' : 'Sign in'}
               </Button>
             </div>

@@ -4,6 +4,7 @@ import { type JSX, type ReactNode, useCallback, useEffect, useState } from 'reac
 import { Login } from '@/features/login/Login';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
+import { useOnline } from '@/lib/useOnline';
 
 import styles from './AuthGate.module.css';
 import { SessionProvider } from './SessionProvider';
@@ -60,6 +61,14 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
   return <SessionProvider session={state.session}>{children}</SessionProvider>;
 };
 
+const AuthGateOfflineHint = (): JSX.Element | null => {
+  const online = useOnline();
+  if (online) return null;
+  return (
+    <p className={styles.errorBody}>You're offline — Retry once your connection is back.</p>
+  );
+};
+
 const AuthGateLoading = (): JSX.Element => (
   <div className={`tal ${styles.loading}`}>
     <div className={styles.spinner} aria-hidden="true" />
@@ -77,6 +86,7 @@ const AuthGateError = ({
   <div className={`tal ${styles.error}`}>
     <h1 className={styles.errorTitle}>Could not reach the server</h1>
     <p className={styles.errorBody}>{message}</p>
+    <AuthGateOfflineHint />
     <button type="button" onClick={onRetry} className={styles.errorRetry}>
       Retry
     </button>
