@@ -16,16 +16,12 @@ interface ParentHomeProps {
   kidName?: string;
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
-  onSignOut?: () => void;
-  userInitial?: string | undefined;
 }
 
 export const ParentHome = ({
   kidName = 'Liam',
   onOpenBoard,
   onKidMode,
-  onSignOut,
-  userInitial,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
@@ -36,8 +32,6 @@ export const ParentHome = ({
     <ParentShell
       active="home"
       {...(onKidMode ? { onKidMode } : {})}
-      {...(onSignOut ? { onSignOut } : {})}
-      userInitial={userInitial}
       title={`${kidName}'s boards`}
       subtitle="Pick a board to edit, or start a new one."
       right={

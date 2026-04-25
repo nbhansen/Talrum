@@ -1,13 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
-import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
-import type { Board, BoardKind, Pictogram } from '@/types/domain';
-import { Button } from '@/ui/Button/Button';
-import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
-
-import styles from './BoardBuilder.module.css';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -15,10 +8,17 @@ import {
   useSetLabelsVisible,
   useSetStepIds,
   useSetVoiceMode,
-} from './mutations';
+} from '@/lib/queries/boards';
+import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
+import type { Board, BoardKind, Pictogram } from '@/types/domain';
+import { Button } from '@/ui/Button/Button';
+import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
+import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { Reorderable } from '@/ui/Reorderable/Reorderable';
+
+import styles from './BoardBuilder.module.css';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
-import { Reorderable } from './useReorderable';
 
 const QUICK_ADD_SLUGS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
 
@@ -30,8 +30,6 @@ interface BoardBuilderProps {
   onOpenPicker: () => void;
   onPreview: (kind: BoardKind) => void;
   onKidMode: () => void;
-  onSignOut: () => void;
-  userInitial?: string | undefined;
 }
 
 interface Step {
@@ -58,8 +56,6 @@ export const BoardBuilder = ({
   onOpenPicker,
   onPreview,
   onKidMode,
-  onSignOut,
-  userInitial,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const { data: allPictograms = [] } = usePictograms();
@@ -126,8 +122,6 @@ export const BoardBuilder = ({
     <ParentShell
       active="home"
       onKidMode={onKidMode}
-      onSignOut={onSignOut}
-      userInitial={userInitial}
       right={
         <Button variant="primary" icon={<PlayIcon />} onClick={() => onPreview(board.kind)}>
           Preview for Liam

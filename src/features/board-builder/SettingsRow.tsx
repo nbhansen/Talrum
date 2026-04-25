@@ -5,6 +5,8 @@ import { Segmented } from '@/ui/Segmented/Segmented';
 import { Select } from '@/ui/Select/Select';
 import { Toggle } from '@/ui/Toggle/Toggle';
 
+import styles from './SettingsRow.module.css';
+
 interface SettingsRowProps {
   kind: BoardKind;
   onKindChange: (next: BoardKind) => void;
@@ -39,28 +41,13 @@ export const SettingsRow = ({
   onKidReorderableChange,
   stepCount,
 }: SettingsRowProps): JSX.Element => (
-  <div
-    style={{
-      display: 'flex',
-      gap: 10,
-      flexWrap: 'wrap',
-      marginTop: 12,
-      marginBottom: 28,
-    }}
-  >
+  <div className={styles.row}>
     <Segmented value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
     <Toggle label="Labels" value={labelsVisible} onChange={onLabelsChange} />
     <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
     <Select label="Voice" value={voiceMode} onChange={onVoiceModeChange} options={VOICE_OPTIONS} />
-    <div style={{ flex: 1 }} />
-    <div
-      style={{
-        alignSelf: 'center',
-        fontSize: 13,
-        color: 'var(--tal-ink-muted)',
-        fontWeight: 600,
-      }}
-    >
+    <div className={styles.spacer} />
+    <div className={styles.count}>
       {stepCount} step{stepCount === 1 ? '' : 's'} · drag to reorder
     </div>
   </div>
