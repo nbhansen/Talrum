@@ -89,3 +89,12 @@
   padding: 8px 12px;
   border-radius: var(--tal-r-md);
 }
+
+.offline {
+  font-size: 13px;
+  background: var(--tal-surface-alt);
+  color: var(--tal-ink-soft);
+  padding: 10px 12px;
+  border-radius: var(--tal-r-md);
+  margin-bottom: 16px;
+}
