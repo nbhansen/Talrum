@@ -1,11 +1,11 @@
 import { type JSX, useState } from 'react';
 
-import { useSetStepIds } from '@/features/board-builder/mutations';
 import {
   type DragBindings,
   Reorderable,
 } from '@/features/board-builder/useReorderable';
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
+import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import type { Board, Pictogram } from '@/types/domain';

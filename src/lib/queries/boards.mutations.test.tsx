@@ -3,7 +3,6 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { boardQueryKey } from '@/lib/queries/boards';
 import type { Board } from '@/types/domain';
 
 const eqMock = vi.fn<(column: string, value: string) => Promise<{ error: Error | null }>>();
@@ -13,7 +12,7 @@ const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
 
 // Import after the mock is registered.
-const { useRenameBoard } = await import('./mutations');
+const { boardQueryKey, useRenameBoard } = await import('./boards');
 
 const seed: Board = {
   id: 'morning',

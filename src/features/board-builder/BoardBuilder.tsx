@@ -1,13 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
-import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
-import type { Board, BoardKind, Pictogram } from '@/types/domain';
-import { Button } from '@/ui/Button/Button';
-import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
-
-import styles from './BoardBuilder.module.css';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -15,7 +8,14 @@ import {
   useSetLabelsVisible,
   useSetStepIds,
   useSetVoiceMode,
-} from './mutations';
+} from '@/lib/queries/boards';
+import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
+import type { Board, BoardKind, Pictogram } from '@/types/domain';
+import { Button } from '@/ui/Button/Button';
+import { ArrowLeftIcon, PlayIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
+import { PictoTile } from '@/ui/PictoTile/PictoTile';
+
+import styles from './BoardBuilder.module.css';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 import { Reorderable } from './useReorderable';
