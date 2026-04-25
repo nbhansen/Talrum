@@ -7,7 +7,6 @@ import styles from './OfflineIndicator.module.css';
 const discardAllFailed = async (): Promise<void> => {
   const entries = await peekEntries();
   await Promise.all(entries.filter((e) => e.status === 'failed').map((e) => discardEntry(e.id)));
-  await kick();
 };
 
 /**

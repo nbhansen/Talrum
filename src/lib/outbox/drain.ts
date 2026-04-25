@@ -114,6 +114,11 @@ let listenersAttached = false;
 export const startOutbox = (): void => {
   if (listenersAttached) return;
   listenersAttached = true;
+  // Prime lastStatus from IDB before any subscribe() call lands a stale zero
+  // pendingCount on a cold boot with persisted entries (#29). emit() is async,
+  // but we'd rather race a microtask than render a "synced" indicator that
+  // snaps to "3 pending" once the first drain completes.
+  void emit();
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
       void drain();
@@ -126,3 +131,22 @@ export const startOutbox = (): void => {
 };
 
 export const kick = (): Promise<void> => drain();
+
+/**
+ * Test-only: reset the module-level state that startOutbox accumulates so a
+ * second test in the same file can re-exercise the cold-boot prime path.
+ * Production code never calls this; the listenersAttached flag is a one-shot
+ * guard against double-registering window listeners during normal app boot.
+ */
+export const __test_resetOutbox = (): void => {
+  draining = false;
+  pendingDrain = false;
+  listenersAttached = false;
+  subscribers.clear();
+  lastStatus = {
+    online: typeof navigator === 'undefined' ? true : navigator.onLine,
+    pendingCount: 0,
+    failedCount: 0,
+    draining: false,
+  };
+};

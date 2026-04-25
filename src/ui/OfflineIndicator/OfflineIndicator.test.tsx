@@ -1,19 +1,25 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const useOutboxStatusMock = vi.fn();
+const kickMock = vi.fn();
+const peekEntriesMock = vi.fn();
+const discardEntryMock = vi.fn();
 
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
-  kick: vi.fn(),
-  peekEntries: vi.fn(),
-  discardEntry: vi.fn(),
+  kick: (...args: unknown[]) => kickMock(...args),
+  peekEntries: (...args: unknown[]) => peekEntriesMock(...args),
+  discardEntry: (...args: unknown[]) => discardEntryMock(...args),
 }));
 
 const { OfflineIndicator } = await import('./OfflineIndicator');
 
 afterEach(() => {
   useOutboxStatusMock.mockReset();
+  kickMock.mockReset();
+  peekEntriesMock.mockReset();
+  discardEntryMock.mockReset();
 });
 
 describe('OfflineIndicator', () => {
@@ -61,5 +67,27 @@ describe('OfflineIndicator', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/2 sync changes failed/);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
+  });
+
+  it('discards failed entries without kicking the drain (#31)', async () => {
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 1,
+      failedCount: 1,
+      draining: false,
+    });
+    peekEntriesMock.mockResolvedValue([
+      { id: 'a', status: 'failed' },
+      { id: 'b', status: 'pending' },
+    ]);
+    discardEntryMock.mockResolvedValue(undefined);
+    render(<OfflineIndicator />);
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    // Let the discardAllFailed promise chain settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(discardEntryMock).toHaveBeenCalledWith('a');
+    expect(discardEntryMock).not.toHaveBeenCalledWith('b');
+    expect(kickMock).not.toHaveBeenCalled();
   });
 });

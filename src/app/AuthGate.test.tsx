@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
 type AuthChangeListener = (event: string, session: Session | null) => void;
@@ -46,6 +46,11 @@ const { useSessionUser } = await import('./session');
 
 const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSessionUser().id}</div>;
 
+afterEach(() => {
+  getSessionMock.mockReset();
+  onAuthStateChangeMock.mockClear();
+});
+
 describe('AuthGate', () => {
   it('shows the loading copy while getSession is pending', () => {
     getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
@@ -76,6 +81,32 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(screen.getByText('login screen')).toBeInTheDocument();
     });
+  });
+
+  it('swaps the spinner for an offline hint after 5s if getSession hangs while offline (#30)', async () => {
+    const originalOnline = navigator.onLine;
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(
+        <AuthGate>
+          <div>app body</div>
+        </AuthGate>,
+      );
+      // Spinner is up before the hung-getSession timer fires.
+      expect(screen.getByText('Loading…')).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      await waitFor(() => {
+        expect(screen.getByText("You're offline")).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+      Object.defineProperty(navigator, 'onLine', { value: originalOnline, configurable: true });
+    }
   });
 
   // Regression cover for cross-user re-auth: signing out and back in as a

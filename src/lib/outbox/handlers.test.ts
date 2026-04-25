@@ -119,6 +119,38 @@ describe('runHandler · createPhotoPicto', () => {
     );
   });
 
+  it('treats a 5xx storage error as transient — not Unretryable (#32)', async () => {
+    const uploadErr = Object.assign(new Error('boom'), { statusCode: 500 });
+    uploadMock.mockResolvedValue({ error: uploadErr });
+    const entry: CreatePhotoPictogramEntry = {
+      ...baseProps,
+      kind: 'createPhotoPicto',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      label: 'Park',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+    };
+    let caught: unknown;
+    try {
+      await runHandler(entry);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeDefined();
+    expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
+    // Lock in that the original storage error reaches the drain layer with
+    // its statusCode intact — drain.ts uses this to bump attemptCount and
+    // schedule a retry. A regression that re-wrapped 5xx in some other
+    // custom subclass would trip this.
+    expect(caught).toBe(uploadErr);
+    expect((caught as { statusCode?: number }).statusCode).toBe(500);
+    // Insert never ran because upload threw first; the bucket cleanup path
+    // only fires when insert fails after a successful upload.
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
   it('cleans up the uploaded blob if insert fails', async () => {
     insertMock.mockResolvedValue({
       error: { code: '23505', message: 'unique violation', details: '', hint: '' },

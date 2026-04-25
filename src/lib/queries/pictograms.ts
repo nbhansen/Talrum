@@ -1,4 +1,5 @@
 import {
+  type QueryClient,
   useMutation,
   type UseMutationResult,
   useQuery,
@@ -107,6 +108,45 @@ const patchPictogramInList = (
   patch: (p: Pictogram) => Pictogram,
 ): Pictogram[] | undefined => list?.map((p) => (p.id === id ? patch(p) : p));
 
+/**
+ * Walk every pictogram currently in the cache and `URL.revokeObjectURL` any
+ * `blob:` imagePath / audioPath. Optimistic mutations plant local blob URLs
+ * for instant render; once the outbox uploads succeed the next `invalidateQueries`
+ * refetch replaces the row with a real signed-URL path, but the blob keeps
+ * its memory reference unless we explicitly revoke. Sweep before invalidation
+ * so the next refetch resolves the real URL into the cache slot we just freed.
+ *
+ * Called by onSuccess and onError of every pictogram mutation that plants a
+ * blob URL. Known accepted races:
+ *
+ *   - Two concurrent uploads: the earlier one's sweep also revokes the later
+ *     one's still-pending blob → brief broken-image flash on the second tile
+ *     until invalidation refetches the real signed URL.
+ *   - Audio mid-buffer: revoking a `blob:` URL while an `<audio>` element is
+ *     mid-load can stop playback. Recordings are small (KBs), uploads are
+ *     normally faster than the user can hit play immediately after recording,
+ *     so this rarely surfaces in practice.
+ *
+ * Both are accepted tradeoffs in exchange for the simpler "scan all blobs"
+ * implementation; the alternative (per-mutation id tracking through
+ * onSuccess/onError contexts) is significantly more wiring for a workflow
+ * that doesn't realistically produce concurrent uploads.
+ */
+const revokePictogramBlobs = (qc: QueryClient): void => {
+  const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+  if (!list) return;
+  for (const p of list) {
+    if (p.style === 'photo' && p.imagePath?.startsWith('blob:')) {
+      URL.revokeObjectURL(p.imagePath);
+    }
+    if (p.audioPath?.startsWith('blob:')) {
+      URL.revokeObjectURL(p.audioPath);
+    }
+  }
+};
+
+export const __test_revokePictogramBlobs = revokePictogramBlobs;
+
 interface SetAudioInput {
   pictogramId: string;
   blob: Blob;
@@ -140,6 +180,11 @@ export const useSetPictogramAudio = (): UseMutationResult<void, Error, SetAudioI
         ...(previousPath ? { previousPath } : {}),
       }),
     onSuccess: () => {
+      revokePictogramBlobs(qc);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+    onError: () => {
+      revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
   });
@@ -192,10 +237,12 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       return { id, imagePath: `${ownerId}/${id}.${extension}` };
     },
     onSuccess: () => {
+      revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
     onError: (_err, _input, _ctx) => {
       // Drop the optimistic row; the user got an error.
+      revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
   });
@@ -215,6 +262,11 @@ export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAu
     mutationFn: ({ pictogramId, path }) =>
       enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId, path }),
     onSuccess: () => {
+      revokePictogramBlobs(qc);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+    onError: () => {
+      revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
   });
