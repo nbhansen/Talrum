@@ -189,3 +189,61 @@ describe('ShareModal — non-owner', () => {
     expect(screen.queryByText('Add someone')).not.toBeInTheDocument();
   });
 });
+
+describe('ShareModal — members loading state (#35)', () => {
+  it('renders "Loading…" instead of "No one yet." while the query is pending', () => {
+    const onClose = vi.fn();
+    useBoardMembersMock.mockReturnValue({ data: undefined, isPending: true });
+    render(
+      <SessionContext.Provider
+        value={{
+          session: {} as Session,
+          user: fakeUser(ME_ID),
+          signOut: async () => undefined,
+        }}
+      >
+        <ShareModal boardId="board-1" isOwner onClose={onClose} />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    expect(screen.queryByText('No one yet.')).not.toBeInTheDocument();
+  });
+});
+
+describe('ShareModal — clipboard error (#36)', () => {
+  const realClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: realClipboard,
+      configurable: true,
+    });
+  });
+
+  it('shows an inline error if clipboard.writeText rejects', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+      configurable: true,
+    });
+    renderModal([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy your sharing ID' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('select the ID and copy manually'),
+    );
+  });
+
+  it('shows an inline error when running in an insecure context', () => {
+    const realIsSecure = window.isSecureContext;
+    Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true });
+    try {
+      renderModal([]);
+      fireEvent.click(screen.getByRole('button', { name: 'Copy your sharing ID' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('select the ID and copy manually');
+    } finally {
+      Object.defineProperty(window, 'isSecureContext', {
+        value: realIsSecure,
+        configurable: true,
+      });
+    }
+  });
+});

@@ -25,16 +25,39 @@ interface ShareModalProps {
   onClose: () => void;
 }
 
-const useCopy = (): { copied: boolean; copy: (text: string) => void } => {
+interface CopyState {
+  copied: boolean;
+  error: string | null;
+  copy: (text: string) => void;
+}
+
+const useCopy = (): CopyState => {
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const copy = (text: string): void => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    // Insecure context (http://) blocks clipboard API in Chrome/Safari; the
+    // call would reject with an unhelpful DOMException. Short-circuit and
+    // surface the same fallback copy.
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.clipboard ||
+      (typeof window !== 'undefined' && window.isSecureContext === false)
+    ) {
+      setError("Couldn't copy — select the ID and copy manually.");
+      return;
+    }
+    setError(null);
+    void navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {
+        setError("Couldn't copy — select the ID and copy manually.");
+      },
+    );
   };
-  return { copied, copy };
+  return { copied, error, copy };
 };
 
 export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.Element => {
@@ -42,7 +65,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
   const members = useBoardMembers(boardId);
   const addMember = useAddBoardMember();
   const removeMember = useRemoveBoardMember();
-  const { copied, copy } = useCopy();
+  const { copied, error: copyError, copy } = useCopy();
 
   const [draftId, setDraftId] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -117,13 +140,25 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
+          {copyError && (
+            <p role="alert" className={styles.error}>
+              {copyError}
+            </p>
+          )}
         </section>
 
         {isOwner && (
           <>
             <section className={styles.section}>
               <span className={styles.sectionLabel}>Shared with</span>
-              {members.data && members.data.length > 0 ? (
+              {members.isPending ? (
+                // Distinct from the empty state so an owner who's already
+                // shared with someone doesn't see "No one yet." flash before
+                // the first fetch lands.
+                <p className={styles.empty} role="status" aria-live="polite">
+                  Loading…
+                </p>
+              ) : members.data && members.data.length > 0 ? (
                 <ul className={styles.memberList}>
                   {members.data.map((m) => (
                     <li key={m.userId} className={styles.memberRow}>
