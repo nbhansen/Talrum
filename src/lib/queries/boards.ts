@@ -85,15 +85,15 @@ export const useBoard = (id: string): UseQueryResult<Board> =>
  *
  * Every public mutation below is a three-line wrapper over this.
  */
-const useBoardPatch = <Input,>(
+const useBoardPatch = <Input extends { boardId: string }>(
   patch: (input: Input, current: Board) => Board,
   run: (input: Input) => Promise<void>,
 ): UseMutationResult<void, Error, Input, { previous: Board | undefined }> => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: run,
-    onMutate: async (input: Input) => {
-      const boardId = (input as { boardId: string }).boardId;
+    onMutate: async (input) => {
+      const { boardId } = input;
       await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });
       const previous = qc.getQueryData<Board>(boardQueryKey(boardId));
       if (previous) {
@@ -101,12 +101,10 @@ const useBoardPatch = <Input,>(
       }
       return { previous };
     },
-    onError: (_err, input, ctx) => {
-      const boardId = (input as { boardId: string }).boardId;
+    onError: (_err, { boardId }, ctx) => {
       if (ctx?.previous) qc.setQueryData(boardQueryKey(boardId), ctx.previous);
     },
-    onSettled: (_data, _err, input) => {
-      const boardId = (input as { boardId: string }).boardId;
+    onSettled: (_data, _err, { boardId }) => {
       qc.invalidateQueries({ queryKey: boardQueryKey(boardId) });
       qc.invalidateQueries({ queryKey: boardsQueryKey });
     },

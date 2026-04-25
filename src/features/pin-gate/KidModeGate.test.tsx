@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearPin, hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
+import { clearPin, hasPin, setPin, verifyPin } from '@/lib/pin';
 
 import { KidModeGate } from './KidModeGate';
 
@@ -44,8 +44,19 @@ const tapDigits = async (
 };
 
 describe('KidModeGate', () => {
-  it('skips the gate entirely when pinGateDisabled() is true', async () => {
-    expect(pinGateDisabled()).toBe(false); // sanity — env flag isn't set in tests
+  it('skips the gate entirely when VITE_DISABLE_PIN is set', async () => {
+    vi.stubEnv('VITE_DISABLE_PIN', '1');
+    try {
+      const onExit = vi.fn();
+      const { user } = renderGate(onExit);
+      await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
+      // Modal never mounts; onExitConfirmed fires synchronously.
+      expect(screen.queryByText(/Set a parent PIN/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Enter PIN to exit/)).not.toBeInTheDocument();
+      expect(onExit).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('first exit with no PIN runs setup → confirm → fires onExitConfirmed', async () => {

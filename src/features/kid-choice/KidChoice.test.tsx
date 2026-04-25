@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -71,15 +71,17 @@ describe('KidChoice', () => {
         <KidChoice board={board} onExit={vi.fn()} />
       </Wrap>,
     );
-    fireEvent.click(screen.getByText('Park'));
+    // Target the choice button by accessible name (marker letter + label),
+    // not the inner label span — the inner span is overlaid by absolutely-
+    // positioned media wrappers that confuse userEvent's pointer simulation.
+    await userEvent.click(screen.getByRole('button', { name: /Park/i }));
     expect(speakPictogramMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: park.id }),
       'tts',
     );
-    // Placeholder gone, confirm CTA visible. CTA accessible name combines
-    // a CheckIcon (no name) with split text nodes, so we anchor on the
-    // "Let's go to" prefix which only exists inside the confirm button.
     expect(screen.queryByText(/Tap one to choose/)).not.toBeInTheDocument();
+    // Confirm CTA accessible name combines a CheckIcon (no name) with
+    // split text nodes — anchor on the "Let's go to" prefix only.
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
   });
 
