@@ -1,0 +1,34 @@
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+  height: 100vh;
+}
+
+.errorTitle {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.errorBody {
+  font-size: 15px;
+  color: var(--tal-ink-soft);
+  margin: 0;
+  max-width: 420px;
+}
+
+.errorRetry {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: var(--tal-r-pill);
+  border: none;
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+  cursor: pointer;
+}

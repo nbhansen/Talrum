@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
+import { TestSessionProvider } from '@/app/session.test-utils';
 import { boardsQueryKey } from '@/lib/queries/boards';
 
 const singleMock = vi.fn();
@@ -26,13 +27,15 @@ const { BoardBuilderRoute } = await import('./BoardBuilderRoute');
 
 const makeWrapper = (qc: QueryClient, initialPath: string): (() => JSX.Element) => {
   return (): JSX.Element => (
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <Routes>
-          <Route path="/boards/:boardId/edit" element={<BoardBuilderRoute />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>
+    <TestSessionProvider>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/boards/:boardId/edit" element={<BoardBuilderRoute />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </TestSessionProvider>
   );
 };
 

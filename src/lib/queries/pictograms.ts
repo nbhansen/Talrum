@@ -6,6 +6,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { useSessionUser } from '@/app/session';
 import {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
@@ -106,12 +107,6 @@ export const usePictogramsBySlug = (): Map<string, Pictogram> => {
   return out;
 };
 
-const currentUserId = async (): Promise<string> => {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw error ?? new Error('not signed in');
-  return data.user.id;
-};
-
 interface SetAudioInput {
   pictogramId: string;
   blob: Blob;
@@ -122,9 +117,9 @@ interface SetAudioInput {
 
 export const useSetPictogramAudio = (): UseMutationResult<string, Error, SetAudioInput> => {
   const qc = useQueryClient();
+  const ownerId = useSessionUser().id;
   return useMutation({
     mutationFn: async ({ pictogramId, blob, extension, previousPath }) => {
-      const ownerId = await currentUserId();
       const path = `${ownerId}/${pictogramId}.${extension}`;
       await uploadBlob(AUDIO_BUCKET, path, blob);
       invalidateSignedUrl(AUDIO_BUCKET, path);
@@ -167,9 +162,9 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
   CreatePhotoInput
 > => {
   const qc = useQueryClient();
+  const ownerId = useSessionUser().id;
   return useMutation({
     mutationFn: async ({ label, blob, extension }) => {
-      const ownerId = await currentUserId();
       const id = crypto.randomUUID();
       const path = `${ownerId}/${id}.${extension}`;
       await uploadBlob(IMAGES_BUCKET, path, blob);

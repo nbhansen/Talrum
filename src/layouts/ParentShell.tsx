@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 
+import { useSignOut, useUserInitial } from '@/app/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
 
@@ -24,13 +25,15 @@ const NAV: readonly NavItem[] = [
 interface ParentShellProps {
   active?: ParentNavKey;
   onNav?: (id: ParentNavKey) => void;
+  /**
+   * Page-specific kid-mode entry point. Each route picks the right board
+   * (e.g. ParentHome → first sequence board; BoardBuilder → this board).
+   * Sign-out and avatar pull from session and don't need props.
+   */
   onKidMode?: () => void;
-  onSignOut?: () => void;
   title?: string;
   subtitle?: string;
   right?: ReactNode;
-  /** Undefined renders a blank avatar while the session is loading. */
-  userInitial?: string | undefined;
   children: ReactNode;
 }
 
@@ -38,61 +41,63 @@ export const ParentShell = ({
   active,
   onNav,
   onKidMode,
-  onSignOut,
   title,
   subtitle,
   right,
-  userInitial,
   children,
-}: ParentShellProps): JSX.Element => (
-  <div className={styles.shell}>
-    <aside className={styles.sidebar}>
-      <TalrumLogo />
-      <nav className={styles.nav}>
-        {NAV.map((item) => {
-          const isActive = active === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={[styles.navItem, isActive && styles.navItemActive]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => onNav?.(item.id)}
-            >
-              <NavIcon name={item.glyph} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-      <div className={styles.bottom}>
-        <button type="button" className={styles.kidBtn} onClick={onKidMode}>
-          <LockIcon size={22} />
-          <span>KID</span>
-        </button>
-        <button
-          type="button"
-          className={styles.avatar}
-          onClick={onSignOut}
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          {userInitial ?? ''}
-        </button>
-      </div>
-    </aside>
-    <main className={styles.main}>
-      {title && (
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>{title}</h1>
-            {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
-          </div>
-          {right && <div>{right}</div>}
-        </header>
-      )}
-      <div className={`${styles.body} tal-scroll`}>{children}</div>
-    </main>
-  </div>
-);
+}: ParentShellProps): JSX.Element => {
+  const signOut = useSignOut();
+  const userInitial = useUserInitial();
+  return (
+    <div className={styles.shell}>
+      <aside className={styles.sidebar}>
+        <TalrumLogo />
+        <nav className={styles.nav}>
+          {NAV.map((item) => {
+            const isActive = active === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={[styles.navItem, isActive && styles.navItemActive]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => onNav?.(item.id)}
+              >
+                <NavIcon name={item.glyph} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <div className={styles.bottom}>
+          <button type="button" className={styles.kidBtn} onClick={onKidMode}>
+            <LockIcon size={22} />
+            <span>KID</span>
+          </button>
+          <button
+            type="button"
+            className={styles.avatar}
+            onClick={() => void signOut()}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            {userInitial ?? ''}
+          </button>
+        </div>
+      </aside>
+      <main className={styles.main}>
+        {title && (
+          <header className={styles.header}>
+            <div>
+              <h1 className={styles.title}>{title}</h1>
+              {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+            </div>
+            {right && <div>{right}</div>}
+          </header>
+        )}
+        <div className={`${styles.body} tal-scroll`}>{children}</div>
+      </main>
+    </div>
+  );
+};

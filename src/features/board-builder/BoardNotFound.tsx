@@ -12,8 +12,6 @@ interface BoardNotFoundProps {
   onBack: () => void;
   onRetry?: () => void;
   onKidMode: () => void;
-  onSignOut: () => void;
-  userInitial?: string | undefined;
 }
 
 const COPY: Record<BoardLoadFailureVariant, { title: string; body: string }> = {
@@ -32,17 +30,10 @@ export const BoardNotFound = ({
   onBack,
   onRetry,
   onKidMode,
-  onSignOut,
-  userInitial,
 }: BoardNotFoundProps): JSX.Element => {
   const { title, body } = COPY[variant];
   return (
-    <ParentShell
-      active="home"
-      onKidMode={onKidMode}
-      onSignOut={onSignOut}
-      userInitial={userInitial}
-    >
+    <ParentShell active="home" onKidMode={onKidMode}>
       <div className={styles.wrap}>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.body}>{body}</p>
