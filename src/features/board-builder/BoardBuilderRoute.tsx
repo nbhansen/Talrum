@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
 import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
-import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
+import { isNotFoundError, useBoard, useBoards, useSetStepIds } from '@/lib/queries/boards';
 
 import { BoardBuilder } from './BoardBuilder';
 import { BoardNotFound } from './BoardNotFound';
@@ -14,6 +14,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
   const boardQuery = useBoard(boardId);
   const boardsQuery = useBoards();
+  const setStepIds = useSetStepIds();
   const board = boardQuery.data;
   const navigate = useNavigate();
   const onNav = useParentNav();
@@ -82,7 +83,15 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
         onNav={onNav}
       />
-      {pickerOpen && <PictoPicker onClose={closePicker} />}
+      {pickerOpen && (
+        <PictoPicker
+          onClose={closePicker}
+          onConfirm={(ids) => {
+            if (ids.length === 0) return;
+            setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, ...ids] });
+          }}
+        />
+      )}
       {shareOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />}
     </>
   );
