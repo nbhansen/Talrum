@@ -42,7 +42,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   // Keep the dialog's pictogram in sync with the query cache so `audio_path`
   // updates (record → save, delete) flow through without remounting.
   const editingVoiceLive = editingVoice
-    ? pictograms.find((p) => p.id === editingVoice.id) ?? editingVoice
+    ? (pictograms.find((p) => p.id === editingVoice.id) ?? editingVoice)
     : null;
 
   const toggle = (id: string): void => {
@@ -66,9 +66,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
           <h2 id={TITLE_ID} className={styles.title}>
             Add pictograms
           </h2>
-          <p className={styles.subtitle}>
-            Pick from the library, upload a photo, or generate one.
-          </p>
+          <p className={styles.subtitle}>Pick from the library, upload a photo, or generate one.</p>
         </div>
         <button
           type="button"
@@ -123,10 +121,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
         </div>
       </footer>
       {editingVoiceLive && (
-        <VoiceRecorderDialog
-          picto={editingVoiceLive}
-          onClose={() => setEditingVoice(null)}
-        />
+        <VoiceRecorderDialog picto={editingVoiceLive} onClose={() => setEditingVoice(null)} />
       )}
     </Modal>
   );

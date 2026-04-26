@@ -7,10 +7,7 @@ import { signedUrlFor } from './storage';
  * on error (callers should render a placeholder in that state). Re-runs when
  * bucket/path change; cancelled updates if the component unmounts first.
  */
-export const useSignedUrl = (
-  bucket: string,
-  path: string | undefined,
-): string | null => {
+export const useSignedUrl = (bucket: string, path: string | undefined): string | null => {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!path) {

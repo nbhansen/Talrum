@@ -8,7 +8,9 @@
   flex-direction: column;
   gap: 14px;
   border: 1px solid var(--tal-line-soft);
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
   width: 100%;
   font-family: inherit;
   color: inherit;

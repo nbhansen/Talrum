@@ -63,9 +63,7 @@ export const LibraryTab = ({
                 onEditVoice(p);
               }}
               aria-label={
-                p.audioPath
-                  ? `Edit voice recording for ${p.label}`
-                  : `Record voice for ${p.label}`
+                p.audioPath ? `Edit voice recording for ${p.label}` : `Record voice for ${p.label}`
               }
               title={p.audioPath ? 'Edit recording' : 'Record voice'}
             >

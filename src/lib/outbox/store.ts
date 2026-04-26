@@ -9,8 +9,7 @@ import type { OutboxEntry } from './types';
  */
 const PREFIX = 'outbox:';
 const idbKey = (id: string): string => `${PREFIX}${id}`;
-const isOutboxKey = (k: IDBValidKey): k is string =>
-  typeof k === 'string' && k.startsWith(PREFIX);
+const isOutboxKey = (k: IDBValidKey): k is string => typeof k === 'string' && k.startsWith(PREFIX);
 
 export const putEntry = async (entry: OutboxEntry): Promise<void> => {
   await set(idbKey(entry.id), entry);

@@ -44,16 +44,15 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (originalSynth) (globalThis as { speechSynthesis: SpeechSynthesis }).speechSynthesis = originalSynth;
+  if (originalSynth)
+    (globalThis as { speechSynthesis: SpeechSynthesis }).speechSynthesis = originalSynth;
   else delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = originalUtter;
 });
 
 describe('speak()', () => {
   it('cancels in-flight speech and speaks the requested text', () => {
-    const { synth, utters, cancel, speakFn } = makeFakeSynth([
-      { name: 'Samantha', lang: 'en-US' },
-    ]);
+    const { synth, utters, cancel, speakFn } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
     (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('hello');

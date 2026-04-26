@@ -2,7 +2,10 @@ import { clear, set } from 'idb-keyval';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createSignedUrlMock = vi.fn<
-  (path: string, expiresIn: number) => Promise<{
+  (
+    path: string,
+    expiresIn: number,
+  ) => Promise<{
     data: { signedUrl: string } | null;
     error: Error | null;
   }>

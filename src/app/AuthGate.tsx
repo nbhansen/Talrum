@@ -64,9 +64,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 const AuthGateOfflineHint = (): JSX.Element | null => {
   const online = useOnline();
   if (online) return null;
-  return (
-    <p className={styles.errorBody}>You're offline — Retry once your connection is back.</p>
-  );
+  return <p className={styles.errorBody}>You're offline — Retry once your connection is back.</p>;
 };
 
 const HUNG_GETSESSION_HINT_MS = 5000;
