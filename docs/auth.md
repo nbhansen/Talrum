@@ -84,12 +84,3 @@ where bucket_id in ('pictogram-audio', 'pictogram-images')
 
 For local dev this is a non-issue because `supabase db reset` clears
 storage.objects alongside the schema.
-
-## What got deleted
-
-- `src/lib/localAuth.ts` and `LOCAL_PARENT_ID` / `LOCAL_KID_ID` constants.
-- `ensureStubSession`, `STUB_EMAIL`, `STUB_PASSWORD` in `src/lib/supabase.ts`.
-- The `auth.users` / `auth.identities` seed block in
-  `scripts/gen-seed.ts` — no dev-password rows in `seed.sql`.
-- `slugifyLabel` in `src/lib/image.ts` — photo-pictogram ids are now
-  uuids generated via `crypto.randomUUID()`.

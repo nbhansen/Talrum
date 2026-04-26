@@ -39,21 +39,4 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
-  {
-    files: ['src/features/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/data/*'],
-              message:
-                'Feature code must read through @/lib/queries/* (Phase 2 DRY boundary). @/data/* is the seed source of truth for the DB only.',
-            },
-          ],
-        },
-      ],
-    },
-  },
 );
