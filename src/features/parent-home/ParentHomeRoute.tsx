@@ -70,6 +70,7 @@ export const ParentHomeRoute = (): JSX.Element => {
         onNewKid={() => setNewKidOpen(true)}
         onNewBoard={() => setNewBoardOpen(true)}
         onNewBlankBoard={onNewBlankBoard}
+        onSeeAll={() => navigate('/library')}
         newBlankPending={createBoard.isPending}
       />
       {newKidOpen && <NewKidModal onClose={() => setNewKidOpen(false)} />}

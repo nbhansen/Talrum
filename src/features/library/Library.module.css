@@ -1,0 +1,35 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 60px 32px;
+  margin-top: 8px;
+  border: 2px dashed var(--tal-line);
+  border-radius: var(--tal-r-lg);
+  background: var(--tal-surface-alt);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--tal-ink);
+}
+
+.emptyBody {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--tal-ink-soft);
+}

@@ -26,6 +26,7 @@ interface ParentHomeProps {
    * passes a no-op or omits the prop while waiting on the kids query).
    */
   onNewBlankBoard?: () => void;
+  onSeeAll?: () => void;
   newBlankPending?: boolean;
 }
 
@@ -37,6 +38,7 @@ export const ParentHome = ({
   onNewKid,
   onNewBoard,
   onNewBlankBoard,
+  onSeeAll,
   newBlankPending = false,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
@@ -95,7 +97,7 @@ export const ParentHome = ({
       <section className={styles.recent}>
         <div className={styles.recentHeader}>
           <h2 className={styles.recentHeading}>Recently added pictograms</h2>
-          <button type="button" className={styles.seeAll}>
+          <button type="button" className={styles.seeAll} onClick={onSeeAll}>
             See all
           </button>
         </div>

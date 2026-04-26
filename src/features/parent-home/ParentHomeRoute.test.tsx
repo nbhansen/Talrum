@@ -238,6 +238,16 @@ describe('ParentHomeRoute create flows', () => {
     expect(screen.getByTestId(testid)).toBeInTheDocument();
   });
 
+  it('clicking See all navigates to /library', async () => {
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /see all/i }));
+
+    expect(screen.getByTestId('library-route')).toBeInTheDocument();
+  });
+
   it('saving the New board modal navigates to the new board edit route', async () => {
     createBoardMutateMock.mockImplementation(
       (_input: unknown, opts?: { onSuccess?: (b: Partial<Board>) => void }) => {
