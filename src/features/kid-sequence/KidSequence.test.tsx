@@ -103,4 +103,13 @@ describe('KidSequence', () => {
     expect(screen.getByText('Apple')).toBeInTheDocument();
     expect(screen.queryByText('Drink')).not.toBeInTheDocument();
   });
+
+  // No per-component regression test for the post-unmount setState leak
+  // fixed in #46. The bug surfaces as Vitest "Unhandled Error after
+  // teardown" — a warning, not a test failure — so .not.toThrow() can't
+  // catch it, and structural counts via vi.getTimerCount fight React 18's
+  // scheduler. The proper detector is suite-level: "no Unhandled Error
+  // lines in npm test" catches this class for any component, not just
+  // this one. Once #41 lands a CI workflow, that becomes the regression
+  // boundary.
 });

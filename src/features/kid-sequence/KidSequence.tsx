@@ -39,10 +39,11 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const setStepIds = useSetStepIds();
 
-  // Track the flash timer so we can clear it on unmount; otherwise a stray
-  // callback fires post-teardown and React's setState reaches for `window`,
-  // which jsdom has already torn down. Also lets a rapid second tap reset
-  // the timer cleanly instead of stacking.
+  // Track the flash timer so unmount cancels it. Otherwise a stray setState
+  // runs on a torn-down tree — in jsdom that throws "window is not defined"
+  // (the original symptom), in real browsers it's a React unmounted-update
+  // warning plus a wasted render. Also lets a rapid second tap reset the
+  // timer cleanly instead of stacking, so A→B doesn't cut B's flash short.
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
