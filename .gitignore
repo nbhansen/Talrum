@@ -14,3 +14,9 @@ coverage
 # Local-only agent operating instructions (per-machine)
 CLAUDE.md
 GEMINI.md
+
+# Local agent / MCP harness state — per-machine, may contain secrets
+.agents/
+.claude/
+.mcp.json
+skills-lock.json
