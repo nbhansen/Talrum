@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { ParentShell } from '@/layouts/ParentShell';
+import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
@@ -16,6 +16,7 @@ interface ParentHomeProps {
   kidName?: string;
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
+  onNav?: (id: ParentNavKey) => void;
   onNewKid?: () => void;
   /** Opens the full New board modal (name + kind + kid picker). */
   onNewBoard?: () => void;
@@ -32,6 +33,7 @@ export const ParentHome = ({
   kidName = 'Liam',
   onOpenBoard,
   onKidMode,
+  onNav,
   onNewKid,
   onNewBoard,
   onNewBlankBoard,
@@ -46,6 +48,7 @@ export const ParentHome = ({
   return (
     <ParentShell
       active="home"
+      {...(onNav ? { onNav } : {})}
       {...(onKidMode ? { onKidMode } : {})}
       title={`${kidName}'s boards`}
       subtitle="Pick a board to edit, or start a new one."

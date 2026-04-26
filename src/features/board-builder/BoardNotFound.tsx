@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { ParentShell } from '@/layouts/ParentShell';
+import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { Button } from '@/ui/Button/Button';
 
 import styles from './BoardNotFound.module.css';
@@ -12,6 +12,7 @@ interface BoardNotFoundProps {
   onBack: () => void;
   onRetry?: () => void;
   onKidMode: () => void;
+  onNav?: (id: ParentNavKey) => void;
 }
 
 const COPY: Record<BoardLoadFailureVariant, { title: string; body: string }> = {
@@ -30,10 +31,11 @@ export const BoardNotFound = ({
   onBack,
   onRetry,
   onKidMode,
+  onNav,
 }: BoardNotFoundProps): JSX.Element => {
   const { title, body } = COPY[variant];
   return (
-    <ParentShell active="home" onKidMode={onKidMode}>
+    <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
       <div className={styles.wrap}>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.body}>{body}</p>

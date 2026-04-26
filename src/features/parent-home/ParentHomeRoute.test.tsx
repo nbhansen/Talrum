@@ -59,6 +59,9 @@ const makeWrap = (initialPath: string): (() => JSX.Element) => {
           <Routes>
             <Route path="/" element={<ParentHomeRoute />} />
             <Route path="/boards/:boardId/edit" element={<div data-testid="board-edit-route" />} />
+            <Route path="/library" element={<div data-testid="library-route" />} />
+            <Route path="/kids" element={<div data-testid="kids-route" />} />
+            <Route path="/settings" element={<div data-testid="settings-route" />} />
             <Route
               path="/kid/sequence/:boardId"
               element={<div data-testid="kid-sequence-route" />}
@@ -219,6 +222,20 @@ describe('ParentHomeRoute create flows', () => {
       expect.any(Object),
     );
     expect(screen.getByTestId('board-edit-route')).toBeInTheDocument();
+  });
+
+  it.each([
+    { label: /library/i, testid: 'library-route' },
+    { label: /kids/i, testid: 'kids-route' },
+    { label: /settings/i, testid: 'settings-route' },
+  ])('clicking sidebar $label navigates to its stub route', async ({ label, testid }) => {
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: label }));
+
+    expect(screen.getByTestId(testid)).toBeInTheDocument();
   });
 
   it('saving the New board modal navigates to the new board edit route', async () => {

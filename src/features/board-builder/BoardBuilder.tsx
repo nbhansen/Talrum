@@ -1,6 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ParentShell } from '@/layouts/ParentShell';
+import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -30,6 +30,7 @@ interface BoardBuilderProps {
   onOpenPicker: () => void;
   onOpenShare: () => void;
   onKidMode: () => void;
+  onNav?: (id: ParentNavKey) => void;
 }
 
 interface Step {
@@ -57,6 +58,7 @@ export const BoardBuilder = ({
   onOpenPicker,
   onOpenShare,
   onKidMode,
+  onNav,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const { data: allPictograms = [] } = usePictograms();
@@ -120,7 +122,7 @@ export const BoardBuilder = ({
     setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, pictoId] });
 
   return (
-    <ParentShell active="home" onKidMode={onKidMode}>
+    <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>
           <ArrowLeftIcon size={16} />
