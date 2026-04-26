@@ -51,46 +51,40 @@ automatically as the seeded stub user — no login screen. Supabase Studio is at
 
 ```
 src/
-  app/          # App shell + router
+  app/          # App shell, router, AuthGate, SessionProvider, SW update prompt
   theme/        # CSS custom properties + typed token re-exports
   types/        # Domain types + generated supabase.ts (regenerated, do not edit)
-  glyphs/       # Typed glyph union
-  ui/           # Domain-agnostic primitives (Button, Chip, Modal, …)
-  layouts/      # ParentShell, KidModeLayout, FullViewport
+  glyphs/       # Typed glyph union + Glyph component
+  ui/           # Domain-agnostic primitives (Button, Chip, Modal, PictoTile, …)
+  layouts/      # ParentShell, TalrumLogo
   lib/
-    supabase.ts        # Client singleton + stub sign-in
-    queryClient.ts     # react-query defaults
-    localAuth.ts       # LOCAL_PARENT_ID (stub user uuid)
-    queries/           # Read hooks — the ONLY way feature code reads data
+    supabase.ts        # Client singleton (real Supabase auth, see docs/auth.md)
+    queryClient.ts     # react-query defaults + persistence
+    queries/           # READ hooks + mutation hooks — the only data path for features
+    outbox/            # Write queue: optimistic online, persisted offline
   features/
+    login/             # Email OTP sign-in screen
     parent-home/       # Board library screen
-    board-builder/     # Board editor + mutations.ts (the ONLY write path)
-    pictogram-picker/  # Modal used by the builder
+    board-builder/     # Board editor screen + ShareModal
+    pictogram-picker/  # Picker modal used by the builder
     kid-sequence/      # PECS tile strip
     kid-choice/        # 3-up choice picker
-    kid-mode/          # Shared top bar
+    kid-mode/          # Shared kid-mode shell (KidModeLayout)
+    pin-gate/          # PIN gate + PinPad for exiting kid-mode
 
 supabase/
   config.toml           # CLI config
   migrations/           # *.sql, applied in timestamp order
   seed.sql              # GENERATED — do not hand-edit; run `npm run seed:gen`
+  tests/                # pgTAP regression tests, run via `npm run test:db`
 
 scripts/
   gen-seed.ts           # reads src/data/*.ts → writes supabase/seed.sql
+  gen-icons.ts          # generates the PWA icon variants
 
 docs/
-  auth.md               # why auth is stubbed in Phase 2 and how Phase 3 flips it
+  auth.md               # email-OTP sign-in flow + how to read OTPs in local dev
 ```
-
-### Enforced boundaries
-
-- Feature code may **not** import from `@/data/*` (ESLint
-  `no-restricted-imports`). That directory is the seed source of truth for the
-  DB only; reads go through `@/lib/queries/*`, writes through
-  `features/board-builder/mutations.ts`.
-- The generated `src/types/supabase.ts` is only read inside the `lib/queries/*`
-  row-to-domain mappers. Everything else sees clean domain types from
-  `src/types/domain.ts`.
 
 ### Tips
 
@@ -103,7 +97,137 @@ docs/
 - Seed data lives in `src/data/pictograms.ts` + `src/data/boards.ts`. Edit
   there, then `npm run seed:gen` to regenerate the SQL.
 
+## Architecture rules
+
+This codebase follows
+[bulletproof-react](https://github.com/alan2207/bulletproof-react) with
+project-specific tweaks for Supabase + offline-first AAC. Read this section
+before adding code. Items tagged **TODO** are tracked as open GitHub issues.
+
+### Layering: shared → features → app
+
+Imports flow one way only:
+
+```
+shared (lib, ui, theme, types, glyphs, layouts)  →  features  →  app
+```
+
+- Shared modules MUST NOT import from `features/` or `app/`.
+- Features MUST NOT import from sibling features. Compose features at the
+  route/app layer instead.
+- Anything two features share lives in `lib/`, `ui/`, or `layouts/`.
+- A "feature" with no domain logic that just wraps other content (kid-mode
+  shell, PIN gate, modal/picker) belongs in `layouts/` or `ui/`, not
+  `features/`.
+
+**Currently enforced by ESLint:** `no-restricted-imports` blocks `@/data/*`
+from `features/`. **TODO:** add `import/no-restricted-paths` to block sibling
+`features/X` ↔ `features/Y` imports and reverse imports from `lib/* | ui/* |
+layouts/* → app/*`.
+
+### Per-feature scope
+
+Each `src/features/<name>/` is independent and may include `*.tsx` components,
+`*.test.tsx`, `*.module.css`, a route entry component
+(`<Name>Route.tsx`), and feature-local helpers. A feature MUST NOT publish a
+barrel (`index.ts`) re-exporting its internals — import the file directly.
+Vite tree-shaking prefers it.
+
+### Single read and write paths
+
+- All DB reads go through `src/lib/queries/*` — strongly typed React Query
+  hooks. Feature code never calls `supabase.from(...)` directly.
+- All DB writes go through the outbox (`src/lib/outbox`). Each domain entity
+  exposes mutation hooks in `lib/queries/<entity>.ts` that call
+  `enqueueAndDrain` under the hood. The outbox optimistically applies online
+  and persists offline.
+- `src/types/supabase.ts` is generated and only read inside
+  `lib/queries/*` row-to-domain mappers. Everything else sees clean domain
+  types from `src/types/domain.ts`.
+- Feature code MUST NOT import from `@/data/*` (seed-only).
+
+### State
+
+- **Component state** → `useState` / `useReducer`, kept where it's read.
+- **Server cache** → React Query (`@tanstack/react-query`), persisted via
+  `idb-keyval` for offline. See `src/lib/queryClient.ts`.
+- **App state** (auth session, online status) → context provider in `app/`
+  (e.g. `SessionProvider`). No Redux, no global stores.
+- **URL state** → React Router `useParams` / `useSearchParams`. Anything
+  shareable belongs in the URL.
+- **Form state** → `useState` is fine for our small forms; introduce React
+  Hook Form only when a single form has 5+ fields with cross-field validation.
+
+### Components & styling
+
+- Component file names use **PascalCase** (`Button.tsx`,
+  `BoardBuilder.tsx`); their containing folder under `ui/` matches
+  (`ui/Button/Button.tsx`). Non-component modules use **camelCase**
+  (`formatUpdated.ts`, `useOnline.ts`). Feature folders use **kebab-case**
+  (`board-builder/`). *Project deviation from bulletproof-react's universal
+  kebab-case file rule — PascalCase for components matches the JSX export.*
+- One named export per component file. Avoid default exports.
+- Styling is **CSS Modules** (`*.module.css`) with shared design tokens in
+  `src/theme/tokens.module.css` and re-exported as typed values from
+  `src/theme/tokens.ts`. No runtime CSS-in-JS.
+- Keep components, hooks, and styles colocated with where they're used. Lift
+  to `ui/` only after a second consumer needs it.
+
+### API layer
+
+- Single Supabase client in `src/lib/supabase.ts`, configured once.
+- Each domain entity gets one file under `lib/queries/`
+  (`boards.ts`, `pictograms.ts`, `board-members.ts`) exporting:
+  - `rowTo<Domain>(...)` — generated row → domain mapper
+  - Query keys (`boardsQueryKey`, `boardQueryKey(id)`)
+  - Read hooks (`useBoards`, `useBoard`)
+  - Mutation hooks (`useRenameBoard`, …) wrapping `enqueueAndDrain`
+
+### Testing
+
+- **Vitest** + **Testing Library** + **fake-indexeddb**. Tests live next to
+  source: `Foo.tsx` ↔ `Foo.test.tsx`.
+- Test what a user sees: prefer `getByRole` / `findByText`. Don't assert on
+  internal state, prop shapes, or class names.
+- Prefer integration tests over unit tests where practical — render a route
+  with the real query client + a mocked Supabase, drive it with `userEvent`.
+- DB regressions go in `supabase/tests/*.sql` (pgTAP), run via
+  `npm run test:db`.
+
+### Errors & boundaries
+
+- Network errors are surfaced through React Query state; never swallow them.
+- **TODO:** wrap each route component in a localized `<ErrorBoundary>` so a
+  render crash in one route doesn't blank the whole app.
+- **TODO:** add production error tracking (Sentry or similar).
+
+### Performance
+
+- **TODO:** code-split routes with `React.lazy` + `<Suspense>`.
+- Memoize only when profiling shows it matters. Default to plain components.
+- Heavy work (image resizing, audio recording) lives in
+  `src/lib/{image,audio,recording}.ts` so feature code stays render-fast.
+- The PWA service worker caches storage URLs by path-without-token so
+  signed-URL rotation doesn't fragment the cache (see `vite.config.ts`).
+
+### Security
+
+- All secrets via `import.meta.env.VITE_*` — never committed. The only env
+  template is `.env.example`.
+- The Supabase **anon key** is the only credential the client holds; row-level
+  security in `supabase/migrations/*` is the actual access boundary. Treat
+  every client-side check as UX, not a security boundary.
+- Never use `dangerouslySetInnerHTML`. User-supplied text (board names,
+  pictogram labels) is rendered as text only.
+
+### CI & hooks
+
+- **TODO:** add `.github/workflows/` running `typecheck`, `lint`, `test`,
+  `check:seed` on PRs.
+- **TODO:** add `husky` + `lint-staged` pre-commit running lint + typecheck on
+  staged files.
+
 ## Project philosophy
 
-Non-negotiables: clean code, DRY, strict TypeScript. Prefer editing an existing
-file to creating a new one; prefer deleting dead code to leaving it.
+Non-negotiables: clean code, DRY, strict TypeScript. Prefer editing an
+existing file to creating a new one; prefer deleting dead code to leaving it.

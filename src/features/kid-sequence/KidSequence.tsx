@@ -1,4 +1,4 @@
-import { type JSX, useState } from 'react';
+import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
 import { useSetStepIds } from '@/lib/queries/boards';
@@ -39,12 +39,26 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const setStepIds = useSetStepIds();
 
+  // Track the flash timer so unmount cancels it. Otherwise a stray setState
+  // runs on a torn-down tree — in jsdom that throws "window is not defined"
+  // (the original symptom), in real browsers it's a React unmounted-update
+  // warning plus a wasted render. Also lets a rapid second tap reset the
+  // timer cleanly instead of stacking, so A→B doesn't cut B's flash short.
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const announce = (step: Step): void => {
     setSpeakingId(step.picto.id);
-    setTimeout(
-      () => setSpeakingId((curr) => (curr === step.picto.id ? null : curr)),
-      SPEAK_FLASH_MS,
-    );
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => {
+      flashTimer.current = null;
+      setSpeakingId((curr) => (curr === step.picto.id ? null : curr));
+    }, SPEAK_FLASH_MS);
     void speakPictogram(step.picto, board.voiceMode);
   };
 
