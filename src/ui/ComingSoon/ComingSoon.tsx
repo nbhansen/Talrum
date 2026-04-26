@@ -7,7 +7,7 @@ interface ComingSoonProps {
 }
 
 export const ComingSoon = ({ body }: ComingSoonProps): JSX.Element => (
-  <div className={styles.wrap} role="status">
+  <div className={styles.wrap}>
     <p className={styles.body}>{body}</p>
   </div>
 );

@@ -26,6 +26,6 @@ describe('LibraryRoute', () => {
       </TestSessionProvider>,
     );
     expect(screen.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/coming in a future release/i);
+    expect(screen.getByText(/coming in a future release/i)).toBeInTheDocument();
   });
 });

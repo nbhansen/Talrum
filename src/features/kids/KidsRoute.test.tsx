@@ -26,6 +26,6 @@ describe('KidsRoute', () => {
       </TestSessionProvider>,
     );
     expect(screen.getByRole('heading', { name: 'Kids' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/coming in a future release/i);
+    expect(screen.getByText(/coming in a future release/i)).toBeInTheDocument();
   });
 });
