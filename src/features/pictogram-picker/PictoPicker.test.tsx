@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { JSX, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/app/session.test-utils';
+import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 

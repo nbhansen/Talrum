@@ -1,8 +1,8 @@
 import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { useSessionUser } from '@/app/session';
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
+import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
 
 import { BoardBuilder } from './BoardBuilder';
@@ -50,9 +50,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   // offer Retry rather than mis-attributing to a not-found.
   if (boardQuery.isError || (boardQuery.isSuccess && !board)) {
     const variant =
-      isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board)
-        ? 'not-found'
-        : 'error';
+      isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board) ? 'not-found' : 'error';
     const fallbackKid = boardsQuery.data?.find((b) => b.kind === 'sequence');
     return (
       <BoardNotFound
@@ -81,9 +79,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}
-      {shareOpen && (
-        <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />
-      )}
+      {shareOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />}
     </>
   );
 };

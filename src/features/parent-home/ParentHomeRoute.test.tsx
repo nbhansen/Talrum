@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/app/session.test-utils';
+import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { boardsQueryKey } from '@/lib/queries/boards';
 
 vi.mock('@/lib/supabase', () => ({
@@ -66,30 +66,21 @@ describe('ParentHomeRoute auto-launch', () => {
   });
 
   it('redirects into the last sequence board on first visit per session', () => {
-    localStorage.setItem(
-      'talrum:last-board',
-      JSON.stringify({ id: 'b-seq', kind: 'sequence' }),
-    );
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
     expect(screen.getByTestId('kid-sequence-route')).toBeInTheDocument();
   });
 
   it('redirects into the last choice board on first visit per session', () => {
-    localStorage.setItem(
-      'talrum:last-board',
-      JSON.stringify({ id: 'b-cho', kind: 'choice' }),
-    );
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-cho', kind: 'choice' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
     expect(screen.getByTestId('kid-choice-route')).toBeInTheDocument();
   });
 
   it('does not redirect when the session has already auto-launched', () => {
-    localStorage.setItem(
-      'talrum:last-board',
-      JSON.stringify({ id: 'b-seq', kind: 'sequence' }),
-    );
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
     sessionStorage.setItem('talrum:auto-launched', '1');
     const Wrap = makeWrap('/');
     render(<Wrap />);

@@ -39,4 +39,63 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['src/{lib,ui,theme,types,glyphs,layouts}/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: lib/ui/theme/types/glyphs/layouts MUST NOT import from app/. Move the consumed surface down a layer (e.g. session hooks live in @/lib/auth/session).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}', 'src/features/**/*Route.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: features MUST NOT import from app/. Move the consumed surface down a layer.',
+            },
+            {
+              group: ['@/features/*'],
+              message:
+                'No cross-feature imports. Compose features at the route layer; lift shared code to lib/, ui/, or layouts/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/**/*Route.tsx'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: features MUST NOT import from app/. Move the consumed surface down a layer.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SessionContext } from '@/app/session';
+import { SessionContext } from '@/lib/auth/session';
 import type { BoardMember } from '@/lib/queries/board-members';
 import type * as BoardMembersModule from '@/lib/queries/board-members';
 
@@ -13,10 +13,7 @@ const removeMutateMock = vi.fn();
 let lastAddOptions: { onSuccess?: () => void; onError?: (err: unknown) => void } | undefined;
 
 const baseAddState = {
-  mutate: (
-    input: unknown,
-    opts?: { onSuccess?: () => void; onError?: (err: unknown) => void },
-  ) => {
+  mutate: (input: unknown, opts?: { onSuccess?: () => void; onError?: (err: unknown) => void }) => {
     lastAddOptions = opts;
     addMutateMock(input);
   },
@@ -97,9 +94,7 @@ afterEach(() => {
 
 describe('ShareModal — owner', () => {
   it('renders the three sections (sharing ID, members, add form)', () => {
-    renderModal([
-      { boardId: 'board-1', userId: OTHER_ID, role: 'viewer' },
-    ]);
+    renderModal([{ boardId: 'board-1', userId: OTHER_ID, role: 'viewer' }]);
     expect(screen.getByText('Your sharing ID')).toBeInTheDocument();
     expect(screen.getByText('Shared with')).toBeInTheDocument();
     expect(screen.getByText('Add someone')).toBeInTheDocument();
@@ -127,7 +122,7 @@ describe('ShareModal — owner', () => {
     renderModal([]);
     fireEvent.change(screen.getByLabelText('Sharing ID'), { target: { value: ME_ID } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('alert')).toHaveTextContent("your own sharing ID");
+    expect(screen.getByRole('alert')).toHaveTextContent('your own sharing ID');
     expect(addMutateMock).not.toHaveBeenCalled();
   });
 
@@ -154,15 +149,11 @@ describe('ShareModal — owner', () => {
     act(() => {
       lastAddOptions?.onError?.({ code: '23505', message: 'duplicate' });
     });
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('already has access'),
-    );
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('already has access'));
   });
 
   it('fires useRemoveBoardMember when an X button is clicked on a member row', () => {
-    renderModal([
-      { boardId: 'board-1', userId: OTHER_ID, role: 'viewer' },
-    ]);
+    renderModal([{ boardId: 'board-1', userId: OTHER_ID, role: 'viewer' }]);
     fireEvent.click(screen.getByRole('button', { name: `Remove ${OTHER_ID}` }));
     expect(removeMutateMock).toHaveBeenCalledWith({
       boardId: 'board-1',
@@ -179,11 +170,7 @@ describe('ShareModal — owner', () => {
 
 describe('ShareModal — non-owner', () => {
   it('shows the sharing ID but hides the members + add sections', () => {
-    renderModal(
-      [{ boardId: 'board-1', userId: OTHER_ID, role: 'viewer' }],
-      false,
-      OTHER_ID,
-    );
+    renderModal([{ boardId: 'board-1', userId: OTHER_ID, role: 'viewer' }], false, OTHER_ID);
     expect(screen.getByText('Your sharing ID')).toBeInTheDocument();
     expect(screen.queryByText('Shared with')).not.toBeInTheDocument();
     expect(screen.queryByText('Add someone')).not.toBeInTheDocument();

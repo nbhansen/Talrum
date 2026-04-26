@@ -1,6 +1,6 @@
 import { type JSX, useState } from 'react';
 
-import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
+import { KidModeLayout } from '@/layouts/KidModeLayout';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import { accentForIndex, cssVar } from '@/theme/tokens';
@@ -71,10 +71,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
               <div className={styles.mediaWrap} style={mediaStyle}>
                 <PictogramMedia picto={p} size={260} radius="0" />
                 {isPicked && (
-                  <div
-                    className={styles.pickedBadge}
-                    style={{ background: cssVar(accent.ink) }}
-                  >
+                  <div className={styles.pickedBadge} style={{ background: cssVar(accent.ink) }}>
                     <CheckIcon size={26} />
                   </div>
                 )}

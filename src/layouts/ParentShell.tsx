@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 
-import { useSignOut, useUserInitial } from '@/app/session';
+import { useSignOut, useUserInitial } from '@/lib/auth/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
 import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';

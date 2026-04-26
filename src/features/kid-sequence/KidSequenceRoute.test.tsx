@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/app/session.test-utils';
+import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { boardsQueryKey } from '@/lib/queries/boards';
 
 const singleMock = vi.fn();

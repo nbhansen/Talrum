@@ -4,12 +4,15 @@ import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/app/session.test-utils';
+import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { boardsQueryKey } from '@/lib/queries/boards';
 
 const singleMock = vi.fn();
 const eqMock = vi.fn(() => ({ single: singleMock }));
-const selectMock = vi.fn(() => ({ eq: eqMock, order: vi.fn(() => Promise.resolve({ data: [], error: null })) }));
+const selectMock = vi.fn(() => ({
+  eq: eqMock,
+  order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+}));
 const fromMock = vi.fn((_table: string) => ({ select: selectMock }));
 
 vi.mock('@/lib/supabase', () => ({

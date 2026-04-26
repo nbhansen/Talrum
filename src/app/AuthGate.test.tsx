@@ -42,7 +42,7 @@ vi.mock('@/features/login/Login', () => ({
 }));
 
 const { AuthGate } = await import('./AuthGate');
-const { useSessionUser } = await import('./session');
+const { useSessionUser } = await import('@/lib/auth/session');
 
 const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSessionUser().id}</div>;
 

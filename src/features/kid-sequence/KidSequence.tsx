@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
-import { KidModeLayout } from '@/features/kid-mode/KidModeLayout';
+import { KidModeLayout } from '@/layouts/KidModeLayout';
 import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';

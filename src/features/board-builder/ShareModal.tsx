@@ -1,6 +1,6 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
-import { useSessionUser } from '@/app/session';
+import { useSessionUser } from '@/lib/auth/session';
 import {
   isAlreadyMemberError,
   isShareForbiddenError,
@@ -92,7 +92,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
         },
         onError: (err) => {
           if (isAlreadyMemberError(err)) {
-            setSubmitError("That person already has access to this board.");
+            setSubmitError('That person already has access to this board.');
             return;
           }
           if (isShareForbiddenError(err)) {
@@ -117,12 +117,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
               People you share with see this board on their own iPad. They can't make changes.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={styles.closeBtn}
-          >
+          <button type="button" onClick={onClose} aria-label="Close" className={styles.closeBtn}>
             <XIcon size={18} />
           </button>
         </header>
@@ -166,9 +161,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
                       <span className={styles.memberRole}>{m.role}</span>
                       <button
                         type="button"
-                        onClick={() =>
-                          removeMember.mutate({ boardId, userId: m.userId })
-                        }
+                        onClick={() => removeMember.mutate({ boardId, userId: m.userId })}
                         aria-label={`Remove ${m.userId}`}
                         className={styles.removeBtn}
                         disabled={removeMember.isPending}
