@@ -206,7 +206,9 @@ Vite tree-shaking prefers it.
 
 ### Performance
 
-- **TODO:** code-split routes with `React.lazy` + `<Suspense>`.
+- Each route in `src/app/routes.tsx` is loaded via `React.lazy` and wrapped
+  in `<Suspense>` (parent variant: small spinner; kid variant: empty
+  black-shell shell). Initial load only ships the route the user is on.
 - Memoize only when profiling shows it matters. Default to plain components.
 - Heavy work (image resizing, audio recording) lives in
   `src/lib/{image,audio,recording}.ts` so feature code stays render-fast.

@@ -1,13 +1,24 @@
-import type { ReactNode } from 'react';
+import { lazy, type ReactNode, Suspense } from 'react';
 import { createBrowserRouter, Link, Navigate } from 'react-router-dom';
 
-import { BoardBuilderRoute } from '@/features/board-builder/BoardBuilderRoute';
-import { KidChoiceRoute } from '@/features/kid-choice/KidChoiceRoute';
-import { KidSequenceRoute } from '@/features/kid-sequence/KidSequenceRoute';
-import { ParentHomeRoute } from '@/features/parent-home/ParentHomeRoute';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
+
+const ParentHomeRoute = lazy(() =>
+  import('@/features/parent-home/ParentHomeRoute').then((m) => ({ default: m.ParentHomeRoute })),
+);
+const BoardBuilderRoute = lazy(() =>
+  import('@/features/board-builder/BoardBuilderRoute').then((m) => ({
+    default: m.BoardBuilderRoute,
+  })),
+);
+const KidSequenceRoute = lazy(() =>
+  import('@/features/kid-sequence/KidSequenceRoute').then((m) => ({ default: m.KidSequenceRoute })),
+);
+const KidChoiceRoute = lazy(() =>
+  import('@/features/kid-choice/KidChoiceRoute').then((m) => ({ default: m.KidChoiceRoute })),
+);
 
 export const parentRouteFallback = (reset: () => void): ReactNode => (
   <div role="alert" className={styles.routeFallback}>
@@ -45,9 +56,25 @@ export const kidRouteFallback = (): ReactNode => (
   </div>
 );
 
+const parentSuspenseFallback = (
+  <div className={`tal ${styles.parentSuspense}`}>
+    <div className={styles.spinner} aria-hidden="true" />
+    <p className={styles.parentSuspenseBody}>Loading…</p>
+  </div>
+);
+
+// Empty kid-tinted shell — no spinner, no text. Kid-mode prefers a calm
+// static screen during the brief async wait while the route chunk loads.
+const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="true" />;
+
+// ErrorBoundary wraps Suspense (not the other way around) so that a
+// chunk-load failure during the dynamic import lands in the route's own
+// error fallback (with Retry) instead of bubbling to the app-root fallback.
 const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   <ErrorBoundary fallback={variant === 'kid' ? kidRouteFallback : parentRouteFallback}>
-    {el}
+    <Suspense fallback={variant === 'kid' ? kidSuspenseFallback : parentSuspenseFallback}>
+      {el}
+    </Suspense>
   </ErrorBoundary>
 );
 
