@@ -6,10 +6,11 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { useSessionUser } from '@/lib/auth/session';
 import { formatUpdated } from '@/lib/formatUpdated';
 import { type BoardRowPatch, enqueueAndDrain } from '@/lib/outbox';
 import { supabase } from '@/lib/supabase';
-import type { ColorToken } from '@/theme/tokens';
+import { type Accent, type ColorToken } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
@@ -188,3 +189,54 @@ export const useSetKidReorderable = (): UseMutationResult<
     ({ reorderable }, current) => ({ ...current, kidReorderable: reorderable }),
     ({ reorderable }) => ({ kid_reorderable: reorderable }),
   );
+
+interface CreateBoardInput {
+  name: string;
+  kind: BoardKind;
+  kidId: string;
+  /** Defaults to the first slot of the accent cycle (sage / sage-ink). */
+  accent?: Accent;
+}
+
+const DEFAULT_ACCENT: Accent = { bg: 'sage', ink: 'sage-ink' };
+
+/**
+ * Direct Supabase insert (no outbox), matching the `useAddBoardMember` and
+ * `useCreateKid` precedents. Outbox would surface RLS denials only at drain
+ * time — wrong for create-then-navigate where the caller needs the row to
+ * actually exist on the server before routing into the BoardBuilder.
+ *
+ * Defaults match the new-board column requirements from
+ * `20260425000000_real_auth_onboarding.sql`: an empty step list, labels
+ * visible, TTS voice, kid-reorderable off. The user can change all of these
+ * in the BoardBuilder after creation.
+ */
+export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInput> => {
+  const qc = useQueryClient();
+  const ownerId = useSessionUser().id;
+  return useMutation({
+    mutationFn: async ({ name, kind, kidId, accent = DEFAULT_ACCENT }) => {
+      const { data, error } = await supabase
+        .from('boards')
+        .insert({
+          owner_id: ownerId,
+          kid_id: kidId,
+          name: name.trim(),
+          kind,
+          labels_visible: true,
+          voice_mode: 'tts',
+          step_ids: [],
+          kid_reorderable: false,
+          accent: accent.bg,
+          accent_ink: accent.ink,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return rowToBoard(data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: boardsQueryKey });
+    },
+  });
+};

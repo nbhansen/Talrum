@@ -17,6 +17,15 @@ interface ParentHomeProps {
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
   onNewKid?: () => void;
+  /** Opens the full New board modal (name + kind + kid picker). */
+  onNewBoard?: () => void;
+  /**
+   * Fast path: creates a board with default values immediately and navigates
+   * into the BoardBuilder. Disabled when no kids are loaded yet (the route
+   * passes a no-op or omits the prop while waiting on the kids query).
+   */
+  onNewBlankBoard?: () => void;
+  newBlankPending?: boolean;
 }
 
 export const ParentHome = ({
@@ -24,11 +33,15 @@ export const ParentHome = ({
   onOpenBoard,
   onKidMode,
   onNewKid,
+  onNewBoard,
+  onNewBlankBoard,
+  newBlankPending = false,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
 
   const boards = boardsQuery.data ?? [];
+  const noBoards = boards.length === 0;
 
   return (
     <ParentShell
@@ -41,23 +54,41 @@ export const ParentHome = ({
           <Button variant="ghost" icon={<PlusIcon />} onClick={onNewKid}>
             New kid
           </Button>
-          <Button variant="primary" icon={<PlusIcon />}>
+          <Button variant="primary" icon={<PlusIcon />} onClick={onNewBoard}>
             New board
           </Button>
         </div>
       }
     >
-      <div className={styles.grid}>
-        {boards.map((b) => (
-          <BoardCard key={b.id} board={b} onClick={() => onOpenBoard?.(b.id)} />
-        ))}
-        <button type="button" className={styles.newTile}>
-          <span className={styles.newTileIcon}>
-            <PlusIcon size={22} />
-          </span>
-          New blank board
-        </button>
-      </div>
+      {noBoards ? (
+        <div className={styles.emptyState} role="status">
+          <h2 className={styles.emptyTitle}>No boards yet</h2>
+          <p className={styles.emptyBody}>
+            Create your first board to start communicating. You can add steps and tweak settings
+            after.
+          </p>
+          <Button variant="primary" icon={<PlusIcon />} onClick={onNewBoard}>
+            Create your first board
+          </Button>
+        </div>
+      ) : (
+        <div className={styles.grid}>
+          {boards.map((b) => (
+            <BoardCard key={b.id} board={b} onClick={() => onOpenBoard?.(b.id)} />
+          ))}
+          <button
+            type="button"
+            className={styles.newTile}
+            onClick={onNewBlankBoard}
+            disabled={newBlankPending}
+          >
+            <span className={styles.newTileIcon}>
+              <PlusIcon size={22} />
+            </span>
+            {newBlankPending ? 'Creating…' : 'New blank board'}
+          </button>
+        </div>
+      )}
       <section className={styles.recent}>
         <div className={styles.recentHeader}>
           <h2 className={styles.recentHeading}>Recently added pictograms</h2>
