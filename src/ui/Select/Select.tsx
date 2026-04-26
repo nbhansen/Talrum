@@ -24,11 +24,7 @@ export const Select = <V extends string>({
 }: SelectProps<V>): JSX.Element => (
   <label className={styles.wrapper}>
     <span className={styles.label}>{label}:</span>
-    <select
-      className={styles.native}
-      value={value}
-      onChange={(e) => onChange(e.target.value as V)}
-    >
+    <select className={styles.native} value={value} onChange={(e) => onChange(e.target.value as V)}>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}

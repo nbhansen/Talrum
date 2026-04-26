@@ -89,7 +89,7 @@ docs/
 
 - If the app boots blank or the network tab shows Supabase 500s, run
   `supabase status` to confirm the stack is up. `supabase stop` + `supabase
-  start` is the restart path.
+start` is the restart path.
 - After any migration edit, run `supabase db reset` (applies migrations +
   seed) and `npm run types:db` (regenerates DB types). Commit both the
   migration and the updated `src/types/supabase.ts`.

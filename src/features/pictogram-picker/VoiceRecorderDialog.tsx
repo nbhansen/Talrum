@@ -1,10 +1,7 @@
 import { type JSX, useEffect, useState } from 'react';
 
 import { playPictogramAudio } from '@/lib/audio';
-import {
-  useClearPictogramAudio,
-  useSetPictogramAudio,
-} from '@/lib/queries/pictograms';
+import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import {
   extensionForMime,
   isRecordingSupported,
@@ -109,8 +106,8 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
             Record voice
           </h2>
           <p className={styles.subtitle}>
-            This voice plays for <strong>{picto.label}</strong> when a board uses
-            &ldquo;Parent voice&rdquo;.
+            This voice plays for <strong>{picto.label}</strong> when a board uses &ldquo;Parent
+            voice&rdquo;.
           </p>
         </div>
         <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">

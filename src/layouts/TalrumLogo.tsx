@@ -18,7 +18,12 @@ interface TalrumLogoProps {
   children?: ReactNode;
 }
 
-export const TalrumLogo = ({ size = 44, tile, tileInk, children }: TalrumLogoProps): JSX.Element => {
+export const TalrumLogo = ({
+  size = 44,
+  tile,
+  tileInk,
+  children,
+}: TalrumLogoProps): JSX.Element => {
   const override = tile !== undefined || children !== undefined;
   if (!override) return <TalrumMark size={size} />;
 

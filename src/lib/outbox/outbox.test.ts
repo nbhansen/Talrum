@@ -18,9 +18,8 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
-const { __test_resetOutbox, drain, getStatus, startOutbox, subscribeStatus } = await import(
-  './drain'
-);
+const { __test_resetOutbox, drain, getStatus, startOutbox, subscribeStatus } =
+  await import('./drain');
 const { enqueueAndDrain } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -95,7 +94,7 @@ describe('outbox drain', () => {
     await putEntry(baseEntry({ id: '01HZZA' }));
     await drain();
     expect(eqMock).not.toHaveBeenCalled();
-    expect((await listEntries())).toHaveLength(1);
+    expect(await listEntries()).toHaveLength(1);
   });
 
   it('marks an entry as failed after MAX_ATTEMPTS transient failures', async () => {

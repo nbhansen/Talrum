@@ -37,10 +37,7 @@ export const uploadBlob = async (bucket: string, path: string, blob: Blob): Prom
   if (error) throw error;
 };
 
-export const removeFromBucket = async (
-  bucket: string,
-  paths: readonly string[],
-): Promise<void> => {
+export const removeFromBucket = async (bucket: string, paths: readonly string[]): Promise<void> => {
   if (paths.length === 0) return;
   const { error } = await supabase.storage.from(bucket).remove([...paths]);
   if (error) throw error;

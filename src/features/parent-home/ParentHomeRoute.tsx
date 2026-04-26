@@ -30,10 +30,5 @@ export const ParentHomeRoute = (): JSX.Element => {
     if (firstSequence) navigate(`/kid/sequence/${firstSequence.id}`);
   };
 
-  return (
-    <ParentHome
-      onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
-      onKidMode={onKidMode}
-    />
-  );
+  return <ParentHome onOpenBoard={(id) => navigate(`/boards/${id}/edit`)} onKidMode={onKidMode} />;
 };

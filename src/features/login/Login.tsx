@@ -86,11 +86,7 @@ export const Login = (): JSX.Element => {
               />
             </label>
             {error && <div className={styles.error}>{error}</div>}
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={busy || !email.trim() || !online}
-            >
+            <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
               {busy ? 'Sending…' : 'Send code'}
             </Button>
           </form>
@@ -130,11 +126,7 @@ export const Login = (): JSX.Element => {
               >
                 Back
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={busy || code.length < 6 || !online}
-              >
+              <Button type="submit" variant="primary" disabled={busy || code.length < 6 || !online}>
                 {busy ? 'Verifying…' : 'Sign in'}
               </Button>
             </div>

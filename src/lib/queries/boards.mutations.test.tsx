@@ -75,7 +75,9 @@ describe('useRenameBoard (useBoardPatch)', () => {
   });
 
   it('rolls back the cache on a non-retryable DB error (RLS denial)', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
     qc.setQueryData(boardQueryKey('morning'), seed);
 
     // The outbox classifies coded errors (Postgres / PostgREST) as

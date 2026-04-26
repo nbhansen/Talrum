@@ -47,9 +47,7 @@ export const Reorderable = <T extends Identified>({
   keyFor,
 }: ReorderableProps<T>): JSX.Element => {
   const keys = items.map((item, i) => (keyFor ? keyFor(item, i) : item.id));
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const handleDragEnd = (event: DragEndEvent): void => {
     const { active, over } = event;
