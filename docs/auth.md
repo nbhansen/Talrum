@@ -34,10 +34,9 @@ on `auth.users` that clones every row from `template_pictograms` and
 and rewrites board step arrays via a slug→uuid map. It's idempotent:
 if the user already has a kid, the trigger no-ops.
 
-Template tables are populated by `supabase/seed.sql`, regenerated from
-`src/data/*.ts` via `npm run seed:gen`. They have RLS enabled with a
-read-only-for-authenticated policy so PostgREST can't be abused to mutate
-them.
+Template tables are populated by `supabase/seed.sql` (edit it directly).
+They have RLS enabled with a read-only-for-authenticated policy so PostgREST
+can't be abused to mutate them.
 
 ## Smoke-test RLS isolation
 
@@ -57,7 +56,7 @@ them.
 ## Schema notes
 
 - `kids.id`, `pictograms.id`, `boards.id` are all `uuid primary key default
-  gen_random_uuid()`.
+gen_random_uuid()`.
 - Text slugs ('apple', 'morning', 'liam') are preserved as an optional
   `slug text` column (with a `unique (owner_id, slug)` constraint on
   pictograms and boards). They're used by a handful of client-side lookup
@@ -65,7 +64,7 @@ them.
   `GenerateTab.RESULT_SLUGS` — via `usePictogramsBySlug`.
 - `boards.kid_id uuid references kids(id) on delete cascade` — real FK.
 - `boards.step_ids uuid[]` — the trigger rewrites template `step_slugs
-  text[]` into per-user uuids at signup.
+text[]` into per-user uuids at signup.
 - `board_members.board_id uuid references boards(id)` — unchanged in shape.
 
 ## Storage cleanup caveat
