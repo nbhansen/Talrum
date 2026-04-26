@@ -16,12 +16,14 @@ interface ParentHomeProps {
   kidName?: string;
   onOpenBoard?: (id: string) => void;
   onKidMode?: () => void;
+  onNewKid?: () => void;
 }
 
 export const ParentHome = ({
   kidName = 'Liam',
   onOpenBoard,
   onKidMode,
+  onNewKid,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
@@ -36,7 +38,7 @@ export const ParentHome = ({
       subtitle="Pick a board to edit, or start a new one."
       right={
         <div className={styles.rightActions}>
-          <Button variant="ghost" icon={<PlusIcon />}>
+          <Button variant="ghost" icon={<PlusIcon />} onClick={onNewKid}>
             New kid
           </Button>
           <Button variant="primary" icon={<PlusIcon />}>
