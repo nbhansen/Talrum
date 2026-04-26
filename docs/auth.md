@@ -56,7 +56,7 @@ can't be abused to mutate them.
 ## Schema notes
 
 - `kids.id`, `pictograms.id`, `boards.id` are all `uuid primary key default
-gen_random_uuid()`.
+  gen_random_uuid()`.
 - Text slugs ('apple', 'morning', 'liam') are preserved as an optional
   `slug text` column (with a `unique (owner_id, slug)` constraint on
   pictograms and boards). They're used by a handful of client-side lookup
@@ -64,7 +64,7 @@ gen_random_uuid()`.
   `GenerateTab.RESULT_SLUGS` — via `usePictogramsBySlug`.
 - `boards.kid_id uuid references kids(id) on delete cascade` — real FK.
 - `boards.step_ids uuid[]` — the trigger rewrites template `step_slugs
-text[]` into per-user uuids at signup.
+  text[]` into per-user uuids at signup.
 - `board_members.board_id uuid references boards(id)` — unchanged in shape.
 
 ## Storage cleanup caveat
