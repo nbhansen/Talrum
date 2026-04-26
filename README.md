@@ -197,9 +197,12 @@ Vite tree-shaking prefers it.
 ### Errors & boundaries
 
 - Network errors are surfaced through React Query state; never swallow them.
-- **TODO:** wrap each route component in a localized `<ErrorBoundary>` so a
-  render crash in one route doesn't blank the whole app.
-- **TODO:** add production error tracking (Sentry or similar).
+- Render-time crashes are caught by `<ErrorBoundary>` (`src/ui/ErrorBoundary/`)
+  at two layers: an app-root boundary around `<RouterProvider>` and a
+  per-route boundary inside `routes.tsx` with parent / kid fallback variants.
+  A crash in one route never blanks the whole app.
+- **TODO:** add production error tracking (Sentry or similar). When that
+  lands, hook `componentDidCatch` in `ErrorBoundary` to forward to it.
 
 ### Performance
 
