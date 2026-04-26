@@ -220,4 +220,32 @@ describe('ParentHomeRoute create flows', () => {
     );
     expect(screen.getByTestId('board-edit-route')).toBeInTheDocument();
   });
+
+  it('saving the New board modal navigates to the new board edit route', async () => {
+    createBoardMutateMock.mockImplementation(
+      (_input: unknown, opts?: { onSuccess?: (b: Partial<Board>) => void }) => {
+        opts?.onSuccess?.({ id: 'b-new-from-modal' });
+      },
+    );
+
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+
+    const user = userEvent.setup();
+    // Open the modal from the empty-state CTA (works the same as the header
+    // button — both go through `setNewBoardOpen(true)`).
+    await user.click(screen.getByRole('button', { name: /create your first board/i }));
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'From modal');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(createBoardMutateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'From modal',
+        kind: 'sequence',
+        kidId: 'k1',
+      }),
+      expect.any(Object),
+    );
+    expect(screen.getByTestId('board-edit-route')).toBeInTheDocument();
+  });
 });
