@@ -25,10 +25,10 @@ const { NewBoardModal } = await import('./NewBoardModal');
 
 afterEach(() => {
   createBoardMutateMock.mockReset();
-  useCreateBoardMock.mockReset();
-  useCreateBoardMock.mockReturnValue({ mutate: createBoardMutateMock, isPending: false });
-  useKidsMock.mockReset();
-  useKidsMock.mockReturnValue({ data: [KID_1], isPending: false });
+  // mockClear preserves the factory implementations; per-test overrides via
+  // mockReturnValue still win for that test's invocations.
+  useCreateBoardMock.mockClear();
+  useKidsMock.mockClear();
 });
 
 describe('NewBoardModal', () => {

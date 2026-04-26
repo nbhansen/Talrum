@@ -26,7 +26,7 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
     if (submitDisabled) return;
     setError(null);
     createKid.mutate(
-      { name },
+      { name: trimmed },
       {
         onSuccess: () => onClose(),
         onError: () => setError("Couldn't add the kid. Try again."),

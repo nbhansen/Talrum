@@ -45,9 +45,12 @@ export const useCreateKid = (): UseMutationResult<Kid, Error, CreateKidInput> =>
   const ownerId = useSessionUser().id;
   return useMutation({
     mutationFn: async ({ name }) => {
+      // Input normalization (trimming, validation) is the modal layer's job;
+      // the query stays a thin DB wrapper so all create mutations behave
+      // identically (`useCreateBoard` already follows this).
       const { data, error } = await supabase
         .from('kids')
-        .insert({ owner_id: ownerId, name: name.trim() })
+        .insert({ owner_id: ownerId, name })
         .select()
         .single();
       if (error) throw error;

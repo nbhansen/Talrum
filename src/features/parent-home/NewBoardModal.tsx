@@ -31,14 +31,17 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   const [selectedKidId, setSelectedKidId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // Pick the first kid as default once the list resolves. Re-running this
-  // effect when the user picks one explicitly is unnecessary — local state
-  // wins after the first user interaction.
+  // Default to the first kid via derived state; `selectedKidId` wins once the
+  // user picks explicitly (the picker only renders when kidList.length > 1).
   const effectiveKidId = selectedKidId || kidList[0]?.id || '';
 
   const trimmed = name.trim();
-  const noKids = kidList.length === 0;
-  const submitDisabled = trimmed === '' || noKids || createBoard.isPending;
+  // Distinguish "still loading" from "user has zero kids" so we don't flash
+  // the "Add a kid first" copy on a slow connection. The empty branch only
+  // fires once the query has resolved with an empty list.
+  const kidsLoading = kids.isPending;
+  const noKids = !kidsLoading && kidList.length === 0;
+  const submitDisabled = trimmed === '' || noKids || kidsLoading || createBoard.isPending;
 
   const submit = (e: FormEvent): void => {
     e.preventDefault();
@@ -75,9 +78,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
 
         <form onSubmit={submit}>
           {noKids && (
-            <p className={styles.noKids} role="status">
-              Add a kid first — boards need a kid to belong to.
-            </p>
+            <p className={styles.noKids}>Add a kid first — boards need a kid to belong to.</p>
           )}
 
           <label className={styles.field}>
