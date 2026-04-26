@@ -19,6 +19,15 @@ const KidSequenceRoute = lazy(() =>
 const KidChoiceRoute = lazy(() =>
   import('@/features/kid-choice/KidChoiceRoute').then((m) => ({ default: m.KidChoiceRoute })),
 );
+const LibraryRoute = lazy(() =>
+  import('@/features/library/LibraryRoute').then((m) => ({ default: m.LibraryRoute })),
+);
+const KidsRoute = lazy(() =>
+  import('@/features/kids/KidsRoute').then((m) => ({ default: m.KidsRoute })),
+);
+const SettingsRoute = lazy(() =>
+  import('@/features/settings/SettingsRoute').then((m) => ({ default: m.SettingsRoute })),
+);
 
 export const parentRouteFallback = (reset: () => void): ReactNode => (
   <div role="alert" className={styles.routeFallback}>
@@ -82,6 +91,9 @@ export const router = createBrowserRouter(
   [
     { path: '/', element: wrap(<ParentHomeRoute />, 'parent') },
     { path: '/boards/:boardId/edit', element: wrap(<BoardBuilderRoute />, 'parent') },
+    { path: '/library', element: wrap(<LibraryRoute />, 'parent') },
+    { path: '/kids', element: wrap(<KidsRoute />, 'parent') },
+    { path: '/settings', element: wrap(<SettingsRoute />, 'parent') },
     { path: '/kid/sequence/:boardId', element: wrap(<KidSequenceRoute />, 'kid') },
     { path: '/kid/choice/:boardId', element: wrap(<KidChoiceRoute />, 'kid') },
     { path: '*', element: <Navigate to="/" replace /> },

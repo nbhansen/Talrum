@@ -2,6 +2,7 @@ import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
+import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useBoards } from '@/lib/queries/boards';
 
@@ -15,6 +16,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const boardsQuery = useBoards();
   const board = boardQuery.data;
   const navigate = useNavigate();
+  const onNav = useParentNav();
   const me = useSessionUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const pickerOpen = searchParams.get('picker') === '1';
@@ -60,6 +62,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onKidMode={() => {
           if (fallbackKid) navigate(`/kid/sequence/${fallbackKid.id}`);
         }}
+        onNav={onNav}
       />
     );
   }
@@ -77,6 +80,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onOpenPicker={openPicker}
         onOpenShare={openShare}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
+        onNav={onNav}
       />
       {pickerOpen && <PictoPicker onClose={closePicker} />}
       {shareOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />}
