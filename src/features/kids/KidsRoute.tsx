@@ -1,14 +1,32 @@
-import type { JSX } from 'react';
+import { type JSX, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
 import { useParentNav } from '@/layouts/useParentNav';
-import { ComingSoon } from '@/ui/ComingSoon/ComingSoon';
+import { Button } from '@/ui/Button/Button';
+import { PlusIcon } from '@/ui/icons';
+import { NewKidModal } from '@/ui/NewKidModal/NewKidModal';
+
+import { Kids } from './Kids';
 
 export const KidsRoute = (): JSX.Element => {
   const onNav = useParentNav();
+  const [newKidOpen, setNewKidOpen] = useState(false);
   return (
-    <ParentShell active="kids" onNav={onNav} title="Kids" subtitle="Coming soon">
-      <ComingSoon body="Manage kid profiles and their boards from one place. Coming in a future release." />
-    </ParentShell>
+    <>
+      <ParentShell
+        active="kids"
+        onNav={onNav}
+        title="Kids"
+        subtitle="The kids you're creating boards for"
+        right={
+          <Button variant="primary" icon={<PlusIcon />} onClick={() => setNewKidOpen(true)}>
+            New kid
+          </Button>
+        }
+      >
+        <Kids onNewKid={() => setNewKidOpen(true)} />
+      </ParentShell>
+      {newKidOpen && <NewKidModal onClose={() => setNewKidOpen(false)} />}
+    </>
   );
 };
