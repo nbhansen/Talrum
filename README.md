@@ -28,8 +28,10 @@ supabase db reset                    # applies migrations + seeds 4 demo boards
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`). The app signs in
-automatically as the seeded stub user — no login screen. Supabase Studio is at
+Open the URL Vite prints (usually `http://localhost:5173`). You'll get a login
+screen — enter any email, then grab the 6-digit OTP from Mailpit at
+`http://127.0.0.1:54324` (Supabase ships Mailpit as the local SMTP catch-all).
+See `docs/auth.md` for the full flow. Supabase Studio is at
 `http://127.0.0.1:54323` if you want to poke around the DB.
 
 ## Day-to-day commands
@@ -117,10 +119,10 @@ shared (lib, ui, theme, types, glyphs, layouts)  →  features  →  app
   shell, PIN gate, modal/picker) belongs in `layouts/` or `ui/`, not
   `features/`.
 
-**Currently enforced by ESLint:** `no-restricted-imports` blocks `@/data/*`
-from `features/`. **TODO:** add `import/no-restricted-paths` to block sibling
-`features/X` ↔ `features/Y` imports and reverse imports from `lib/* | ui/* |
-layouts/* → app/*`.
+**TODO:** add `import/no-restricted-paths` to block sibling `features/X` ↔
+`features/Y` imports, reverse imports from `lib/* | ui/* | layouts/* → app/*`,
+and direct `supabase.from(...)` calls from `features/*` (the real "single read
+path through `lib/queries/*`" guard). Tracked in #39.
 
 ### Per-feature scope
 
@@ -141,7 +143,6 @@ Vite tree-shaking prefers it.
 - `src/types/supabase.ts` is generated and only read inside
   `lib/queries/*` row-to-domain mappers. Everything else sees clean domain
   types from `src/types/domain.ts`.
-- Feature code MUST NOT import from `@/data/*` (seed-only).
 
 ### State
 
