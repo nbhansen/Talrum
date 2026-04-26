@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,5 +87,16 @@ describe('ParentHomeRoute auto-launch', () => {
     render(<Wrap />);
     expect(screen.queryByTestId('kid-sequence-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
+  });
+
+  it('clicking New kid opens the kid modal', async () => {
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+    expect(screen.queryByRole('heading', { name: /add a kid/i })).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /new kid/i }));
+
+    expect(screen.getByRole('heading', { name: /add a kid/i })).toBeInTheDocument();
   });
 });

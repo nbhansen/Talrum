@@ -4,11 +4,13 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
 import { useBoards } from '@/lib/queries/boards';
 
+import { NewKidModal } from './NewKidModal';
 import { ParentHome } from './ParentHome';
 
 export const ParentHomeRoute = (): JSX.Element => {
   const navigate = useNavigate();
   const boardsQuery = useBoards();
+  const [newKidOpen, setNewKidOpen] = useState(false);
   // Auto-launch into the last kid-mode board on the first parent-home visit
   // per browser session. Subsequent visits this session (e.g. after PIN exit
   // back to home) render ParentHome normally so the user is never trapped.
@@ -30,5 +32,14 @@ export const ParentHomeRoute = (): JSX.Element => {
     if (firstSequence) navigate(`/kid/sequence/${firstSequence.id}`);
   };
 
-  return <ParentHome onOpenBoard={(id) => navigate(`/boards/${id}/edit`)} onKidMode={onKidMode} />;
+  return (
+    <>
+      <ParentHome
+        onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
+        onKidMode={onKidMode}
+        onNewKid={() => setNewKidOpen(true)}
+      />
+      {newKidOpen && <NewKidModal onClose={() => setNewKidOpen(false)} />}
+    </>
+  );
 };
