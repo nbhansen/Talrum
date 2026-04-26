@@ -4,6 +4,17 @@ import '@testing-library/jest-dom/vitest';
 // touches the persistence layer.
 import 'fake-indexeddb/auto';
 
+import { vi } from 'vitest';
+
+// Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
+// flake: a test seeded the React Query cache but didn't mock @/lib/supabase,
+// so useQuery's mount-time refetch raced against the seeded data and replaced
+// it with []. This floor mock makes that whole class of bug structurally
+// impossible — any new test that mounts a hook + seeds the cache is safe by
+// default. Files that need a richer mock (real `from`, auth surface, etc.)
+// override per-file with their own vi.mock('@/lib/supabase', ...). Tracked: #46.
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+
 // Node 25's experimental `localStorage` global (no `--localstorage-file` passed)
 // ends up shadowing jsdom's Storage implementation with an empty shell that has
 // none of the Storage methods. Replace it with an in-memory shim for tests.
