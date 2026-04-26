@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { isValidElement, type JSX, type ReactElement } from 'react';
+import { isValidElement, type JSX, type ReactElement, Suspense } from 'react';
 import { MemoryRouter, type RouteObject } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,14 +21,18 @@ describe('routes — error boundary wiring', () => {
   });
 
   // Structural guard: if a future PR adds a route and forgets to wrap it,
-  // this test fails before any user sees a blank screen.
-  it('every non-wildcard route element is wrapped in <ErrorBoundary>', () => {
+  // this test fails before any user sees a blank screen — and before any
+  // route ships in the initial bundle (Suspense layer enforces lazy split).
+  it('every non-wildcard route is wrapped in <ErrorBoundary> with a <Suspense> child', () => {
     const routes = router.routes as RouteObject[];
     const wrapped = routes.filter((r) => r.path !== '*');
     expect(wrapped.length).toBeGreaterThan(0);
     for (const r of wrapped) {
       expect(isValidElement(r.element)).toBe(true);
-      expect((r.element as ReactElement).type).toBe(ErrorBoundary);
+      const outer = r.element as ReactElement<{ children: ReactElement }>;
+      expect(outer.type).toBe(ErrorBoundary);
+      expect(isValidElement(outer.props.children)).toBe(true);
+      expect(outer.props.children.type).toBe(Suspense);
     }
   });
 
