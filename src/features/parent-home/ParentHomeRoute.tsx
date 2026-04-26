@@ -6,9 +6,9 @@ import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/l
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
 import { useKids } from '@/lib/queries/kids';
 import { accentForIndex } from '@/theme/tokens';
+import { NewKidModal } from '@/ui/NewKidModal/NewKidModal';
 
 import { NewBoardModal } from './NewBoardModal';
-import { NewKidModal } from './NewKidModal';
 import { ParentHome } from './ParentHome';
 
 export const ParentHomeRoute = (): JSX.Element => {
