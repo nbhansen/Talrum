@@ -55,11 +55,13 @@ src/
   theme/        # CSS custom properties + typed token re-exports
   types/        # Domain types + generated supabase.ts (regenerated, do not edit)
   glyphs/       # Typed glyph union + Glyph component
-  ui/           # Domain-agnostic primitives (Button, Chip, Modal, PictoTile, …)
-  layouts/      # ParentShell, TalrumLogo
+  ui/           # Domain-agnostic primitives (Button, Chip, Modal, PictoTile,
+                #   KidModeGate + PinPad, …)
+  layouts/      # ParentShell, TalrumLogo, KidModeLayout
   lib/
     supabase.ts        # Client singleton (real Supabase auth, see docs/auth.md)
     queryClient.ts     # react-query defaults + persistence
+    auth/              # SessionContext + consumer hooks (provider stays in app/)
     queries/           # READ hooks + mutation hooks — the only data path for features
     outbox/            # Write queue: optimistic online, persisted offline
   features/
@@ -69,8 +71,6 @@ src/
     pictogram-picker/  # Picker modal used by the builder
     kid-sequence/      # PECS tile strip
     kid-choice/        # 3-up choice picker
-    kid-mode/          # Shared kid-mode shell (KidModeLayout)
-    pin-gate/          # PIN gate + PinPad for exiting kid-mode
 
 supabase/
   config.toml           # CLI config
@@ -119,10 +119,12 @@ shared (lib, ui, theme, types, glyphs, layouts)  →  features  →  app
   shell, PIN gate, modal/picker) belongs in `layouts/` or `ui/`, not
   `features/`.
 
-**TODO:** add `import/no-restricted-paths` to block sibling `features/X` ↔
-`features/Y` imports, reverse imports from `lib/* | ui/* | layouts/* → app/*`,
-and direct `supabase.from(...)` calls from `features/*` (the real "single read
-path through `lib/queries/*`" guard). Tracked in #39.
+Cross-feature imports and reverse imports from `app/` are enforced by
+`no-restricted-imports` in `eslint.config.js` (see the three layering blocks).
+Tests and `*Route.tsx` files are exempt — routes are the composition layer.
+
+**TODO:** add an ESLint guard for direct `supabase.from(...)` calls from
+`features/*` (the real "single read path through `lib/queries/*`" guard).
 
 ### Per-feature scope
 

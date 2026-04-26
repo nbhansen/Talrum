@@ -61,7 +61,9 @@ export const PinPad = ({
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
-            className={[styles.dot, i < digits.length && styles.dotFilled].filter(Boolean).join(' ')}
+            className={[styles.dot, i < digits.length && styles.dotFilled]
+              .filter(Boolean)
+              .join(' ')}
           />
         ))}
       </div>

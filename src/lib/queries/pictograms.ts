@@ -7,7 +7,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import { useSessionUser } from '@/app/session';
+import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { supabase } from '@/lib/supabase';
 import type { GlyphName, Pictogram } from '@/types/domain';

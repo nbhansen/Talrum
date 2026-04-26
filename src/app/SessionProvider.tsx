@@ -1,9 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import { type JSX, type ReactNode, useMemo } from 'react';
 
+import { SessionContext, type SessionContextValue } from '@/lib/auth/session';
 import { supabase } from '@/lib/supabase';
-
-import { SessionContext, type SessionContextValue } from './session';
 
 interface SessionProviderProps {
   session: Session;

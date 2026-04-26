@@ -1,9 +1,9 @@
 import { type JSX, useEffect } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
-import { KidModeGate } from '@/features/pin-gate/KidModeGate';
 import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
+import { KidModeGate } from '@/ui/KidModeGate/KidModeGate';
 
 import { KidSequence } from './KidSequence';
 
