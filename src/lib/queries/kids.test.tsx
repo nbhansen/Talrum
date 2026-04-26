@@ -85,7 +85,7 @@ describe('useCreateKid', () => {
     fromMock.mockClear();
   });
 
-  it('inserts with the trimmed name + session owner_id, returns the mapped Kid, and invalidates the kids list cache', async () => {
+  it('inserts with the supplied name + session owner_id, returns the mapped Kid, and invalidates the kids list cache', async () => {
     singleMock.mockResolvedValueOnce({
       data: {
         id: 'k-new',
@@ -105,7 +105,9 @@ describe('useCreateKid', () => {
 
     let returned: Kid | undefined;
     await act(async () => {
-      returned = await result.current.mutateAsync({ name: '  Mira  ' });
+      // Input normalization (trim) is the modal's job; the query forwards
+      // `name` to the DB unchanged.
+      returned = await result.current.mutateAsync({ name: 'Mira' });
     });
 
     expect(returned).toEqual<Kid>({

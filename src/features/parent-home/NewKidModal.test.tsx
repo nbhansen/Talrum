@@ -22,8 +22,10 @@ const renderModal = (onClose: () => void = vi.fn()): JSX.Element => {
 
 afterEach(() => {
   mutateMock.mockReset();
-  useCreateKidMock.mockReset();
-  useCreateKidMock.mockReturnValue({ mutate: mutateMock, isPending: false });
+  // mockClear (not mockReset) preserves the factory implementation; mockReset
+  // would drop it back to `vi.fn(() => undefined)` and the next render would
+  // crash with "cannot read property 'mutate' of undefined".
+  useCreateKidMock.mockClear();
 });
 
 describe('NewKidModal', () => {
@@ -47,7 +49,9 @@ describe('NewKidModal', () => {
     await user.type(screen.getByRole('textbox', { name: /name/i }), '  Mira  ');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(mutateMock).toHaveBeenCalledWith({ name: '  Mira  ' }, expect.any(Object));
+    // Modal trims the input before calling the mutation — the query layer is
+    // a thin DB wrapper and trusts what the modal passes.
+    expect(mutateMock).toHaveBeenCalledWith({ name: 'Mira' }, expect.any(Object));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
