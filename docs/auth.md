@@ -34,10 +34,9 @@ on `auth.users` that clones every row from `template_pictograms` and
 and rewrites board step arrays via a slug→uuid map. It's idempotent:
 if the user already has a kid, the trigger no-ops.
 
-Template tables are populated by `supabase/seed.sql`, regenerated from
-`src/data/*.ts` via `npm run seed:gen`. They have RLS enabled with a
-read-only-for-authenticated policy so PostgREST can't be abused to mutate
-them.
+Template tables are populated by `supabase/seed.sql` (edit it directly).
+They have RLS enabled with a read-only-for-authenticated policy so PostgREST
+can't be abused to mutate them.
 
 ## Smoke-test RLS isolation
 

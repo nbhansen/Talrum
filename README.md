@@ -34,18 +34,16 @@ automatically as the seeded stub user — no login screen. Supabase Studio is at
 
 ## Day-to-day commands
 
-| What | How |
-|---|---|
-| Dev server | `npm run dev` |
-| Typecheck | `npm run typecheck` |
-| Lint (zero warnings allowed) | `npm run lint` |
-| Run tests once | `npm run test` |
-| Watch tests | `npm run test:watch` |
-| Format | `npm run format` |
-| Reset DB + reseed | `supabase db reset` |
-| Regenerate `supabase/seed.sql` from `src/data/*` | `npm run seed:gen` |
-| Regenerate `src/types/supabase.ts` from the DB schema | `npm run types:db` |
-| CI: seed.sql is in sync with data/*.ts | `npm run check:seed` |
+| What                                                  | How                  |
+| ----------------------------------------------------- | -------------------- |
+| Dev server                                            | `npm run dev`        |
+| Typecheck                                             | `npm run typecheck`  |
+| Lint (zero warnings allowed)                          | `npm run lint`       |
+| Run tests once                                        | `npm run test`       |
+| Watch tests                                           | `npm run test:watch` |
+| Format                                                | `npm run format`     |
+| Reset DB + reseed                                     | `supabase db reset`  |
+| Regenerate `src/types/supabase.ts` from the DB schema | `npm run types:db`   |
 
 ## How the codebase is organised
 
@@ -75,11 +73,10 @@ src/
 supabase/
   config.toml           # CLI config
   migrations/           # *.sql, applied in timestamp order
-  seed.sql              # GENERATED — do not hand-edit; run `npm run seed:gen`
+  seed.sql              # Demo boards + pictograms loaded by `supabase db reset`
   tests/                # pgTAP regression tests, run via `npm run test:db`
 
 scripts/
-  gen-seed.ts           # reads src/data/*.ts → writes supabase/seed.sql
   gen-icons.ts          # generates the PWA icon variants
 
 docs/
@@ -94,8 +91,8 @@ docs/
 - After any migration edit, run `supabase db reset` (applies migrations +
   seed) and `npm run types:db` (regenerates DB types). Commit both the
   migration and the updated `src/types/supabase.ts`.
-- Seed data lives in `src/data/pictograms.ts` + `src/data/boards.ts`. Edit
-  there, then `npm run seed:gen` to regenerate the SQL.
+- Seed data lives in `supabase/seed.sql` (demo boards + pictograms loaded by
+  `supabase db reset`). Edit it directly.
 
 ## Architecture rules
 
@@ -164,8 +161,8 @@ Vite tree-shaking prefers it.
   `BoardBuilder.tsx`); their containing folder under `ui/` matches
   (`ui/Button/Button.tsx`). Non-component modules use **camelCase**
   (`formatUpdated.ts`, `useOnline.ts`). Feature folders use **kebab-case**
-  (`board-builder/`). *Project deviation from bulletproof-react's universal
-  kebab-case file rule — PascalCase for components matches the JSX export.*
+  (`board-builder/`). _Project deviation from bulletproof-react's universal
+  kebab-case file rule — PascalCase for components matches the JSX export._
 - One named export per component file. Avoid default exports.
 - Styling is **CSS Modules** (`*.module.css`) with shared design tokens in
   `src/theme/tokens.module.css` and re-exported as typed values from
@@ -222,10 +219,12 @@ Vite tree-shaking prefers it.
 
 ### CI & hooks
 
-- **TODO:** add `.github/workflows/` running `typecheck`, `lint`, `test`,
-  `check:seed` on PRs.
-- **TODO:** add `husky` + `lint-staged` pre-commit running lint + typecheck on
-  staged files.
+- `.github/workflows/ci.yml` runs `typecheck`, `lint`, and `test` on every PR
+  and push to `main`. The pgTAP suite (`npm run test:db`) is not in CI yet;
+  it needs Docker + the Supabase CLI in the runner.
+- `husky` + `lint-staged` run on `git commit`: ESLint with
+  `--max-warnings 0` on staged `*.ts`/`*.tsx`, Prettier on staged
+  `*.{ts,tsx,json,md,css}`, and a project-wide `npm run typecheck`.
 
 ## Project philosophy
 

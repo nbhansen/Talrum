@@ -14,9 +14,16 @@
     "test:watch": "vitest",
     "test:db": "supabase test db",
     "icons:gen": "node --experimental-strip-types scripts/gen-icons.ts",
-    "seed:gen": "node --experimental-strip-types scripts/gen-seed.ts",
-    "check:seed": "npm run seed:gen && git diff --exit-code supabase/seed.sql",
-    "types:db": "supabase gen types typescript --local > src/types/supabase.ts"
+    "types:db": "supabase gen types typescript --local > src/types/supabase.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --max-warnings 0"
+    ],
+    "*.{ts,tsx,json,css}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -49,7 +56,9 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "fake-indexeddb": "^6.2.5",
+    "husky": "^9.1.7",
     "jsdom": "^29.0.2",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.4.2",
     "sharp": "^0.34.5",
     "typescript": "^5.7.2",
