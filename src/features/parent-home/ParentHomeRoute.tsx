@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
+import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
@@ -14,6 +15,7 @@ import { ParentHome } from './ParentHome';
 export const ParentHomeRoute = (): JSX.Element => {
   const navigate = useNavigate();
   const onNav = useParentNav();
+  const onKidMode = useKidModeNav();
   const boardsQuery = useBoards();
   const kidsQuery = useKids();
   const createBoard = useCreateBoard();
@@ -31,14 +33,6 @@ export const ParentHomeRoute = (): JSX.Element => {
     markAutoLaunched();
   }, []);
   if (redirect) return <Navigate to={redirect} replace />;
-
-  // Always expose onKidMode once boards have loaded — during the initial
-  // fetch we route to a stable placeholder that'll redirect as soon as the
-  // query settles. Avoids a visible flicker of the KID button in the sidebar.
-  const firstSequence = boardsQuery.data?.find((b) => b.kind === 'sequence');
-  const onKidMode = (): void => {
-    if (firstSequence) navigate(`/kid/sequence/${firstSequence.id}`);
-  };
 
   const firstKid = kidsQuery.data?.[0];
   const boardCount = boardsQuery.data?.length ?? 0;
