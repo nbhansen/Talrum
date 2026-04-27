@@ -85,6 +85,33 @@ describe('KidChoice', () => {
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
   });
 
+  it('hides per-tile labels when board.labelsVisible is false, keeping marker+label as the accessible name', () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={{ ...board, labelsVisible: false }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    // Visible label span gone — `Park` text is no longer in the DOM.
+    expect(screen.queryByText('Park')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zoo')).not.toBeInTheDocument();
+    // Marker letter must still ride with the accessible name. A teacher saying
+    // "tap A" needs the screen reader to announce both, not just the label.
+    expect(screen.getByRole('button', { name: /A.*Park/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /B.*Zoo/i })).toBeInTheDocument();
+  });
+
+  it('still shows the picked CTA text when labels are hidden (per-tile labels only, not all text)', async () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={{ ...board, labelsVisible: false }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /A.*Park/i }));
+    expect(screen.getByText(/Let.+s go to Park/)).toBeInTheDocument();
+  });
+
   it('exit button calls onExit', async () => {
     const qc = makeClient();
     const onExit = vi.fn();

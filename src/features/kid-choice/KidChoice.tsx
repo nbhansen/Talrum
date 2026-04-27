@@ -64,6 +64,9 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                 .filter(Boolean)
                 .join(' ')}
               style={choiceStyle}
+              aria-label={
+                board.labelsVisible ? undefined : `${String.fromCharCode(65 + idx)} ${p.label}`
+              }
             >
               <span className={styles.marker} style={markerStyle}>
                 {String.fromCharCode(65 + idx)}
@@ -76,7 +79,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                   </div>
                 )}
               </div>
-              <span className={styles.label}>{p.label}</span>
+              {board.labelsVisible && <span className={styles.label}>{p.label}</span>}
             </button>
           );
         })}
