@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,7 +60,9 @@ describe('KidModeGate', () => {
     await tapDigits(user, '1234');
     expect(await screen.findByText('Confirm your PIN')).toBeInTheDocument();
     await tapDigits(user, '1234');
-    expect(onExit).toHaveBeenCalledTimes(1);
+    // handleSetupConfirm awaits setPin() before firing onExit; waitFor avoids
+    // racing the async chain (#87).
+    await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
@@ -91,7 +93,7 @@ describe('KidModeGate', () => {
     expect(await screen.findByText('Confirm your PIN')).toBeInTheDocument();
     await tapDigits(user, '1234');
 
-    expect(onExit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
     expect(hasPin()).toBe(true);
     expect(await verifyPin('1234')).toBe(true);
   });
@@ -119,7 +121,8 @@ describe('KidModeGate', () => {
     expect(screen.getByText('Enter PIN to exit')).toBeInTheDocument();
     await tapDigits(user, '9999');
 
-    expect(onExit).toHaveBeenCalledTimes(1);
+    // handleVerify awaits verifyPin() (Web Crypto) before firing onExit (#87).
+    await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
   });
 
   it('verify path rejects wrong digits and lets the user retry', async () => {

@@ -208,11 +208,10 @@ describe('startOutbox', () => {
     const seen: number[] = [];
     startOutbox();
     const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
-    // Two macrotask ticks: one for emit()'s listEntries, one for the
-    // offline-branch emit() inside drain().
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
+    // emit() does an IDB roundtrip (listEntries) before pushing to subscribers,
+    // then drain()'s offline branch emits again. Counting macrotask ticks
+    // flakes under load (#87) — poll the actual condition instead.
+    await vi.waitFor(() => expect(seen).toContain(2));
     unsub();
-    expect(seen).toContain(2);
   });
 });
