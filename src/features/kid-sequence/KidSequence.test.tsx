@@ -80,6 +80,21 @@ describe('KidSequence', () => {
     );
   });
 
+  it('hides per-tile labels when board.labelsVisible is false, but keeps an accessible name', () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidSequence board={{ ...board, labelsVisible: false }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    // Visible label span gone — the literal label text is no longer in the DOM.
+    expect(screen.queryByText('Apple')).not.toBeInTheDocument();
+    expect(screen.queryByText('Drink')).not.toBeInTheDocument();
+    // Buttons remain operable for screen readers via the conditional aria-label.
+    expect(screen.getByRole('button', { name: /Apple/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Drink/i })).toBeInTheDocument();
+  });
+
   it('the exit button calls onExit', async () => {
     const qc = makeClient();
     const onExit = vi.fn();
