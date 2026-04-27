@@ -1,0 +1,16 @@
+-- Pin search_path on public.set_updated_at() to close the Supabase advisor's
+-- function_search_path_mutable warning (issue #64).
+--
+-- The function was defined in 20260424145159_init.sql without an explicit
+-- `set search_path`. Every other function in our migrations (is_board_owner,
+-- is_board_member, is_board_editor, owner_or_share_helper, storage helpers,
+-- handle_new_user trigger machinery) pins `search_path = public` because
+-- otherwise a malicious or misconfigured per-role search_path could shadow
+-- objects the function references at runtime — a small but real privilege-
+-- escalation surface for SECURITY DEFINER and trigger functions alike.
+--
+-- `set_updated_at` is a SECURITY INVOKER trigger, so the practical risk is
+-- bounded, but the advisor flags the asymmetry with the rest of the function
+-- catalogue and the fix is one line. Closing the warning keeps future
+-- advisor scans signal-only.
+alter function public.set_updated_at() set search_path = public;
