@@ -10,9 +10,6 @@
 -- Bob member of Alice; Charlie unrelated; Dana cross-owner member of
 -- Charlie's board, NOT Alice's). Asserts:
 --
---   helper layer  — `is_owner_shared_with_me(uuid)` returns the right
---                   answer for owner / member / non-member /
---                   cross-owner-member.
 --   policy layer  — SELECT through `pictograms_select` and
 --                   `kids_select` returns the owner's rows for the
 --                   owner and the member; zero rows for the
@@ -21,9 +18,16 @@
 --                   (the existing `pictograms_owner_write` policy
 --                   still gates writes).
 --
+-- Helper-layer assertions previously here called `is_owner_shared_with_me`
+-- directly under role-switched sessions — that pinned the wrong contract.
+-- The helper now lives in `private` (not the exposed API schema, per #91),
+-- so calling it directly is no longer the surface to test. The policy-layer
+-- assertions below still exercise the helper through the actual RLS path,
+-- which is what production depends on.
+--
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(13);
+SELECT plan(8);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -57,52 +61,9 @@ CREATE TEMP TABLE expected AS
       WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') AS kids;
 GRANT SELECT ON expected TO authenticated;
 
--- ── 1. Helper exists ───────────────────────────────────────────────────────
-
-SELECT ok(
-  EXISTS (
-    SELECT 1 FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-     WHERE n.nspname = 'public'
-       AND p.proname = 'is_owner_shared_with_me'
-       AND p.prosecdef = true
-  ),
-  'is_owner_shared_with_me exists in public schema as SECURITY DEFINER'
-);
-
--- ── 2-5. Helper logic, four roles ──────────────────────────────────────────
-
 SET LOCAL ROLE authenticated;
 
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
-SELECT ok(
-  is_owner_shared_with_me('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),
-  'helper: owner shares with self'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT ok(
-  is_owner_shared_with_me('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),
-  'helper: board member sees owner data'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}';
-SELECT ok(
-  NOT is_owner_shared_with_me('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),
-  'helper: stranger does not see owner data'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
-SELECT ok(
-  NOT is_owner_shared_with_me('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),
-  'helper: cross-owner member (dana) does not see alice data (scoped-membership guard)'
-);
-
--- ── 6-9. pictograms_select policy, four roles ──────────────────────────────
+-- ── 1-4. pictograms_select policy, four roles ──────────────────────────────
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
@@ -140,7 +101,7 @@ SELECT is(
   'policy: cross-owner member sees zero of owner pictograms (scoped-membership guard)'
 );
 
--- ── 10-12. kids_select policy, three roles ─────────────────────────────────
+-- ── 5-7. kids_select policy, three roles ─────────────────────────────────
 -- Owner and member must see Alice's seeded kid; non-member and
 -- cross-owner-member must not. (Picking three of the four roles —
 -- owner/member/cross-owner — covers the same logic plane as pictograms;
@@ -174,7 +135,7 @@ SELECT is(
   'policy: cross-owner member sees zero of owner kids (scoped-membership guard)'
 );
 
--- ── 13. Member cannot UPDATE owner pictograms ──────────────────────────────
+-- ── 8. Member cannot UPDATE owner pictograms ──────────────────────────────
 -- The widened SELECT must not have widened writes. The existing
 -- `pictograms_owner_write` policy keeps writes owner-only.
 

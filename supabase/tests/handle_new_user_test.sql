@@ -135,7 +135,7 @@ SELECT is(
 -- re-inserting auth.users.
 CREATE TRIGGER tmp_retest
   AFTER UPDATE ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION private.handle_new_user();
 UPDATE auth.users SET email = email
  WHERE id = '11111111-1111-1111-1111-111111111111';
 DROP TRIGGER tmp_retest ON auth.users;
