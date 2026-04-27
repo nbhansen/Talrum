@@ -9,7 +9,14 @@ vi.mock('@/lib/queries/boards', () => ({
   useSetBoardKind: () => ({ mutate: vi.fn() }),
   useSetKidReorderable: () => ({ mutate: vi.fn() }),
   useSetLabelsVisible: () => ({ mutate: vi.fn() }),
-  useSetStepIds: () => ({ mutate: vi.fn() }),
+  useSetStepIds: () => ({
+    mutate: vi.fn(),
+    retry: vi.fn(),
+    isError: false,
+    error: null,
+    isPending: false,
+    reset: vi.fn(),
+  }),
   useSetVoiceMode: () => ({ mutate: vi.fn() }),
 }));
 

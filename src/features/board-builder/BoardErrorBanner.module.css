@@ -1,0 +1,53 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  background: var(--tal-peach);
+  color: var(--tal-peach-ink);
+  border-radius: var(--tal-r-md);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--tal-shadow-1);
+}
+
+.message {
+  flex: 1;
+}
+
+.retry,
+.dismiss {
+  padding: 6px 12px;
+  border-radius: var(--tal-r-pill);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retry {
+  background: var(--tal-peach-ink);
+  color: var(--tal-surface);
+  border: 1px solid var(--tal-peach-ink);
+}
+
+.retry:hover {
+  filter: brightness(1.1);
+}
+
+.dismiss {
+  background: var(--tal-surface);
+  color: var(--tal-peach-ink);
+  border: 1px solid var(--tal-peach-ink);
+}
+
+.dismiss:hover {
+  background: var(--tal-peach-ink);
+  color: var(--tal-surface);
+}
+
+.retry:focus-visible,
+.dismiss:focus-visible {
+  outline: 2px solid var(--tal-ink);
+  outline-offset: 2px;
+}

@@ -67,7 +67,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     const nextIds = nextKeys
       .map((k) => byKey.get(k))
       .filter((id): id is string => typeof id === 'string');
-    setStepIds.mutate({ boardId: board.id, stepIds: nextIds });
+    setStepIds.mutate({ boardId: board.id, update: () => nextIds });
   };
 
   const renderTile = (step: Step, drag?: DragBindings): JSX.Element => {
