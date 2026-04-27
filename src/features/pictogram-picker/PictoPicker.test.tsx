@@ -52,6 +52,13 @@ describe('PictoPicker', () => {
     expect(screen.getByText('Shoes')).toBeInTheDocument();
   });
 
+  it('shows the real pictogram count in the Library tab sub, not a mockup', () => {
+    render(wrap(<PictoPicker onClose={vi.fn()} />));
+    const libraryTab = within(screen.getByRole('tablist')).getByRole('tab', { name: /Library/ });
+    expect(libraryTab).toHaveTextContent(String(SEED_PICTOGRAMS.length));
+    expect(libraryTab).not.toHaveTextContent('1,400');
+  });
+
   it('switches between library, upload, and generate tabs', async () => {
     const user = userEvent.setup();
     render(wrap(<PictoPicker onClose={vi.fn()} />));

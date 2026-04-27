@@ -20,12 +20,6 @@ interface TabDef {
   sub: string;
 }
 
-const TABS: readonly TabDef[] = [
-  { value: 'library', label: 'Library', sub: '1,400+' },
-  { value: 'upload', label: 'Upload', sub: 'Photo / image' },
-  { value: 'ai', label: 'Generate', sub: 'Describe it' },
-];
-
 interface PictoPickerProps {
   onClose: () => void;
   onConfirm?: (selectedIds: readonly string[]) => void;
@@ -38,7 +32,12 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
   const [editingVoice, setEditingVoice] = useState<Pictogram | null>(null);
-  const { data: pictograms = [] } = usePictograms();
+  const { data: pictograms = [], isPending } = usePictograms();
+  const tabs: readonly TabDef[] = [
+    { value: 'library', label: 'Library', sub: isPending ? '' : `${pictograms.length}` },
+    { value: 'upload', label: 'Upload', sub: 'Photo / image' },
+    { value: 'ai', label: 'Generate', sub: 'Describe it' },
+  ];
   // Keep the dialog's pictogram in sync with the query cache so `audio_path`
   // updates (record → save, delete) flow through without remounting.
   const editingVoiceLive = editingVoice
@@ -78,7 +77,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
         </button>
       </header>
       <div className={styles.tabs} role="tablist">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const active = tab === t.value;
           return (
             <button
