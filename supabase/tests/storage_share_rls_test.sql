@@ -11,9 +11,6 @@
 -- The test exercises the actual policies under role-switched sessions
 -- and asserts:
 --
---   helper layer  — `is_pictogram_storage_visible(path)` returns
---                   true for the owner, true for a member, false for
---                   a stranger or a cross-owner member.
 --   policy layer  — SELECT through `pictogram_audio_select` and
 --                   `pictogram_images_select` returns 1/1/0/0 rows
 --                   for owner/member/non-member/cross-owner-member.
@@ -29,9 +26,16 @@
 -- that re-breaks the member branch (column shadow, missing helper,
 -- bad cast) will land on these.
 --
+-- Helper-layer assertions previously here called `is_pictogram_storage_visible`
+-- directly under role-switched sessions — that pinned the wrong contract.
+-- The helper now lives in `private` (not the exposed API schema, per #91),
+-- so calling it directly is no longer the surface to test. The policy-layer
+-- assertions below still exercise the helper through the actual storage RLS
+-- path, which is what production depends on.
+--
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(17);
+SELECT plan(12);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -83,57 +87,11 @@ INSERT INTO storage.objects (bucket_id, name, owner) VALUES
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid);
 
--- ── 1. Helper exists with the right shape ──────────────────────────────────
-
-SELECT ok(
-  EXISTS (
-    SELECT 1 FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-     WHERE n.nspname = 'public'
-       AND p.proname = 'is_pictogram_storage_visible'
-       AND p.prosecdef = true
-  ),
-  'is_pictogram_storage_visible exists in public schema as SECURITY DEFINER'
-);
-
--- ── 2-4. Helper logic, three roles ─────────────────────────────────────────
+-- ── Policy through SELECT, four roles, audio ───────────────────────────────
 -- SET LOCAL applies for the rest of the transaction; subsequent SET LOCALs
 -- replace previous values. ROLLBACK at the end discards everything.
 
 SET LOCAL ROLE authenticated;
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
-SELECT ok(
-  is_pictogram_storage_visible('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  'helper: owner sees own audio path'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT ok(
-  is_pictogram_storage_visible('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  'helper: board member sees owner audio path (#37 regression guard)'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}';
-SELECT ok(
-  NOT is_pictogram_storage_visible('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  'helper: non-member does not see owner audio path'
-);
-
--- Dana is a member of CHARLIE's board, not Alice's. She must not see
--- Alice's storage. Catches a regression where the predicate loosens
--- from "scoped to this owner's boards" to "any membership anywhere".
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
-SELECT ok(
-  NOT is_pictogram_storage_visible('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  'helper: cross-owner member (dana) does not see alice audio path'
-);
-
--- ── Policy through SELECT, four roles, audio ───────────────────────────────
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
