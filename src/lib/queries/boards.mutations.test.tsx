@@ -19,7 +19,7 @@ const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
 
 // Import after the mock is registered.
-const { boardQueryKey, useRenameBoard } = await import('./boards');
+const { boardQueryKey, useRenameBoard, useSetStepIds } = await import('./boards');
 
 const seed: Board = {
   id: 'morning',
@@ -96,5 +96,116 @@ describe('useRenameBoard (useBoardPatch)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Morning routine');
+  });
+});
+
+describe('useSetStepIds', () => {
+  beforeEach(() => {
+    eqMock.mockReset();
+    updateMock.mockClear();
+    fromMock.mockClear();
+  });
+
+  // Regression for #80: the prior API took a pre-computed `stepIds: string[]`,
+  // which let callers close over render-time `board.stepIds`. If the cache
+  // shifted between render and mutate (concurrent edit, outbox drain, long-
+  // open picker), the closed-over snapshot would clobber it. The new API
+  // takes an updater and reads the cache at the synchronous boundary of
+  // `mutate()` so the merge always uses fresh state.
+  it('applies the updater against fresh cache state, not a stale snapshot', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
+
+    eqMock.mockResolvedValueOnce({ error: null });
+
+    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+
+    // Simulate a concurrent edit landing in the cache *after* render but
+    // *before* the mutate call (e.g. another tab pushed an append).
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a', 'b'] });
+
+    act(() => {
+      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'c'] });
+    });
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
+    expect(updateMock).toHaveBeenCalledWith({ step_ids: ['a', 'b', 'c'] });
+  });
+
+  it('exposes isError to the caller after a non-retryable DB error', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
+
+    eqMock.mockResolvedValueOnce({
+      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+    });
+
+    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('retry() re-runs the last input against fresh cache', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
+
+    // First attempt fails (RLS), second succeeds. Between the two, the
+    // cache has shifted — retry must re-merge against the new state, not
+    // replay the original computed array.
+    eqMock
+      .mockResolvedValueOnce({
+        error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+      })
+      .mockResolvedValueOnce({ error: null });
+
+    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    // Concurrent edit lands before retry.
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a', 'x'] });
+
+    act(() => {
+      result.current.retry();
+    });
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(2));
+    expect(updateMock).toHaveBeenLastCalledWith({ step_ids: ['a', 'x', 'b'] });
+  });
+
+  it('reset() clears the error state', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
+
+    eqMock.mockResolvedValueOnce({
+      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+    });
+
+    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    act(() => {
+      result.current.reset();
+    });
+    await waitFor(() => expect(result.current.isError).toBe(false));
   });
 });

@@ -7,6 +7,7 @@ import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useBoards, useSetStepIds } from '@/lib/queries/boards';
 
 import { BoardBuilder } from './BoardBuilder';
+import { BoardErrorBanner } from './BoardErrorBanner';
 import { BoardNotFound } from './BoardNotFound';
 import { ShareModal } from './ShareModal';
 
@@ -74,6 +75,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
 
   return (
     <>
+      <BoardErrorBanner mutation={setStepIds} message="Couldn't save your picks. Try again." />
       <BoardBuilder
         board={board}
         isOwner={isOwner}
@@ -88,7 +90,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
           onClose={closePicker}
           onConfirm={(ids) => {
             if (ids.length === 0) return;
-            setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, ...ids] });
+            setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, ...ids] });
           }}
         />
       )}

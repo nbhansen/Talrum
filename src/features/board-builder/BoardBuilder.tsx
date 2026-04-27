@@ -16,6 +16,7 @@ import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { Reorderable } from '@/ui/Reorderable/Reorderable';
 
 import styles from './BoardBuilder.module.css';
+import { BoardErrorBanner } from './BoardErrorBanner';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 
@@ -107,7 +108,7 @@ export const BoardBuilder = ({
   const removeAt = (index: number): void =>
     setStepIds.mutate({
       boardId: board.id,
-      stepIds: board.stepIds.filter((_, i) => i !== index),
+      update: (prev) => prev.filter((_, i) => i !== index),
     });
 
   const reorder = (nextKeys: string[]): void => {
@@ -115,14 +116,15 @@ export const BoardBuilder = ({
     const nextIds = nextKeys
       .map((k) => byKey.get(k))
       .filter((id): id is string => typeof id === 'string');
-    setStepIds.mutate({ boardId: board.id, stepIds: nextIds });
+    setStepIds.mutate({ boardId: board.id, update: () => nextIds });
   };
 
   const appendPicto = (pictoId: string): void =>
-    setStepIds.mutate({ boardId: board.id, stepIds: [...board.stepIds, pictoId] });
+    setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, pictoId] });
 
   return (
     <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
+      <BoardErrorBanner mutation={setStepIds} />
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>
           <ArrowLeftIcon size={16} />

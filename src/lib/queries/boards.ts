@@ -5,6 +5,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useRef } from 'react';
 
 import { useSessionUser } from '@/lib/auth/session';
 import { formatUpdated } from '@/lib/formatUpdated';
@@ -168,16 +169,72 @@ export const useSetVoiceMode = (): UseMutationResult<
     ({ mode }) => ({ voice_mode: mode }),
   );
 
-export const useSetStepIds = (): UseMutationResult<
-  void,
-  Error,
-  BoardIdInput & { stepIds: string[] },
-  { previous: Board | undefined }
-> =>
-  useBoardPatch(
+/**
+ * Step-id mutations always merge against the **current cache**, never a
+ * closed-over snapshot — closures captured at render time get clobbered when
+ * another tab, an outbox drain, or a long-open picker modal shifts the cache
+ * underneath us. Callers pass an updater `(prev) => next` so the read happens
+ * inside the hook, at the synchronous boundary of `mutate()`. There's no API
+ * shape that lets a caller bypass the read.
+ */
+export interface SetStepIdsInput {
+  boardId: string;
+  update: (prev: string[]) => string[];
+}
+
+export interface SetStepIdsResult {
+  mutate: (input: SetStepIdsInput) => void;
+  /**
+   * Re-runs the last input against the *current* cache. Re-reads `stepIds`
+   * fresh so a retry after a transient failure doesn't reapply against a
+   * stale snapshot. No-op if `mutate` was never called.
+   */
+  retry: () => void;
+  isError: boolean;
+  error: Error | null;
+  isPending: boolean;
+  reset: () => void;
+}
+
+export const useSetStepIds = (): SetStepIdsResult => {
+  const qc = useQueryClient();
+  const inner = useBoardPatch<BoardIdInput & { stepIds: string[] }>(
     ({ stepIds }, current) => ({ ...current, stepIds }),
     ({ stepIds }) => ({ step_ids: stepIds }),
   );
+  const lastInput = useRef<SetStepIdsInput | null>(null);
+
+  const run = ({ boardId, update }: SetStepIdsInput): void => {
+    const fresh = qc.getQueryData<Board>(boardQueryKey(boardId));
+    if (!fresh) {
+      // Cache should always be hydrated by the time the UI can call this —
+      // every caller gates on a loaded `board`. A miss here means a future
+      // wiring put `useSetStepIds` ahead of its data. Surface in dev only.
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[useSetStepIds] no cached board for ${boardId}; mutation skipped. ` +
+            `Caller likely fired before the board query resolved.`,
+        );
+      }
+      return;
+    }
+    inner.mutate({ boardId, stepIds: update(fresh.stepIds) });
+  };
+
+  return {
+    mutate: (input) => {
+      lastInput.current = input;
+      run(input);
+    },
+    retry: () => {
+      if (lastInput.current) run(lastInput.current);
+    },
+    isError: inner.isError,
+    error: inner.error,
+    isPending: inner.isPending,
+    reset: inner.reset,
+  };
+};
 
 export const useSetKidReorderable = (): UseMutationResult<
   void,
