@@ -123,6 +123,27 @@ describe('ParentHomeRoute auto-launch', () => {
   });
 });
 
+describe('ParentHomeRoute header kidName', () => {
+  it('reflects the real first kid name from the kids query (not a hardcoded placeholder)', () => {
+    useKidsMock.mockReturnValue({
+      data: [{ id: 'k-mira', ownerId: 'owner', name: 'Mira' }],
+      isPending: false,
+    });
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+    expect(screen.getByText(/Mira's boards/)).toBeInTheDocument();
+    expect(screen.queryByText(/Liam's boards/)).not.toBeInTheDocument();
+  });
+
+  it('falls back to a neutral "Boards" title when no kid is loaded yet', () => {
+    useKidsMock.mockReturnValue({ data: [], isPending: false });
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Boards' })).toBeInTheDocument();
+    expect(screen.queryByText(/Liam's boards/)).not.toBeInTheDocument();
+  });
+});
+
 describe('ParentHomeRoute create flows', () => {
   it('clicking New kid opens the kid modal', async () => {
     const Wrap = makeWrap('/');

@@ -64,6 +64,7 @@ export const ParentHomeRoute = (): JSX.Element => {
   return (
     <>
       <ParentHome
+        {...(firstKid ? { kidName: firstKid.name } : {})}
         onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
         onKidMode={onKidMode}
         onNav={onNav}
