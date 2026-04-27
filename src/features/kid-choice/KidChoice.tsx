@@ -64,7 +64,9 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                 .filter(Boolean)
                 .join(' ')}
               style={choiceStyle}
-              {...(board.labelsVisible ? {} : { 'aria-label': p.label })}
+              aria-label={
+                board.labelsVisible ? undefined : `${String.fromCharCode(65 + idx)} ${p.label}`
+              }
             >
               <span className={styles.marker} style={markerStyle}>
                 {String.fromCharCode(65 + idx)}

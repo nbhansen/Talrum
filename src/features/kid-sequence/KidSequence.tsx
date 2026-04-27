@@ -81,7 +81,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
         style={drag?.style}
         {...(drag?.attributes ?? {})}
         {...(drag?.listeners ?? {})}
-        {...(board.labelsVisible ? {} : { 'aria-label': step.picto.label })}
+        aria-label={board.labelsVisible ? undefined : step.picto.label}
       >
         <div className={styles.mediaWrap}>
           <PictogramMedia picto={step.picto} size={200} className={styles.media} />

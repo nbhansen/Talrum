@@ -90,7 +90,24 @@ describe('KidSequence', () => {
     // Visible label span gone — the literal label text is no longer in the DOM.
     expect(screen.queryByText('Apple')).not.toBeInTheDocument();
     expect(screen.queryByText('Drink')).not.toBeInTheDocument();
-    // Buttons remain operable for screen readers via the conditional aria-label.
+    // The button's accessible name comes from the conditional aria-label.
+    expect(screen.getByRole('button', { name: /Apple/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Drink/i })).toBeInTheDocument();
+  });
+
+  it('preserves the accessible name on the kidReorderable (dnd-kit) branch', () => {
+    // The reorderable render path spreads dnd-kit's `attributes` and
+    // `listeners` onto the same button. `aria-label` as an explicit attribute
+    // (not a conditional spread) makes precedence over those spreads explicit.
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidSequence
+          board={{ ...board, labelsVisible: false, kidReorderable: true }}
+          onExit={vi.fn()}
+        />
+      </Wrap>,
+    );
     expect(screen.getByRole('button', { name: /Apple/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Drink/i })).toBeInTheDocument();
   });
