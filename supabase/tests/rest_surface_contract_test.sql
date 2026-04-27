@@ -43,7 +43,8 @@ SELECT is(
     WHERE p.proname IN (
             'is_board_owner', 'is_board_member', 'is_board_editor',
             'is_owner_shared_with_me', 'is_pictogram_storage_visible',
-            'handle_new_user', 'set_updated_at'
+            'handle_new_user', 'set_updated_at',
+            'rls_auto_enable'
           )
       AND n.nspname <> 'private'),
   0,
