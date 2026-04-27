@@ -31,7 +31,7 @@ interface ParentHomeProps {
 }
 
 export const ParentHome = ({
-  kidName = 'Liam',
+  kidName,
   onOpenBoard,
   onKidMode,
   onNav,
@@ -52,7 +52,7 @@ export const ParentHome = ({
       active="home"
       {...(onNav ? { onNav } : {})}
       {...(onKidMode ? { onKidMode } : {})}
-      title={`${kidName}'s boards`}
+      title={kidName ? `${kidName}'s boards` : 'Boards'}
       subtitle="Pick a board to edit, or start a new one."
       right={
         <div className={styles.rightActions}>
