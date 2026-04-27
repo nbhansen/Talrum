@@ -1,86 +1,10 @@
--- Demo boards + pictograms loaded by `supabase db reset`.
--- Edit directly; there is no generator.
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('wakeup', 'Wake up', 'illus', 'sun', 'oklch(90% 0.06 90)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('bed', 'Out of bed', 'illus', 'bed', 'oklch(88% 0.05 300)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('brush', 'Brush teeth', 'illus', 'tooth', 'oklch(88% 0.05 240)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('dress', 'Get dressed', 'illus', 'shirt', 'oklch(88% 0.05 45)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('shoes', 'Shoes on', 'illus', 'shoe', 'oklch(88% 0.05 155)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('breakfast', 'Breakfast', 'illus', 'bowl', 'oklch(88% 0.05 45)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('apple', 'Apple', 'illus', 'apple', 'oklch(88% 0.05 20)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('cup', 'Drink', 'illus', 'cup', 'oklch(88% 0.05 240)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('bag', 'Backpack', 'illus', 'bag', 'oklch(88% 0.05 155)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('car', 'Go to car', 'illus', 'car', 'oklch(88% 0.05 300)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('park', 'Park', 'photo', null, null, null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('store', 'Supermarket', 'photo', null, null, null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('zoo', 'Zoo', 'photo', null, null, null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('play', 'Playground', 'photo', null, null, null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('book', 'Story time', 'illus', 'book', 'oklch(88% 0.05 300)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('bath', 'Bath', 'illus', 'bath', 'oklch(88% 0.05 240)', null, null);
-
-insert into template_pictograms
-  (slug, label, style, glyph, tint, image_path, audio_path) values
-  ('heart', 'Love', 'illus', 'heart', 'oklch(88% 0.05 20)', null, null);
-
-insert into template_boards
-  (slug, name, kind, labels_visible, voice_mode, step_slugs, kid_reorderable, accent, accent_ink) values
-  ('morning', 'Morning routine', 'sequence', true, 'tts', array['wakeup', 'brush', 'dress', 'breakfast', 'bag', 'car']::text[], false, 'peach', 'peach-ink');
-
-insert into template_boards
-  (slug, name, kind, labels_visible, voice_mode, step_slugs, kid_reorderable, accent, accent_ink) values
-  ('afterschool', 'After school', 'sequence', true, 'tts', array['bag', 'apple', 'book', 'bath']::text[], false, 'sage', 'sage-ink');
-
-insert into template_boards
-  (slug, name, kind, labels_visible, voice_mode, step_slugs, kid_reorderable, accent, accent_ink) values
-  ('weekend', 'Saturday — where to?', 'choice', true, 'tts', array['park', 'store', 'zoo']::text[], false, 'sky', 'sky-ink');
-
-insert into template_boards
-  (slug, name, kind, labels_visible, voice_mode, step_slugs, kid_reorderable, accent, accent_ink) values
-  ('bedtime', 'Bedtime', 'sequence', true, 'tts', array['bath', 'book', 'cup', 'bed']::text[], true, 'lavender', 'lavender-ink');
+-- Local dev seed (runs on `supabase db reset`). Reserved for local-only
+-- test/dev data — anything that should NOT land on cloud.
+--
+-- Template content (template_pictograms, template_boards) is NOT seeded here
+-- anymore. It lives in a migration so deploy-migrations.yml can land it on
+-- cloud — see supabase/migrations/20260427162919_seed_templates.sql.
+-- That migration is the single source of truth for the starter library.
+--
+-- This file is intentionally empty. Add local-only fixtures here if/when
+-- they're needed.
