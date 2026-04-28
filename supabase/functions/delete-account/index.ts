@@ -70,6 +70,17 @@ export const handleRequest = async (
       return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
     }
 
+    // Body must be empty string or "{}" (the exact serialization supabase-js
+    // produces for `functions.invoke('...', { body: {} })`). We do byte
+    // equality, not JSON parsing, because:
+    //   1. user_id comes from the verified JWT, never the body — there is
+    //      nothing to read out of a non-empty body that we'd trust.
+    //   2. JSON.parse would tolerate `{"user_id":"someone-else"}` as
+    //      well-formed input that we would then have to explicitly reject.
+    //      Byte equality eliminates the entire class of "what fields are
+    //      we accepting?" review questions.
+    //   3. supabase-js controls both ends of this contract; the byte
+    //      shape is stable.
     const raw = (await req.text()).trim();
     if (raw !== '' && raw !== '{}') {
       return errorResponse('bad_request', 'request body must be empty or {}', 400);

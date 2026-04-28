@@ -4,7 +4,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(13);
+SELECT plan(17);
 
 -- Existence assertions: each app-table column referencing auth.users has a FK.
 SELECT has_fk('public', 'kids',          'kids has at least one foreign key');
@@ -53,6 +53,17 @@ BEGIN
   INSERT INTO public.kids (owner_id, name) VALUES (test_uid, 'cascade-kid');
   INSERT INTO public.pictograms (owner_id, label, style, glyph, tint)
     VALUES (test_uid, 'apple', 'illus', '🍎', 'red');
+  INSERT INTO public.boards (owner_id, kid_id, name, kind, voice_mode, accent, accent_ink)
+  SELECT test_uid, k.id, 'cascade-board', 'sequence', 'tts', 'sage', 'sage-ink'
+  FROM public.kids k WHERE k.owner_id = test_uid LIMIT 1;
+  -- board_members: this row exercises BOTH cascade paths simultaneously
+  -- (board_members.user_id -> auth.users(id), and indirectly
+  -- board_members.board_id -> boards(id) -> auth.users(id)). Either path
+  -- removing it satisfies the assertion; future test could split into two
+  -- sentinel users to disambiguate.
+  INSERT INTO public.board_members (board_id, user_id, role)
+  SELECT b.id, test_uid, 'owner'
+  FROM public.boards b WHERE b.owner_id = test_uid LIMIT 1;
 END $$;
 
 -- Re-enable triggers so the cascade FK actually fires on DELETE.
@@ -71,6 +82,14 @@ SELECT is(
   (SELECT count(*)::int FROM public.pictograms WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
   1, 'pre-delete: 1 pictogram for sentinel uid'
 );
+SELECT is(
+  (SELECT count(*)::int FROM public.boards WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
+  1, 'pre-delete: 1 board for sentinel uid'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.board_members WHERE user_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
+  1, 'pre-delete: 1 board_member for sentinel uid'
+);
 
 -- Trigger the cascade.
 DELETE FROM auth.users WHERE id = '00000000-0000-0000-0000-000000c45c4d'::uuid;
@@ -83,6 +102,14 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM public.pictograms WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
   0, 'post-delete: pictograms cascaded'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.boards WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
+  0, 'post-delete: boards cascaded'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.board_members WHERE user_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
+  0, 'post-delete: board_members cascaded'
 );
 
 SELECT * FROM finish();
