@@ -42,7 +42,7 @@ jobs:
           # want to know the server is accepting connections.
           API_URL="$(supabase status -o json | jq -r '.API_URL')"
           for i in {1..30}; do
-            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' \
+            STATUS=$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' --data '{}' \
               "$API_URL/functions/v1/delete-account" || echo "000")
             if [[ "$STATUS" =~ ^[1-5][0-9][0-9]$ ]]; then
