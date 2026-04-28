@@ -4,8 +4,10 @@ import { useCreateBoard } from '@/lib/queries/boards';
 import { useKids } from '@/lib/queries/kids';
 import type { BoardKind } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { XIcon } from '@/ui/icons';
+import { DialogActions } from '@/ui/DialogActions/DialogActions';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
+import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './NewBoardModal.module.css';
 
@@ -62,41 +64,30 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
       <div className={styles.wrap}>
-        <header className={styles.header}>
-          <div>
-            <h2 id={TITLE_ID} className={styles.title}>
-              New board
-            </h2>
-            <p className={styles.subtitle}>
-              You can add steps and tweak settings after the board is created.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className={styles.closeBtn}>
-            <XIcon size={18} />
-          </button>
-        </header>
-
-        <form onSubmit={submit}>
+        <DialogHeader
+          title="New board"
+          subtitle="You can add steps and tweak settings after the board is created."
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
+        <form onSubmit={submit} className={styles.form}>
           {noKids && (
             <p className={styles.noKids}>Add a kid first — boards need a kid to belong to.</p>
           )}
 
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Name</span>
-            <input
-              type="text"
-              autoFocus
-              autoComplete="off"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (error) setError(null);
-              }}
-              className={styles.input}
-              placeholder="Morning routine"
-              disabled={noKids}
-            />
-          </label>
+          <TextField
+            label="Name"
+            type="text"
+            autoFocus
+            autoComplete="off"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="Morning routine"
+            disabled={noKids}
+          />
 
           <fieldset className={`${styles.field} ${styles.kindGroup}`}>
             {KIND_OPTIONS.map((opt) => {
@@ -144,7 +135,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
             </p>
           )}
 
-          <div className={styles.actions}>
+          <DialogActions>
             <Button
               type="button"
               variant="ghost"
@@ -156,7 +147,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
             <Button type="submit" variant="primary" disabled={submitDisabled}>
               {createBoard.isPending ? 'Saving…' : 'Save'}
             </Button>
-          </div>
+          </DialogActions>
         </form>
       </div>
     </Modal>

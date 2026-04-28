@@ -8,6 +8,7 @@ import {
   useBoardMembers,
   useRemoveBoardMember,
 } from '@/lib/queries/board-members';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
@@ -108,20 +109,12 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
       <div className={styles.wrap}>
-        <header className={styles.header}>
-          <div>
-            <h2 id={TITLE_ID} className={styles.title}>
-              Share this board
-            </h2>
-            <p className={styles.subtitle}>
-              People you share with see this board on their own iPad. They can't make changes.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className={styles.closeBtn}>
-            <XIcon size={18} />
-          </button>
-        </header>
-
+        <DialogHeader
+          title="Share this board"
+          subtitle="People you share with see this board on their own iPad. They can't make changes."
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
         <section className={styles.section}>
           <span className={styles.sectionLabel}>Your sharing ID</span>
           <div className={styles.idRow}>

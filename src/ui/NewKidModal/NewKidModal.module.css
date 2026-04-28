@@ -5,78 +5,8 @@
   margin: 0 auto;
 }
 
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.title {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--tal-ink);
-  margin: 0 0 2px;
-}
-
-.subtitle {
-  font-size: 13px;
-  color: var(--tal-ink-muted);
-  margin: 0;
-}
-
-.closeBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--tal-ink-soft);
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fieldLabel {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--tal-ink-muted);
-}
-
-.input {
-  font-size: 15px;
-  padding: 10px 12px;
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  background: var(--tal-surface);
-  color: var(--tal-ink);
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--tal-ink-soft);
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
 .error {
   margin: 8px 0 0;
   font-size: 13px;
-  color: var(--tal-coral-ink, var(--tal-ink));
+  color: var(--tal-coral-ink);
 }

@@ -2,8 +2,10 @@ import { type FormEvent, type JSX, useState } from 'react';
 
 import { useCreateKid } from '@/lib/queries/kids';
 import { Button } from '@/ui/Button/Button';
-import { XIcon } from '@/ui/icons';
+import { DialogActions } from '@/ui/DialogActions/DialogActions';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
+import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './NewKidModal.module.css';
 
@@ -37,49 +39,38 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
       <div className={styles.wrap}>
-        <header className={styles.header}>
-          <div>
-            <h2 id={TITLE_ID} className={styles.title}>
-              Add a kid
-            </h2>
-            <p className={styles.subtitle}>
-              Each kid has their own boards. You can add more later.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className={styles.closeBtn}>
-            <XIcon size={18} />
-          </button>
-        </header>
-
+        <DialogHeader
+          title="Add a kid"
+          subtitle="Each kid has their own boards. You can add more later."
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
         <form onSubmit={submit}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Name</span>
-            <input
-              type="text"
-              autoFocus
-              autoComplete="off"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (error) setError(null);
-              }}
-              className={styles.input}
-              placeholder="Liam"
-            />
-          </label>
+          <TextField
+            label="Name"
+            type="text"
+            autoFocus
+            autoComplete="off"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="Liam"
+          />
           {error && (
             <p role="alert" className={styles.error}>
               {error}
             </p>
           )}
-          <div className={styles.actions}>
+          <DialogActions>
             <Button type="button" variant="ghost" onClick={onClose} disabled={createKid.isPending}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={submitDisabled}>
               {createKid.isPending ? 'Saving…' : 'Save'}
             </Button>
-          </div>
+          </DialogActions>
         </form>
       </div>
     </Modal>
