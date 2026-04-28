@@ -23,7 +23,7 @@ interface BucketScript {
 
 export interface FakeOptions {
   buckets: Record<string, BucketScript>;
-  authDelete: { ok: true } | { error: { message: string } };
+  authDelete: { ok: true } | { error: { message: string; code?: string } };
 }
 
 // FakeClient is structurally identical to AdminClient; alias rather than

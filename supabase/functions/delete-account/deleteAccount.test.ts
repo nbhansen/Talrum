@@ -182,6 +182,42 @@ Deno.test(
 );
 
 Deno.test(
+  'deleteAccount: auth.admin.deleteUser returns code:user_not_found → resolves OK (idempotent)',
+  async () => {
+    const { client } = createFakeClient({
+      buckets: {
+        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: {
+        error: { message: 'no such record', code: 'user_not_found' },
+      },
+    });
+
+    // Should resolve, not throw.
+    await deleteAccount(client, UID);
+  },
+);
+
+Deno.test(
+  'deleteAccount: auth.admin.deleteUser code:database_error → throws auth_delete_failed',
+  async () => {
+    const { client } = createFakeClient({
+      buckets: {
+        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: {
+        error: { message: 'connection refused', code: 'database_error' },
+      },
+    });
+
+    const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
+    assertEquals(err.code, 'auth_delete_failed');
+  },
+);
+
+Deno.test(
   'deleteAccount: auth.admin.deleteUser other error → throws auth_delete_failed',
   async () => {
     const { client, calls } = createFakeClient({

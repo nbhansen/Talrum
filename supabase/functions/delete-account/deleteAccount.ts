@@ -20,7 +20,9 @@ export interface AdminClient {
   };
   auth: {
     admin: {
-      deleteUser: (uid: string) => Promise<{ error: { message: string } | null }>;
+      deleteUser: (uid: string) => Promise<{
+        error: { message: string; code?: string } | null;
+      }>;
     };
   };
 }
@@ -72,7 +74,9 @@ export const deleteAccount = async (client: AdminClient, userId: string): Promis
 
   const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
-    if (error.message.toLowerCase().includes('not found')) return;
+    const notFound =
+      error.code === 'user_not_found' || error.message.toLowerCase().includes('not found');
+    if (notFound) return;
     throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
   }
 };
