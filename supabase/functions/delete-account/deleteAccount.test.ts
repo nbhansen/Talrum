@@ -71,12 +71,13 @@ Deno.test('deleteAccount: 1500 objects → list+remove looped twice', async () =
     authDelete: { ok: true },
   });
 
-  await deleteAccount(client, UID);
+  const result = await deleteAccount(client, UID);
 
   const audioCalls = calls.filter((c) => c.bucket === 'pictogram-audio');
   // 3 lists (page1, page2, empty) + 2 removes
   assertEquals(audioCalls.filter((c) => c.kind === 'storage.list').length, 3);
   assertEquals(audioCalls.filter((c) => c.kind === 'storage.remove').length, 2);
+  assertEquals(result.audioCount, 1500);
 });
 
 Deno.test('deleteAccount: ordering invariant — all storage calls precede auth call', async () => {

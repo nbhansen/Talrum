@@ -3,17 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { type AdminClient, deleteAccount } from './deleteAccount.ts';
 import { type DeleteResponse, DeletionError, type ErrorCode } from './types.ts';
 
-// Tests inject this shape; production builds it from env.
-interface AdminLike {
-  auth: {
-    getUser: (jwt: string | undefined) => Promise<{
-      data: { user: { id: string } | null };
-      error: unknown;
-    }>;
-  };
-  // Optional injection point for tests to swap the deletion implementation.
-  __deleteImpl?: (uid: string) => Promise<void>;
-}
+// Handler only needs auth.getUser to identify the caller. The full deletion
+// is handed off to deleteFn, so the handler's view of the admin client is
+// narrower than deleteAccount's. AdminLike is structurally a subset of
+// AdminClient, so a real client is assignable to AdminLike without casting.
+type AdminLike = Pick<AdminClient, 'auth'>;
 
 const errorResponse = (code: ErrorCode, message: string, status: number): Response =>
   new Response(JSON.stringify({ ok: false, error: code, message } satisfies DeleteResponse), {
@@ -38,11 +32,18 @@ const logFailure = (userId: string | null, step: string, error: unknown): void =
   );
 };
 
-const logSuccess = (userId: string, durationMs: number): void => {
+const logSuccess = (
+  userId: string,
+  audioCount: number,
+  imageCount: number,
+  durationMs: number,
+): void => {
   console.log(
     JSON.stringify({
       event: 'delete_account_success',
       user_id: userId,
+      audio_count: audioCount,
+      image_count: imageCount,
       duration_ms: durationMs,
     }),
   );
@@ -50,7 +51,18 @@ const logSuccess = (userId: string, durationMs: number): void => {
 
 // Exported so handler.test.ts can drive it directly without a live server.
 // In production, serve() wraps it (see bottom of file).
-export const handleRequest = async (req: Request, admin: AdminLike): Promise<Response> => {
+//
+// deleteFn is the deletion implementation. The default uses the real
+// deleteAccount() against the admin client; tests pass a stub to simulate
+// failures or skip the work entirely. Keeping the seam as an explicit
+// parameter (instead of a magic field on the admin object) means a buggy or
+// hostile admin shape can't silently bypass deletion.
+export const handleRequest = async (
+  req: Request,
+  admin: AdminLike,
+  deleteFn: (uid: string) => Promise<{ audioCount: number; imageCount: number }> = (uid) =>
+    deleteAccount(admin as AdminClient, uid),
+): Promise<Response> => {
   const start = Date.now();
   let userId: string | null = null;
   try {
@@ -71,16 +83,9 @@ export const handleRequest = async (req: Request, admin: AdminLike): Promise<Res
     }
     userId = data.user.id;
 
-    // Test injection: if __deleteImpl is provided, use it instead of the
-    // real deleteAccount() — the unit tests can simulate failures cleanly.
-    if (typeof admin.__deleteImpl === 'function') {
-      await admin.__deleteImpl(userId);
-    } else {
-      // Production path: admin client matches the shape deleteAccount expects.
-      await deleteAccount(admin as unknown as AdminClient, userId);
-    }
+    const result = await deleteFn(userId);
 
-    logSuccess(userId, Date.now() - start);
+    logSuccess(userId, result.audioCount, result.imageCount, Date.now() - start);
     return okResponse();
   } catch (err) {
     if (err instanceof DeletionError) {
@@ -101,5 +106,5 @@ if (import.meta.main) {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
-  Deno.serve((req) => handleRequest(req, admin as unknown as AdminLike));
+  Deno.serve((req) => handleRequest(req, admin as unknown as AdminClient));
 }

@@ -19,6 +19,10 @@ export interface AdminClient {
     };
   };
   auth: {
+    getUser: (jwt: string | undefined) => Promise<{
+      data: { user: { id: string } | null };
+      error: unknown;
+    }>;
     admin: {
       deleteUser: (uid: string) => Promise<{
         error: { message: string; code?: string } | null;
@@ -32,7 +36,8 @@ const purgeBucket = async (
   bucket: string,
   userId: string,
   step: 'storage_purge_audio' | 'storage_purge_images',
-): Promise<void> => {
+): Promise<number> => {
+  let removed = 0;
   // Drain the prefix one page at a time until list returns empty.
   for (let safety = 0; safety < 1000; safety++) {
     const { data, error } = await client.storage
@@ -41,7 +46,7 @@ const purgeBucket = async (
     if (error) {
       throw new DeletionError('storage_purge_failed', step, `list ${bucket}: ${error.message}`);
     }
-    if (!data || data.length === 0) return;
+    if (!data || data.length === 0) return removed;
 
     const paths = data.map((o) => `${userId}/${o.name}`);
     let lastError: { message: string } | null = null;
@@ -60,6 +65,7 @@ const purgeBucket = async (
         `remove ${bucket} after ${STORAGE_RETRY_ATTEMPTS} attempts: ${lastError.message}`,
       );
     }
+    removed += paths.length;
   }
   throw new DeletionError(
     'storage_purge_failed',
@@ -68,15 +74,19 @@ const purgeBucket = async (
   );
 };
 
-export const deleteAccount = async (client: AdminClient, userId: string): Promise<void> => {
-  await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio');
-  await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images');
+export const deleteAccount = async (
+  client: AdminClient,
+  userId: string,
+): Promise<{ audioCount: number; imageCount: number }> => {
+  const audioCount = await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio');
+  const imageCount = await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images');
 
   const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
     const notFound =
       error.code === 'user_not_found' || error.message.toLowerCase().includes('not found');
-    if (notFound) return;
+    if (notFound) return { audioCount, imageCount };
     throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
   }
+  return { audioCount, imageCount };
 };

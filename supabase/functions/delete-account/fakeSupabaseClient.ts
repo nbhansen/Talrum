@@ -60,6 +60,10 @@ export const createFakeClient = (
       }),
     },
     auth: {
+      // Not exercised by deleteAccount tests, but required by the AdminClient
+      // shape (handler also reaches for it). Returning a no-op user keeps the
+      // type assignable without affecting deleteAccount behaviour.
+      getUser: async () => ({ data: { user: null }, error: null }),
       admin: {
         deleteUser: async (userId) => {
           calls.push({ kind: 'auth.admin.deleteUser', userId });
