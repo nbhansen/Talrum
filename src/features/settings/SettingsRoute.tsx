@@ -5,6 +5,8 @@ import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { ComingSoon } from '@/ui/ComingSoon/ComingSoon';
 
+import { DeleteAccountSection } from './DeleteAccountSection';
+
 export const SettingsRoute = (): JSX.Element => {
   const onNav = useParentNav();
   const onKidMode = useKidModeNav();
@@ -17,6 +19,7 @@ export const SettingsRoute = (): JSX.Element => {
       subtitle="Coming soon"
     >
       <ComingSoon body="Account preferences, voice settings, and PIN management. Coming in a future release." />
+      <DeleteAccountSection />
     </ParentShell>
   );
 };

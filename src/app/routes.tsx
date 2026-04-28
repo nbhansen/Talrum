@@ -28,6 +28,16 @@ const KidsRoute = lazy(() =>
 const SettingsRoute = lazy(() =>
   import('@/features/settings/SettingsRoute').then((m) => ({ default: m.SettingsRoute })),
 );
+const AccountDeletedRoute = lazy(() =>
+  import('@/features/account-deleted/AccountDeletedRoute').then((m) => ({
+    default: m.AccountDeletedRoute,
+  })),
+);
+const PrivacyPolicyRoute = lazy(() =>
+  import('@/features/privacy-policy/PrivacyPolicyRoute').then((m) => ({
+    default: m.PrivacyPolicyRoute,
+  })),
+);
 
 export const parentRouteFallback = (reset: () => void): ReactNode => (
   <div role="alert" className={styles.routeFallback}>
@@ -79,7 +89,9 @@ const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="tru
 // ErrorBoundary wraps Suspense (not the other way around) so that a
 // chunk-load failure during the dynamic import lands in the route's own
 // error fallback (with Retry) instead of bubbling to the app-root fallback.
-const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
+// Exported so tests can mount routes through the same wrapping the real
+// router uses.
+export const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   <ErrorBoundary fallback={variant === 'kid' ? kidRouteFallback : parentRouteFallback}>
     <Suspense fallback={variant === 'kid' ? kidSuspenseFallback : parentSuspenseFallback}>
       {el}
@@ -96,6 +108,8 @@ export const router = createBrowserRouter(
     { path: '/settings', element: wrap(<SettingsRoute />, 'parent') },
     { path: '/kid/sequence/:boardId', element: wrap(<KidSequenceRoute />, 'kid') },
     { path: '/kid/choice/:boardId', element: wrap(<KidChoiceRoute />, 'kid') },
+    { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
+    { path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') },
     { path: '*', element: <Navigate to="/" replace /> },
   ],
   {

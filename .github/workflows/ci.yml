@@ -19,3 +19,40 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm run test:functions
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - run: npm run test:db
+      - name: Serve function in background
+        run: |
+          mkdir -p supabase/functions
+          cat > supabase/functions/.env.local <<EOF
+          SUPABASE_URL=$(supabase status -o json | jq -r '.API_URL')
+          SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')
+          EOF
+          nohup supabase functions serve delete-account --env-file supabase/functions/.env.local &>/tmp/funcs.log &
+          # Wait for the function to start serving. Probe with POST (no auth)
+          # and treat any HTTP response as "up" — the handler returns 401
+          # without auth, but curl -fsS would treat that as failure. We just
+          # want to know the server is accepting connections.
+          API_URL="$(supabase status -o json | jq -r '.API_URL')"
+          for i in {1..30}; do
+            STATUS=$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' \
+              -X POST -H 'Content-Type: application/json' --data '{}' \
+              "$API_URL/functions/v1/delete-account" || echo "000")
+            if [[ "$STATUS" =~ ^[1-5][0-9][0-9]$ ]]; then
+              echo "function ready (HTTP $STATUS)"; break
+            fi
+            sleep 1
+          done
+      - run: npm run test:e2e:delete-account
+      - if: failure()
+        name: Dump function logs on failure
+        run: cat /tmp/funcs.log || true
+      - if: always()
+        run: supabase stop

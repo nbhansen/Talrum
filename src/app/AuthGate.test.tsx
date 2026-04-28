@@ -109,6 +109,102 @@ describe('AuthGate', () => {
     }
   });
 
+  it('renders children (not Login) when out and on a public path', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">deleted page</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('public-child')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
+  // Belt-and-braces: if a CDN rewrite, copy-pasted URL, or a router quirk
+  // sticks a trailing slash on the path, the public-path lookup must still
+  // match. Without normalization signed-out users would bounce to Login.
+  it('renders children (not Login) when out and on a public path with trailing slash', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted/');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">deleted page</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('public-child')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
+  // Regression for the deletion flow end-to-end behaviour: the user was
+  // signed in, navigated to /account-deleted, and then signOut() fires.
+  // AuthGate's onAuthStateChange listener flips state to 'out' — and at
+  // that moment the PUBLIC_PATHS branch must keep rendering children, not
+  // bounce to <Login />. This test fails if anyone removes the
+  // PUBLIC_PATHS check from the `out` branch.
+  it('keeps showing children on /account-deleted when SIGNED_OUT fires after navigation', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted');
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-children">deleted page</div>
+        </AuthGate>,
+      );
+      // Signed-in: SessionProvider mounts, children render.
+      await waitFor(() => {
+        expect(screen.getByTestId('public-children')).toBeInTheDocument();
+      });
+
+      // signOut() flips state to 'out'. PUBLIC_PATHS catches the path
+      // and we keep rendering children instead of <Login />.
+      act(() => {
+        lastAuthListener?.('SIGNED_OUT', null);
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('public-children')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
+  it('still shows Login when out and on a non-public path', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">should not render</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByText('login screen')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('public-child')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
   // Regression cover for cross-user re-auth: signing out and back in as a
   // different user must propagate the new user.id all the way through
   // SessionProvider so dependent hooks (mutations, useUserInitial) read the

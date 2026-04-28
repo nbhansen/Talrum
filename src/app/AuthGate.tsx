@@ -15,6 +15,19 @@ type AuthState =
   | { status: 'out' }
   | { status: 'in'; session: Session };
 
+// Public routes are reachable without a session. The deletion-success page
+// is the canonical case: the user just signed out as part of account
+// deletion, so the regular Login screen would obscure the confirmation.
+// Components rendered through this path MUST NOT call useSession() — there
+// is no SessionProvider in scope.
+const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/account-deleted', '/privacy-policy']);
+
+// Strip a trailing slash before lookup so '/account-deleted' and
+// '/account-deleted/' both match. CDN normalization, copy-pasted URLs, or
+// router quirks can introduce the slash; without normalization the user
+// gets bounced to Login.
+const normalizePath = (p: string): string => p.replace(/\/$/, '') || '/';
+
 /**
  * Sole subscriber to Supabase auth. Renders the login screen when no session
  * exists, mounts SessionProvider with the resolved session otherwise. Every
@@ -57,7 +70,14 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   if (state.status === 'loading') return <AuthGateLoading key={retryCount} onRetry={retry} />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
-  if (state.status === 'out') return <Login />;
+  if (state.status === 'out') {
+    // Path-based escape hatch: signed-out users can still reach the
+    // post-deletion confirmation and the public privacy policy. children is
+    // returned without SessionProvider — the route components are static
+    // and do not call session-dependent hooks.
+    if (PUBLIC_PATHS.has(normalizePath(window.location.pathname))) return <>{children}</>;
+    return <Login />;
+  }
   return <SessionProvider session={state.session}>{children}</SessionProvider>;
 };
 

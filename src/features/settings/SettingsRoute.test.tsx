@@ -24,6 +24,17 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/lib/queries/account', () => ({
+  useDeleteMyAccount: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    error: null,
+  }),
+  DeleteAccountError: class extends Error {},
+}));
+
 const { SettingsRoute } = await import('./SettingsRoute');
 
 const renderRoute = (): void => {
@@ -58,6 +69,12 @@ describe('SettingsRoute', () => {
     renderRoute();
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByText(/coming in a future release/i)).toBeInTheDocument();
+  });
+
+  it('renders the Delete-my-account section', () => {
+    renderRoute();
+    expect(screen.getByRole('button', { name: /delete my account/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toBeInTheDocument();
   });
 
   it('clicking KID navigates into the first sequence board (regression: #71)', async () => {
