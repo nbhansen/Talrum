@@ -2,8 +2,6 @@
 // deleteAccount() consumes. Records every call in a flat log so tests can
 // assert ordering (storage purges must happen before auth deletion).
 
-import type { ErrorCode } from './types.ts';
-
 export interface CallLogEntry {
   kind: 'storage.list' | 'storage.remove' | 'auth.admin.deleteUser';
   bucket?: string;
@@ -15,10 +13,10 @@ export interface CallLogEntry {
 interface BucketScript {
   // Each list call shifts one page off the front. Empty array returned
   // when exhausted.
-  listResponses: Array<{ data?: Array<{ name: string }>; error?: { message: string } }>;
+  listResponses: { data?: { name: string }[]; error?: { message: string } }[];
   // remove either succeeds (empty error) or fails with the given message,
   // optionally consumed once per call (so retries can hit different paths).
-  removeResponses: Array<{ data?: Array<{ name: string }>; error?: { message: string } }>;
+  removeResponses: { data?: { name: string }[]; error?: { message: string } }[];
 }
 
 export interface FakeOptions {
@@ -32,10 +30,10 @@ export interface FakeClient {
       list: (
         prefix: string,
         opts?: { limit?: number },
-      ) => Promise<{ data: Array<{ name: string }> | null; error: { message: string } | null }>;
+      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
       remove: (
         paths: string[],
-      ) => Promise<{ data: Array<{ name: string }> | null; error: { message: string } | null }>;
+      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
     };
   };
   auth: {

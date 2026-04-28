@@ -12,10 +12,10 @@ interface AdminClient {
       list: (
         prefix: string,
         opts?: { limit?: number },
-      ) => Promise<{ data: Array<{ name: string }> | null; error: { message: string } | null }>;
+      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
       remove: (
         paths: string[],
-      ) => Promise<{ data: Array<{ name: string }> | null; error: { message: string } | null }>;
+      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
     };
   };
   auth: {

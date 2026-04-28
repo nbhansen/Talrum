@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from 'std/assert';
-import { createFakeClient } from './fakeSupabaseClient.ts';
+
 import { deleteAccount } from './deleteAccount.ts';
+import { createFakeClient } from './fakeSupabaseClient.ts';
 import { DeletionError } from './types.ts';
 
 const UID = '11111111-1111-1111-1111-111111111111';
