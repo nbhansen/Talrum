@@ -29,6 +29,8 @@
   --tal-lavender-ink: oklch(42% 0.06 300);
   --tal-sun: oklch(90% 0.06 90);
   --tal-sun-ink: oklch(42% 0.06 90);
+  --tal-coral: oklch(86% 0.05 25);
+  --tal-coral-ink: oklch(42% 0.06 25);
 
   /* Glyph line + fill (shared across all illustrated pictograms) */
   --tal-glyph-stroke: oklch(30% 0.03 260);
