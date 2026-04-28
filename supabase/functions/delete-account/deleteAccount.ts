@@ -6,7 +6,7 @@ import {
   STORAGE_RETRY_ATTEMPTS,
 } from './types.ts';
 
-interface AdminClient {
+export interface AdminClient {
   storage: {
     from: (bucket: string) => {
       list: (

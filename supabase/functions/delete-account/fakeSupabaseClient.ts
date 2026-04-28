@@ -2,6 +2,8 @@
 // deleteAccount() consumes. Records every call in a flat log so tests can
 // assert ordering (storage purges must happen before auth deletion).
 
+import type { AdminClient } from './deleteAccount.ts';
+
 export interface CallLogEntry {
   kind: 'storage.list' | 'storage.remove' | 'auth.admin.deleteUser';
   bucket?: string;
@@ -24,24 +26,10 @@ export interface FakeOptions {
   authDelete: { ok: true } | { error: { message: string } };
 }
 
-export interface FakeClient {
-  storage: {
-    from: (bucket: string) => {
-      list: (
-        prefix: string,
-        opts?: { limit?: number },
-      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
-      remove: (
-        paths: string[],
-      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
-    };
-  };
-  auth: {
-    admin: {
-      deleteUser: (uid: string) => Promise<{ error: { message: string } | null }>;
-    };
-  };
-}
+// FakeClient is structurally identical to AdminClient; alias rather than
+// re-declare so the compiler enforces the stub stays assignable to the real
+// shape. Drift gets caught at compile time, not runtime.
+export type FakeClient = AdminClient;
 
 export const createFakeClient = (
   options: FakeOptions,
