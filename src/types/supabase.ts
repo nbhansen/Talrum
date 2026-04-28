@@ -247,9 +247,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_board_editor: { Args: { b_id: string }; Returns: boolean }
-      is_board_member: { Args: { b_id: string }; Returns: boolean }
-      is_board_owner: { Args: { b_id: string }; Returns: boolean }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
