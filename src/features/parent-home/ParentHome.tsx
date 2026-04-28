@@ -4,6 +4,7 @@ import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
+import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 
@@ -66,16 +67,15 @@ export const ParentHome = ({
       }
     >
       {noBoards ? (
-        <div className={styles.emptyState} role="status">
-          <h2 className={styles.emptyTitle}>No boards yet</h2>
-          <p className={styles.emptyBody}>
-            Create your first board to start communicating. You can add steps and tweak settings
-            after.
-          </p>
-          <Button variant="primary" icon={<PlusIcon />} onClick={onNewBoard}>
-            Create your first board
-          </Button>
-        </div>
+        <EmptyState
+          title="No boards yet"
+          body="Create your first board to start communicating. You can add steps and tweak settings after."
+          action={
+            <Button variant="primary" icon={<PlusIcon />} onClick={onNewBoard}>
+              Create your first board
+            </Button>
+          }
+        />
       ) : (
         <div className={styles.grid}>
           {boards.map((b) => (
