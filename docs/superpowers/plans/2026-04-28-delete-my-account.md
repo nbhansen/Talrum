@@ -1308,6 +1308,14 @@ Local supabase + served function is started for the E2E step."
 
 ## Phase F — Client mutation (TDD)
 
+### Note from cumulative review: shared `ErrorCode` contract
+
+Phase B's `supabase/functions/delete-account/types.ts` defines a closed-set `ErrorCode` union. Phase F's `src/lib/queries/account.ts` re-declares the same union as `DeleteAccountErrorCode`. This duplication is **deliberate** for two reasons:
+1. **Module boundary.** The Deno function uses `.ts` extensions in imports (`./types.ts`) and `jsr:` specifiers; Vite's TypeScript resolution does not. Importing across the boundary would require Vite resolver hacks or build-time copying.
+2. **Versioning.** The wire contract (the JSON `error` field) is the API. Both sides MUST agree on the literal string values, but they do NOT need to share a TypeScript module — agreement at the JSON level is what matters.
+
+When implementing Phase F, ensure the union literals match `types.ts:7-13` byte-for-byte. The duplication is contracted, not accidental.
+
 ### Task 10: Write failing tests for `mapErrorCode` + `useDeleteMyAccount`
 
 **Files:**
