@@ -4,6 +4,7 @@ import { createBrowserRouter, Link, Navigate } from 'react-router-dom';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
+import { Spinner } from '@/ui/Spinner/Spinner';
 
 const ParentHomeRoute = lazy(() =>
   import('@/features/parent-home/ParentHomeRoute').then((m) => ({ default: m.ParentHomeRoute })),
@@ -77,7 +78,7 @@ export const kidRouteFallback = (): ReactNode => (
 
 const parentSuspenseFallback = (
   <div className={`tal ${styles.parentSuspense}`}>
-    <div className={styles.spinner} aria-hidden="true" />
+    <Spinner />
     <p className={styles.parentSuspenseBody}>Loading…</p>
   </div>
 );
