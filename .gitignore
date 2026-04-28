@@ -20,3 +20,6 @@ GEMINI.md
 .claude/
 .mcp.json
 skills-lock.json
+
+# Git worktrees (isolated workspaces for parallel branches)
+.worktrees/
