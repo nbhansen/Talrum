@@ -106,3 +106,100 @@ Deno.test('deleteAccount: ordering invariant — all storage calls precede auth 
     );
   }
 });
+
+Deno.test(
+  'deleteAccount: storage.list errors → throws storage_purge_failed; auth NOT called',
+  async () => {
+    const { client, calls } = createFakeClient({
+      buckets: {
+        'pictogram-audio': {
+          listResponses: [{ error: { message: 'network blip' } }],
+          removeResponses: [],
+        },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: { ok: true },
+    });
+
+    const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
+    assertEquals(err.code, 'storage_purge_failed');
+    assertEquals(err.step, 'storage_purge_audio');
+    assertEquals(
+      calls.some((c) => c.kind === 'auth.admin.deleteUser'),
+      false,
+    );
+  },
+);
+
+Deno.test(
+  'deleteAccount: storage.remove fails 3x persistent → throws after 3 retries',
+  async () => {
+    const obj = [{ name: 'a.mp3' }];
+    const { client, calls } = createFakeClient({
+      buckets: {
+        'pictogram-audio': {
+          listResponses: [{ data: obj }],
+          removeResponses: [
+            { error: { message: 'try 1' } },
+            { error: { message: 'try 2' } },
+            { error: { message: 'try 3' } },
+          ],
+        },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: { ok: true },
+    });
+
+    const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
+    assertEquals(err.code, 'storage_purge_failed');
+    // Exactly 3 remove attempts on the audio bucket.
+    const removeCalls = calls.filter(
+      (c) => c.kind === 'storage.remove' && c.bucket === 'pictogram-audio',
+    );
+    assertEquals(removeCalls.length, 3);
+    assertEquals(
+      calls.some((c) => c.kind === 'auth.admin.deleteUser'),
+      false,
+    );
+  },
+);
+
+Deno.test(
+  'deleteAccount: auth.admin.deleteUser returns "user not found" → resolves OK (idempotent)',
+  async () => {
+    const { client } = createFakeClient({
+      buckets: {
+        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: { error: { message: 'User not found' } },
+    });
+
+    // Should resolve, not throw.
+    await deleteAccount(client, UID);
+  },
+);
+
+Deno.test(
+  'deleteAccount: auth.admin.deleteUser other error → throws auth_delete_failed',
+  async () => {
+    const { client, calls } = createFakeClient({
+      buckets: {
+        'pictogram-audio': {
+          listResponses: [{ data: [{ name: 'a.mp3' }] }, { data: [] }],
+          removeResponses: [{ data: [] }],
+        },
+        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+      },
+      authDelete: { error: { message: 'database is on fire' } },
+    });
+
+    const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
+    assertEquals(err.code, 'auth_delete_failed');
+    // Storage was purged before auth attempted.
+    assertEquals(
+      calls.some((c) => c.kind === 'storage.remove' && c.bucket === 'pictogram-audio'),
+      true,
+    );
+  },
+);
