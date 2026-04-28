@@ -5,6 +5,7 @@ import { Login } from '@/features/login/Login';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useOnline } from '@/lib/useOnline';
+import { Spinner } from '@/ui/Spinner/Spinner';
 
 import styles from './AuthGate.module.css';
 import { SessionProvider } from './SessionProvider';
@@ -118,7 +119,7 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
   }
   return (
     <div className={`tal ${styles.loading}`}>
-      <div className={styles.spinner} aria-hidden="true" />
+      <Spinner />
       <p className={styles.loadingBody}>Loading…</p>
     </div>
   );

@@ -24,27 +24,6 @@
   margin: 0;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid var(--tal-line);
-  border-top-color: var(--tal-sage);
-  animation: tal-auth-spin 0.9s linear infinite;
-}
-
-@keyframes tal-auth-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 2.5s;
-  }
-}
-
 .errorTitle {
   font-size: 24px;
   font-weight: 800;
