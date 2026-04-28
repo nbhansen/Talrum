@@ -53,38 +53,6 @@
   gap: 16px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fieldLabel {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--tal-ink-soft);
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-}
-
-.input {
-  font: inherit;
-  padding: 12px 14px;
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  background: var(--tal-bg);
-  color: var(--tal-ink);
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--tal-sky-ink);
-  box-shadow: 0 0 0 3px var(--tal-sky);
-}
-
 .otp {
   font-size: 24px;
   letter-spacing: 10px;
@@ -109,8 +77,8 @@
 
 .error {
   font-size: 13px;
-  color: var(--tal-coral-ink, var(--tal-ink));
-  background: var(--tal-coral, var(--tal-surface-alt));
+  color: var(--tal-coral-ink);
+  background: var(--tal-coral);
   padding: 8px 12px;
   border-radius: var(--tal-r-md);
 }

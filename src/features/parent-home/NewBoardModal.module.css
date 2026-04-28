@@ -5,46 +5,22 @@
   margin: 0 auto;
 }
 
-.header {
+.form {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 16px;
-  margin-bottom: 18px;
-}
-
-.title {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--tal-ink);
-  margin: 0 0 2px;
-}
-
-.subtitle {
-  font-size: 13px;
-  color: var(--tal-ink-muted);
+  border: 0;
+  padding: 0;
   margin: 0;
-}
-
-.closeBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--tal-ink-soft);
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 16px;
+  border: 0;
+  padding: 0;
+  margin: 0;
 }
 
 .fieldLabel {
@@ -56,6 +32,7 @@
 }
 
 .input {
+  font: inherit;
   font-size: 15px;
   padding: 10px 12px;
   border: 1px solid var(--tal-line);
@@ -63,14 +40,24 @@
   background: var(--tal-surface);
   color: var(--tal-ink);
   outline: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .input:focus {
-  border-color: var(--tal-ink-soft);
+  border-color: var(--tal-sky-ink);
+  box-shadow: 0 0 0 3px var(--tal-sky);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input {
+    transition: none;
+  }
 }
 
 .kindGroup {
-  display: flex;
+  flex-direction: row;
   gap: 8px;
 }
 
@@ -98,21 +85,14 @@
   margin: 0;
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
 .error {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 13px;
-  color: var(--tal-coral-ink, var(--tal-ink));
+  color: var(--tal-coral-ink);
 }
 
 .noKids {
   font-size: 14px;
   color: var(--tal-ink-muted);
-  margin: 0 0 12px;
+  margin: 0;
 }

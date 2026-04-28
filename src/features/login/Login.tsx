@@ -4,6 +4,7 @@ import talrumLogo from '@/assets/talrum-logo.png';
 import { supabase } from '@/lib/supabase';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
+import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './Login.module.css';
 
@@ -75,20 +76,17 @@ export const Login = (): JSX.Element => {
         )}
         {stage === 'email' ? (
           <form className={styles.form} onSubmit={(e) => void sendCode(e)}>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Email</span>
-              <input
-                type="email"
-                name="email"
-                required
-                autoFocus
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={styles.input}
-                placeholder="parent@example.com"
-              />
-            </label>
+            <TextField
+              label="Email"
+              type="email"
+              name="email"
+              required
+              autoFocus
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="parent@example.com"
+            />
             {error && <div className={styles.error}>{error}</div>}
             <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
               {busy ? 'Sending…' : 'Send code'}
@@ -99,23 +97,21 @@ export const Login = (): JSX.Element => {
             <div className={styles.hint}>
               Code sent to <strong>{email}</strong>. Check your email (or Inbucket in dev).
             </div>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Code</span>
-              <input
-                type="text"
-                name="otp"
-                required
-                autoFocus
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                className={`${styles.input} ${styles.otp}`}
-                placeholder="••••••"
-              />
-            </label>
+            <TextField
+              label="Code"
+              type="text"
+              name="otp"
+              required
+              autoFocus
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••"
+              inputClassName={styles.otp}
+            />
             {error && <div className={styles.error}>{error}</div>}
             <div className={styles.row}>
               <Button
