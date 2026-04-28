@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { useKids } from '@/lib/queries/kids';
 import { Button } from '@/ui/Button/Button';
+import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
 
 import styles from './Kids.module.css';
@@ -15,15 +16,15 @@ export const Kids = ({ onNewKid }: KidsProps): JSX.Element => {
 
   if (kids.length === 0) {
     return (
-      <div className={styles.emptyState} role="status">
-        <h2 className={styles.emptyTitle}>No kids yet</h2>
-        <p className={styles.emptyBody}>
-          Add a kid to start creating boards for them. Each kid has their own boards.
-        </p>
-        <Button variant="primary" icon={<PlusIcon />} onClick={onNewKid}>
-          Add your first kid
-        </Button>
-      </div>
+      <EmptyState
+        title="No kids yet"
+        body="Add a kid to start creating boards for them. Each kid has their own boards."
+        action={
+          <Button variant="primary" icon={<PlusIcon />} onClick={onNewKid}>
+            Add your first kid
+          </Button>
+        }
+      />
     );
   }
 
