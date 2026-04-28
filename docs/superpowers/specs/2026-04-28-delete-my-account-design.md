@@ -19,6 +19,10 @@ This spec covers the engineering deliverable in full (in-app deletion flow + ret
 | Q3 step-up | **Typed-phrase confirmation modal** ("delete my account") | Defeats realistic accidental-tap vector; matches industry standard (Apple, Google, GitHub); fresh-OTP re-auth deferred (additive) |
 | Q4 inactivity cleanup | **Defer; reserve right in privacy policy** | No real users yet; pg_cron + email infrastructure speculative; future cron path can reuse the deletion helper |
 
+## Bugs encountered during implementation
+
+If implementation surfaces pre-existing bugs in the codebase that are outside the scope of this spec, file them as `gh issue create` tickets with reproduction steps and a short impact note. Do not bundle them into this work — keep the diff surgical (per AGENTS.md §3). The one exception is the FK-cascade gap documented in "Prerequisite: FK cascade migration" below; it is load-bearing for this spec and is therefore in scope.
+
 ## Out of scope
 
 - Soft-delete state machine, `account_deletion_requests` table, undelete UI flow.
