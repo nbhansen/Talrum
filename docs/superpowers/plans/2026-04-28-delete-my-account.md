@@ -151,8 +151,12 @@ DO $$
 DECLARE
   test_uid uuid := '00000000-0000-0000-0000-000000c45c4d';
 BEGIN
-  -- Insert an auth user the same way Supabase Auth does (skip the trigger
-  -- by setting raw_app_meta_data to an empty object).
+  -- Disable triggers in this transaction so handle_new_user does not auto-seed
+  -- a "Liam" kid + 17 template pictograms when we INSERT the sentinel auth
+  -- user. raw_app_meta_data='{}' alone does NOT skip the trigger — the
+  -- session_replication_role toggle is required.
+  SET LOCAL session_replication_role = replica;
+
   INSERT INTO auth.users (id, email, raw_app_meta_data, raw_user_meta_data,
                           aud, role, created_at, updated_at)
   VALUES (test_uid, 'cascade-test@example.com', '{}'::jsonb, '{}'::jsonb,
@@ -161,6 +165,9 @@ BEGIN
   INSERT INTO public.kids (owner_id, name) VALUES (test_uid, 'cascade-kid');
   INSERT INTO public.pictograms (owner_id, label, style, glyph, tint)
     VALUES (test_uid, 'apple', 'illus', '🍎', 'red');
+
+  -- Re-enable normal trigger behavior so the FK cascade fires on DELETE.
+  SET LOCAL session_replication_role = origin;
 END $$;
 
 -- Pre-deletion counts: 1 auth row, 1 kid, 1 pictogram for the sentinel uid.
