@@ -1,5 +1,6 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
+import talrumLogo from '@/assets/talrum-logo.png';
 import { supabase } from '@/lib/supabase';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
@@ -62,8 +63,11 @@ export const Login = (): JSX.Element => {
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Talrum</h1>
-        <p className={styles.subtitle}>Sign in with a one-time code.</p>
+        <div className={styles.brand}>
+          <img src={talrumLogo} alt="" width={72} height={72} className={styles.mark} />
+          <h1 className={styles.title}>Talrum</h1>
+          <p className={styles.subtitle}>Sign in with a one-time code.</p>
+        </div>
         {!online && (
           <div role="status" className={styles.offline}>
             You're offline — sign-in needs a network connection. Reconnect and try again.
