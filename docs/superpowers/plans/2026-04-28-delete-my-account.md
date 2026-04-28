@@ -2465,32 +2465,17 @@ GitHub Actions secrets must be set:
 
 Set them with: `gh secret set <NAME> --repo nbhansen/Talrum`
 
-## Required edge-function secrets (one-time per project)
+## Edge function default secrets — no manual bootstrap
 
-The `delete-account` function reads `SUPABASE_SERVICE_ROLE_KEY` from
-`Deno.env`. Set it once per project:
+The `delete-account` function reads `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` from `Deno.env`. These are part of
+Supabase's [default secrets](https://supabase.com/docs/guides/functions/secrets#default-secrets)
+contract — auto-injected on every hosted invocation. **Do not run
+`supabase secrets set` for any of them.**
 
-```sh
-supabase secrets set --project-ref <project-ref> \
-  SUPABASE_SERVICE_ROLE_KEY=<value-from-dashboard>
-```
-
-The value lives at: Supabase dashboard → Project settings → API →
-service_role key.
-
-**This is a one-shot manual step.** It is not part of CI. If the
-key is rotated (see "Rotation" below), this command must be re-run.
-
-## Rotation: SUPABASE_SERVICE_ROLE_KEY
-
-If the service-role key is rotated:
-
-1. From the Supabase dashboard, copy the new value.
-2. Re-run `supabase secrets set --project-ref <ref> SUPABASE_SERVICE_ROLE_KEY=<new>`.
-3. The next function invocation will pick up the new value (functions
-   are stateless; no redeploy needed).
-4. Verify by triggering the integration test:
-   `npm run test:e2e:delete-account` (against staging if available).
+If the service-role key is rotated in the dashboard (Project settings →
+API → "Reset service_role key"), the runtime picks up the new value on
+the next invocation. No CLI action on our side; no redeploy.
 
 ## Manual fallback
 

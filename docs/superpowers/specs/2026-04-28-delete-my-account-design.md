@@ -424,16 +424,8 @@ Triggers on push to `main` for paths under `supabase/functions/**`. Steps:
 Required GH secrets (added to existing list documented in #95):
 - `SUPABASE_ACCESS_TOKEN` (already exists for migrations).
 - `SUPABASE_PROJECT_REF` (already exists).
-- `SUPABASE_SERVICE_ROLE_KEY` — **NEW**. Required by the function at runtime via `Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')`. Set as a function secret via `supabase secrets set`, not as workflow env var. The workflow itself does not read the service-role key.
 
-### Function-secret bootstrap (one-time, documented)
-
-```bash
-supabase secrets set --project-ref <ref> \
-  SUPABASE_SERVICE_ROLE_KEY=<value-from-dashboard>
-```
-
-This is documented in `docs/runbooks/deploy.md` (or extends #95's deploy doc) so a future maintainer can stand it up cold. The workflow does not handle this; it's a manual one-shot per project (prod, future staging).
+The function reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `Deno.env` at runtime. These are NOT GitHub Actions secrets and they are NOT something we set via `supabase secrets set` — they are part of Supabase's [default secrets](https://supabase.com/docs/guides/functions/secrets#default-secrets) contract, auto-injected on every hosted invocation. No manual bootstrap is required.
 
 ### CI test job extension
 
@@ -526,7 +518,7 @@ Short doc covering operator-side scenarios:
 - **Markdown rendering for `/privacy-policy`.** Repo has no markdown-rendering dependency today. Plan-time decision: pull `react-markdown` (small, well-maintained) vs. ship privacy policy as static HTML. I lean `react-markdown` because the privacy policy will be edited as markdown by humans, but it's a plan decision.
 - **Function deploy authorization.** Confirm `supabase functions deploy` requires `SUPABASE_ACCESS_TOKEN` only and does not need additional secrets beyond what #95 already documents. Verifiable during plan.
 - **pgTAP coverage for FK cascade behavior.** Asserting the constraint exists is cheap. Asserting cascade *behavior* end-to-end (insert auth row, insert app rows, delete auth row, assert app rows gone) is costlier but proves the chain works. Recommend including the behavioral test; final decision in plan.
-- **`SUPABASE_SERVICE_ROLE_KEY` rotation.** Supabase rotates this key on demand; the function reads from `Deno.env`, which is sourced from `supabase secrets`. Document rotation procedure in `docs/runbooks/deploy.md` so a future rotation doesn't silently break the function.
+- **`SUPABASE_SERVICE_ROLE_KEY` rotation.** This is one of Supabase's [default secrets](https://supabase.com/docs/guides/functions/secrets#default-secrets) — auto-injected into every hosted edge-function invocation. If rotated (dashboard → Project settings → API → "Reset service_role key"), the runtime picks up the new value on the next invocation; no `supabase secrets set` action is needed on our side. Document this in `docs/runbooks/deploy.md` so a future maintainer doesn't try to manage it manually.
 
 ---
 
