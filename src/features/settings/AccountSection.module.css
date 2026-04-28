@@ -1,0 +1,28 @@
+.email {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.emailValue {
+  color: var(--tal-ink);
+  font-weight: 600;
+}
+
+.signOut {
+  margin-top: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  color: var(--tal-ink);
+  border: 1px solid var(--tal-line);
+  cursor: pointer;
+}
+
+.signOut:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

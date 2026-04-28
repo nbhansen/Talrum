@@ -29,3 +29,5 @@ export const useUserInitial = (): string | undefined => {
   const first = useSessionUser().email?.[0];
   return first ? first.toUpperCase() : undefined;
 };
+
+export const useUserEmail = (): string | undefined => useSessionUser().email;

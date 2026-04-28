@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 
-import { useSignOut, useUserInitial } from '@/lib/auth/session';
+import { useUserInitial } from '@/lib/auth/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
 import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';
@@ -47,7 +47,6 @@ export const ParentShell = ({
   right,
   children,
 }: ParentShellProps): JSX.Element => {
-  const signOut = useSignOut();
   const userInitial = useUserInitial();
   return (
     <div className={styles.shell}>
@@ -79,9 +78,9 @@ export const ParentShell = ({
           <button
             type="button"
             className={styles.avatar}
-            onClick={() => void signOut()}
-            title="Sign out"
-            aria-label="Sign out"
+            onClick={() => onNav?.('settings')}
+            title="Open settings"
+            aria-label="Open settings"
           >
             {userInitial ?? ''}
           </button>
