@@ -1,8 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { type JSX, type ReactNode, useMemo } from 'react';
 
-import { SessionContext, type SessionContextValue } from '@/lib/auth/session';
-import { supabase } from '@/lib/supabase';
+import { performSignOut, SessionContext, type SessionContextValue } from '@/lib/auth/session';
 
 interface SessionProviderProps {
   session: Session;
@@ -19,9 +18,7 @@ export const SessionProvider = ({ session, children }: SessionProviderProps): JS
     () => ({
       session,
       user: session.user,
-      signOut: async () => {
-        await supabase.auth.signOut();
-      },
+      signOut: performSignOut,
     }),
     [session],
   );
