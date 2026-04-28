@@ -6,11 +6,19 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { performSignOut } from '@/lib/auth/session';
 import { supabase } from '@/lib/supabase';
+
+// Edge function name. Mirrored byte-for-byte by DELETE_ACCOUNT_FUNCTION_NAME
+// in `supabase/functions/delete-account/types.ts` — tsconfig doesn't include
+// supabase/ so a cross-import isn't possible. Extracting the literal here at
+// least fails one test (below) if the directory is renamed without updating
+// both sides.
+const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 
 // Closed-set error codes shared with the edge function. The wire contract
 // (the JSON `error` field) is the API; both sides must agree on these
-// literal strings. Mirrors `supabase/functions/delete-account/types.ts:7-13`
+// literal strings. Mirrors `supabase/functions/delete-account/types.ts`
 // byte-for-byte. If the function adds a new code, add it here and update
 // DeleteAccountDialog's toast map.
 export type DeleteAccountErrorCode =
@@ -88,9 +96,10 @@ export const useDeleteMyAccount = (
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   return useMutation<void, DeleteAccountError, void>({
     mutationFn: async (): Promise<void> => {
-      const { data, error } = await supabase.functions.invoke<DeleteResponse>('delete-account', {
-        body: {},
-      });
+      const { data, error } = await supabase.functions.invoke<DeleteResponse>(
+        DELETE_ACCOUNT_FUNCTION_NAME,
+        { body: {} },
+      );
       if (error) {
         // supabase-js routes 4xx/5xx into `error` (a FunctionsHttpError)
         // with the original Response on `.context`. Parse the body to
@@ -146,7 +155,7 @@ export const useDeleteMyAccount = (
       //   3. signOut last.
       qc.clear();
       options.onPreSignOut?.();
-      await supabase.auth.signOut();
+      await performSignOut();
     },
   });
 };

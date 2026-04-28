@@ -1,7 +1,7 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
 import talrumLogo from '@/assets/talrum-logo.png';
-import { supabase } from '@/lib/supabase';
+import { useEmailOtp } from '@/lib/auth/login';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
 import { TextField } from '@/ui/TextField/TextField';
@@ -20,45 +20,23 @@ export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const online = useOnline();
+  const { sendCode, verify, busy, error, resetError } = useEmailOtp();
 
-  const sendCode = async (e: FormEvent): Promise<void> => {
+  const onSendCode = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
-    setBusy(true);
-    setError(null);
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: trimmed,
-      options: { shouldCreateUser: true },
-    });
-    setBusy(false);
-    if (otpError) {
-      setError(otpError.message);
-      return;
-    }
-    setStage('otp');
+    const ok = await sendCode(trimmed);
+    if (ok) setStage('otp');
   };
 
-  const verify = async (e: FormEvent): Promise<void> => {
+  const onVerify = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     const trimmedCode = code.trim();
     if (!trimmedCode) return;
-    setBusy(true);
-    setError(null);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: trimmedCode,
-      type: 'email',
-    });
-    setBusy(false);
-    if (verifyError) {
-      setError(verifyError.message);
-      return;
-    }
-    // AuthGate sees the new session and flips to the app. Nothing more to do.
+    await verify(email.trim().toLowerCase(), trimmedCode);
+    // Success path: AuthGate sees the new session and flips to the app.
   };
 
   return (
@@ -75,7 +53,7 @@ export const Login = (): JSX.Element => {
           </div>
         )}
         {stage === 'email' ? (
-          <form className={styles.form} onSubmit={(e) => void sendCode(e)}>
+          <form className={styles.form} onSubmit={(e) => void onSendCode(e)}>
             <TextField
               label="Email"
               type="email"
@@ -93,7 +71,7 @@ export const Login = (): JSX.Element => {
             </Button>
           </form>
         ) : (
-          <form className={styles.form} onSubmit={(e) => void verify(e)}>
+          <form className={styles.form} onSubmit={(e) => void onVerify(e)}>
             <div className={styles.hint}>
               Code sent to <strong>{email}</strong>. Check your email (or Inbucket in dev).
             </div>
@@ -120,7 +98,7 @@ export const Login = (): JSX.Element => {
                 onClick={() => {
                   setStage('email');
                   setCode('');
-                  setError(null);
+                  resetError();
                 }}
                 disabled={busy}
               >

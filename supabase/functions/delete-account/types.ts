@@ -4,6 +4,14 @@
 // the right toast (see src/lib/queries/account.ts). Keep this list in
 // sync with that mapping — if you add a code here, add a toast there.
 
+// Function name as registered with Supabase (the directory name under
+// supabase/functions/). The client invokes it via this string; pinned here
+// so a directory rename surfaces as a TypeScript error rather than a
+// runtime 404. Mirrored byte-for-byte by DELETE_ACCOUNT_FUNCTION_NAME in
+// src/lib/queries/account.ts — tsconfig doesn't include supabase/ so a
+// direct import isn't possible.
+export const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
+
 export type ErrorCode =
   | 'unauthorized'
   | 'method_not_allowed'
