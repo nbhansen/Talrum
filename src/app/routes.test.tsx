@@ -1,11 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { isValidElement, type JSX, type ReactElement, Suspense } from 'react';
-import { MemoryRouter, type RouteObject } from 'react-router-dom';
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  type RouteObject,
+  RouterProvider,
+} from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AccountDeletedRoute } from '@/features/account-deleted/AccountDeletedRoute';
+import { PrivacyPolicyRoute } from '@/features/privacy-policy/PrivacyPolicyRoute';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 
-import { kidRouteFallback, parentRouteFallback, router } from './routes';
+import { kidRouteFallback, parentRouteFallback, router, wrap } from './routes';
 
 const Boom = (): JSX.Element => {
   throw new Error('boom');
@@ -51,6 +58,36 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Couldn.?t load this screen/i);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
+  });
+
+  it('/account-deleted is reachable without authentication', async () => {
+    const memRouter = createMemoryRouter(
+      [
+        { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
+        { path: '/login', element: <div data-testid="login" /> },
+      ],
+      { initialEntries: ['/account-deleted'] },
+    );
+    render(<RouterProvider router={memRouter} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('account-deleted-route')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: /sign up again/i }).getAttribute('href')).toBe(
+      '/login',
+    );
+  });
+
+  it('/privacy-policy renders the markdown content', async () => {
+    const memRouter = createMemoryRouter(
+      [{ path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') }],
+      { initialEntries: ['/privacy-policy'] },
+    );
+    render(<RouterProvider router={memRouter} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('privacy-policy-route')).toBeInTheDocument();
+    });
+    // First H1 in docs/privacy-policy.md is "Privacy Policy".
+    expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
   });
 
   it('kid fallback shows only "Tap to go back" — no Retry, no body copy', () => {

@@ -109,6 +109,44 @@ describe('AuthGate', () => {
     }
   });
 
+  it('renders children (not Login) when out and on a public path', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">deleted page</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('public-child')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
+  it('still shows Login when out and on a non-public path', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">should not render</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByText('login screen')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('public-child')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
   // Regression cover for cross-user re-auth: signing out and back in as a
   // different user must propagate the new user.id all the way through
   // SessionProvider so dependent hooks (mutations, useUserInitial) read the
