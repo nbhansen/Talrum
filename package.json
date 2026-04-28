@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "supabase test db",
+    "test:functions": "cd supabase/functions/delete-account && deno test --allow-env",
+    "test:e2e:delete-account": "bash supabase/tests/delete_account_integration_test.sh",
     "icons:gen": "node --experimental-strip-types scripts/gen-icons.ts",
     "types:db": "supabase gen types typescript --local > src/types/supabase.ts",
     "prepare": "husky"

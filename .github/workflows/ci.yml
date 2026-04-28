@@ -19,3 +19,29 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm run test:functions
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - run: npm run test:db
+      - name: Serve function in background
+        run: |
+          mkdir -p supabase/functions
+          cat > supabase/functions/.env.local <<EOF
+          SUPABASE_URL=$(supabase status -o json | jq -r '.API_URL')
+          SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')
+          EOF
+          nohup supabase functions serve delete-account --env-file supabase/functions/.env.local &>/tmp/funcs.log &
+          # Wait for the function to start serving.
+          for i in {1..30}; do
+            if curl -fsS -o /dev/null "$(supabase status -o json | jq -r '.API_URL')/functions/v1/delete-account" -X OPTIONS; then
+              echo "function ready"; break
+            fi
+            sleep 1
+          done
+      - run: npm run test:e2e:delete-account
+      - run: supabase stop
