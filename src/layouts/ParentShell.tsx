@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 
-import { useSignOut, useUserInitial } from '@/lib/auth/session';
+import { useUserInitial } from '@/lib/auth/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
 import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';
@@ -29,7 +29,8 @@ interface ParentShellProps {
   /**
    * Page-specific kid-mode entry point. Each route picks the right board
    * (e.g. ParentHome → first sequence board; BoardBuilder → this board).
-   * Sign-out and avatar pull from session and don't need props.
+   * The avatar shows the user's initial from session and navigates to
+   * /settings via onNav; it no longer signs out directly.
    */
   onKidMode?: () => void;
   title?: string;
@@ -47,7 +48,6 @@ export const ParentShell = ({
   right,
   children,
 }: ParentShellProps): JSX.Element => {
-  const signOut = useSignOut();
   const userInitial = useUserInitial();
   return (
     <div className={styles.shell}>
@@ -79,9 +79,9 @@ export const ParentShell = ({
           <button
             type="button"
             className={styles.avatar}
-            onClick={() => void signOut()}
-            title="Sign out"
-            aria-label="Sign out"
+            onClick={() => onNav?.('settings')}
+            title="Open settings"
+            aria-label="Open settings"
           >
             {userInitial ?? ''}
           </button>

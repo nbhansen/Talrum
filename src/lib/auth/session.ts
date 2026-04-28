@@ -29,3 +29,6 @@ export const useUserInitial = (): string | undefined => {
   const first = useSessionUser().email?.[0];
   return first ? first.toUpperCase() : undefined;
 };
+
+/** Same undefined caveat as useUserInitial — phone-only auth has no email. */
+export const useUserEmail = (): string | undefined => useSessionUser().email;

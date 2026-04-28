@@ -246,9 +246,9 @@ describe('ParentHomeRoute create flows', () => {
   });
 
   it.each([
-    { label: /library/i, testid: 'library-route' },
-    { label: /kids/i, testid: 'kids-route' },
-    { label: /settings/i, testid: 'settings-route' },
+    { label: /^library$/i, testid: 'library-route' },
+    { label: /^kids$/i, testid: 'kids-route' },
+    { label: /^settings$/i, testid: 'settings-route' },
   ])('clicking sidebar $label navigates to its stub route', async ({ label, testid }) => {
     const Wrap = makeWrap('/');
     render(<Wrap />);

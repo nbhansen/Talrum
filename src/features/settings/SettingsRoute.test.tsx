@@ -65,10 +65,11 @@ beforeEach(() => {
 });
 
 describe('SettingsRoute', () => {
-  it('renders the Settings header and a coming-soon body', () => {
+  it('renders the Settings header and the signed-in account block', () => {
     renderRoute();
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByText(/coming in a future release/i)).toBeInTheDocument();
+    expect(screen.getByText('parent@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^sign out$/i })).toBeInTheDocument();
   });
 
   it('renders the Delete-my-account section', () => {
