@@ -3,31 +3,48 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--tal-bg);
   padding: 24px;
+  background:
+    radial-gradient(circle at 15% 10%, var(--tal-sky) 0%, transparent 45%),
+    radial-gradient(circle at 85% 90%, var(--tal-sun) 0%, transparent 45%), var(--tal-bg);
 }
 
 .card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-lg);
-  padding: 32px;
+  padding: 36px 32px 32px;
+  box-shadow: var(--tal-shadow-1);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.mark {
+  border-radius: var(--tal-r-md);
   box-shadow: var(--tal-shadow-1);
 }
 
 .title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: var(--tal-ink);
-  margin: 0 0 4px;
+  margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
   font-size: 15px;
   color: var(--tal-ink-soft);
-  margin: 0 0 24px;
+  margin: 0;
+  text-align: center;
 }
 
 .form {
@@ -57,23 +74,31 @@
   border-radius: var(--tal-r-md);
   background: var(--tal-bg);
   color: var(--tal-ink);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--tal-sky-ink);
+  box-shadow: 0 0 0 3px var(--tal-sky);
 }
 
 .otp {
-  font-size: 22px;
-  letter-spacing: 8px;
+  font-size: 24px;
+  letter-spacing: 10px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .hint {
   font-size: 14px;
   color: var(--tal-ink-soft);
+  background: var(--tal-surface-alt);
+  padding: 10px 12px;
+  border-radius: var(--tal-r-md);
 }
 
 .row {
