@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import {
   type QueryClient,
   useMutation,
@@ -52,6 +53,15 @@ export const mapErrorCode = (payload: RawErrorPayload): DeleteAccountError => {
   return new DeleteAccountError(code, payload.message ?? '');
 };
 
+// supabase-js wire shapes:
+//   2xx → { data: <parsed body>, error: null }
+//   4xx/5xx → { data: null, error: FunctionsHttpError } where error.context
+//             is the original Response (body must be re-parsed by us).
+// The edge function's success body is { ok: true }; its error body is
+// { ok: false, error: <code>, message: <copy> }. We only ever see the latter
+// inside FunctionsHttpError.context, never as a 2xx { ok: false } payload.
+type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
+
 export interface UseDeleteMyAccountOptions {
   /** Optional QueryClient injection for testing. Production code omits. */
   injectedClient?: QueryClient;
@@ -78,19 +88,48 @@ export const useDeleteMyAccount = (
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   return useMutation<void, DeleteAccountError, void>({
     mutationFn: async (): Promise<void> => {
-      const { data, error } = await supabase.functions.invoke<{
-        ok: boolean;
-        error?: string;
-        message?: string;
-      }>('delete-account', { body: {} });
+      const { data, error } = await supabase.functions.invoke<DeleteResponse>('delete-account', {
+        body: {},
+      });
       if (error) {
+        // supabase-js routes 4xx/5xx into `error` (a FunctionsHttpError)
+        // with the original Response on `.context`. Parse the body to
+        // recover the closed-set error code; without this the toast in
+        // DeleteAccountDialog always falls through to 'internal_error'
+        // and the unauthorized / storage_purge_failed / auth_delete_failed
+        // branches are unreachable.
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const body: unknown = await error.context.clone().json();
+            if (
+              body !== null &&
+              typeof body === 'object' &&
+              'error' in body &&
+              typeof (body as { error: unknown }).error === 'string'
+            ) {
+              const errorField = (body as { error: string }).error;
+              const messageField =
+                'message' in body && typeof (body as { message: unknown }).message === 'string'
+                  ? (body as { message: string }).message
+                  : undefined;
+              throw mapErrorCode({ ok: false, error: errorField, message: messageField });
+            }
+          } catch (parseErr) {
+            // Re-throw our own mapped error; swallow JSON parse / shape
+            // failures and fall through to the generic internal_error
+            // throw below.
+            if (parseErr instanceof DeleteAccountError) throw parseErr;
+          }
+        }
         throw new DeleteAccountError('internal_error', error.message);
       }
       if (!data?.ok) {
+        // Defensive: the function never emits a 2xx { ok: false } today,
+        // but if it ever did we'd still want to map the code.
         throw mapErrorCode({
           ok: false,
-          error: data?.error ?? 'internal_error',
-          message: data?.message,
+          error: (data as { error?: string } | null)?.error ?? 'internal_error',
+          message: (data as { message?: string } | null)?.message,
         });
       }
     },

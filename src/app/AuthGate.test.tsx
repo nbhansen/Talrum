@@ -150,6 +150,42 @@ describe('AuthGate', () => {
     }
   });
 
+  // Regression for the deletion flow end-to-end behaviour: the user was
+  // signed in, navigated to /account-deleted, and then signOut() fires.
+  // AuthGate's onAuthStateChange listener flips state to 'out' — and at
+  // that moment the PUBLIC_PATHS branch must keep rendering children, not
+  // bounce to <Login />. This test fails if anyone removes the
+  // PUBLIC_PATHS check from the `out` branch.
+  it('keeps showing children on /account-deleted when SIGNED_OUT fires after navigation', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted');
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-children">deleted page</div>
+        </AuthGate>,
+      );
+      // Signed-in: SessionProvider mounts, children render.
+      await waitFor(() => {
+        expect(screen.getByTestId('public-children')).toBeInTheDocument();
+      });
+
+      // signOut() flips state to 'out'. PUBLIC_PATHS catches the path
+      // and we keep rendering children instead of <Login />.
+      act(() => {
+        lastAuthListener?.('SIGNED_OUT', null);
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('public-children')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
   it('still shows Login when out and on a non-public path', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/');

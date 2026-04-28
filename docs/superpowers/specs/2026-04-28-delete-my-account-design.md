@@ -293,7 +293,7 @@ export const useDeleteMyAccount = () => {
 ## `/account-deleted` route
 
 - Path: `/account-deleted`. Not gated by `AuthGate` (a deleted user has no session).
-- Static page: title "Your account has been deleted", body explaining data is gone, link "Sign up again" → `/login`.
+- Static page: title "Your account has been deleted", body explaining data is gone, link "Sign up again" → `/` (signed-out landing; AuthGate renders `<Login />` for non-public paths). There is no `/login` route in `routes.tsx`.
 - Direct navigation works (a saved bookmark still lands somewhere sane).
 - Implementation: small lazy-loaded route component, registered in `src/app/routes.tsx` outside the `AuthGate` boundary.
 
@@ -396,7 +396,7 @@ Steps 9–10 are the real acceptance: they fail if FK cascade is missing, if sto
 `routes.test.tsx` extension:
 1. `/account-deleted` is *not* gated by `AuthGate`.
 2. Renders the static page.
-3. "Sign up again" link points to `/login`.
+3. "Sign up again" link points to `/` (rendered as a plain `<a href="/">` so AuthGate remounts on a full page load and re-evaluates PUBLIC_PATHS).
 
 ### pgTAP — FK invariants
 

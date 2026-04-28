@@ -1,17 +1,34 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// supabase-js wire shape:
+//   2xx → { data, error: null }
+//   4xx/5xx → { data: null, error: FunctionsHttpError } where error.context
+//             holds the original Response. Tests must mirror this — mocking
+//             a fictional `{ data: { ok: false, ... }, error: null }` shape
+//             made the closed-set error mapping unreachable in production.
 const invokeMock = vi.fn<
   (
     name: string,
     opts: { body: unknown },
   ) => Promise<{
-    data: { ok: boolean; error?: string; message?: string } | null;
-    error: { message: string } | null;
+    data: { ok: true } | null;
+    error: FunctionsHttpError | { name: string; message: string } | null;
   }>
 >();
+
+const makeHttpError = (status: number, body: unknown): FunctionsHttpError => {
+  const init: ResponseInit = {
+    status,
+    headers: { 'content-type': 'application/json' },
+  };
+  const response =
+    typeof body === 'string' ? new Response(body, init) : new Response(JSON.stringify(body), init);
+  return new FunctionsHttpError(response);
+};
 const signOutMock = vi.fn<() => Promise<{ error: null }>>(async () => ({ error: null }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -118,8 +135,8 @@ describe('useDeleteMyAccount', () => {
 
   it('on error: does NOT clear cache, sign out, or call onPreSignOut', async () => {
     invokeMock.mockResolvedValueOnce({
-      data: { ok: false, error: 'auth_delete_failed', message: 'boom' },
-      error: null,
+      data: null,
+      error: makeHttpError(500, { ok: false, error: 'auth_delete_failed', message: 'boom' }),
     });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(['boards'], [{ id: 'b1' }]);
@@ -139,28 +156,76 @@ describe('useDeleteMyAccount', () => {
     );
   });
 
-  it('translates the closed-set error codes via mapErrorCode', async () => {
-    const codes = [
-      'unauthorized',
-      'storage_purge_failed',
-      'auth_delete_failed',
-      'internal_error',
-    ] as const;
+  // Pins the production wire path: closed-set codes arrive inside a
+  // FunctionsHttpError body, NOT as a 2xx { ok: false, ... } payload.
+  // supabase-js routes 4xx/5xx into `error`, not `data`.
+  it.each([
+    ['unauthorized', 401],
+    ['method_not_allowed', 405],
+    ['bad_request', 400],
+    ['storage_purge_failed', 500],
+    ['auth_delete_failed', 500],
+    ['internal_error', 500],
+  ] as const)('translates %s from a FunctionsHttpError body', async (code, status) => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    for (const code of codes) {
-      invokeMock.mockReset();
-      invokeMock.mockResolvedValueOnce({
-        data: { ok: false, error: code, message: 'm' },
-        error: null,
-      });
-      const { result, unmount } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
-        wrapper: makeWrapper(qc),
-      });
-      result.current.mutate();
-      await waitFor(() => expect(result.current.isError).toBe(true));
-      expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(code);
-      unmount();
-    }
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: makeHttpError(status, { ok: false, error: code, message: 'm' }),
+    });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(code);
+  });
+
+  it('falls back to internal_error when the FunctionsHttpError body is not JSON', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: makeHttpError(500, 'not json at all'),
+    });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
+      'internal_error',
+    );
+  });
+
+  it('falls back to internal_error when the body is JSON but missing the error field', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: makeHttpError(500, { not_an_error_field: 'x' }),
+    });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
+      'internal_error',
+    );
+  });
+
+  it('falls back to internal_error for non-FunctionsHttpError errors (network blip)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: { name: 'FunctionsFetchError', message: 'network blip' },
+    });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
+      'internal_error',
+    );
   });
 
   // The user clicked "delete forever" once. We must not silently re-fire on
@@ -168,8 +233,8 @@ describe('useDeleteMyAccount', () => {
   // so a future default change or an accidental `retry: 3` fails this test.
   it('does NOT auto-retry on error: mutationFn runs exactly once', async () => {
     invokeMock.mockResolvedValue({
-      data: { ok: false, error: 'auth_delete_failed', message: 'boom' },
-      error: null,
+      data: null,
+      error: makeHttpError(500, { ok: false, error: 'auth_delete_failed', message: 'boom' }),
     });
     // No retry override on the QueryClient — we want to observe the hook's
     // own mutation behaviour, not a client-level suppression.
