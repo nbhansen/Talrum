@@ -28,7 +28,7 @@ interface TestSessionProviderProps {
 /**
  * Wraps tests in a SessionProvider with a fake authenticated user. Use when
  * rendering anything that calls useSession / useSessionUser / useSignOut /
- * useUserInitial — e.g. ParentShell-wrapping screens.
+ * useUserInitial / useUserEmail — e.g. ParentShell-wrapping screens.
  */
 export const TestSessionProvider = ({
   children,

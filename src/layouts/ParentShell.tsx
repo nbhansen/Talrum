@@ -29,7 +29,8 @@ interface ParentShellProps {
   /**
    * Page-specific kid-mode entry point. Each route picks the right board
    * (e.g. ParentHome → first sequence board; BoardBuilder → this board).
-   * Sign-out and avatar pull from session and don't need props.
+   * The avatar shows the user's initial from session and navigates to
+   * /settings via onNav; it no longer signs out directly.
    */
   onKidMode?: () => void;
   title?: string;
