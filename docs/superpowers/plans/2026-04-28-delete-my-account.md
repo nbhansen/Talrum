@@ -404,7 +404,10 @@ export const createFakeClient = (
       admin: {
         deleteUser: async (userId) => {
           calls.push({ kind: 'auth.admin.deleteUser', userId });
-          if ('ok' in options.authDelete && options.authDelete.ok) {
+          // Discriminate by `'ok' in ...` so TS narrows correctly in both branches.
+          // The earlier two-condition form (`'ok' in ... && .ok`) doesn't narrow the
+          // falsey branch back to the {error:...} variant.
+          if ('ok' in options.authDelete) {
             return { error: null };
           }
           return { error: options.authDelete.error };
