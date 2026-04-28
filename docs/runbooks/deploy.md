@@ -15,41 +15,65 @@ reads them in `.github/workflows/deploy-migrations.yml` and
 | `SUPABASE_DB_PASSWORD` | `deploy-migrations.yml` | dashboard → Project settings → Database |
 | `SUPABASE_PROJECT_REF` | `deploy-migrations.yml`, `deploy-functions.yml` | dashboard → Project settings → General |
 
-## Required edge-function secrets (one-time per project)
+## Edge function default secrets — no manual bootstrap
 
-Edge functions need `SUPABASE_SERVICE_ROLE_KEY` to perform privileged
-operations (notably the `delete-account` function, which uses the admin
-API to delete `auth.users` rows after verifying the caller's JWT).
+Hosted edge functions automatically receive these env vars on every
+invocation, per Supabase's
+[default secrets](https://supabase.com/docs/guides/functions/secrets#default-secrets)
+contract:
 
-This is **not** stored in CI. Set it directly against the Supabase
-project:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
+
+The `delete-account` function reads `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` from `Deno.env` to construct the admin
+client. **Do not** run `supabase secrets set` for any of these — they
+are managed by Supabase. If the service-role key is rotated in the
+dashboard (Project settings → API → "Reset service_role key"), the
+runtime picks up the new value on the next invocation; no redeploy
+or CLI action on our side.
+
+Custom (non-default) secrets a function might need — e.g., a
+`STRIPE_SECRET_KEY` — go through `supabase secrets set` as documented
+upstream. The `delete-account` function has no custom secrets today.
+
+### Verifying the deployed function is running
+
+Smoke-check the function with no Authorization header. The handler
+returns its closed-set 401 when the JWT is missing or the user is not
+a real user (e.g., when sending the `anon` JWT). A 200 / 401 from our
+own handler proves the runtime resolved env vars and booted; a 500
+suggests the runtime failed to start.
 
 ```sh
-supabase secrets set --project-ref <ref> \
-  SUPABASE_SERVICE_ROLE_KEY=<value>
+APIKEY="$(gh api ... or paste publishable key)"  # safe to share
+USER_JWT="..."                                    # any project JWT works
+curl -sS --max-time 5 -o /dev/null -w 'HTTP %{http_code}\n' \
+  -X POST \
+  -H "apikey: $APIKEY" \
+  -H "Authorization: Bearer $USER_JWT" \
+  -H "Content-Type: application/json" \
+  --data '{}' \
+  "https://<project-ref>.supabase.co/functions/v1/delete-account"
 ```
 
-Source the value from dashboard → Project settings → API → `service_role`
-key. Treat it like a root credential: never commit it, never paste it
-into chat, never set it as a GitHub Actions secret (functions read it
-from Supabase's own secret store, not from CI).
+Expected: `HTTP 401`.
 
-## Rotation procedure for `SUPABASE_SERVICE_ROLE_KEY`
+### Local development
 
-1. Copy the new value from dashboard → Project settings → API.
-2. Push it to Supabase:
-   ```sh
-   supabase secrets set --project-ref <ref> \
-     SUPABASE_SERVICE_ROLE_KEY=<new-value>
-   ```
-3. Functions are stateless. The next invocation picks up the new value;
-   no redeploy is required.
-4. Verify end-to-end by running the delete-account E2E:
-   ```sh
-   npm run test:e2e:delete-account
-   ```
-   Run against staging if available; otherwise run after a manual
-   sign-up against the rotated project.
+`supabase functions serve` does **not** auto-inject default secrets.
+For local invocation, populate `supabase/functions/.env.local` (gitignored)
+with values from `supabase status -o env`:
+
+```
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_ROLE_KEY=<from supabase status>
+```
+
+Then: `supabase functions serve delete-account --env-file supabase/functions/.env.local`.
+This is what `npm run test:e2e:delete-account` and CI both rely on.
 
 ## Manual fallback if workflows are broken
 
