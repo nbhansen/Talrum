@@ -5,7 +5,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(54);
+SELECT plan(72);
 
 -- 1–16: authenticated has full CRUD on the four real app tables.
 SELECT ok(has_table_privilege('authenticated', 'public.kids',          'SELECT'), 'authenticated can SELECT kids');
@@ -81,6 +81,34 @@ SELECT ok(NOT has_table_privilege('anon', 'public.pictograms',         'SELECT')
 SELECT ok(NOT has_table_privilege('anon', 'public.board_members',      'SELECT'), 'anon cannot SELECT board_members');
 SELECT ok(NOT has_table_privilege('anon', 'public.template_pictograms','SELECT'), 'anon cannot SELECT template_pictograms');
 SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',    'SELECT'), 'anon cannot SELECT template_boards');
+
+-- 55–72: anon has no INSERT/UPDATE/DELETE on any app or template table.
+-- Symmetric with the authenticated-on-templates block (19–24): without
+-- these, a regression that re-granted (say) INSERT on public.kids TO anon
+-- while leaving SELECT revoked would still pass.
+SELECT ok(NOT has_table_privilege('anon', 'public.kids',                'INSERT'), 'anon cannot INSERT kids');
+SELECT ok(NOT has_table_privilege('anon', 'public.kids',                'UPDATE'), 'anon cannot UPDATE kids');
+SELECT ok(NOT has_table_privilege('anon', 'public.kids',                'DELETE'), 'anon cannot DELETE kids');
+
+SELECT ok(NOT has_table_privilege('anon', 'public.boards',              'INSERT'), 'anon cannot INSERT boards');
+SELECT ok(NOT has_table_privilege('anon', 'public.boards',              'UPDATE'), 'anon cannot UPDATE boards');
+SELECT ok(NOT has_table_privilege('anon', 'public.boards',              'DELETE'), 'anon cannot DELETE boards');
+
+SELECT ok(NOT has_table_privilege('anon', 'public.pictograms',          'INSERT'), 'anon cannot INSERT pictograms');
+SELECT ok(NOT has_table_privilege('anon', 'public.pictograms',          'UPDATE'), 'anon cannot UPDATE pictograms');
+SELECT ok(NOT has_table_privilege('anon', 'public.pictograms',          'DELETE'), 'anon cannot DELETE pictograms');
+
+SELECT ok(NOT has_table_privilege('anon', 'public.board_members',       'INSERT'), 'anon cannot INSERT board_members');
+SELECT ok(NOT has_table_privilege('anon', 'public.board_members',       'UPDATE'), 'anon cannot UPDATE board_members');
+SELECT ok(NOT has_table_privilege('anon', 'public.board_members',       'DELETE'), 'anon cannot DELETE board_members');
+
+SELECT ok(NOT has_table_privilege('anon', 'public.template_pictograms', 'INSERT'), 'anon cannot INSERT template_pictograms');
+SELECT ok(NOT has_table_privilege('anon', 'public.template_pictograms', 'UPDATE'), 'anon cannot UPDATE template_pictograms');
+SELECT ok(NOT has_table_privilege('anon', 'public.template_pictograms', 'DELETE'), 'anon cannot DELETE template_pictograms');
+
+SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'INSERT'), 'anon cannot INSERT template_boards');
+SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'UPDATE'), 'anon cannot UPDATE template_boards');
+SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'DELETE'), 'anon cannot DELETE template_boards');
 
 SELECT * FROM finish();
 ROLLBACK;
