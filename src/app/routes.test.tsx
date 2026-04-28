@@ -62,19 +62,17 @@ describe('routes — error boundary wiring', () => {
 
   it('/account-deleted is reachable without authentication', async () => {
     const memRouter = createMemoryRouter(
-      [
-        { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
-        { path: '/login', element: <div data-testid="login" /> },
-      ],
+      [{ path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') }],
       { initialEntries: ['/account-deleted'] },
     );
     render(<RouterProvider router={memRouter} />);
     await waitFor(() => {
       expect(screen.getByTestId('account-deleted-route')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: /sign up again/i }).getAttribute('href')).toBe(
-      '/login',
-    );
+    // The link points at '/' — the canonical signed-out landing (Login).
+    // There is no '/login' route in routes.tsx; the previous test that
+    // stubbed one masked a dead link.
+    expect(screen.getByRole('link', { name: /sign up again/i }).getAttribute('href')).toBe('/');
   });
 
   it('/privacy-policy renders the markdown content', async () => {

@@ -52,12 +52,25 @@ export const mapErrorCode = (payload: RawErrorPayload): DeleteAccountError => {
   return new DeleteAccountError(code, payload.message ?? '');
 };
 
+export interface UseDeleteMyAccountOptions {
+  /** Optional QueryClient injection for testing. Production code omits. */
+  injectedClient?: QueryClient;
+  /**
+   * Callback fired BEFORE supabase.auth.signOut() — useful for navigating
+   * to a public route before AuthGate transitions to 'out' and replaces
+   * the subtree with <Login />. supabase-js fires onAuthStateChange
+   * synchronously from inside signOut() (before the promise resolves), so
+   * any post-signOut navigation runs after the dialog has already
+   * unmounted. Navigating here is the only reliable order.
+   */
+  onPreSignOut?: () => void;
+}
+
 export const useDeleteMyAccount = (
-  // Optional injection for testing; production code calls without args.
-  injectedClient?: QueryClient,
+  options: UseDeleteMyAccountOptions = {},
 ): UseMutationResult<void, DeleteAccountError, void> => {
   const ctxClient = useQueryClient();
-  const qc = injectedClient ?? ctxClient;
+  const qc = options.injectedClient ?? ctxClient;
   // Explicit generics so TError is the narrow DeleteAccountError (not the
   // TanStack default), and TVariables is `void` so callers `mutate()` with
   // no arg. The lint rule rejects `void` in generic positions; both uses
@@ -82,10 +95,18 @@ export const useDeleteMyAccount = (
       }
     },
     onSuccess: async () => {
-      // Order matters: clear the cache BEFORE signOut so no in-flight query
-      // can refetch with a still-valid session and produce stale data after
-      // the account is gone.
+      // Order matters:
+      //   1. clear the cache so no in-flight query refetches with a
+      //      still-valid session and produces stale data.
+      //   2. onPreSignOut (typically: navigate to /account-deleted) runs
+      //      while the dialog is still mounted. AuthGate's
+      //      onAuthStateChange listener fires synchronously inside
+      //      signOut() and unmounts the dialog the instant the SIGNED_OUT
+      //      event lands — too late to navigate from a useEffect on
+      //      mutation.isSuccess.
+      //   3. signOut last.
       qc.clear();
+      options.onPreSignOut?.();
       await supabase.auth.signOut();
     },
   });

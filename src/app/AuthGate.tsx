@@ -22,6 +22,12 @@ type AuthState =
 // is no SessionProvider in scope.
 const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/account-deleted', '/privacy-policy']);
 
+// Strip a trailing slash before lookup so '/account-deleted' and
+// '/account-deleted/' both match. CDN normalization, copy-pasted URLs, or
+// router quirks can introduce the slash; without normalization the user
+// gets bounced to Login.
+const normalizePath = (p: string): string => p.replace(/\/$/, '') || '/';
+
 /**
  * Sole subscriber to Supabase auth. Renders the login screen when no session
  * exists, mounts SessionProvider with the resolved session otherwise. Every
@@ -69,7 +75,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     // post-deletion confirmation and the public privacy policy. children is
     // returned without SessionProvider — the route components are static
     // and do not call session-dependent hooks.
-    if (PUBLIC_PATHS.has(window.location.pathname)) return <>{children}</>;
+    if (PUBLIC_PATHS.has(normalizePath(window.location.pathname))) return <>{children}</>;
     return <Login />;
   }
   return <SessionProvider session={state.session}>{children}</SessionProvider>;

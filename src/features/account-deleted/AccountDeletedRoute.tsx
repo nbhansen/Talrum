@@ -14,7 +14,7 @@ export const AccountDeletedRoute = (): JSX.Element => (
       undone.
     </p>
     <p>
-      <Link to="/login">Sign up again</Link>
+      <Link to="/">Sign up again</Link>
     </p>
   </main>
 );

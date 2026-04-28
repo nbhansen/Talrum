@@ -6,9 +6,12 @@ import { DeleteAccountDialog } from './DeleteAccountDialog';
 /**
  * Settings entry-point for permanent account deletion. Visually segregated
  * (HR + 'Account' header) from the rest of the page so the destructive
- * action isn't adjacent to benign preferences. On success, navigates to
- * /account-deleted with replace:true so the back button can't return to a
- * settings page that would 401 on every fetch.
+ * action isn't adjacent to benign preferences. Navigation to
+ * /account-deleted (replace:true) happens via the dialog's onPreSignOut
+ * callback so it runs BEFORE supabase.auth.signOut — otherwise AuthGate's
+ * synchronous SIGNED_OUT listener unmounts the dialog and the user lands
+ * on Login instead. replace:true keeps the back button from returning to
+ * a settings page that would 401 on every fetch.
  */
 export const DeleteAccountSection = (): JSX.Element => {
   const [open, setOpen] = useState(false);
@@ -28,7 +31,7 @@ export const DeleteAccountSection = (): JSX.Element => {
       {open && (
         <DeleteAccountDialog
           onCancel={() => setOpen(false)}
-          onSuccess={() => navigate('/account-deleted', { replace: true })}
+          onPreSignOut={() => navigate('/account-deleted', { replace: true })}
         />
       )}
     </section>

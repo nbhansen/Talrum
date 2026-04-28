@@ -7,8 +7,15 @@ import styles from './DeleteAccountDialog.module.css';
 const REQUIRED_PHRASE = 'delete my account';
 
 interface Props {
-  onSuccess: () => void;
   onCancel: () => void;
+  /**
+   * Forwarded to useDeleteMyAccount; fires BEFORE supabase.auth.signOut so
+   * the caller can navigate to a public route while this dialog is still
+   * mounted. AuthGate's onAuthStateChange listener fires synchronously
+   * from inside signOut() and would otherwise unmount the dialog before
+   * any post-success effect could run.
+   */
+  onPreSignOut: () => void;
 }
 
 const toastFor = (err: DeleteAccountError | null): string => {
@@ -31,15 +38,16 @@ const toastFor = (err: DeleteAccountError | null): string => {
  * unless a deletion is already in flight (don't yank the dialog out from
  * under the user mid-mutation; let it finish and surface the error).
  *
- * Navigation is the parent's responsibility: when the mutation succeeds
- * this calls onSuccess() and the parent (DeleteAccountSection) routes to
- * /account-deleted with replace:true.
+ * Navigation is the parent's responsibility, fired through onPreSignOut
+ * inside the mutation — see useDeleteMyAccount for why it must run before
+ * signOut. Once that callback has navigated, AuthGate unmounts this
+ * dialog as part of the route change; no post-success effect needed.
  */
-export const DeleteAccountDialog = ({ onSuccess, onCancel }: Props): JSX.Element => {
+export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Element => {
   const inputId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [phrase, setPhrase] = useState('');
-  const mutation = useDeleteMyAccount();
+  const mutation = useDeleteMyAccount({ onPreSignOut });
 
   const matches = phrase.trim().toLowerCase() === REQUIRED_PHRASE;
   const disabled = mutation.isPending;
@@ -47,10 +55,6 @@ export const DeleteAccountDialog = ({ onSuccess, onCancel }: Props): JSX.Element
   useEffect(() => {
     cancelRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    if (mutation.isSuccess) onSuccess();
-  }, [mutation.isSuccess, onSuccess]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

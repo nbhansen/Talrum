@@ -11,15 +11,21 @@ const mutationState = {
   isSuccess: false,
   error: null as Error | null,
 };
+// Captures the options the dialog passes to useDeleteMyAccount so tests
+// can assert it forwards onPreSignOut into the mutation hook.
+const useDeleteMyAccountSpy = vi.fn<(opts?: { onPreSignOut?: () => void }) => unknown>();
 
 vi.mock('@/lib/queries/account', () => ({
-  useDeleteMyAccount: () => ({
-    mutate: mutateMock,
-    isPending: mutationState.isPending,
-    isError: mutationState.isError,
-    isSuccess: mutationState.isSuccess,
-    error: mutationState.error,
-  }),
+  useDeleteMyAccount: (opts?: { onPreSignOut?: () => void }) => {
+    useDeleteMyAccountSpy(opts);
+    return {
+      mutate: mutateMock,
+      isPending: mutationState.isPending,
+      isError: mutationState.isError,
+      isSuccess: mutationState.isSuccess,
+      error: mutationState.error,
+    };
+  },
   DeleteAccountError: class extends Error {
     constructor(
       public code: string,
@@ -38,6 +44,7 @@ const makeWrapper = (children: ReactNode): JSX.Element => (
 
 beforeEach(() => {
   mutateMock.mockReset();
+  useDeleteMyAccountSpy.mockReset();
   mutationState.isPending = false;
   mutationState.isError = false;
   mutationState.isSuccess = false;
@@ -46,11 +53,11 @@ beforeEach(() => {
 
 describe('DeleteAccountDialog', () => {
   const renderDialog = (
-    onSuccess = vi.fn(),
+    onPreSignOut = vi.fn(),
     onCancel = vi.fn(),
-  ): { onSuccess: typeof onSuccess; onCancel: typeof onCancel } => {
-    render(makeWrapper(<DeleteAccountDialog onSuccess={onSuccess} onCancel={onCancel} />));
-    return { onSuccess, onCancel };
+  ): { onPreSignOut: typeof onPreSignOut; onCancel: typeof onCancel } => {
+    render(makeWrapper(<DeleteAccountDialog onPreSignOut={onPreSignOut} onCancel={onCancel} />));
+    return { onPreSignOut, onCancel };
   };
 
   it('initially: destructive button disabled, cancel enabled', () => {
@@ -89,6 +96,17 @@ describe('DeleteAccountDialog', () => {
     await userEvent.type(screen.getByLabelText(/type/i), 'delete my account');
     await userEvent.click(screen.getByRole('button', { name: /delete forever/i }));
     expect(mutateMock).toHaveBeenCalledTimes(1);
+  });
+
+  // The dialog is responsible for forwarding onPreSignOut to the mutation
+  // hook — that's the load-bearing wiring that lets the section navigate
+  // before signOut. If a refactor drops the option, this test fails.
+  it('forwards onPreSignOut to useDeleteMyAccount', () => {
+    const onPreSignOut = vi.fn();
+    renderDialog(onPreSignOut);
+    expect(useDeleteMyAccountSpy).toHaveBeenCalled();
+    const lastCallArg = useDeleteMyAccountSpy.mock.calls.at(-1)?.[0];
+    expect(lastCallArg?.onPreSignOut).toBe(onPreSignOut);
   });
 
   it('while pending: both buttons disabled, spinner visible', () => {

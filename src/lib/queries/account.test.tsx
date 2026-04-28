@@ -59,7 +59,7 @@ describe('useDeleteMyAccount', () => {
     expect(invokeMock).toHaveBeenCalledWith('delete-account', { body: {} });
   });
 
-  it('on success: clears query cache then signs out (in that order)', async () => {
+  it('on success without onPreSignOut: clears query cache then signs out', async () => {
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(['boards'], [{ id: 'b1' }]);
@@ -74,7 +74,9 @@ describe('useDeleteMyAccount', () => {
       return { error: null };
     });
 
-    const { result } = renderHook(() => useDeleteMyAccount(qc), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
     result.current.mutate();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -82,20 +84,56 @@ describe('useDeleteMyAccount', () => {
     expect(qc.getQueryData(['boards'])).toBeUndefined();
   });
 
-  it('on error: does NOT clear cache or sign out', async () => {
+  // Pins the contract DeleteAccountSection relies on: onPreSignOut MUST run
+  // between cache clear and signOut. supabase-js fires SIGNED_OUT
+  // synchronously from inside signOut(), and AuthGate's listener will
+  // unmount the dialog the moment the event lands — so any navigation has
+  // to happen before signOut is awaited.
+  it('on success with onPreSignOut: runs clear, onPreSignOut, signOut in that order', async () => {
+    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const order: string[] = [];
+    const origClear = qc.clear.bind(qc);
+    qc.clear = () => {
+      order.push('clear');
+      origClear();
+    };
+    signOutMock.mockImplementationOnce(async () => {
+      order.push('signOut');
+      return { error: null };
+    });
+    const onPreSignOut = vi.fn(() => {
+      order.push('preSignOut');
+    });
+
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc, onPreSignOut }), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(order).toEqual(['clear', 'preSignOut', 'signOut']);
+    expect(onPreSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('on error: does NOT clear cache, sign out, or call onPreSignOut', async () => {
     invokeMock.mockResolvedValueOnce({
       data: { ok: false, error: 'auth_delete_failed', message: 'boom' },
       error: null,
     });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(['boards'], [{ id: 'b1' }]);
+    const onPreSignOut = vi.fn();
 
-    const { result } = renderHook(() => useDeleteMyAccount(qc), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc, onPreSignOut }), {
+      wrapper: makeWrapper(qc),
+    });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(qc.getQueryData(['boards'])).toEqual([{ id: 'b1' }]);
     expect(signOutMock).not.toHaveBeenCalled();
+    expect(onPreSignOut).not.toHaveBeenCalled();
     expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
       'auth_delete_failed',
     );
@@ -115,7 +153,7 @@ describe('useDeleteMyAccount', () => {
         data: { ok: false, error: code, message: 'm' },
         error: null,
       });
-      const { result, unmount } = renderHook(() => useDeleteMyAccount(qc), {
+      const { result, unmount } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
         wrapper: makeWrapper(qc),
       });
       result.current.mutate();
@@ -137,7 +175,9 @@ describe('useDeleteMyAccount', () => {
     // own mutation behaviour, not a client-level suppression.
     const qc = new QueryClient();
 
-    const { result } = renderHook(() => useDeleteMyAccount(qc), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+      wrapper: makeWrapper(qc),
+    });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
 

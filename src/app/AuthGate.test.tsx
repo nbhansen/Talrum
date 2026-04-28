@@ -128,6 +128,28 @@ describe('AuthGate', () => {
     }
   });
 
+  // Belt-and-braces: if a CDN rewrite, copy-pasted URL, or a router quirk
+  // sticks a trailing slash on the path, the public-path lookup must still
+  // match. Without normalization signed-out users would bounce to Login.
+  it('renders children (not Login) when out and on a public path with trailing slash', async () => {
+    const originalPath = window.location.pathname;
+    history.replaceState(null, '', '/account-deleted/');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    try {
+      render(
+        <AuthGate>
+          <div data-testid="public-child">deleted page</div>
+        </AuthGate>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('public-child')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+    } finally {
+      history.replaceState(null, '', originalPath);
+    }
+  });
+
   it('still shows Login when out and on a non-public path', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/');
