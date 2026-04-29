@@ -10,11 +10,11 @@
 }
 
 .signOut {
-  margin-top: 12px;
+  margin-top: var(--tal-space-3);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  padding: 10px 18px;
+  padding: var(--tal-space-3) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   background: var(--tal-surface);
   color: var(--tal-ink);
