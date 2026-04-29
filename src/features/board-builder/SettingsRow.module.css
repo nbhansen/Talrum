@@ -1,9 +1,9 @@
 .row {
   display: flex;
-  gap: 10px;
+  gap: var(--tal-space-3);
   flex-wrap: wrap;
-  margin-top: 12px;
-  margin-bottom: 28px;
+  margin-top: var(--tal-space-3);
+  margin-bottom: var(--tal-space-7);
 }
 
 .spacer {

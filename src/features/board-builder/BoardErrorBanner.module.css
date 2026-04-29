@@ -1,9 +1,9 @@
 .banner {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  margin: 8px 0;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-3) var(--tal-space-4);
+  margin: var(--tal-space-2) 0;
   background: var(--tal-peach);
   color: var(--tal-peach-ink);
   border-radius: var(--tal-r-md);
@@ -18,7 +18,7 @@
 
 .retry,
 .dismiss {
-  padding: 6px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-pill);
   font-size: 13px;
   font-weight: 700;

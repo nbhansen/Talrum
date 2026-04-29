@@ -1,16 +1,16 @@
 .wrap {
-  padding: 28px;
+  padding: var(--tal-space-7);
 }
 
 .searchRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--tal-space-3);
   background: var(--tal-surface);
-  padding: 12px 16px;
+  padding: var(--tal-space-3) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   border: 1px solid var(--tal-line);
-  margin-bottom: 20px;
+  margin-bottom: var(--tal-space-5);
 }
 
 .searchInput {
@@ -25,13 +25,13 @@
 
 .filters {
   display: flex;
-  gap: 6px;
+  gap: var(--tal-space-2);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 16px;
+  gap: var(--tal-space-4);
 }
 
 .entry {

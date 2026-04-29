@@ -1,6 +1,6 @@
 .step {
   position: relative;
-  padding: 8px;
+  padding: var(--tal-space-2);
   border-radius: var(--tal-r-md);
   cursor: grab;
   transition: background 0.15s;
@@ -24,7 +24,7 @@
 }
 
 .body {
-  padding-top: 14px;
+  padding-top: var(--tal-space-4);
 }
 
 .remove {
