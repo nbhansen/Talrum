@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Database } from '@/types/supabase';
 
-import { rowToBoard } from './boards';
+import { rowToBoard } from './boards.read';
 
 type Row = Database['public']['Tables']['boards']['Row'];
 

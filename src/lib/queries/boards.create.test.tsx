@@ -24,7 +24,8 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 // Import after the mock is registered.
-const { boardsQueryKey, useCreateBoard } = await import('./boards');
+const { boardsQueryKey } = await import('./boards.read');
+const { useCreateBoard } = await import('./boards.mutations');
 
 const wrap = (qc: QueryClient): ((p: { children: ReactNode }) => JSX.Element) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
