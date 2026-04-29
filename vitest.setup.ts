@@ -4,7 +4,10 @@ import '@testing-library/jest-dom/vitest';
 // touches the persistence layer.
 import 'fake-indexeddb/auto';
 
-import { vi } from 'vitest';
+import { clear } from 'idb-keyval';
+import { afterEach, vi } from 'vitest';
+
+import { __resetSignedUrlCache } from './src/lib/storage-cache';
 
 // Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
 // flake: a test seeded the React Query cache but didn't mock @/lib/supabase,
@@ -43,4 +46,13 @@ Object.defineProperty(window, 'localStorage', {
 Object.defineProperty(window, 'sessionStorage', {
   value: memoryStorage(),
   configurable: true,
+});
+
+// #144: signedUrlFor persists to idb-keyval and an in-process Map. Without a
+// global reset, a future test file that mounts a hook touching signedUrlFor
+// inherits cached entries from prior tests in the same worker — a flake whose
+// failure mode depends on test order.
+afterEach(async () => {
+  await clear();
+  __resetSignedUrlCache();
 });
