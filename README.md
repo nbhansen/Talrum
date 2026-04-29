@@ -56,7 +56,9 @@ supabase/      config, migrations, seed.sql, pgTAP tests
 
 Layering (shared → features → app) is enforced by `no-restricted-imports` in
 `eslint.config.js`. All DB reads go through `src/lib/queries/*`; all writes go
-through `src/lib/outbox`. Features never call `supabase.from(...)` directly.
+through `src/lib/outbox`; Storage minting goes through `src/lib/storage`.
+Features never call `supabase.from(...)` or `supabase.storage` directly —
+both are pinned by `no-restricted-imports` / `no-restricted-syntax` rules.
 
 ## Auth
 
