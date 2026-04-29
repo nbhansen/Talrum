@@ -52,7 +52,7 @@
 }
 
 .recDot {
-  color: #b4261a;
+  color: var(--tal-danger);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -63,7 +63,7 @@
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #b4261a;
+  background: var(--tal-danger);
   animation: tal-rec-pulse 1.2s ease-in-out infinite;
 }
 
@@ -86,7 +86,7 @@
 }
 
 .error {
-  color: #b4261a;
+  color: var(--tal-danger);
   font-size: 14px;
   text-align: center;
   max-width: 40ch;

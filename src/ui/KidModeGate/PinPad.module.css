@@ -71,7 +71,7 @@
 
 .error {
   font-size: 13px;
-  color: #b4261a;
+  color: var(--tal-danger);
   min-height: 18px;
   margin-top: 14px;
 }

@@ -20,7 +20,7 @@
 .primary {
   padding: 12px 18px;
   background: var(--tal-ink);
-  color: #fff;
+  color: var(--tal-on-accent);
   box-shadow: var(--tal-shadow-1);
 }
 
