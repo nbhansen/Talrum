@@ -1,13 +1,12 @@
 import { type JSX, useState } from 'react';
 
+import { Kids } from '@/features/kids/Kids';
 import { ParentShell } from '@/layouts/ParentShell';
 import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { Button } from '@/ui/Button/Button';
 import { PlusIcon } from '@/ui/icons';
 import { NewKidModal } from '@/ui/NewKidModal/NewKidModal';
-
-import { Kids } from './Kids';
 
 export const KidsRoute = (): JSX.Element => {
   const onNav = useParentNav();

@@ -1,13 +1,12 @@
 import { type JSX, useEffect } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
+import { KidChoice } from '@/features/kid-choice/KidChoice';
 import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
 import { KidModeGate } from '@/ui/KidModeGate/KidModeGate';
 
-import { KidSequence } from './KidSequence';
-
-export const KidSequenceRoute = (): JSX.Element | null => {
+export const KidChoiceRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
   const { data: board, error } = useBoard(boardId);
   const navigate = useNavigate();
@@ -20,7 +19,7 @@ export const KidSequenceRoute = (): JSX.Element | null => {
   if (!board) return null;
   return (
     <KidModeGate onExitConfirmed={() => navigate(`/boards/${board.id}/edit`)}>
-      {(requestExit) => <KidSequence board={board} onExit={requestExit} />}
+      {(requestExit) => <KidChoice board={board} onExit={requestExit} />}
     </KidModeGate>
   );
 };

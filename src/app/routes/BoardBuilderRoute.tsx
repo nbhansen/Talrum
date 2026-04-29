@@ -1,15 +1,14 @@
 import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
+import { BoardErrorBanner } from '@/features/board-builder/BoardErrorBanner';
+import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
+import { ShareModal } from '@/features/board-builder/ShareModal';
 import { PictoPicker } from '@/features/pictogram-picker/PictoPicker';
 import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useBoards, useSetStepIds } from '@/lib/queries/boards';
-
-import { BoardBuilder } from './BoardBuilder';
-import { BoardErrorBanner } from './BoardErrorBanner';
-import { BoardNotFound } from './BoardNotFound';
-import { ShareModal } from './ShareModal';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();

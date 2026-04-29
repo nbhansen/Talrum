@@ -44,6 +44,7 @@ commit both the migration and the regenerated `src/types/supabase.ts`.
 ```
 src/
   app/         router, AuthGate, SessionProvider, SW update prompt
+  app/routes/  one file per route, composed from features (no features/ cross-imports)
   features/    one folder per screen (parent-home, board-builder, kid-*)
   lib/         supabase client, react-query hooks, outbox (writes), auth ctx
   ui/          domain-agnostic primitives (Button, Modal, PictoTile, …)
