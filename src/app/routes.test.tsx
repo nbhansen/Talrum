@@ -12,11 +12,33 @@ import { AccountDeletedRoute } from '@/app/routes/AccountDeletedRoute';
 import { PrivacyPolicyRoute } from '@/app/routes/PrivacyPolicyRoute';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 
+import { PUBLIC_PATHS } from './publicPaths';
 import { kidRouteFallback, parentRouteFallback, router, wrap } from './routes';
 
 const Boom = (): JSX.Element => {
   throw new Error('boom');
 };
+
+// Pins PUBLIC_PATHS (consumed by AuthGate) to the router so a typo or a
+// route renamed in routes.tsx without updating publicPaths.ts breaks the
+// test before it strands signed-out users on a Login screen they can't
+// dismiss.
+describe('PUBLIC_PATHS ↔ router consistency', () => {
+  it('every PUBLIC_PATH is a real path defined in the router', () => {
+    const definedPaths = new Set((router.routes as RouteObject[]).map((r) => r.path));
+    for (const p of PUBLIC_PATHS) {
+      expect(definedPaths.has(p)).toBe(true);
+    }
+  });
+
+  it('PUBLIC_PATHS contains exactly the documented public routes', () => {
+    // Size guard: bumping this fails the test, forcing the author to
+    // confirm the addition is intentional and matches a route entry.
+    expect(PUBLIC_PATHS.size).toBe(2);
+    expect(PUBLIC_PATHS.has('/account-deleted')).toBe(true);
+    expect(PUBLIC_PATHS.has('/privacy-policy')).toBe(true);
+  });
+});
 
 describe('routes — error boundary wiring', () => {
   let errSpy: ReturnType<typeof vi.spyOn>;

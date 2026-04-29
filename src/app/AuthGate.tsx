@@ -8,6 +8,7 @@ import { useOnline } from '@/lib/useOnline';
 import { Spinner } from '@/ui/Spinner/Spinner';
 
 import styles from './AuthGate.module.css';
+import { PUBLIC_PATHS } from './publicPaths';
 import { SessionProvider } from './SessionProvider';
 
 type AuthState =
@@ -15,13 +16,6 @@ type AuthState =
   | { status: 'error'; message: string }
   | { status: 'out' }
   | { status: 'in'; session: Session };
-
-// Public routes are reachable without a session. The deletion-success page
-// is the canonical case: the user just signed out as part of account
-// deletion, so the regular Login screen would obscure the confirmation.
-// Components rendered through this path MUST NOT call useSession() — there
-// is no SessionProvider in scope.
-const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/account-deleted', '/privacy-policy']);
 
 // Strip a trailing slash before lookup so '/account-deleted' and
 // '/account-deleted/' both match. CDN normalization, copy-pasted URLs, or
