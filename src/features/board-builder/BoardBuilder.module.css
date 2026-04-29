@@ -1,8 +1,9 @@
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: var(--tal-space-3);
+  margin-bottom: var(--tal-space-2);
+  /* Negative pull to align breadcrumb above the title row. */
   margin-top: -4px;
 }
 
@@ -14,7 +15,7 @@
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-pill);
-  padding: 6px 14px;
+  padding: var(--tal-space-2) var(--tal-space-4);
   cursor: pointer;
 }
 
@@ -25,11 +26,11 @@
 .back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--tal-space-2);
   font-size: 14px;
   font-weight: 700;
   color: var(--tal-ink-soft);
-  padding: 6px 10px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: 8px;
 }
 
@@ -52,7 +53,7 @@
   border: none;
   outline: none;
   width: 100%;
-  padding: 4px 0;
+  padding: var(--tal-space-1) 0;
   border-bottom: 2px solid transparent;
   font-family: inherit;
 }
@@ -64,7 +65,7 @@
 .track {
   background: var(--tal-surface);
   border-radius: var(--tal-r-lg);
-  padding: 28px 24px;
+  padding: var(--tal-space-7) var(--tal-space-6);
   box-shadow: var(--tal-shadow-1);
   border: 1px solid var(--tal-line-soft);
 }
@@ -72,15 +73,15 @@
 .rail {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--tal-space-2);
   overflow-x: auto;
-  padding-bottom: 10px;
+  padding-bottom: var(--tal-space-3);
 }
 
 .connector {
   align-self: center;
   color: var(--tal-ink-muted);
-  margin-top: 14px;
+  margin-top: var(--tal-space-4);
   flex-shrink: 0;
 }
 
@@ -88,13 +89,13 @@
   font-size: 13px;
   font-weight: 800;
   color: var(--tal-ink-muted);
-  padding: 6px 10px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-pill);
   background: var(--tal-bg);
 }
 
 .addTile {
-  margin-top: 14px;
+  margin-top: var(--tal-space-4);
   width: 132px;
   height: 132px;
   border-radius: var(--tal-r-lg);
@@ -105,21 +106,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--tal-space-2);
   font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .quickAdd {
-  margin-top: 32px;
+  margin-top: var(--tal-space-8);
 }
 
 .quickAddHeader {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 14px;
+  margin-bottom: var(--tal-space-4);
 }
 
 .quickAddHeading {
@@ -137,6 +138,6 @@
 
 .quickAddGrid {
   display: flex;
-  gap: 14px;
+  gap: var(--tal-space-4);
   flex-wrap: wrap;
 }

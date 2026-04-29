@@ -1,12 +1,12 @@
 .wrap {
-  padding: 28px;
+  padding: var(--tal-space-7);
 }
 
 .dropzone {
   border: 2px dashed var(--tal-line);
   border-radius: var(--tal-r-lg);
   background: var(--tal-surface);
-  padding: 56px 28px;
+  padding: var(--tal-space-12) var(--tal-space-7);
   text-align: center;
   width: 100%;
   cursor: pointer;
@@ -29,12 +29,12 @@
 
 .preview {
   display: flex;
-  gap: 24px;
+  gap: var(--tal-space-6);
   align-items: stretch;
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-lg);
-  padding: 20px;
+  padding: var(--tal-space-5);
 }
 
 .previewImg {
@@ -49,13 +49,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--tal-space-4);
 }
 
 .labelField {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--tal-space-2);
 }
 
 .labelHint {
@@ -68,7 +68,7 @@
 
 .labelInput {
   font: inherit;
-  padding: 10px 12px;
+  padding: var(--tal-space-3);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-bg);
@@ -82,7 +82,7 @@
 
 .previewActions {
   display: flex;
-  gap: 10px;
+  gap: var(--tal-space-3);
   margin-top: auto;
   justify-content: flex-end;
 }
@@ -91,7 +91,7 @@
   font-size: 13px;
   color: var(--tal-coral-ink, var(--tal-ink));
   background: var(--tal-coral, var(--tal-surface-alt));
-  padding: 8px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-md);
 }
 
@@ -99,7 +99,7 @@
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  margin: 0 auto 14px;
+  margin: 0 auto var(--tal-space-4);
   background: var(--tal-sky);
   color: var(--tal-sky-ink);
   display: flex;
@@ -116,7 +116,7 @@
 .hint {
   font-size: 14px;
   color: var(--tal-ink-soft);
-  margin-top: 4px;
+  margin-top: var(--tal-space-1);
 }
 
 .recentHeading {
@@ -125,11 +125,11 @@
   color: var(--tal-ink-soft);
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  margin: 24px 0 12px;
+  margin: var(--tal-space-6) 0 var(--tal-space-3);
 }
 
 .recentRow {
   display: flex;
-  gap: 14px;
+  gap: var(--tal-space-4);
   flex-wrap: wrap;
 }

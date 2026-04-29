@@ -2,15 +2,15 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 24px 28px 12px;
+  gap: var(--tal-space-4);
+  padding: var(--tal-space-6) var(--tal-space-7) var(--tal-space-3);
 }
 
 .title {
   font-size: 22px;
   font-weight: 800;
   color: var(--tal-ink);
-  margin: 0 0 4px;
+  margin: 0 0 var(--tal-space-1);
 }
 
 .subtitle {
@@ -37,8 +37,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 8px 28px 4px;
+  gap: var(--tal-space-4);
+  padding: var(--tal-space-2) var(--tal-space-7) var(--tal-space-1);
 }
 
 .preview {
@@ -55,7 +55,7 @@
   color: var(--tal-danger);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }
 
 .recDot::before {
@@ -96,14 +96,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 16px 28px 24px;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-4) var(--tal-space-7) var(--tal-space-6);
   border-top: 1px solid var(--tal-line);
-  margin-top: 12px;
+  margin-top: var(--tal-space-3);
 }
 
 .footerLeft,
 .footerRight {
   display: flex;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }

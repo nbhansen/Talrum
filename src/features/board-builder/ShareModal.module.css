@@ -1,5 +1,5 @@
 .wrap {
-  padding: 28px 28px 24px;
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
   max-width: 520px;
   width: 100%;
   margin: 0 auto;
@@ -7,12 +7,12 @@
 
 .section {
   border-top: 1px solid var(--tal-line-soft);
-  padding: 16px 0;
+  padding: var(--tal-space-4) 0;
 }
 
 .section:first-of-type {
   border-top: none;
-  padding-top: 4px;
+  padding-top: var(--tal-space-1);
 }
 
 .sectionLabel {
@@ -22,13 +22,13 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--tal-ink-muted);
-  margin: 0 0 8px;
+  margin: 0 0 var(--tal-space-2);
 }
 
 .idRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }
 
 .idValue {
@@ -39,7 +39,7 @@
   background: var(--tal-bg);
   border: 1px solid var(--tal-line-soft);
   border-radius: var(--tal-r-md);
-  padding: 8px 10px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   overflow-x: auto;
   white-space: nowrap;
 }
@@ -52,7 +52,7 @@
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
-  padding: 8px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   cursor: pointer;
 }
 
@@ -69,7 +69,7 @@
 .memberList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--tal-space-2);
   list-style: none;
   padding: 0;
   margin: 0;
@@ -79,8 +79,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--tal-space-2);
+  padding: var(--tal-space-2) var(--tal-space-3);
   background: var(--tal-bg);
   border-radius: var(--tal-r-md);
 }
@@ -102,7 +102,7 @@
   letter-spacing: 0.4px;
   color: var(--tal-ink-muted);
   background: var(--tal-surface);
-  padding: 2px 8px;
+  padding: 2px var(--tal-space-2);
   border-radius: var(--tal-r-pill);
   flex-shrink: 0;
 }
@@ -128,14 +128,14 @@
 
 .addRow {
   display: flex;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }
 
 .input {
   flex: 1 1 auto;
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 13px;
-  padding: 8px 10px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-surface);
@@ -148,7 +148,7 @@
 }
 
 .error {
-  margin: 8px 0 0;
+  margin: var(--tal-space-2) 0 0;
   font-size: 13px;
   color: var(--tal-coral-ink);
 }
