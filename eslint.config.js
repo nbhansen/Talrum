@@ -62,7 +62,7 @@ export default tseslint.config(
   },
   {
     files: ['src/features/**/*.{ts,tsx}'],
-    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}', 'src/features/**/*Route.tsx'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -83,22 +83,5 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    files: ['src/features/**/*Route.tsx'],
-    ignores: ['**/*.test.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/app', '@/app/*'],
-              message:
-                'Reverse import: features MUST NOT import from app/. Move the consumed surface down a layer.',
-            },
-          ],
-        },
-      ],
-    },
-  },
 );
+

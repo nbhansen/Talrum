@@ -7,35 +7,35 @@ import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Spinner } from '@/ui/Spinner/Spinner';
 
 const ParentHomeRoute = lazy(() =>
-  import('@/features/parent-home/ParentHomeRoute').then((m) => ({ default: m.ParentHomeRoute })),
+  import('@/app/routes/ParentHomeRoute').then((m) => ({ default: m.ParentHomeRoute })),
 );
 const BoardBuilderRoute = lazy(() =>
-  import('@/features/board-builder/BoardBuilderRoute').then((m) => ({
+  import('@/app/routes/BoardBuilderRoute').then((m) => ({
     default: m.BoardBuilderRoute,
   })),
 );
 const KidSequenceRoute = lazy(() =>
-  import('@/features/kid-sequence/KidSequenceRoute').then((m) => ({ default: m.KidSequenceRoute })),
+  import('@/app/routes/KidSequenceRoute').then((m) => ({ default: m.KidSequenceRoute })),
 );
 const KidChoiceRoute = lazy(() =>
-  import('@/features/kid-choice/KidChoiceRoute').then((m) => ({ default: m.KidChoiceRoute })),
+  import('@/app/routes/KidChoiceRoute').then((m) => ({ default: m.KidChoiceRoute })),
 );
 const LibraryRoute = lazy(() =>
-  import('@/features/library/LibraryRoute').then((m) => ({ default: m.LibraryRoute })),
+  import('@/app/routes/LibraryRoute').then((m) => ({ default: m.LibraryRoute })),
 );
 const KidsRoute = lazy(() =>
-  import('@/features/kids/KidsRoute').then((m) => ({ default: m.KidsRoute })),
+  import('@/app/routes/KidsRoute').then((m) => ({ default: m.KidsRoute })),
 );
 const SettingsRoute = lazy(() =>
-  import('@/features/settings/SettingsRoute').then((m) => ({ default: m.SettingsRoute })),
+  import('@/app/routes/SettingsRoute').then((m) => ({ default: m.SettingsRoute })),
 );
 const AccountDeletedRoute = lazy(() =>
-  import('@/features/account-deleted/AccountDeletedRoute').then((m) => ({
+  import('@/app/routes/AccountDeletedRoute').then((m) => ({
     default: m.AccountDeletedRoute,
   })),
 );
 const PrivacyPolicyRoute = lazy(() =>
-  import('@/features/privacy-policy/PrivacyPolicyRoute').then((m) => ({
+  import('@/app/routes/PrivacyPolicyRoute').then((m) => ({
     default: m.PrivacyPolicyRoute,
   })),
 );

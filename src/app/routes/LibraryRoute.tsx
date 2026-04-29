@@ -1,10 +1,9 @@
 import type { JSX } from 'react';
 
+import { Library } from '@/features/library/Library';
 import { ParentShell } from '@/layouts/ParentShell';
 import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
-
-import { Library } from './Library';
 
 export const LibraryRoute = (): JSX.Element => {
   const onNav = useParentNav();

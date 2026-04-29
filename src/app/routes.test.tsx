@@ -8,8 +8,8 @@ import {
 } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AccountDeletedRoute } from '@/features/account-deleted/AccountDeletedRoute';
-import { PrivacyPolicyRoute } from '@/features/privacy-policy/PrivacyPolicyRoute';
+import { AccountDeletedRoute } from '@/app/routes/AccountDeletedRoute';
+import { PrivacyPolicyRoute } from '@/app/routes/PrivacyPolicyRoute';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 
 import { kidRouteFallback, parentRouteFallback, router, wrap } from './routes';
