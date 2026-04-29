@@ -7,17 +7,17 @@
 }
 
 .topBar {
-  padding: 18px 28px;
+  padding: var(--tal-space-4) var(--tal-space-7);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--tal-space-6);
 }
 
 .titleBlock {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--tal-space-3);
 }
 
 .eyebrow {
@@ -41,8 +41,8 @@
 .exit {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: var(--tal-space-2);
+  padding: var(--tal-space-3) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);

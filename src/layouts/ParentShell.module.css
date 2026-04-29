@@ -11,16 +11,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 0;
+  padding: var(--tal-space-6) 0;
   border-right: 1px solid var(--tal-line-soft);
   background: var(--tal-surface);
-  gap: 28px;
+  gap: var(--tal-space-7);
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }
 
 .navItem {
@@ -49,7 +49,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--tal-space-3);
 }
 
 .avatar {
@@ -97,17 +97,17 @@
 }
 
 .header {
-  padding: 28px 40px 20px;
+  padding: var(--tal-space-7) var(--tal-space-10) var(--tal-space-5);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--tal-space-6);
 }
 
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--tal-space-4);
 }
 
 .title {
@@ -119,7 +119,7 @@
 }
 
 .subtitle {
-  margin: 6px 0 0;
+  margin: var(--tal-space-2) 0 0;
   font-size: 16px;
   color: var(--tal-ink-soft);
   font-weight: 500;
@@ -129,5 +129,5 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 8px 40px 32px;
+  padding: var(--tal-space-2) var(--tal-space-10) var(--tal-space-8);
 }
