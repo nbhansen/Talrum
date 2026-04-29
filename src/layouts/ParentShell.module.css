@@ -32,6 +32,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Sub-scale gap between icon and label inside the 56px nav item. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   gap: 2px;
   color: var(--tal-ink-soft);
   font-size: 10px;
@@ -82,6 +84,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Sub-scale gap between icon and label inside the 56px button. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   gap: 2px;
   font-size: 10px;
   font-weight: 800;

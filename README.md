@@ -61,7 +61,11 @@ Features never call `supabase.from(...)` or `supabase.storage` directly —
 both are pinned by `no-restricted-imports` / `no-restricted-syntax` rules.
 
 Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
-hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint).
+hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint). The same
+guard blocks raw `px` in `padding`, `margin`, `gap`, and their longhand
+variants — use `--tal-space-N` tokens instead. Documented holdouts (negative
+pulls, border-compensated paddings, sub-scale 2px hairlines) carry an
+inline `stylelint-disable-next-line` comment naming the reason.
 
 ## Auth
 

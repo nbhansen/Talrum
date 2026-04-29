@@ -65,6 +65,7 @@
 .previewArrow {
   align-self: center;
   /* Negative pull to center the arrow against the preview row above. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin-top: -8px;
   color: var(--tal-ink-muted);
 }

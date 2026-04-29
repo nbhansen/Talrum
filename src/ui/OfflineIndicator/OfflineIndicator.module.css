@@ -53,6 +53,8 @@
   color: inherit;
   font-size: 13px;
   font-weight: 600;
+  /* Sub-scale 2px vertical padding keeps the inline action compact. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   padding: 2px var(--tal-space-2);
   cursor: pointer;
   text-decoration: underline;
