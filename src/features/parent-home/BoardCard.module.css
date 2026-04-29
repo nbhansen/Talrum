@@ -2,11 +2,11 @@
   text-align: left;
   background: var(--tal-surface);
   border-radius: var(--tal-r-lg);
-  padding: 18px;
+  padding: var(--tal-space-4);
   box-shadow: var(--tal-shadow-1);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--tal-space-4);
   border: 1px solid var(--tal-line-soft);
   transition:
     transform 0.15s,
@@ -30,8 +30,8 @@
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 11px;
+  gap: var(--tal-space-2);
+  padding: var(--tal-space-1) var(--tal-space-3);
   border-radius: var(--tal-r-pill);
   font-size: 11px;
   font-weight: 800;
@@ -54,8 +54,8 @@
 
 .preview {
   display: flex;
-  gap: 10px;
-  padding: 14px 14px 10px;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-4) var(--tal-space-4) var(--tal-space-3);
   background: var(--tal-bg);
   border-radius: var(--tal-r-md);
   align-items: flex-start;
@@ -64,6 +64,7 @@
 
 .previewArrow {
   align-self: center;
+  /* Negative pull to center the arrow against the preview row above. */
   margin-top: -8px;
   color: var(--tal-ink-muted);
 }

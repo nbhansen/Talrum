@@ -1,5 +1,5 @@
 .wrap {
-  padding: 28px 28px 24px;
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
   max-width: 480px;
   width: 100%;
   margin: 0 auto;
@@ -8,7 +8,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--tal-space-4);
   border: 0;
   padding: 0;
   margin: 0;
@@ -17,7 +17,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--tal-space-2);
   border: 0;
   padding: 0;
   margin: 0;
@@ -34,7 +34,7 @@
 .input {
   font: inherit;
   font-size: 15px;
-  padding: 10px 12px;
+  padding: var(--tal-space-3);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-surface);
@@ -58,15 +58,15 @@
 
 .kindGroup {
   flex-direction: row;
-  gap: 8px;
+  gap: var(--tal-space-2);
 }
 
 .kindOption {
   flex: 1 1 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--tal-space-2);
+  padding: var(--tal-space-3);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-surface);
