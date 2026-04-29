@@ -1,7 +1,7 @@
 .wrap {
   display: flex;
   align-items: flex-start;
-  padding-top: 48px;
+  padding-top: var(--tal-space-12);
   max-width: 520px;
 }
 

@@ -1,7 +1,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--tal-space-2);
 }
 
 .label {
@@ -15,7 +15,7 @@
 .input {
   font: inherit;
   font-size: 15px;
-  padding: 10px 12px;
+  padding: var(--tal-space-3);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-surface);

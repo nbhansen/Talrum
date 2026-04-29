@@ -1,8 +1,8 @@
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-3) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
@@ -36,5 +36,5 @@
 }
 
 .thumbOn {
-  left: 16px;
+  left: var(--tal-space-4);
 }
