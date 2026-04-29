@@ -1,5 +1,5 @@
-import { clear, set } from 'idb-keyval';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { set } from 'idb-keyval';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createSignedUrlMock = vi.fn<
   (
@@ -19,15 +19,12 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { storage: { from: (bucket: string) => fromMock(bucket) } },
 }));
 
-const { invalidateSignedUrl, signedUrlFor } = await import('./storage');
+const { signedUrlFor } = await import('./storage');
 
-beforeEach(async () => {
-  await clear();
+// idb-keyval and the in-process memCache are wiped by the global afterEach in
+// vitest.setup.ts (#144) — only the per-test mock counter needs resetting here.
+beforeEach(() => {
   createSignedUrlMock.mockReset();
-});
-
-afterEach(() => {
-  invalidateSignedUrl('pictogram-images', 'a/test.jpg');
 });
 
 describe('signedUrlFor', () => {

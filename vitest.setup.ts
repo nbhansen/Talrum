@@ -7,6 +7,8 @@ import 'fake-indexeddb/auto';
 import { clear } from 'idb-keyval';
 import { afterEach, vi } from 'vitest';
 
+import { __resetSignedUrlCache } from './src/lib/storage-cache';
+
 // Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
 // flake: a test seeded the React Query cache but didn't mock @/lib/supabase,
 // so useQuery's mount-time refetch raced against the seeded data and replaced
@@ -50,7 +52,6 @@ Object.defineProperty(window, 'sessionStorage', {
 // global reset, a future test file that mounts a hook touching signedUrlFor
 // inherits cached entries from prior tests in the same worker — a flake whose
 // failure mode depends on test order.
-import { __resetSignedUrlCache } from './src/lib/storage-cache';
 afterEach(async () => {
   await clear();
   __resetSignedUrlCache();
