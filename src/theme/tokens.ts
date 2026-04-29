@@ -42,11 +42,28 @@ export type RadiusToken = 'sm' | 'md' | 'lg' | 'xl' | 'pill';
 
 export type ShadowToken = '1' | '2' | '3';
 
+export type SpaceToken =
+  | '4'
+  | '6'
+  | '8'
+  | '10'
+  | '12'
+  | '14'
+  | '16'
+  | '20'
+  | '24'
+  | '28'
+  | '32'
+  | '40'
+  | '48';
+
 export const cssVar = (token: ColorToken): string => `var(--tal-${token})`;
 
 export const radiusVar = (token: RadiusToken): string => `var(--tal-r-${token})`;
 
 export const shadowVar = (token: ShadowToken): string => `var(--tal-shadow-${token})`;
+
+export const spaceVar = (token: SpaceToken): string => `var(--tal-space-${token})`;
 
 export interface Accent {
   bg: ColorToken;
