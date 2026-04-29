@@ -83,5 +83,23 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Mirrors the data-access boundary: DB reads go through lib/queries,
+    // writes through lib/outbox, and Storage minting through lib/storage.
+    // Features and ui primitives must not call supabase.storage directly.
+    files: ['src/features/**/*.{ts,tsx}', 'src/ui/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.name='supabase'][property.name='storage']",
+          message:
+            'Storage access goes through src/lib/storage; features and ui must not call supabase.storage directly.',
+        },
+      ],
+    },
+  },
 );
 
