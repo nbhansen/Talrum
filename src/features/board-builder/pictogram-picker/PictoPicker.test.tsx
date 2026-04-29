@@ -59,13 +59,12 @@ describe('PictoPicker', () => {
     expect(libraryTab).not.toHaveTextContent('1,400');
   });
 
-  it('switches between library, upload, and generate tabs', async () => {
+  it('switches between library and upload tabs', async () => {
     const user = userEvent.setup();
     render(wrap(<PictoPicker onClose={vi.fn()} />));
     const tablist = screen.getByRole('tablist');
     const libraryTab = within(tablist).getByRole('tab', { name: /Library/ });
     const uploadTab = within(tablist).getByRole('tab', { name: /Upload/ });
-    const generateTab = within(tablist).getByRole('tab', { name: /Generate/ });
 
     expect(libraryTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByPlaceholderText(/Search eat, dress/)).toBeInTheDocument();
@@ -73,9 +72,6 @@ describe('PictoPicker', () => {
     await user.click(uploadTab);
     expect(uploadTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByPlaceholderText(/Search eat, dress/)).not.toBeInTheDocument();
-
-    await user.click(generateTab);
-    expect(generateTab).toHaveAttribute('aria-selected', 'true');
 
     await user.click(libraryTab);
     expect(libraryTab).toHaveAttribute('aria-selected', 'true');
