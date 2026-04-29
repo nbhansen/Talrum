@@ -10,6 +10,8 @@
   font-size: 22px;
   font-weight: 800;
   color: var(--tal-ink);
+  /* Sub-scale 2px gap below title tightens it against subtitle baseline. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin: 0 0 2px;
 }
 

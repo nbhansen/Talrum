@@ -4,6 +4,7 @@
   gap: var(--tal-space-3);
   margin-bottom: var(--tal-space-2);
   /* Negative pull to align breadcrumb above the title row. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin-top: -4px;
 }
 

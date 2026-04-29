@@ -1,14 +1,23 @@
 {
   "rules": {
     "color-no-hex": true,
-    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla"]
+    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla"],
+    "declaration-property-value-disallowed-list": [
+      {
+        "/^(padding|padding-.+|margin|margin-.+|gap|row-gap|column-gap)$/": ["/[0-9]+px/"]
+      },
+      {
+        "message": "Spacing values must use --tal-space-N tokens (or a stylelint-disable comment for documented holdouts like negative pulls or border-compensated paddings)."
+      }
+    ]
   },
   "overrides": [
     {
       "files": ["src/theme/**/*.css"],
       "rules": {
         "color-no-hex": null,
-        "function-disallowed-list": null
+        "function-disallowed-list": null,
+        "declaration-property-value-disallowed-list": null
       }
     }
   ]

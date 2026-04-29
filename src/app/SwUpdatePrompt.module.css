@@ -5,8 +5,8 @@
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-3) var(--tal-space-4);
   background: var(--tal-surface);
   color: var(--tal-ink);
   border-radius: var(--tal-r-md);
@@ -24,7 +24,7 @@
   background: var(--tal-sage);
   color: var(--tal-sage-ink);
   border-radius: var(--tal-r-pill);
-  padding: 6px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   font-weight: 600;
   cursor: pointer;
 }
@@ -41,7 +41,7 @@
   color: var(--tal-ink-muted);
   font-size: 18px;
   line-height: 1;
-  padding: 4px 6px;
+  padding: var(--tal-space-1) var(--tal-space-2);
   cursor: pointer;
 }
 

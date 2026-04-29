@@ -3,8 +3,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 32px;
+  gap: var(--tal-space-4);
+  padding: var(--tal-space-8);
   text-align: center;
   height: 100vh;
 }
@@ -14,7 +14,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--tal-space-4);
   height: 100vh;
 }
 
@@ -38,7 +38,7 @@
 }
 
 .errorRetry {
-  padding: 10px 20px;
+  padding: var(--tal-space-3) var(--tal-space-5);
   font-size: 15px;
   font-weight: 700;
   border-radius: var(--tal-r-pill);

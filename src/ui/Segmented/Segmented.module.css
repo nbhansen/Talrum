@@ -3,6 +3,8 @@
   background: var(--tal-surface-alt);
   padding: var(--tal-space-1);
   border-radius: var(--tal-r-pill);
+  /* Sub-scale 2px hairline gap between segment options. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   gap: 2px;
 }
 

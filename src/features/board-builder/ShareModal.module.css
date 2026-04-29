@@ -102,6 +102,8 @@
   letter-spacing: 0.4px;
   color: var(--tal-ink-muted);
   background: var(--tal-surface);
+  /* Sub-scale 2px vertical padding tightens the role pill against its label. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   padding: 2px var(--tal-space-2);
   border-radius: var(--tal-r-pill);
   flex-shrink: 0;

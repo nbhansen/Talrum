@@ -31,6 +31,7 @@
 .ghost {
   /* 1px less than .primary to compensate for the 1px border so both
      buttons render at the same outside dimensions. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   padding: 11px 17px;
   background: var(--tal-surface);
   color: var(--tal-ink);
