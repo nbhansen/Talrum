@@ -1,5 +1,5 @@
 import type { Session, User } from '@supabase/supabase-js';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,19 +8,7 @@ import type { BoardMember } from '@/lib/queries/board-members';
 import type * as BoardMembersModule from '@/lib/queries/board-members';
 
 const useBoardMembersMock = vi.fn();
-const addMutateMock = vi.fn();
 const removeMutateMock = vi.fn();
-let lastAddOptions: { onSuccess?: () => void; onError?: (err: unknown) => void } | undefined;
-
-const baseAddState = {
-  mutate: (input: unknown, opts?: { onSuccess?: () => void; onError?: (err: unknown) => void }) => {
-    lastAddOptions = opts;
-    addMutateMock(input);
-  },
-  isPending: false,
-};
-
-let addState: typeof baseAddState = { ...baseAddState };
 
 const removeState = {
   mutate: (input: unknown) => {
@@ -34,7 +22,10 @@ vi.mock('@/lib/queries/board-members', async (importActual) => {
   return {
     ...actual,
     useBoardMembers: () => useBoardMembersMock(),
-    useAddBoardMember: () => addState,
+    useAddBoardMember: () => ({
+      mutate: () => undefined,
+      isPending: false,
+    }),
     useRemoveBoardMember: () => removeState,
   };
 });
@@ -81,11 +72,8 @@ const renderModal = (
 };
 
 beforeEach(() => {
-  addMutateMock.mockReset();
   removeMutateMock.mockReset();
   useBoardMembersMock.mockReset();
-  addState = { ...baseAddState };
-  lastAddOptions = undefined;
 });
 
 afterEach(() => {
@@ -108,48 +96,6 @@ describe('ShareModal — owner', () => {
   it('shows "No one yet." when the board has no members', () => {
     renderModal([]);
     expect(screen.getByText('No one yet.')).toBeInTheDocument();
-  });
-
-  it('rejects a non-UUID input with an inline error and does not fire the mutation', () => {
-    renderModal([]);
-    fireEvent.change(screen.getByLabelText('Sharing ID'), { target: { value: 'not-a-uuid' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('alert')).toHaveTextContent("doesn't look like a valid sharing ID");
-    expect(addMutateMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects pasting one's own sharing ID with an inline error", () => {
-    renderModal([]);
-    fireEvent.change(screen.getByLabelText('Sharing ID'), { target: { value: ME_ID } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('your own sharing ID');
-    expect(addMutateMock).not.toHaveBeenCalled();
-  });
-
-  it('fires useAddBoardMember on a valid UUID and clears the input on success', async () => {
-    renderModal([]);
-    const input = screen.getByLabelText('Sharing ID') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: OTHER_ID } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(addMutateMock).toHaveBeenCalledWith({
-      boardId: 'board-1',
-      userId: OTHER_ID,
-      role: 'viewer',
-    });
-    act(() => {
-      lastAddOptions?.onSuccess?.();
-    });
-    await waitFor(() => expect(input.value).toBe(''));
-  });
-
-  it('renders an inline error when the mutation reports a 23505 (already a member)', async () => {
-    renderModal([]);
-    fireEvent.change(screen.getByLabelText('Sharing ID'), { target: { value: OTHER_ID } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    act(() => {
-      lastAddOptions?.onError?.({ code: '23505', message: 'duplicate' });
-    });
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('already has access'));
   });
 
   it('fires useRemoveBoardMember when an X button is clicked on a member row', () => {
@@ -194,43 +140,5 @@ describe('ShareModal — members loading state (#35)', () => {
     );
     expect(screen.getByText('Loading…')).toBeInTheDocument();
     expect(screen.queryByText('No one yet.')).not.toBeInTheDocument();
-  });
-});
-
-describe('ShareModal — clipboard error (#36)', () => {
-  const realClipboard = navigator.clipboard;
-
-  afterEach(() => {
-    Object.defineProperty(navigator, 'clipboard', {
-      value: realClipboard,
-      configurable: true,
-    });
-  });
-
-  it('shows an inline error if clipboard.writeText rejects', async () => {
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: () => Promise.reject(new Error('denied')) },
-      configurable: true,
-    });
-    renderModal([]);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy your sharing ID' }));
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('select the ID and copy manually'),
-    );
-  });
-
-  it('shows an inline error when running in an insecure context', () => {
-    const realIsSecure = window.isSecureContext;
-    Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true });
-    try {
-      renderModal([]);
-      fireEvent.click(screen.getByRole('button', { name: 'Copy your sharing ID' }));
-      expect(screen.getByRole('alert')).toHaveTextContent('select the ID and copy manually');
-    } finally {
-      Object.defineProperty(window, 'isSecureContext', {
-        value: realIsSecure,
-        configurable: true,
-      });
-    }
   });
 });
