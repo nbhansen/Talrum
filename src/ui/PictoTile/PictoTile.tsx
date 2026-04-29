@@ -28,12 +28,13 @@ export const PictoTile = ({
   onClick,
   style,
 }: PictoTileProps): JSX.Element => (
-  <button
-    type="button"
-    className={styles.tileButton}
-    onClick={onClick}
-    style={{ width: size, ...style }}
-  >
-    <PictoCard picto={picto} size={size} showLabel={showLabel} selected={selected} />
+  <button type="button" className={styles.tileButton} onClick={onClick}>
+    <PictoCard
+      picto={picto}
+      size={size}
+      showLabel={showLabel}
+      selected={selected}
+      {...(style ? { style } : {})}
+    />
   </button>
 );
