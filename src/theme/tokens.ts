@@ -42,20 +42,7 @@ export type RadiusToken = 'sm' | 'md' | 'lg' | 'xl' | 'pill';
 
 export type ShadowToken = '1' | '2' | '3';
 
-export type SpaceToken =
-  | '4'
-  | '6'
-  | '8'
-  | '10'
-  | '12'
-  | '14'
-  | '16'
-  | '20'
-  | '24'
-  | '28'
-  | '32'
-  | '40'
-  | '48';
+export type SpaceToken = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '10' | '12';
 
 export const cssVar = (token: ColorToken): string => `var(--tal-${token})`;
 

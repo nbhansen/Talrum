@@ -11,8 +11,8 @@ describe('cssVar', () => {
 
 describe('spaceVar', () => {
   it('wraps a space token in a CSS var reference', () => {
+    expect(spaceVar('3')).toBe('var(--tal-space-3)');
     expect(spaceVar('12')).toBe('var(--tal-space-12)');
-    expect(spaceVar('48')).toBe('var(--tal-space-48)');
   });
 });
 
