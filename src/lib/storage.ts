@@ -1,24 +1,12 @@
 import { del, get, set } from 'idb-keyval';
 
+import { type SignedUrlEntry, signedUrlMemCache as memCache } from './storage-cache';
 import { supabase } from './supabase';
 
 export const AUDIO_BUCKET = 'pictogram-audio';
 export const IMAGES_BUCKET = 'pictogram-images';
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
-
-interface SignedUrlEntry {
-  url: string;
-  expiresAt: number;
-}
-
-/**
- * Hot-path in-process cache. Mirrors what's persisted to IndexedDB; persists
- * across reloads via `loadPersisted()`. The two layers exist because IDB IO
- * is async and `signedUrlFor` is awaited on every render of an image tile —
- * the synchronous `Map` lookup short-circuits the common case.
- */
-const memCache = new Map<string, SignedUrlEntry>();
 const IDB_PREFIX = 'signed-url:';
 const idbKey = (cacheKey: string): string => `${IDB_PREFIX}${cacheKey}`;
 
