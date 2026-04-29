@@ -1,7 +1,7 @@
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-pill);
   font-size: 13px;
   font-weight: 700;

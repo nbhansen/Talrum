@@ -2,8 +2,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: var(--tal-space-4);
+  margin-bottom: var(--tal-space-4);
 }
 
 .title {

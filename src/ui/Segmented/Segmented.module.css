@@ -1,13 +1,13 @@
 .segmented {
   display: inline-flex;
   background: var(--tal-surface-alt);
-  padding: 4px;
+  padding: var(--tal-space-1);
   border-radius: var(--tal-r-pill);
   gap: 2px;
 }
 
 .option {
-  padding: 9px 16px;
+  padding: var(--tal-space-2) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   background: transparent;
   color: var(--tal-ink-soft);

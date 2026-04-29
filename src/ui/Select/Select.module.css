@@ -1,8 +1,8 @@
 .wrapper {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px 10px 16px;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-3) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
@@ -22,7 +22,7 @@
   border: 0;
   font: inherit;
   color: inherit;
-  padding-right: 20px;
+  padding-right: var(--tal-space-5);
   cursor: pointer;
   outline: none;
 }

@@ -1,6 +1,6 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+  gap: var(--tal-space-2);
+  margin-top: var(--tal-space-5);
 }

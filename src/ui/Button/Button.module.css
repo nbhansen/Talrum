@@ -1,7 +1,7 @@
 .button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--tal-space-2);
   border-radius: var(--tal-r-pill);
   font-size: 15px;
   font-weight: 700;
@@ -18,7 +18,7 @@
 }
 
 .primary {
-  padding: 12px 18px;
+  padding: var(--tal-space-3) var(--tal-space-4);
   background: var(--tal-ink);
   color: var(--tal-on-accent);
   box-shadow: var(--tal-shadow-1);
@@ -29,6 +29,8 @@
 }
 
 .ghost {
+  /* 1px less than .primary to compensate for the 1px border so both
+     buttons render at the same outside dimensions. */
   padding: 11px 17px;
   background: var(--tal-surface);
   color: var(--tal-ink);
@@ -36,7 +38,7 @@
 }
 
 .pill {
-  padding: 10px 14px;
+  padding: var(--tal-space-3) var(--tal-space-4);
   background: var(--tal-surface);
   color: var(--tal-ink-soft);
   border: 1px solid var(--tal-line);

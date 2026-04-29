@@ -1,12 +1,12 @@
 .wrap {
-  padding: 28px 28px 24px;
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
   max-width: 440px;
   width: 100%;
   margin: 0 auto;
 }
 
 .error {
-  margin: 8px 0 0;
+  margin: var(--tal-space-2) 0 0;
   font-size: 13px;
   color: var(--tal-coral-ink);
 }

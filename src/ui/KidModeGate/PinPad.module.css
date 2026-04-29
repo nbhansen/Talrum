@@ -1,5 +1,5 @@
 .wrap {
-  padding: 32px 28px 28px;
+  padding: var(--tal-space-8) var(--tal-space-7) var(--tal-space-7);
   min-width: 340px;
   text-align: center;
 }
@@ -8,20 +8,20 @@
   font-size: 22px;
   font-weight: 700;
   color: var(--tal-ink);
-  margin: 0 0 6px;
+  margin: 0 0 var(--tal-space-2);
 }
 
 .subtitle {
   font-size: 14px;
   color: var(--tal-ink-muted);
-  margin: 0 0 22px;
+  margin: 0 0 var(--tal-space-6);
 }
 
 .dots {
   display: flex;
-  gap: 14px;
+  gap: var(--tal-space-4);
   justify-content: center;
-  margin-bottom: 22px;
+  margin-bottom: var(--tal-space-6);
 }
 
 .dot {
@@ -41,7 +41,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 72px);
-  gap: 12px;
+  gap: var(--tal-space-3);
   justify-content: center;
 }
 
@@ -73,7 +73,7 @@
   font-size: 13px;
   color: var(--tal-danger);
   min-height: 18px;
-  margin-top: 14px;
+  margin-top: var(--tal-space-4);
 }
 
 .cancel {
@@ -82,7 +82,7 @@
   color: var(--tal-ink-muted);
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 14px;
-  margin-top: 10px;
+  padding: var(--tal-space-2) var(--tal-space-4);
+  margin-top: var(--tal-space-3);
   cursor: pointer;
 }
