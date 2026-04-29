@@ -19,7 +19,8 @@ const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
 
 // Import after the mock is registered.
-const { boardQueryKey, useRenameBoard, useSetStepIds } = await import('./boards');
+const { boardQueryKey } = await import('./boards.read');
+const { useRenameBoard, useSetStepIds } = await import('./boards.mutations');
 
 const seed: Board = {
   id: 'morning',
