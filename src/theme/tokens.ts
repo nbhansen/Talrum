@@ -29,7 +29,14 @@ export type ColorToken =
   | 'glyph-stroke'
   | 'glyph-fill'
   | 'photo-stripe-a'
-  | 'photo-stripe-b';
+  | 'photo-stripe-b'
+  | 'on-accent'
+  | 'overlay'
+  | 'danger'
+  | 'fatal-bg'
+  | 'fatal-ink'
+  | 'brand-sky'
+  | 'brand-mark';
 
 export type RadiusToken = 'sm' | 'md' | 'lg' | 'xl' | 'pill';
 

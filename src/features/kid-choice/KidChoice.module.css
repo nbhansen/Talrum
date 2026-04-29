@@ -55,7 +55,7 @@
   width: 52px;
   height: 52px;
   border-radius: var(--tal-r-pill);
-  color: #fff;
+  color: var(--tal-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,7 +81,7 @@
   padding: 20px 40px;
   border-radius: var(--tal-r-pill);
   background: var(--tal-ink);
-  color: #fff;
+  color: var(--tal-on-accent);
   font-size: 22px;
   font-weight: 800;
   display: inline-flex;

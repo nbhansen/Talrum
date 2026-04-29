@@ -31,7 +31,7 @@
   width: 14px;
   height: 14px;
   border-radius: var(--tal-r-pill);
-  background: #fff;
+  background: var(--tal-on-accent);
   transition: left 0.15s;
 }
 

@@ -36,6 +36,19 @@
   --tal-glyph-stroke: oklch(30% 0.03 260);
   --tal-glyph-fill: oklch(99% 0.005 85);
 
+  /* Semantic — text on accent fills, modal scrim, danger/recording red */
+  --tal-on-accent: #fff;
+  --tal-overlay: rgb(40 30 20 / 32%);
+  --tal-danger: #b4261a;
+
+  /* Kid-mode fatal screen — high-contrast regardless of theme */
+  --tal-fatal-bg: #000;
+  --tal-fatal-ink: #fff;
+
+  /* Brand mark — fixed by design, tokenized so retinting is possible */
+  --tal-brand-sky: #7cb8e0;
+  --tal-brand-mark: #ffffff;
+
   /* Photo-placeholder stripe colors */
   --tal-photo-stripe-a: oklch(93% 0.01 85);
   --tal-photo-stripe-b: oklch(88% 0.014 85);
