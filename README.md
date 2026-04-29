@@ -60,6 +60,9 @@ through `src/lib/outbox`; Storage minting goes through `src/lib/storage`.
 Features never call `supabase.from(...)` or `supabase.storage` directly —
 both are pinned by `no-restricted-imports` / `no-restricted-syntax` rules.
 
+Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
+hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint).
+
 ## Auth
 
 Email-OTP via Supabase. The full flow and how to read OTPs locally are in
