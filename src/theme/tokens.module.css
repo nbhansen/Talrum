@@ -53,21 +53,21 @@
   --tal-photo-stripe-a: oklch(93% 0.01 85);
   --tal-photo-stripe-b: oklch(88% 0.014 85);
 
-  /* Spacing — keyed by px value for self-documentation. Use for
-     padding/margin/gap/inset, not border widths or font-size. */
-  --tal-space-4: 4px;
-  --tal-space-6: 6px;
-  --tal-space-8: 8px;
-  --tal-space-10: 10px;
-  --tal-space-12: 12px;
-  --tal-space-14: 14px;
-  --tal-space-16: 16px;
-  --tal-space-20: 20px;
-  --tal-space-24: 24px;
-  --tal-space-28: 28px;
-  --tal-space-32: 32px;
-  --tal-space-40: 40px;
-  --tal-space-48: 48px;
+  /* Spacing — scale-position tokens on a 4px base. The number is the
+     position on the scale, not the px value. Use for padding/margin/
+     gap/inset, not border widths or font-size. Off-scale values
+     (10/14/18/22/...) snap to the nearest step during the call-site
+     sweep (#134). */
+  --tal-space-1: 4px;
+  --tal-space-2: 8px;
+  --tal-space-3: 12px;
+  --tal-space-4: 16px;
+  --tal-space-5: 20px;
+  --tal-space-6: 24px;
+  --tal-space-7: 28px;
+  --tal-space-8: 32px;
+  --tal-space-10: 40px;
+  --tal-space-12: 48px;
 
   /* Radii */
   --tal-r-sm: 10px;
