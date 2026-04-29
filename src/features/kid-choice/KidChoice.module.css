@@ -3,20 +3,20 @@
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-  padding: 12px 40px 20px;
+  gap: var(--tal-space-6);
+  padding: var(--tal-space-3) var(--tal-space-10) var(--tal-space-5);
 }
 
 .choice {
   background: var(--tal-surface);
   border-radius: var(--tal-r-xl);
-  padding: 24px;
+  padding: var(--tal-space-6);
   box-shadow: var(--tal-shadow-1);
   border: 3px solid var(--tal-line-soft);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: var(--tal-space-5);
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.3, 1.1);
   font-family: inherit;
   color: inherit;
@@ -35,7 +35,7 @@
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 2px;
-  padding: 6px 16px;
+  padding: var(--tal-space-2) var(--tal-space-4);
   border-radius: var(--tal-r-pill);
 }
 
@@ -50,8 +50,8 @@
 
 .pickedBadge {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: var(--tal-space-4);
+  right: var(--tal-space-4);
   width: 52px;
   height: 52px;
   border-radius: var(--tal-r-pill);
@@ -71,14 +71,14 @@
 }
 
 .bottom {
-  padding: 12px 40px 28px;
+  padding: var(--tal-space-3) var(--tal-space-10) var(--tal-space-7);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .confirmBtn {
-  padding: 20px 40px;
+  padding: var(--tal-space-5) var(--tal-space-10);
   border-radius: var(--tal-r-pill);
   background: var(--tal-ink);
   color: var(--tal-on-accent);
@@ -86,7 +86,7 @@
   font-weight: 800;
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--tal-space-4);
   box-shadow: var(--tal-shadow-2);
 }
 
@@ -105,7 +105,7 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--tal-ink-muted);
-  padding: 16px 24px;
+  padding: var(--tal-space-4) var(--tal-space-6);
   border-radius: var(--tal-r-pill);
   background: var(--tal-surface);
   border: 1px dashed var(--tal-line);

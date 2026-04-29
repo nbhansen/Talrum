@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--tal-space-6);
   background:
     radial-gradient(circle at 15% 10%, var(--tal-sky) 0%, transparent 45%),
     radial-gradient(circle at 85% 90%, var(--tal-sun) 0%, transparent 45%), var(--tal-bg);
@@ -15,7 +15,7 @@
   background: var(--tal-surface);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-lg);
-  padding: 36px 32px 32px;
+  padding: var(--tal-space-8);
   box-shadow: var(--tal-shadow-1);
 }
 
@@ -23,8 +23,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--tal-space-3);
+  margin-bottom: var(--tal-space-6);
 }
 
 .mark {
@@ -50,7 +50,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--tal-space-4);
 }
 
 .otp {
@@ -65,13 +65,13 @@
   font-size: 14px;
   color: var(--tal-ink-soft);
   background: var(--tal-surface-alt);
-  padding: 10px 12px;
+  padding: var(--tal-space-3);
   border-radius: var(--tal-r-md);
 }
 
 .row {
   display: flex;
-  gap: 10px;
+  gap: var(--tal-space-3);
   justify-content: flex-end;
 }
 
@@ -79,7 +79,7 @@
   font-size: 13px;
   color: var(--tal-coral-ink);
   background: var(--tal-coral);
-  padding: 8px 12px;
+  padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-md);
 }
 
@@ -87,7 +87,7 @@
   font-size: 13px;
   background: var(--tal-surface-alt);
   color: var(--tal-ink-soft);
-  padding: 10px 12px;
+  padding: var(--tal-space-3);
   border-radius: var(--tal-r-md);
-  margin-bottom: 16px;
+  margin-bottom: var(--tal-space-4);
 }
