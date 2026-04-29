@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { accentForIndex, cssVar } from './tokens';
+import { accentForIndex, cssVar, spaceVar } from './tokens';
 
 describe('cssVar', () => {
   it('wraps a color token in a CSS var reference', () => {
     expect(cssVar('sage')).toBe('var(--tal-sage)');
     expect(cssVar('ink-muted')).toBe('var(--tal-ink-muted)');
+  });
+});
+
+describe('spaceVar', () => {
+  it('wraps a space token in a CSS var reference', () => {
+    expect(spaceVar('12')).toBe('var(--tal-space-12)');
+    expect(spaceVar('48')).toBe('var(--tal-space-48)');
   });
 });
 
