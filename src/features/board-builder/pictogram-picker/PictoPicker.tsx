@@ -7,12 +7,11 @@ import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './PictoPicker.module.css';
-import { GenerateTab } from './tabs/GenerateTab';
 import { LibraryTab } from './tabs/LibraryTab';
 import { UploadTab } from './tabs/UploadTab';
 import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
-type PickerTab = 'library' | 'upload' | 'ai';
+type PickerTab = 'library' | 'upload';
 
 interface TabDef {
   value: PickerTab;
@@ -36,7 +35,6 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   const tabs: readonly TabDef[] = [
     { value: 'library', label: 'Library', sub: isPending ? '' : `${pictograms.length}` },
     { value: 'upload', label: 'Upload', sub: 'Photo / image' },
-    { value: 'ai', label: 'Generate', sub: 'Describe it' },
   ];
   // Keep the dialog's pictogram in sync with the query cache so `audio_path`
   // updates (record → save, delete) flow through without remounting.
@@ -65,7 +63,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
           <h2 id={TITLE_ID} className={styles.title}>
             Add pictograms
           </h2>
-          <p className={styles.subtitle}>Pick from the library, upload a photo, or generate one.</p>
+          <p className={styles.subtitle}>Pick from the library or upload a photo.</p>
         </div>
         <button
           type="button"
@@ -106,7 +104,6 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
           />
         )}
         {tab === 'upload' && <UploadTab />}
-        {tab === 'ai' && <GenerateTab />}
       </div>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>
