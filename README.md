@@ -51,16 +51,33 @@ reverse. ESLint enforces this.
 
 ```mermaid
 flowchart TD
-    A["app/<br/>router, AuthGate, SessionProvider"] --> R["app/routes/<br/>one file per route"]
-    R --> F["features/<br/>parent-home, board-builder, kid-*"]
-    F --> L["lib/<br/>queries (reads) · outbox (writes) · storage · auth"]
-    F --> U["ui/<br/>Button, Modal, PictoTile, …"]
-    F --> LO["layouts/<br/>ParentShell, KidModeLayout"]
-    L --> T["theme/ · types/"]
-    U --> T
-    LO --> T
-    L --> SB[("Supabase<br/>Postgres + Auth + Storage")]
+    app[app/]
+    routes[app/routes/]
+    features[features/]
+    lib[lib/]
+    ui[ui/]
+    layouts[layouts/]
+    base[theme/ + types/]
+    sb[(Supabase)]
+
+    app --> routes --> features
+    features --> lib
+    features --> ui
+    features --> layouts
+    lib --> base
+    ui --> base
+    layouts --> base
+    lib --> sb
 ```
+
+- `app/` — router, AuthGate, SessionProvider, SW update prompt.
+- `app/routes/` — one file per route, composed from features.
+- `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature imports.
+- `lib/` — queries (reads), outbox (writes), storage URL minting, auth helpers.
+- `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …).
+- `layouts/` — ParentShell, KidModeLayout, TalrumLogo.
+- `theme/` and `types/` — CSS tokens and shared/generated TS types.
+- Supabase — Postgres, Auth, and Storage; the only external runtime dependency.
 
 Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
 in `eslint.config.js`:
