@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/talrum-logo.png" alt="Talrum" width="180" />
+</p>
+
 # Talrum
 
 A low-stim AAC (Augmentative & Alternative Communication) web app for non-verbal
@@ -39,26 +43,66 @@ Supabase Studio is at <http://127.0.0.1:54323>.
 After editing a migration, run `supabase db reset && npm run types:db` and
 commit both the migration and the regenerated `src/types/supabase.ts`.
 
-## Where things live
+## Architecture
+
+The app is a single-page React app talking to Supabase (Postgres + Auth +
+Storage). Code is layered: top layers may import from layers below, never the
+reverse. ESLint enforces this.
+
+```mermaid
+flowchart TD
+    app[app/]
+    routes[app/routes/]
+    features[features/]
+    lib[lib/]
+    ui[ui/]
+    layouts[layouts/]
+    base[theme/ + types/]
+    sb[(Supabase)]
+
+    app --> routes --> features
+    features --> lib
+    features --> ui
+    features --> layouts
+    lib --> base
+    ui --> base
+    layouts --> base
+    lib --> sb
+```
+
+- `app/` — router, AuthGate, SessionProvider, SW update prompt.
+- `app/routes/` — one file per route, composed from features.
+- `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature imports.
+- `lib/` — queries (reads), outbox (writes), storage URL minting, auth helpers.
+- `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …).
+- `layouts/` — ParentShell, KidModeLayout, TalrumLogo.
+- `theme/` and `types/` — CSS tokens and shared/generated TS types.
+- Supabase — Postgres, Auth, and Storage; the only external runtime dependency.
+
+Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
+in `eslint.config.js`:
+
+- DB reads go through `src/lib/queries/*` (react-query hooks).
+- Writes go through `src/lib/outbox` (offline-tolerant queue).
+- Storage URL minting goes through `src/lib/storage`.
+- Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
+  live in `src/lib/auth/`.
+- `features/` never cross-import each other — compose at the route layer.
+
+Directory map:
 
 ```
 src/
   app/         router, AuthGate, SessionProvider, SW update prompt
-  app/routes/  one file per route, composed from features (no features/ cross-imports)
+  app/routes/  one file per route, composed from features
   features/    one folder per screen (parent-home, board-builder, kid-*)
-  lib/         supabase client, react-query hooks, outbox (writes), auth ctx
+  lib/         supabase client, react-query hooks, outbox, auth helpers
   ui/          domain-agnostic primitives (Button, Modal, PictoTile, …)
   layouts/     ParentShell, KidModeLayout, TalrumLogo
   theme/       CSS custom properties + typed token re-exports
   types/       domain types + generated supabase.ts (do not edit)
-supabase/      config, migrations, seed.sql, pgTAP tests
+supabase/      config, migrations, seed.sql, pgTAP tests, edge functions
 ```
-
-Layering (shared → features → app) is enforced by `no-restricted-imports` in
-`eslint.config.js`. All DB reads go through `src/lib/queries/*`; all writes go
-through `src/lib/outbox`; Storage minting goes through `src/lib/storage`.
-Features never call `supabase.from(...)` or `supabase.storage` directly —
-both are pinned by `no-restricted-imports` / `no-restricted-syntax` rules.
 
 Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
 hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint). The same
@@ -118,8 +162,8 @@ merge to `main`.
   migrations need a forward-only undo migration — Postgres has no built-in
   rollback for already-applied DDL.
 
-## Philosophy
+## Conventions
 
-Clean code, DRY, strict TypeScript. Edit files before creating them; delete
-dead code rather than leaving it. Tests assert what users see, not internal
-state.
+Strict TypeScript. Edit existing files before adding new ones. Delete dead
+code instead of leaving it. Tests assert what users see, not internal state.
+See [AGENTS.md](./AGENTS.md) for the full operating rules.
