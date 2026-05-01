@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { drainSubscribers } from './drain-state';
 import { putEntry } from './store';
 import type { UpdateBoardEntry } from './types';
 
@@ -29,17 +30,18 @@ describe('drain module-state cross-test isolation', () => {
 
   it('second test must see clean lastStatus and an empty subscriber set', () => {
     expect(getStatus().pendingCount).toBe(0);
+    // Direct probe: if the prior test's subscriber leaked, drainSubscribers
+    // would still contain it. Asserting on the Set directly (rather than via
+    // observable behavior) closes the gap that pendingCount alone can't see.
+    expect(drainSubscribers.size).toBe(0);
 
     let pushes = 0;
     const unsub = subscribeStatus(() => {
       pushes += 1;
     });
     // subscribeStatus pushes lastStatus to the new subscriber synchronously.
-    // If the prior subscriber leaked, the Set still contains it but that's
-    // not directly observable here — pendingCount === 0 is the load-bearing
-    // assertion. Counting our own pushes guards against subscribeStatus
-    // regressing its initial-emit contract.
     expect(pushes).toBe(1);
+    expect(drainSubscribers.size).toBe(1);
     unsub();
   });
 });
