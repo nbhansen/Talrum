@@ -7,6 +7,8 @@ import 'fake-indexeddb/auto';
 import { clear } from 'idb-keyval';
 import { afterEach, vi } from 'vitest';
 
+import { __resetDrainForTests } from './src/lib/outbox/drain-state';
+import { __resetSpeechForTests } from './src/lib/speech';
 import { __resetSignedUrlCache } from './src/lib/storage-cache';
 
 // Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
@@ -48,11 +50,14 @@ Object.defineProperty(window, 'sessionStorage', {
   configurable: true,
 });
 
-// #144: signedUrlFor persists to idb-keyval and an in-process Map. Without a
-// global reset, a future test file that mounts a hook touching signedUrlFor
-// inherits cached entries from prior tests in the same worker — a flake whose
-// failure mode depends on test order.
+// #144 / #168: module-level caches in storage, outbox/drain, and speech persist
+// across `it()` blocks within the same worker — a flake class whose failure
+// mode depends on test order. Reset all three globally; pairs with idb-keyval's
+// `clear()`. drain state lives in `./drain-state.ts` (no Supabase deps) for
+// the same tsconfig.node.json reason as `storage-cache.ts`.
 afterEach(async () => {
   await clear();
   __resetSignedUrlCache();
+  __resetSpeechForTests();
+  __resetDrainForTests();
 });

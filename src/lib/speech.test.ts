@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { __resetSpeechForTests, isSpeechSupported, speak } from './speech';
+import { isSpeechSupported, speak } from './speech';
 
 interface FakeVoice {
   name: string;
@@ -40,7 +40,6 @@ class StubUtterance {
 
 beforeEach(() => {
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
-  __resetSpeechForTests();
 });
 
 afterEach(() => {

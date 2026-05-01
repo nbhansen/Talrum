@@ -1,26 +1,12 @@
+import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
 const MAX_ATTEMPTS_BEFORE_FAILED = 3;
 
-let draining = false;
-let pendingDrain = false;
-
-export interface OutboxStatus {
-  online: boolean;
-  pendingCount: number;
-  failedCount: number;
-  draining: boolean;
-}
-
-const subscribers = new Set<(s: OutboxStatus) => void>();
-let lastStatus: OutboxStatus = {
-  online: typeof navigator === 'undefined' ? true : navigator.onLine,
-  pendingCount: 0,
-  failedCount: 0,
-  draining: false,
-};
+export type { OutboxStatus };
+export { __resetDrainForTests } from './drain-state';
 
 const emit = async (): Promise<void> => {
   const entries = await listEntries();
@@ -28,10 +14,10 @@ const emit = async (): Promise<void> => {
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     pendingCount: entries.filter((e) => e.status === 'pending').length,
     failedCount: entries.filter((e) => e.status === 'failed').length,
-    draining,
+    draining: drainState.draining,
   };
-  lastStatus = next;
-  subscribers.forEach((fn) => fn(next));
+  drainState.lastStatus = next;
+  drainSubscribers.forEach((fn) => fn(next));
 };
 
 /**
@@ -43,14 +29,14 @@ const emit = async (): Promise<void> => {
 export const refreshStatus = (): Promise<void> => emit();
 
 export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => {
-  subscribers.add(fn);
-  fn(lastStatus);
+  drainSubscribers.add(fn);
+  fn(drainState.lastStatus);
   return () => {
-    subscribers.delete(fn);
+    drainSubscribers.delete(fn);
   };
 };
 
-export const getStatus = (): OutboxStatus => lastStatus;
+export const getStatus = (): OutboxStatus => drainState.lastStatus;
 
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
   try {
@@ -76,15 +62,15 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * marked and skipped so a single bad entry can't dam the queue.
  */
 export const drain = async (): Promise<void> => {
-  if (draining) {
-    pendingDrain = true;
+  if (drainState.draining) {
+    drainState.pendingDrain = true;
     return;
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     await emit();
     return;
   }
-  draining = true;
+  drainState.draining = true;
   await emit();
   try {
     let stop = false;
@@ -100,20 +86,19 @@ export const drain = async (): Promise<void> => {
       }
     }
   } finally {
-    draining = false;
+    drainState.draining = false;
     await emit();
-    if (pendingDrain) {
-      pendingDrain = false;
+    if (drainState.pendingDrain) {
+      drainState.pendingDrain = false;
       void drain();
     }
   }
 };
 
-let listenersAttached = false;
 /** Wires `online` events + does an initial drain. Idempotent — call once at app boot. */
 export const startOutbox = (): void => {
-  if (listenersAttached) return;
-  listenersAttached = true;
+  if (drainState.listenersAttached) return;
+  drainState.listenersAttached = true;
   // Prime lastStatus from IDB before any subscribe() call lands a stale zero
   // pendingCount on a cold boot with persisted entries (#29). emit() is async,
   // but we'd rather race a microtask than render a "synced" indicator that
@@ -131,22 +116,3 @@ export const startOutbox = (): void => {
 };
 
 export const kick = (): Promise<void> => drain();
-
-/**
- * Test-only: reset the module-level state that startOutbox accumulates so a
- * second test in the same file can re-exercise the cold-boot prime path.
- * Production code never calls this; the listenersAttached flag is a one-shot
- * guard against double-registering window listeners during normal app boot.
- */
-export const __test_resetOutbox = (): void => {
-  draining = false;
-  pendingDrain = false;
-  listenersAttached = false;
-  subscribers.clear();
-  lastStatus = {
-    online: typeof navigator === 'undefined' ? true : navigator.onLine,
-    pendingCount: 0,
-    failedCount: 0,
-    draining: false,
-  };
-};
