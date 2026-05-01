@@ -18,8 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
-const { __test_resetOutbox, drain, getStatus, startOutbox, subscribeStatus } =
-  await import('./drain');
+const { drain, getStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { enqueueAndDrain } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -194,13 +193,6 @@ describe('enqueueAndDrain', () => {
 });
 
 describe('startOutbox', () => {
-  beforeEach(() => {
-    // startOutbox is one-shot in production (window listeners must not
-    // register twice). Reset module state so each test in this block exercises
-    // the cold-boot prime path on its own terms.
-    __test_resetOutbox();
-  });
-
   it('primes lastStatus from IDB so cold-boot subscribers see real counts (#29)', async () => {
     setOnline(false); // drain is offline-noop; emit() is the only source updating lastStatus.
     await putEntry(baseEntry({ id: '01HZZP' }));
