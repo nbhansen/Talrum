@@ -28,6 +28,10 @@ jobs:
         with:
           version: latest
       - run: supabase start
+      - name: Regenerate supabase types and fail on drift (#132)
+        run: |
+          npm run types:db
+          git diff --exit-code src/types/supabase.ts
       - run: npm run test:db
       - name: Serve function in background
         run: |
