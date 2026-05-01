@@ -86,8 +86,14 @@ export default tseslint.config(
   {
     // Mirrors the data-access boundary: DB reads go through lib/queries,
     // writes through lib/outbox, and Storage minting through lib/storage.
-    // Features and ui primitives must not call supabase.storage directly.
-    files: ['src/features/**/*.{ts,tsx}', 'src/ui/**/*.{ts,tsx}'],
+    // Auth subscription is centralized in app/AuthGate (#126/#148);
+    // sign-in/out helpers live in lib/auth/. Features, ui, and layouts must
+    // not call supabase.storage or supabase.auth directly.
+    files: [
+      'src/features/**/*.{ts,tsx}',
+      'src/ui/**/*.{ts,tsx}',
+      'src/layouts/**/*.{ts,tsx}',
+    ],
     ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -97,6 +103,12 @@ export default tseslint.config(
             "MemberExpression[object.name='supabase'][property.name='storage']",
           message:
             'Storage access goes through src/lib/storage; features and ui must not call supabase.storage directly.',
+        },
+        {
+          selector:
+            "MemberExpression[object.name='supabase'][property.name='auth']",
+          message:
+            'supabase.auth.* is centralized — use hooks/helpers from @/lib/auth/ (useEmailOtp, performSignOut). AuthGate (src/app/) is the sole legitimate subscriber.',
         },
       ],
     },
