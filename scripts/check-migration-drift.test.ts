@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
-  parseLocalVersions,
-  parseRemoteVersions,
   findOrphans,
   formatOrphanError,
+  parseLocalVersions,
+  parseRemoteVersions,
 } from './check-migration-drift.ts';
 
 describe('parseLocalVersions', () => {
