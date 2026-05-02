@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Migration drift guard. See #133 and CLAUDE.md §11.
+# Fast feedback only — CI is the unskippable enforcement layer.
+
+set -e
+
+# Husky calls pre-push with stdin lines: "<local_ref> <local_sha> <remote_ref> <remote_sha>".
+# We don't need them; we use git's @{u} reference for the upstream comparison.
+
+# Guard 1: skip if no migration files in this push.
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+  CHANGED=$(git diff --name-only '@{u}..HEAD' -- supabase/migrations/ 2>/dev/null || true)
+else
+  # No upstream yet (first push of a new branch). Compare against origin/main as a heuristic;
+  # if that doesn't exist either, skip — the check will run in CI on the PR regardless.
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    CHANGED=$(git diff --name-only origin/main..HEAD -- supabase/migrations/ 2>/dev/null || true)
+  else
+    CHANGED=""
+  fi
+fi
+
+if [ -z "$CHANGED" ]; then
+  exit 0
+fi
+
+# Guard 2: soft-skip if the local env isn't linked.
+if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+  echo -e "\033[33m[migration-drift] skipping — SUPABASE_ACCESS_TOKEN not set; CI will enforce.\033[0m"
+  exit 0
+fi
+if ! supabase status --linked >/dev/null 2>&1; then
+  echo -e "\033[33m[migration-drift] skipping — local CLI not linked; CI will enforce.\033[0m"
+  exit 0
+fi
+
+# Run the check.
+npm run migrations:check-drift
