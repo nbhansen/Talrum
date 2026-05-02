@@ -32,27 +32,25 @@ describe('parseLocalVersions', () => {
 describe('parseRemoteVersions', () => {
   it('extracts 14-digit versions from a typical CLI table', () => {
     const stdout = [
-      '         Local          │         Remote         │       Time (UTC)        ',
-      '  ──────────────────────┼────────────────────────┼─────────────────────────',
-      '   20260424145159       │   20260424145159       │ 2026-04-24 14:51:59     ',
-      '                        │   20260501123456       │ 2026-05-01 12:34:56     ',
-      '   20260502000000       │                        │                         ',
+      '   Local          | Remote         | Time (UTC)      ',
+      '  ----------------+----------------+-----------------',
+      '   20260424145159 | 20260424145159 | 2026-04-24 14:51:59',
+      '                  | 20260501123456 | 2026-05-01 12:34:56',
+      '   20260502000000 |                |                 ',
     ].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(new Set(['20260424145159', '20260501123456']));
   });
 
   it('returns an empty set when no rows are present', () => {
     const stdout = [
-      '         Local          │         Remote         │       Time (UTC)        ',
-      '  ──────────────────────┼────────────────────────┼─────────────────────────',
+      '   Local          | Remote         | Time (UTC)      ',
+      '  ----------------+----------------+-----------------',
     ].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(new Set());
   });
 
   it('ignores non-timestamp content in the Remote column', () => {
-    const stdout = [
-      '   20260424145159       │   abc                 │ garbage                 ',
-    ].join('\n');
+    const stdout = ['   20260424145159 | abc            | garbage         '].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(new Set());
   });
 });

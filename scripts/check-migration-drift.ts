@@ -30,7 +30,9 @@ export function parseLocalVersions(filenames: readonly string[]): Set<string> {
 export function parseRemoteVersions(stdout: string): Set<string> {
   const out = new Set<string>();
   for (const line of stdout.split('\n')) {
-    const parts = line.split('│');
+    // Rows are pipe-separated: Local | Remote | Time. We only care about Remote (col 1, 0-indexed).
+    // Delimiter is ASCII | (U+007C), verified against CLI output 2026-05-02.
+    const parts = line.split('|');
     if (parts.length < 2) continue;
     const remote = parts[1].trim();
     if (TIMESTAMP_RE.test(remote)) out.add(remote);
@@ -102,7 +104,7 @@ export function main(): number {
     result.stdout.trim().length > 0 &&
     !/no migrations/i.test(result.stdout)
   ) {
-    const looksLikeRows = result.stdout.split('\n').some((l) => l.includes('│'));
+    const looksLikeRows = result.stdout.split('\n').some((l) => l.includes('|'));
     if (looksLikeRows) {
       console.error(
         '[migration-drift] WARNING: parsed zero remote versions from non-empty CLI output. ' +

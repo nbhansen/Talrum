@@ -68,12 +68,13 @@ describe('parseLocalVersions', () => {
 
 describe('parseRemoteVersions', () => {
   it('extracts 14-digit versions from a typical CLI table', () => {
+    // Delimiter is ASCII | (U+007C), verified against CLI output 2026-05-02.
     const stdout = [
-      '         Local          │         Remote         │       Time (UTC)        ',
-      '  ──────────────────────┼────────────────────────┼─────────────────────────',
-      '   20260424145159       │   20260424145159       │ 2026-04-24 14:51:59     ',
-      '                        │   20260501123456       │ 2026-05-01 12:34:56     ',
-      '   20260502000000       │                        │                         ',
+      '   Local          | Remote         | Time (UTC)      ',
+      '  ----------------+----------------+-----------------',
+      '   20260424145159 | 20260424145159 | 2026-04-24 14:51:59',
+      '                  | 20260501123456 | 2026-05-01 12:34:56',
+      '   20260502000000 |                |                 ',
     ].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(
       new Set(['20260424145159', '20260501123456']),
@@ -82,15 +83,15 @@ describe('parseRemoteVersions', () => {
 
   it('returns an empty set when no rows are present', () => {
     const stdout = [
-      '         Local          │         Remote         │       Time (UTC)        ',
-      '  ──────────────────────┼────────────────────────┼─────────────────────────',
+      '   Local          | Remote         | Time (UTC)      ',
+      '  ----------------+----------------+-----------------',
     ].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(new Set());
   });
 
   it('ignores non-timestamp content in the Remote column', () => {
     const stdout = [
-      '   20260424145159       │   abc                 │ garbage                 ',
+      '   20260424145159 | abc            | garbage         ',
     ].join('\n');
     expect(parseRemoteVersions(stdout)).toEqual(new Set());
   });
@@ -167,8 +168,9 @@ export function parseLocalVersions(filenames: readonly string[]): Set<string> {
 export function parseRemoteVersions(stdout: string): Set<string> {
   const out = new Set<string>();
   for (const line of stdout.split('\n')) {
-    // Rows are pipe-separated: Local │ Remote │ Time. We only care about Remote (col 1, 0-indexed).
-    const parts = line.split('│');
+    // Rows are pipe-separated: Local | Remote | Time. Delimiter is ASCII | (U+007C),
+    // verified against CLI output 2026-05-02. We only care about Remote (col 1, 0-indexed).
+    const parts = line.split('|');
     if (parts.length < 2) continue;
     const remote = parts[1].trim();
     if (TIMESTAMP_RE.test(remote)) out.add(remote);
@@ -266,7 +268,7 @@ export function main(): number {
   // hard backstop. CI's first run on this PR will surface format breaks via the unit tests
   // when someone updates the CLI version.
   if (remote.size === 0 && result.stdout.trim().length > 0 && !/no migrations/i.test(result.stdout)) {
-    const looksLikeRows = result.stdout.split('\n').some((l) => l.includes('│'));
+    const looksLikeRows = result.stdout.split('\n').some((l) => l.includes('|'));
     if (looksLikeRows) {
       console.error(
         '[migration-drift] WARNING: parsed zero remote versions from non-empty CLI output. ' +

@@ -46,7 +46,7 @@ Pure check. Side-effect-free except stdout/stderr and exit code.
 Steps:
 
 1. Read `supabase/migrations/*.sql` filenames. Extract 14-digit prefixes via `^(\d{14})_.*\.sql$`. Build `localVersions: Set<string>`.
-2. Run `supabase migration list --linked`. Parse stdout: each row has `│` separators; rows whose first non-pipe column matches `^\d{14}$` are migration entries. Read the "Remote" column. Build `remoteVersions: Set<string>`.
+2. Run `supabase migration list --linked`. Parse stdout: each row has `|` separators (ASCII `|` U+007C, verified against CLI output 2026-05-02 — not Unicode box-drawing `│`); rows whose second column matches `^\d{14}$` are migration entries. Read the "Remote" column (index 1). Build `remoteVersions: Set<string>`.
 3. `orphans = remoteVersions \ localVersions`.
 4. If `orphans` is non-empty: print error message (see below), exit 1. Otherwise exit 0.
 5. On `supabase migration list --linked` non-zero exit or transient error: retry once with 5s backoff, then fail with a clear message. Not silent.
