@@ -17,6 +17,7 @@
     "test:functions": "cd supabase/functions/delete-account && deno test --allow-env",
     "test:e2e:delete-account": "bash supabase/tests/delete_account_integration_test.sh",
     "icons:gen": "node --experimental-strip-types scripts/gen-icons.ts",
+    "migrations:check-drift": "node --experimental-strip-types scripts/check-migration-drift.ts",
     "types:db": "supabase gen types typescript --local > src/types/supabase.ts",
     "prepare": "husky"
   },
