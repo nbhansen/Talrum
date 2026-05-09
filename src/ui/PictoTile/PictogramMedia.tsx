@@ -31,8 +31,12 @@ export const PictogramMedia = ({
   className,
 }: PictogramMediaProps): JSX.Element => {
   const isPhoto = picto.style === 'photo';
-  const photoPath = isPhoto ? picto.imagePath : undefined;
+  const stockSlug =
+    isPhoto && picto.imagePath?.startsWith('stock:') ? picto.imagePath.slice(6) : null;
+  // Stock images are bundled static assets; skip the signed-URL roundtrip.
+  const photoPath = isPhoto && !stockSlug ? picto.imagePath : undefined;
   const signedUrl = useSignedUrl(IMAGES_BUCKET, photoPath);
+  const photoSrc = stockSlug ? `/seed-photos/${stockSlug}.jpg` : signedUrl;
   const style: CSSProperties = {
     width: size,
     height: size,
@@ -45,8 +49,8 @@ export const PictogramMedia = ({
   return (
     <div className={classes} style={style}>
       {isPhoto ? (
-        signedUrl ? (
-          <img className={styles.photoImg} src={signedUrl} alt={picto.label} />
+        photoSrc ? (
+          <img className={styles.photoImg} src={photoSrc} alt={picto.label} />
         ) : (
           <PhotoPlaceholder label={picto.label} />
         )
