@@ -299,11 +299,6 @@ export const useReplacePictogramImage = (): UseMutationResult<
   const ownerId = useSessionUser().id;
   return useMutation({
     onMutate: async ({ pictogramId, blob }) => {
-      // Cancel in-flight refetches so a stale list response can't overwrite
-      // the optimistic blob URL between onMutate and onSuccess. Snapshot the
-      // pre-patch list so onError can restore the prior `imagePath` if the
-      // upload fails — without this the user sees a wiped tile (the blob URL
-      // gets revoked) until the next refetch.
       await qc.cancelQueries({ queryKey: pictogramsQueryKey });
       const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
       const blobUrl = URL.createObjectURL(blob);
@@ -339,12 +334,6 @@ export const useReplacePictogramImage = (): UseMutationResult<
   });
 };
 
-/**
- * Inputs for deleting a pictogram. Callers (the sheet) pass the
- * pre-computed paths and referencing board ids so the optimistic patch can
- * strip the references without losing the snapshot the outbox handler
- * needs server-side. `useReferencingBoardIds` derives `scrubFromBoardIds`.
- */
 export interface DeletePictogramInput {
   pictogramId: string;
   scrubFromBoardIds: string[];
@@ -352,12 +341,7 @@ export interface DeletePictogramInput {
   previousAudioPath?: string;
 }
 
-/**
- * Boards (by id) whose `step_ids` reference this pictogram. The sheet uses
- * the count to render "Used on N boards" and passes the array straight to
- * `useDeletePictogram` so the optimistic patch and the server scrub agree.
- */
-export const useReferencingBoardIds = (
+export const referencingBoardIds = (
   pictogramId: string,
   boards: readonly Board[] | undefined,
 ): string[] => (boards ?? []).filter((b) => b.stepIds.includes(pictogramId)).map((b) => b.id);

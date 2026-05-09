@@ -28,7 +28,7 @@ vi.mock('@/lib/queries/pictograms', () => ({
   useRenamePictogram: () => ({ mutateAsync: renameMock, isPending: false }),
   useReplacePictogramImage: () => ({ mutateAsync: replaceMock, isPending: false }),
   useDeletePictogram: () => ({ mutateAsync: deleteMock, isPending: false }),
-  useReferencingBoardIds: (pictogramId: string, boards: readonly Board[] | undefined) =>
+  referencingBoardIds: (pictogramId: string, boards: readonly Board[] | undefined) =>
     (boards ?? []).filter((b: Board) => b.stepIds.includes(pictogramId)).map((b: Board) => b.id),
 }));
 

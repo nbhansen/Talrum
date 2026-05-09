@@ -1,4 +1,4 @@
-import { type JSX, useState } from 'react';
+import { type JSX, useMemo, useState } from 'react';
 
 import { usePictograms } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
@@ -14,6 +14,12 @@ export const Library = (): JSX.Element => {
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<Pictogram | null>(null);
 
+  const filtered = useMemo(() => {
+    if (!query) return pictograms;
+    const needle = query.toLowerCase();
+    return pictograms.filter((p) => p.label.toLowerCase().includes(needle));
+  }, [pictograms, query]);
+
   if (pictograms.length === 0) {
     return (
       <EmptyState
@@ -22,10 +28,6 @@ export const Library = (): JSX.Element => {
       />
     );
   }
-
-  const filtered = query
-    ? pictograms.filter((p) => p.label.toLowerCase().includes(query.toLowerCase()))
-    : pictograms;
 
   return (
     <>
