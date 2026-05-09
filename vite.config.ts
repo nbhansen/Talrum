@@ -28,7 +28,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,jpg}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // CacheFirst keeps photo/audio bytes on disk so kid-mode in the car
