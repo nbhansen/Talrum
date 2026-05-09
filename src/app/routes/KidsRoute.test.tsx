@@ -9,12 +9,18 @@ import type { Board, Kid } from '@/types/domain';
 
 const useBoardsMock = vi.fn(() => ({ data: [] as Board[], isPending: false }));
 
+const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
+
 vi.mock('@/lib/queries/kids', () => ({
   useKids: (): { data: Kid[]; isPending: boolean } => ({
-    data: [{ id: 'k1', ownerId: 'owner', name: 'Liam' }],
+    data: [KID],
     isPending: false,
   }),
   useCreateKid: () => ({ mutate: vi.fn(), isPending: false }),
+  useActiveKid: () => KID,
+  useRenameKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  setActiveKidId: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {

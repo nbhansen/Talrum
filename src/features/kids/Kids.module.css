@@ -10,14 +10,45 @@
 .row {
   display: flex;
   align-items: center;
+  gap: var(--tal-space-3);
+  width: 100%;
   padding: var(--tal-space-4) var(--tal-space-5);
   border: 1px solid var(--tal-line);
   border-radius: var(--tal-r-md);
   background: var(--tal-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  border-color: var(--tal-ink-muted);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--tal-focus);
+  outline-offset: 2px;
 }
 
 .name {
   font-size: 16px;
   font-weight: 700;
   color: var(--tal-ink);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: var(--tal-space-1) var(--tal-space-2);
+  border-radius: 999px;
+  background: var(--tal-sage);
+  color: var(--tal-sage-ink);
+}
+
+.count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--tal-ink-muted);
 }

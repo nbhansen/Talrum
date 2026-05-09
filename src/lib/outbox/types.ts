@@ -91,6 +91,17 @@ export interface DeletePictogramEntry extends OutboxEntryBase {
   scrubFromBoardIds: string[];
 }
 
+export interface RenameKidEntry extends OutboxEntryBase {
+  kind: 'renameKid';
+  kidId: string;
+  name: string;
+}
+
+export interface DeleteKidEntry extends OutboxEntryBase {
+  kind: 'deleteKid';
+  kidId: string;
+}
+
 export type OutboxEntry =
   | UpdateBoardEntry
   | CreatePhotoPictogramEntry
@@ -98,6 +109,8 @@ export type OutboxEntry =
   | ClearPictogramAudioEntry
   | RenamePictogramEntry
   | ReplacePictogramImageEntry
-  | DeletePictogramEntry;
+  | DeletePictogramEntry
+  | RenameKidEntry
+  | DeleteKidEntry;
 
 export type OutboxEntryKind = OutboxEntry['kind'];

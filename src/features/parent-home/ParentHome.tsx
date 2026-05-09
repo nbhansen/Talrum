@@ -2,10 +2,12 @@ import type { JSX } from 'react';
 
 import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
+import { setActiveKidId, useActiveKid, useKids } from '@/lib/queries/kids';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
+import { KidSwitcher } from '@/ui/KidSwitcher/KidSwitcher';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 
 import { BoardCard } from './BoardCard';
@@ -44,9 +46,15 @@ export const ParentHome = ({
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
+  const { data: kids = [] } = useKids();
+  const activeKid = useActiveKid();
 
-  const boards = boardsQuery.data ?? [];
+  // Filter is client-side: every board row already carries kid_id, so there's
+  // no need for a separate query per kid. Without an active kid (no kids yet)
+  // an empty list is correct — the EmptyState below prompts to add one.
+  const boards = (boardsQuery.data ?? []).filter((b) => b.kidId === activeKid?.id);
   const noBoards = boards.length === 0;
+  const showSwitcher = kids.length > 1;
 
   return (
     <ParentShell
@@ -66,6 +74,9 @@ export const ParentHome = ({
         </div>
       }
     >
+      {showSwitcher && (
+        <KidSwitcher kids={kids} activeKidId={activeKid?.id ?? null} onSelect={setActiveKidId} />
+      )}
       {noBoards ? (
         <EmptyState
           title="No boards yet"

@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeleteKidEntry,
   DeletePictogramEntry,
+  RenameKidEntry,
   RenamePictogramEntry,
   ReplacePictogramImageEntry,
   SetPictogramAudioEntry,
@@ -20,16 +22,15 @@ interface MockPostgrestError {
 const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 const insertMock = vi.fn<(row: unknown) => Promise<{ error: MockPostgrestError | null }>>();
-const inMock =
-  vi.fn<
-    (
-      c: string,
-      vs: readonly string[],
-    ) => Promise<{
-      data: { id: string; step_ids: string[] }[] | null;
-      error: MockPostgrestError | null;
-    }>
-  >();
+const inMock = vi.fn<
+  (
+    c: string,
+    vs: readonly string[],
+  ) => Promise<{
+    data: { id: string; step_ids: string[] }[] | null;
+    error: MockPostgrestError | null;
+  }>
+>();
 const selectMock = vi.fn((_cols: string) => ({ in: inMock }));
 const deleteEqMock =
   vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
@@ -356,5 +357,60 @@ describe('runHandler · deletePicto', () => {
     expect(selectMock).not.toHaveBeenCalled();
     expect(inMock).not.toHaveBeenCalled();
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
+  });
+});
+
+describe('runHandler · renameKid', () => {
+  it('updates the name column scoped to the kid id', async () => {
+    const entry: RenameKidEntry = {
+      ...baseProps,
+      kind: 'renameKid',
+      kidId: 'k-1',
+      name: 'Mia',
+    };
+    await runHandler(entry);
+    expect(fromMock).toHaveBeenCalledWith('kids');
+    expect(updateMock).toHaveBeenCalledWith({ name: 'Mia' });
+    expect(eqMock).toHaveBeenCalledWith('id', 'k-1');
+  });
+
+  it('wraps coded DB errors in UnretryableOutboxError', async () => {
+    eqMock.mockResolvedValue({
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+    });
+    const entry: RenameKidEntry = {
+      ...baseProps,
+      kind: 'renameKid',
+      kidId: 'k-1',
+      name: 'Mia',
+    };
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+  });
+});
+
+describe('runHandler · deleteKid', () => {
+  it('deletes the kid row by id', async () => {
+    const entry: DeleteKidEntry = {
+      ...baseProps,
+      kind: 'deleteKid',
+      kidId: 'k-1',
+    };
+    await runHandler(entry);
+    expect(fromMock).toHaveBeenCalledWith('kids');
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(deleteEqMock).toHaveBeenCalledWith('id', 'k-1');
+  });
+
+  it('does not touch boards or storage — server-side cascade handles them', async () => {
+    const entry: DeleteKidEntry = {
+      ...baseProps,
+      kind: 'deleteKid',
+      kidId: 'k-1',
+    };
+    await runHandler(entry);
+    // No boards SELECT/UPDATE — the FK cascade strips boards on the server.
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
   });
 });

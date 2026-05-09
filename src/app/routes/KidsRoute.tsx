@@ -19,7 +19,7 @@ export const KidsRoute = (): JSX.Element => {
         onNav={onNav}
         onKidMode={onKidMode}
         title="Kids"
-        subtitle="The kids you're creating boards for"
+        subtitle="Tap a kid to rename, delete, or set them as active."
         right={
           <Button variant="primary" icon={<PlusIcon />} onClick={() => setNewKidOpen(true)}>
             New kid
