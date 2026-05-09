@@ -9,8 +9,9 @@ import {
 
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
+import { boardsQueryKey } from '@/lib/queries/boards.read';
 import { supabase } from '@/lib/supabase';
-import type { GlyphName, Pictogram } from '@/types/domain';
+import type { Board, GlyphName, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
 type PictogramRow = Database['public']['Tables']['pictograms']['Row'];
@@ -244,6 +245,145 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       // Drop the optimistic row; the user got an error.
       revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+interface RenameInput {
+  pictogramId: string;
+  label: string;
+}
+
+export const useRenamePictogram = (): UseMutationResult<
+  void,
+  Error,
+  RenameInput,
+  { previous: Pictogram[] | undefined }
+> => {
+  const qc = useQueryClient();
+  return useMutation({
+    onMutate: async ({ pictogramId, label }) => {
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) => ({ ...p, label })),
+      );
+      return { previous };
+    },
+    mutationFn: ({ pictogramId, label }) =>
+      enqueueAndDrain({ kind: 'renamePicto', pictogramId, label }),
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+interface ReplaceImageInput {
+  pictogramId: string;
+  blob: Blob;
+  extension: string;
+  /** Path of the prior image; stock-prefixed values get cleaned up by the handler. */
+  previousPath?: string | undefined;
+}
+
+export const useReplacePictogramImage = (): UseMutationResult<void, Error, ReplaceImageInput> => {
+  const qc = useQueryClient();
+  const ownerId = useSessionUser().id;
+  return useMutation({
+    onMutate: ({ pictogramId, blob }) => {
+      const blobUrl = URL.createObjectURL(blob);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) =>
+          p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
+        ),
+      );
+    },
+    mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
+      enqueueAndDrain({
+        kind: 'replacePictoImage',
+        pictogramId,
+        ownerId,
+        blob,
+        extension,
+        ...(previousPath ? { previousPath } : {}),
+      }),
+    onSuccess: () => {
+      revokePictogramBlobs(qc);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+    onError: () => {
+      revokePictogramBlobs(qc);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+/**
+ * Inputs for deleting a pictogram. Callers (the sheet) pass the
+ * pre-computed paths and referencing board ids so the optimistic patch can
+ * strip the references without losing the snapshot the outbox handler
+ * needs server-side. `useReferencingBoardIds` derives `scrubFromBoardIds`.
+ */
+export interface DeletePictogramInput {
+  pictogramId: string;
+  scrubFromBoardIds: string[];
+  previousImagePath?: string;
+  previousAudioPath?: string;
+}
+
+/**
+ * Boards (by id) whose `step_ids` reference this pictogram. The sheet uses
+ * the count to render "Used on N boards" and passes the array straight to
+ * `useDeletePictogram` so the optimistic patch and the server scrub agree.
+ */
+export const useReferencingBoardIds = (
+  pictogramId: string,
+  boards: readonly Board[] | undefined,
+): string[] => (boards ?? []).filter((b) => b.stepIds.includes(pictogramId)).map((b) => b.id);
+
+export const useDeletePictogram = (): UseMutationResult<
+  void,
+  Error,
+  DeletePictogramInput,
+  { previousPictograms: Pictogram[] | undefined; previousBoards: Board[] | undefined }
+> => {
+  const qc = useQueryClient();
+  return useMutation({
+    onMutate: async ({ pictogramId }) => {
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      await qc.cancelQueries({ queryKey: boardsQueryKey });
+      const previousPictograms = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      const previousBoards = qc.getQueryData<Board[]>(boardsQueryKey);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        list?.filter((p) => p.id !== pictogramId),
+      );
+      qc.setQueryData<Board[]>(boardsQueryKey, (list) =>
+        list?.map((b) =>
+          b.stepIds.includes(pictogramId)
+            ? { ...b, stepIds: b.stepIds.filter((id) => id !== pictogramId) }
+            : b,
+        ),
+      );
+      return { previousPictograms, previousBoards };
+    },
+    mutationFn: ({ pictogramId, scrubFromBoardIds, previousImagePath, previousAudioPath }) =>
+      enqueueAndDrain({
+        kind: 'deletePicto',
+        pictogramId,
+        scrubFromBoardIds,
+        ...(previousImagePath ? { previousImagePath } : {}),
+        ...(previousAudioPath ? { previousAudioPath } : {}),
+      }),
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previousPictograms) qc.setQueryData(pictogramsQueryKey, ctx.previousPictograms);
+      if (ctx?.previousBoards) qc.setQueryData(boardsQueryKey, ctx.previousBoards);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+      qc.invalidateQueries({ queryKey: boardsQueryKey });
     },
   });
 };

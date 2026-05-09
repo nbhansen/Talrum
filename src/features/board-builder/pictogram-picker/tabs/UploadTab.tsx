@@ -82,8 +82,14 @@ export const UploadTab = (): JSX.Element => {
     }
   };
 
+  // "Your uploads" only — exclude photo-style templates that ship as either a
+  // `stock:<slug>` sentinel (resolved to a bundled JPG by PictogramMedia) or
+  // an unfilled placeholder (image_path null). The user hasn't uploaded those.
   const recentPhotos = pictograms
-    .filter((p: Pictogram): p is Extract<Pictogram, { style: 'photo' }> => p.style === 'photo')
+    .filter(
+      (p: Pictogram): p is Extract<Pictogram, { style: 'photo' }> =>
+        p.style === 'photo' && !!p.imagePath && !p.imagePath.startsWith('stock:'),
+    )
     .slice(-RECENT_LIMIT)
     .reverse();
 

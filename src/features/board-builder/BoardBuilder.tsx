@@ -12,6 +12,7 @@ import {
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
 import type { Board, Pictogram } from '@/types/domain';
 import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
+import { PictogramSheet } from '@/ui/PictogramSheet/PictogramSheet';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { Reorderable } from '@/ui/Reorderable/Reorderable';
 
@@ -75,6 +76,7 @@ export const BoardBuilder = ({
   // pauses typing. Re-sync only when navigating to a different board — syncing
   // on every board.name change would clobber in-progress typing when the
   // previous debounced write lands.
+  const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [titleDraft, setTitleDraft] = useState(board.name);
   useEffect(() => setTitleDraft(board.name), [board.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +174,7 @@ export const BoardBuilder = ({
                   kind={board.kind}
                   labelsVisible={board.labelsVisible}
                   onRemove={() => removeAt(i)}
+                  onEdit={() => setEditTarget(step.picto)}
                   drag={drag}
                 />
                 {i < steps.length - 1 && (
@@ -206,6 +209,7 @@ export const BoardBuilder = ({
           ))}
         </div>
       </section>
+      {editTarget && <PictogramSheet picto={editTarget} onClose={() => setEditTarget(null)} />}
     </ParentShell>
   );
 };

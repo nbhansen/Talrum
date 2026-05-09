@@ -14,7 +14,7 @@ export const LibraryRoute = (): JSX.Element => {
       onNav={onNav}
       onKidMode={onKidMode}
       title="Library"
-      subtitle="Every pictogram across your boards"
+      subtitle="Every pictogram in your library — tap one to rename, replace its photo, or delete."
     >
       <Library />
     </ParentShell>

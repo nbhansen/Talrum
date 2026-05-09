@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeletePictogramEntry,
+  RenamePictogramEntry,
+  ReplacePictogramImageEntry,
   SetPictogramAudioEntry,
   UpdateBoardEntry,
 } from './types';
@@ -17,7 +20,26 @@ interface MockPostgrestError {
 const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 const insertMock = vi.fn<(row: unknown) => Promise<{ error: MockPostgrestError | null }>>();
-const fromMock = vi.fn((_table: string) => ({ update: updateMock, insert: insertMock }));
+const inMock =
+  vi.fn<
+    (
+      c: string,
+      vs: readonly string[],
+    ) => Promise<{
+      data: { id: string; step_ids: string[] }[] | null;
+      error: MockPostgrestError | null;
+    }>
+  >();
+const selectMock = vi.fn((_cols: string) => ({ in: inMock }));
+const deleteEqMock =
+  vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
+const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
+const fromMock = vi.fn((_table: string) => ({
+  update: updateMock,
+  insert: insertMock,
+  select: selectMock,
+  delete: deleteMock,
+}));
 
 const uploadMock =
   vi.fn<(path: string, blob: Blob, opts?: unknown) => Promise<{ error: Error | null }>>();
@@ -49,6 +71,10 @@ beforeEach(() => {
   eqMock.mockReset();
   updateMock.mockClear();
   insertMock.mockReset();
+  inMock.mockReset();
+  selectMock.mockClear();
+  deleteEqMock.mockReset();
+  deleteMock.mockClear();
   uploadMock.mockReset();
   removeMock.mockReset();
   fromMock.mockClear();
@@ -56,6 +82,8 @@ beforeEach(() => {
   // Defaults: every supabase call succeeds.
   eqMock.mockResolvedValue({ error: null });
   insertMock.mockResolvedValue({ error: null });
+  inMock.mockResolvedValue({ data: [], error: null });
+  deleteEqMock.mockResolvedValue({ error: null });
   uploadMock.mockResolvedValue({ error: null });
   removeMock.mockResolvedValue({ error: null });
 });
@@ -203,5 +231,130 @@ describe('runHandler · clearPictoAudio', () => {
     await runHandler(entry);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
+  });
+});
+
+describe('runHandler · renamePicto', () => {
+  it('updates the label column scoped to the pictogram id', async () => {
+    const entry: RenamePictogramEntry = {
+      ...baseProps,
+      kind: 'renamePicto',
+      pictogramId: 'p-1',
+      label: 'Local park',
+    };
+    await runHandler(entry);
+    expect(fromMock).toHaveBeenCalledWith('pictograms');
+    expect(updateMock).toHaveBeenCalledWith({ label: 'Local park' });
+    expect(eqMock).toHaveBeenCalledWith('id', 'p-1');
+  });
+});
+
+describe('runHandler · replacePictoImage', () => {
+  it('uploads the new blob, points the row at it, and removes the prior upload', async () => {
+    const blob = new Blob(['x'], { type: 'image/jpeg' });
+    const entry: ReplacePictogramImageEntry = {
+      ...baseProps,
+      kind: 'replacePictoImage',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      blob,
+      extension: 'jpg',
+      previousPath: 'o-1/p-1.webp',
+    };
+    await runHandler(entry);
+    expect(uploadMock).toHaveBeenCalledWith(
+      'o-1/p-1.jpg',
+      blob,
+      expect.objectContaining({ upsert: true }),
+    );
+    expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1.jpg' });
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webp']);
+  });
+
+  it('skips removeFromBucket when the previous path is a stock sentinel', async () => {
+    const entry: ReplacePictogramImageEntry = {
+      ...baseProps,
+      kind: 'replacePictoImage',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+      previousPath: 'stock:park',
+    };
+    await runHandler(entry);
+    expect(uploadMock).toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('skips removeFromBucket when the new path matches the previous path', async () => {
+    const entry: ReplacePictogramImageEntry = {
+      ...baseProps,
+      kind: 'replacePictoImage',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+      previousPath: 'o-1/p-1.jpg',
+    };
+    await runHandler(entry);
+    // Same key — upsert overwrote the bytes; deleting it would lose the new image.
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('runHandler · deletePicto', () => {
+  it('scrubs the id from referenced boards, deletes the row, and cleans up uploads', async () => {
+    inMock.mockResolvedValue({
+      data: [
+        { id: 'b-1', step_ids: ['p-1', 'p-2'] },
+        { id: 'b-2', step_ids: ['p-2'] }, // already not referenced — no update
+      ],
+      error: null,
+    });
+    const entry: DeletePictogramEntry = {
+      ...baseProps,
+      kind: 'deletePicto',
+      pictogramId: 'p-1',
+      previousImagePath: 'o-1/p-1.jpg',
+      previousAudioPath: 'o-1/p-1.webm',
+      scrubFromBoardIds: ['b-1', 'b-2'],
+    };
+    await runHandler(entry);
+    expect(selectMock).toHaveBeenCalledWith('id, step_ids');
+    expect(inMock).toHaveBeenCalledWith('id', ['b-1', 'b-2']);
+    // Only b-1 had a step_ids change.
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(updateMock).toHaveBeenCalledWith({ step_ids: ['p-2'] });
+    expect(eqMock).toHaveBeenCalledWith('id', 'b-1');
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.jpg']);
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
+  });
+
+  it('skips storage cleanup for stock-prefixed previous paths', async () => {
+    const entry: DeletePictogramEntry = {
+      ...baseProps,
+      kind: 'deletePicto',
+      pictogramId: 'p-1',
+      previousImagePath: 'stock:park',
+      scrubFromBoardIds: [],
+    };
+    await runHandler(entry);
+    expect(deleteMock).toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('skips the boards round-trip when scrubFromBoardIds is empty', async () => {
+    const entry: DeletePictogramEntry = {
+      ...baseProps,
+      kind: 'deletePicto',
+      pictogramId: 'p-1',
+      scrubFromBoardIds: [],
+    };
+    await runHandler(entry);
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(inMock).not.toHaveBeenCalled();
+    expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
   });
 });

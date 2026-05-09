@@ -1,3 +1,35 @@
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--tal-space-3);
+  padding: var(--tal-space-2) var(--tal-space-3);
+  border: 1px solid var(--tal-line);
+  border-radius: var(--tal-r-md);
+  background: var(--tal-surface);
+  color: var(--tal-ink-muted);
+  margin-bottom: var(--tal-space-4);
+}
+
+.searchInput {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--tal-ink);
+  padding: var(--tal-space-1) 0;
+}
+
+.searchInput:focus-visible {
+  outline: none;
+}
+
+.emptyQuery {
+  color: var(--tal-ink-muted);
+  font-size: 15px;
+  margin: var(--tal-space-4) 0;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

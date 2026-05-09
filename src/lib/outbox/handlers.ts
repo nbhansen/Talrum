@@ -10,10 +10,17 @@ import { supabase } from '@/lib/supabase';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeletePictogramEntry,
   OutboxEntry,
+  RenamePictogramEntry,
+  ReplacePictogramImageEntry,
   SetPictogramAudioEntry,
   UpdateBoardEntry,
 } from './types';
+
+const STOCK_PREFIX = 'stock:';
+const isUploadedPath = (path: string | undefined): path is string =>
+  !!path && !path.startsWith(STOCK_PREFIX);
 
 /**
  * Thrown by handlers when the failure is permanent (RLS denial, validation,
@@ -114,6 +121,74 @@ const handleClearPictogramAudio = async (entry: ClearPictogramAudioEntry): Promi
   }
 };
 
+const handleRenamePictogram = async (entry: RenamePictogramEntry): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('pictograms')
+      .update({ label: entry.label })
+      .eq('id', entry.pictogramId);
+    if (error) throw error;
+  } catch (err) {
+    classifyAndThrow(err);
+  }
+};
+
+const handleReplacePictogramImage = async (entry: ReplacePictogramImageEntry): Promise<void> => {
+  const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
+  try {
+    await uploadBlob(IMAGES_BUCKET, path, entry.blob);
+    invalidateSignedUrl(IMAGES_BUCKET, path);
+    const { error } = await supabase
+      .from('pictograms')
+      .update({ image_path: path })
+      .eq('id', entry.pictogramId);
+    if (error) throw error;
+    if (isUploadedPath(entry.previousPath) && entry.previousPath !== path) {
+      await removeFromBucket(IMAGES_BUCKET, [entry.previousPath]).catch(() => undefined);
+      invalidateSignedUrl(IMAGES_BUCKET, entry.previousPath);
+    }
+  } catch (err) {
+    classifyAndThrow(err);
+  }
+};
+
+const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void> => {
+  try {
+    // Scrub the picto id from every owned board's step_ids. Done before the
+    // row delete so RLS never sees an in-between state. Single round-trip via
+    // .in() — array_remove is idempotent so a retry after partial success is
+    // safe.
+    if (entry.scrubFromBoardIds.length > 0) {
+      const { data: rows, error: readErr } = await supabase
+        .from('boards')
+        .select('id, step_ids')
+        .in('id', entry.scrubFromBoardIds);
+      if (readErr) throw readErr;
+      for (const row of rows ?? []) {
+        const next = row.step_ids.filter((id: string) => id !== entry.pictogramId);
+        if (next.length === row.step_ids.length) continue;
+        const { error: updErr } = await supabase
+          .from('boards')
+          .update({ step_ids: next })
+          .eq('id', row.id);
+        if (updErr) throw updErr;
+      }
+    }
+    const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
+    if (error) throw error;
+    if (isUploadedPath(entry.previousImagePath)) {
+      await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]).catch(() => undefined);
+      invalidateSignedUrl(IMAGES_BUCKET, entry.previousImagePath);
+    }
+    if (isUploadedPath(entry.previousAudioPath)) {
+      await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]).catch(() => undefined);
+      invalidateSignedUrl(AUDIO_BUCKET, entry.previousAudioPath);
+    }
+  } catch (err) {
+    classifyAndThrow(err);
+  }
+};
+
 export const runHandler = (entry: OutboxEntry): Promise<void> => {
   switch (entry.kind) {
     case 'updateBoard':
@@ -124,5 +199,11 @@ export const runHandler = (entry: OutboxEntry): Promise<void> => {
       return handleSetPictogramAudio(entry);
     case 'clearPictoAudio':
       return handleClearPictogramAudio(entry);
+    case 'renamePicto':
+      return handleRenamePictogram(entry);
+    case 'replacePictoImage':
+      return handleReplacePictogramImage(entry);
+    case 'deletePicto':
+      return handleDeletePictogram(entry);
   }
 };
