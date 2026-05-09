@@ -11,8 +11,10 @@ import { supabase } from '@/lib/supabase';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeleteKidEntry,
   DeletePictogramEntry,
   OutboxEntry,
+  RenameKidEntry,
   RenamePictogramEntry,
   ReplacePictogramImageEntry,
   SetPictogramAudioEntry,
@@ -195,6 +197,30 @@ const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void>
   }
 };
 
+const handleRenameKid = async (entry: RenameKidEntry): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('kids')
+      .update({ name: entry.name })
+      .eq('id', entry.kidId);
+    if (error) throw error;
+  } catch (err) {
+    classifyAndThrow(err);
+  }
+};
+
+const handleDeleteKid = async (entry: DeleteKidEntry): Promise<void> => {
+  try {
+    // boards.kid_id ON DELETE CASCADE handles board cleanup server-side.
+    // Pictograms are owner-scoped (not kid-scoped), so they survive — correct
+    // since they're shared across the owner's kids' boards.
+    const { error } = await supabase.from('kids').delete().eq('id', entry.kidId);
+    if (error) throw error;
+  } catch (err) {
+    classifyAndThrow(err);
+  }
+};
+
 export const runHandler = (entry: OutboxEntry): Promise<void> => {
   switch (entry.kind) {
     case 'updateBoard':
@@ -211,5 +237,9 @@ export const runHandler = (entry: OutboxEntry): Promise<void> => {
       return handleReplacePictogramImage(entry);
     case 'deletePicto':
       return handleDeletePictogram(entry);
+    case 'renameKid':
+      return handleRenameKid(entry);
+    case 'deleteKid':
+      return handleDeleteKid(entry);
   }
 };

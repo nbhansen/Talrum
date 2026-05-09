@@ -1,0 +1,28 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tal-space-2);
+  margin-bottom: var(--tal-space-4);
+}
+
+.pill {
+  padding: var(--tal-space-2) var(--tal-space-4);
+  border-radius: 999px;
+  border: 1px solid var(--tal-line);
+  background: var(--tal-surface);
+  color: var(--tal-ink-soft);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pill:hover {
+  border-color: var(--tal-ink-muted);
+}
+
+.pillActive {
+  background: var(--tal-sage);
+  border-color: var(--tal-sage);
+  color: var(--tal-sage-ink);
+}

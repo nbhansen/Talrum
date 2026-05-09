@@ -21,6 +21,8 @@ const useCreateBoardMock = vi.fn(() => ({
 vi.mock('@/lib/queries/kids', () => ({
   useKids: () => useKidsMock(),
   useCreateKid: () => ({ mutate: vi.fn(), isPending: false }),
+  useActiveKid: () => useKidsMock().data?.[0] ?? null,
+  setActiveKidId: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {

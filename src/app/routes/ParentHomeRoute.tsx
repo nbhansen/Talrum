@@ -7,7 +7,7 @@ import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
-import { useKids } from '@/lib/queries/kids';
+import { useActiveKid } from '@/lib/queries/kids';
 import { accentForIndex } from '@/theme/tokens';
 import { NewKidModal } from '@/ui/NewKidModal/NewKidModal';
 
@@ -16,7 +16,7 @@ export const ParentHomeRoute = (): JSX.Element => {
   const onNav = useParentNav();
   const onKidMode = useKidModeNav();
   const boardsQuery = useBoards();
-  const kidsQuery = useKids();
+  const activeKid = useActiveKid();
   const createBoard = useCreateBoard();
   const [newKidOpen, setNewKidOpen] = useState(false);
   const [newBoardOpen, setNewBoardOpen] = useState(false);
@@ -33,19 +33,18 @@ export const ParentHomeRoute = (): JSX.Element => {
   }, []);
   if (redirect) return <Navigate to={redirect} replace />;
 
-  const firstKid = kidsQuery.data?.[0];
   const boardCount = boardsQuery.data?.length ?? 0;
 
   // Fast-path create: skip the modal, drop a board with default values, and
   // navigate straight into the BoardBuilder where the user names + tunes it.
   // Accent rotates by current board count so the grid stays visually distinct.
   const onNewBlankBoard = (): void => {
-    if (!firstKid || createBoard.isPending) return;
+    if (!activeKid || createBoard.isPending) return;
     createBoard.mutate(
       {
         name: 'Untitled board',
         kind: 'sequence',
-        kidId: firstKid.id,
+        kidId: activeKid.id,
         accent: accentForIndex(boardCount),
       },
       {
@@ -57,7 +56,7 @@ export const ParentHomeRoute = (): JSX.Element => {
   return (
     <>
       <ParentHome
-        {...(firstKid ? { kidName: firstKid.name } : {})}
+        {...(activeKid ? { kidName: activeKid.name } : {})}
         onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
         onKidMode={onKidMode}
         onNav={onNav}

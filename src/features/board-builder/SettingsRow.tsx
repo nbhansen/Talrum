@@ -44,7 +44,9 @@ export const SettingsRow = ({
   <div className={styles.row}>
     <Segmented value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
     <Toggle label="Labels" value={labelsVisible} onChange={onLabelsChange} />
-    <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
+    {kind === 'sequence' && (
+      <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
+    )}
     <Select label="Voice" value={voiceMode} onChange={onVoiceModeChange} options={VOICE_OPTIONS} />
     <div className={styles.spacer} />
     <div className={styles.count}>
