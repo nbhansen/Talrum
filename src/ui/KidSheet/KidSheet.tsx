@@ -1,6 +1,5 @@
 import { type JSX, useState } from 'react';
 
-import { useBoards } from '@/lib/queries/boards';
 import {
   setActiveKidId,
   useActiveKid,
@@ -17,13 +16,15 @@ import styles from './KidSheet.module.css';
 
 interface Props {
   kid: Kid;
+  /** Number of boards owned by this kid, used in the delete-confirm hint. */
+  boardCount: number;
   onClose: () => void;
 }
 
 const TITLE_ID = 'tal-kid-sheet-title';
 const NAME_MAX = 40;
 
-export const KidSheet = ({ kid, onClose }: Props): JSX.Element => {
+export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
   const [name, setName] = useState(kid.name);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -31,12 +32,10 @@ export const KidSheet = ({ kid, onClose }: Props): JSX.Element => {
   const renameMut = useRenameKid();
   const deleteMut = useDeleteKid();
   const { data: kids = [] } = useKids();
-  const { data: boards } = useBoards();
   const activeKid = useActiveKid();
 
   const isLastKid = kids.length <= 1;
   const isActive = activeKid?.id === kid.id;
-  const boardCount = (boards ?? []).filter((b) => b.kidId === kid.id).length;
 
   const trimmedName = name.trim();
   const nameDirty = trimmedName.length > 0 && trimmedName !== kid.name;

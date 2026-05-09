@@ -66,7 +66,13 @@ export const Kids = ({ onNewKid }: KidsProps): JSX.Element => {
           );
         })}
       </ul>
-      {sheetTarget && <KidSheet kid={sheetTarget} onClose={() => setSheetTarget(null)} />}
+      {sheetTarget && (
+        <KidSheet
+          kid={sheetTarget}
+          boardCount={boardCounts.get(sheetTarget.id) ?? 0}
+          onClose={() => setSheetTarget(null)}
+        />
+      )}
     </>
   );
 };
