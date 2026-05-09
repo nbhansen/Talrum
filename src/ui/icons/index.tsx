@@ -133,6 +133,13 @@ export const TrashIcon = ({ size = 16, ...rest }: IconProps): JSX.Element => (
   </Svg>
 );
 
+export const PencilIcon = ({ size = 14, ...rest }: IconProps): JSX.Element => (
+  <Svg size={size} viewBox="0 0 24 24" strokeWidth={2} {...rest}>
+    <path d="M14 4 L20 10 L8 22 L2 22 L2 16 Z" />
+    <path d="M13 5 L19 11" />
+  </Svg>
+);
+
 export const SpeakerIcon = ({ size = 24, ...rest }: IconProps): JSX.Element => (
   <Svg size={size} viewBox="0 0 24 24" fill="currentColor" strokeWidth={0} {...rest}>
     <path d="M4 9 L4 15 L9 15 L14 20 L14 4 L9 9 Z" />

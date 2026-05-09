@@ -2,13 +2,11 @@ import type { CSSProperties, JSX } from 'react';
 
 import { Glyph } from '@/glyphs/Glyph';
 import { PhotoPlaceholder } from '@/glyphs/PhotoPlaceholder';
-import { IMAGES_BUCKET } from '@/lib/storage';
+import { IMAGES_BUCKET, STOCK_PATH_PREFIX } from '@/lib/storage';
 import { useSignedUrl } from '@/lib/useSignedUrl';
 import type { Pictogram } from '@/types/domain';
 
 import styles from './PictogramMedia.module.css';
-
-const STOCK_PREFIX = 'stock:';
 
 interface PictogramMediaProps {
   picto: Pictogram;
@@ -36,8 +34,8 @@ export const PictogramMedia = ({
   // Bare `stock:` (empty slug) falls through to the placeholder rather than
   // requesting `/seed-photos/.jpg` — only reachable via a malformed DB row.
   const stockSlug =
-    isPhoto && picto.imagePath?.startsWith(STOCK_PREFIX)
-      ? picto.imagePath.slice(STOCK_PREFIX.length) || null
+    isPhoto && picto.imagePath?.startsWith(STOCK_PATH_PREFIX)
+      ? picto.imagePath.slice(STOCK_PATH_PREFIX.length) || null
       : null;
   // Stock images are bundled static assets; skip the signed-URL roundtrip.
   const photoPath = isPhoto && !stockSlug ? picto.imagePath : undefined;

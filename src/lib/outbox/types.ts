@@ -57,10 +57,47 @@ export interface ClearPictogramAudioEntry extends OutboxEntryBase {
   path: string;
 }
 
+export interface RenamePictogramEntry extends OutboxEntryBase {
+  kind: 'renamePicto';
+  pictogramId: string;
+  label: string;
+}
+
+export interface ReplacePictogramImageEntry extends OutboxEntryBase {
+  kind: 'replacePictoImage';
+  pictogramId: string;
+  ownerId: string;
+  blob: Blob;
+  extension: string;
+  /**
+   * Path of the prior image to delete after the new one lands. Stock-prefixed
+   * paths (`stock:<slug>`) and missing values are ignored — only real Storage
+   * objects are removed.
+   */
+  previousPath?: string;
+}
+
+export interface DeletePictogramEntry extends OutboxEntryBase {
+  kind: 'deletePicto';
+  pictogramId: string;
+  /** Storage paths to clean up. Stock-prefixed paths are skipped by the handler. */
+  previousImagePath?: string;
+  previousAudioPath?: string;
+  /**
+   * Boards whose `step_ids` reference this pictogram. Scrubbed via
+   * `array_remove` before the row is deleted, so we don't leave dangling
+   * UUIDs in any board the user owns.
+   */
+  scrubFromBoardIds: string[];
+}
+
 export type OutboxEntry =
   | UpdateBoardEntry
   | CreatePhotoPictogramEntry
   | SetPictogramAudioEntry
-  | ClearPictogramAudioEntry;
+  | ClearPictogramAudioEntry
+  | RenamePictogramEntry
+  | ReplacePictogramImageEntry
+  | DeletePictogramEntry;
 
 export type OutboxEntryKind = OutboxEntry['kind'];

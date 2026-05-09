@@ -9,8 +9,9 @@ import {
 
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
+import { boardsQueryKey } from '@/lib/queries/boards.read';
 import { supabase } from '@/lib/supabase';
-import type { GlyphName, Pictogram } from '@/types/domain';
+import type { Board, GlyphName, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
 type PictogramRow = Database['public']['Tables']['pictograms']['Row'];
@@ -244,6 +245,147 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       // Drop the optimistic row; the user got an error.
       revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+interface RenameInput {
+  pictogramId: string;
+  label: string;
+}
+
+export const useRenamePictogram = (): UseMutationResult<
+  void,
+  Error,
+  RenameInput,
+  { previous: Pictogram[] | undefined }
+> => {
+  const qc = useQueryClient();
+  return useMutation({
+    onMutate: async ({ pictogramId, label }) => {
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) => ({ ...p, label })),
+      );
+      return { previous };
+    },
+    mutationFn: ({ pictogramId, label }) =>
+      enqueueAndDrain({ kind: 'renamePicto', pictogramId, label }),
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+interface ReplaceImageInput {
+  pictogramId: string;
+  blob: Blob;
+  extension: string;
+  /** Path of the prior image. Stock-prefixed (`stock:<slug>`) values are skipped by the handler — only real Storage objects are removed. */
+  previousPath?: string | undefined;
+}
+
+export const useReplacePictogramImage = (): UseMutationResult<
+  void,
+  Error,
+  ReplaceImageInput,
+  { previous: Pictogram[] | undefined }
+> => {
+  const qc = useQueryClient();
+  const ownerId = useSessionUser().id;
+  return useMutation({
+    onMutate: async ({ pictogramId, blob }) => {
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      const blobUrl = URL.createObjectURL(blob);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        patchPictogramInList(list, pictogramId, (p) =>
+          p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
+        ),
+      );
+      return { previous };
+    },
+    mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
+      enqueueAndDrain({
+        kind: 'replacePictoImage',
+        pictogramId,
+        ownerId,
+        blob,
+        extension,
+        ...(previousPath ? { previousPath } : {}),
+      }),
+    onSuccess: () => {
+      revokePictogramBlobs(qc);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+    onError: (_err, _input, ctx) => {
+      // Revoke first while the blob URL is still in the cache (revoke walks
+      // current cache state), then restore the pre-mutation snapshot so the
+      // tile shows its prior imagePath. Restoring first would orphan the
+      // blob URL — it'd be unreachable from the cache and never revoked.
+      revokePictogramBlobs(qc);
+      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+    },
+  });
+};
+
+export interface DeletePictogramInput {
+  pictogramId: string;
+  scrubFromBoardIds: string[];
+  previousImagePath?: string;
+  previousAudioPath?: string;
+}
+
+export const referencingBoardIds = (
+  pictogramId: string,
+  boards: readonly Board[] | undefined,
+): string[] => (boards ?? []).filter((b) => b.stepIds.includes(pictogramId)).map((b) => b.id);
+
+export const useDeletePictogram = (): UseMutationResult<
+  void,
+  Error,
+  DeletePictogramInput,
+  { previousPictograms: Pictogram[] | undefined; previousBoards: Board[] | undefined }
+> => {
+  const qc = useQueryClient();
+  return useMutation({
+    onMutate: async ({ pictogramId }) => {
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      await qc.cancelQueries({ queryKey: boardsQueryKey });
+      const previousPictograms = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      const previousBoards = qc.getQueryData<Board[]>(boardsQueryKey);
+      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+        list?.filter((p) => p.id !== pictogramId),
+      );
+      qc.setQueryData<Board[]>(boardsQueryKey, (list) =>
+        list?.map((b) =>
+          b.stepIds.includes(pictogramId)
+            ? { ...b, stepIds: b.stepIds.filter((id) => id !== pictogramId) }
+            : b,
+        ),
+      );
+      return { previousPictograms, previousBoards };
+    },
+    mutationFn: ({ pictogramId, scrubFromBoardIds, previousImagePath, previousAudioPath }) =>
+      enqueueAndDrain({
+        kind: 'deletePicto',
+        pictogramId,
+        scrubFromBoardIds,
+        ...(previousImagePath ? { previousImagePath } : {}),
+        ...(previousAudioPath ? { previousAudioPath } : {}),
+      }),
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previousPictograms) qc.setQueryData(pictogramsQueryKey, ctx.previousPictograms);
+      if (ctx?.previousBoards) qc.setQueryData(boardsQueryKey, ctx.previousBoards);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+      qc.invalidateQueries({ queryKey: boardsQueryKey });
     },
   });
 };
