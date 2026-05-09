@@ -8,6 +8,8 @@ import type { Pictogram } from '@/types/domain';
 
 import styles from './PictogramMedia.module.css';
 
+const STOCK_PREFIX = 'stock:';
+
 interface PictogramMediaProps {
   picto: Pictogram;
   size: number;
@@ -31,8 +33,12 @@ export const PictogramMedia = ({
   className,
 }: PictogramMediaProps): JSX.Element => {
   const isPhoto = picto.style === 'photo';
+  // Bare `stock:` (empty slug) falls through to the placeholder rather than
+  // requesting `/seed-photos/.jpg` — only reachable via a malformed DB row.
   const stockSlug =
-    isPhoto && picto.imagePath?.startsWith('stock:') ? picto.imagePath.slice(6) : null;
+    isPhoto && picto.imagePath?.startsWith(STOCK_PREFIX)
+      ? picto.imagePath.slice(STOCK_PREFIX.length) || null
+      : null;
   // Stock images are bundled static assets; skip the signed-URL roundtrip.
   const photoPath = isPhoto && !stockSlug ? picto.imagePath : undefined;
   const signedUrl = useSignedUrl(IMAGES_BUCKET, photoPath);
