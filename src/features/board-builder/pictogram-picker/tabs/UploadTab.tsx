@@ -2,6 +2,7 @@ import { type ChangeEvent, type JSX, useEffect, useRef, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { useCreatePhotoPictogram, usePictograms } from '@/lib/queries/pictograms';
+import { isUploadedStoragePath } from '@/lib/storage';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { UploadIcon } from '@/ui/icons';
@@ -88,7 +89,7 @@ export const UploadTab = (): JSX.Element => {
   const recentPhotos = pictograms
     .filter(
       (p: Pictogram): p is Extract<Pictogram, { style: 'photo' }> =>
-        p.style === 'photo' && !!p.imagePath && !p.imagePath.startsWith('stock:'),
+        p.style === 'photo' && isUploadedStoragePath(p.imagePath),
     )
     .slice(-RECENT_LIMIT)
     .reverse();

@@ -6,6 +6,18 @@ import { supabase } from './supabase';
 export const AUDIO_BUCKET = 'pictogram-audio';
 export const IMAGES_BUCKET = 'pictogram-images';
 
+/**
+ * Sentinel prefix on a pictogram's `image_path` that points at a bundled
+ * stock JPG (`/seed-photos/<slug>.jpg`) instead of a real Storage object.
+ * Seed templates ship these so fresh users see real photos without an
+ * upload step. Anything else is a real path the user owns.
+ */
+export const STOCK_PATH_PREFIX = 'stock:';
+
+/** True for real Storage paths (not stock sentinels, not empty). */
+export const isUploadedStoragePath = (path: string | undefined): path is string =>
+  !!path && !path.startsWith(STOCK_PATH_PREFIX);
+
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const IDB_PREFIX = 'signed-url:';
 const idbKey = (cacheKey: string): string => `${IDB_PREFIX}${cacheKey}`;

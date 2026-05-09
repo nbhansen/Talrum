@@ -285,21 +285,34 @@ interface ReplaceImageInput {
   pictogramId: string;
   blob: Blob;
   extension: string;
-  /** Path of the prior image; stock-prefixed values get cleaned up by the handler. */
+  /** Path of the prior image. Stock-prefixed (`stock:<slug>`) values are skipped by the handler — only real Storage objects are removed. */
   previousPath?: string | undefined;
 }
 
-export const useReplacePictogramImage = (): UseMutationResult<void, Error, ReplaceImageInput> => {
+export const useReplacePictogramImage = (): UseMutationResult<
+  void,
+  Error,
+  ReplaceImageInput,
+  { previous: Pictogram[] | undefined }
+> => {
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
   return useMutation({
-    onMutate: ({ pictogramId, blob }) => {
+    onMutate: async ({ pictogramId, blob }) => {
+      // Cancel in-flight refetches so a stale list response can't overwrite
+      // the optimistic blob URL between onMutate and onSuccess. Snapshot the
+      // pre-patch list so onError can restore the prior `imagePath` if the
+      // upload fails — without this the user sees a wiped tile (the blob URL
+      // gets revoked) until the next refetch.
+      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
+      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
       const blobUrl = URL.createObjectURL(blob);
       qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
         patchPictogramInList(list, pictogramId, (p) =>
           p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
         ),
       );
+      return { previous };
     },
     mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
       enqueueAndDrain({
@@ -314,8 +327,13 @@ export const useReplacePictogramImage = (): UseMutationResult<void, Error, Repla
       revokePictogramBlobs(qc);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
-    onError: () => {
+    onError: (_err, _input, ctx) => {
+      // Revoke first while the blob URL is still in the cache (revoke walks
+      // current cache state), then restore the pre-mutation snapshot so the
+      // tile shows its prior imagePath. Restoring first would orphan the
+      // blob URL — it'd be unreachable from the cache and never revoked.
       revokePictogramBlobs(qc);
+      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
       qc.invalidateQueries({ queryKey: pictogramsQueryKey });
     },
   });

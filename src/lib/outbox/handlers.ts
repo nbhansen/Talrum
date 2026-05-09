@@ -2,6 +2,7 @@ import {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
   invalidateSignedUrl,
+  isUploadedStoragePath,
   removeFromBucket,
   uploadBlob,
 } from '@/lib/storage';
@@ -17,10 +18,6 @@ import type {
   SetPictogramAudioEntry,
   UpdateBoardEntry,
 } from './types';
-
-const STOCK_PREFIX = 'stock:';
-const isUploadedPath = (path: string | undefined): path is string =>
-  !!path && !path.startsWith(STOCK_PREFIX);
 
 /**
  * Thrown by handlers when the failure is permanent (RLS denial, validation,
@@ -143,7 +140,7 @@ const handleReplacePictogramImage = async (entry: ReplacePictogramImageEntry): P
       .update({ image_path: path })
       .eq('id', entry.pictogramId);
     if (error) throw error;
-    if (isUploadedPath(entry.previousPath) && entry.previousPath !== path) {
+    if (isUploadedStoragePath(entry.previousPath) && entry.previousPath !== path) {
       await removeFromBucket(IMAGES_BUCKET, [entry.previousPath]).catch(() => undefined);
       invalidateSignedUrl(IMAGES_BUCKET, entry.previousPath);
     }
@@ -154,10 +151,19 @@ const handleReplacePictogramImage = async (entry: ReplacePictogramImageEntry): P
 
 const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void> => {
   try {
-    // Scrub the picto id from every owned board's step_ids. Done before the
-    // row delete so RLS never sees an in-between state. Single round-trip via
-    // .in() — array_remove is idempotent so a retry after partial success is
-    // safe.
+    // Order matters: scrub boards' step_ids → clean up storage → delete the
+    // pictograms row last. step_ids is a uuid[] with no FK, so we have to
+    // strip references manually before the row goes away (otherwise boards
+    // that referenced it keep dangling UUIDs). Storage cleanup runs *before*
+    // the row delete so a transient storage failure throws and the outbox
+    // retries the whole entry — once the row is gone, a retry can't re-derive
+    // which keys to remove. Each step is idempotent on retry: the SELECT
+    // re-reads current step_ids, the UPDATEs are no-ops where already
+    // scrubbed, the storage removes return success on missing keys, and the
+    // final DELETE returns no error if the row is already gone.
+    //
+    // The boards scrub takes one SELECT plus N sequential UPDATE calls (one
+    // per actually-referencing board); idempotent so retries are safe.
     if (entry.scrubFromBoardIds.length > 0) {
       const { data: rows, error: readErr } = await supabase
         .from('boards')
@@ -174,16 +180,16 @@ const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void>
         if (updErr) throw updErr;
       }
     }
-    const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
-    if (error) throw error;
-    if (isUploadedPath(entry.previousImagePath)) {
-      await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]).catch(() => undefined);
+    if (isUploadedStoragePath(entry.previousImagePath)) {
+      await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]);
       invalidateSignedUrl(IMAGES_BUCKET, entry.previousImagePath);
     }
-    if (isUploadedPath(entry.previousAudioPath)) {
-      await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]).catch(() => undefined);
+    if (isUploadedStoragePath(entry.previousAudioPath)) {
+      await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]);
       invalidateSignedUrl(AUDIO_BUCKET, entry.previousAudioPath);
     }
+    const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
+    if (error) throw error;
   } catch (err) {
     classifyAndThrow(err);
   }
