@@ -8,10 +8,9 @@ import {
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
+import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
 import type { Board, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
-
-import { pictogramsQueryKey } from './pictograms.read';
 
 export const pictogramToInsert = (
   p: Pictogram,
