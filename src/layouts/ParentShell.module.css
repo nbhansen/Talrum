@@ -54,26 +54,6 @@
   gap: var(--tal-space-3);
 }
 
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--tal-r-pill);
-  background: var(--tal-peach);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--tal-peach-ink);
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.avatar:hover {
-  filter: brightness(0.95);
-}
-
 .kidBtn {
   width: 56px;
   height: 56px;

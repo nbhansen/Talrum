@@ -208,7 +208,7 @@ describe('AuthGate', () => {
 
   // Regression cover for cross-user re-auth: signing out and back in as a
   // different user must propagate the new user.id all the way through
-  // SessionProvider so dependent hooks (mutations, useUserInitial) read the
+  // SessionProvider so dependent hooks (mutations, useUserEmail) read the
   // new user. Verifies AuthGate wires onAuthStateChange → setState →
   // SessionProvider value without missing a session swap.
   it('propagates a new session.user when onAuthStateChange fires after re-auth', async () => {
