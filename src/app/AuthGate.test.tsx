@@ -335,27 +335,30 @@ describe('AuthGate', () => {
   // mount; the current project's key (derived from VITE_SUPABASE_URL) is
   // preserved.
   it('sweeps stale sb-*-auth-token keys on mount, preserving the current project key (#184)', async () => {
-    // .env.local pins VITE_SUPABASE_URL at https://wcwkxjjhribuecvcdenm.supabase.co
-    // for tests. The first segment of the host is the project ref.
-    const currentHost = new URL(import.meta.env.VITE_SUPABASE_URL).host;
-    const currentRef = currentHost.split(':')[0]?.split('.')[0] ?? '';
-    const currentKey = `sb-${currentRef}-auth-token`;
+    // Stub the env var explicitly: CI doesn't load .env.local, so reading
+    // import.meta.env.VITE_SUPABASE_URL would be undefined.
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://testref.supabase.co');
+    const currentKey = 'sb-testref-auth-token';
 
-    localStorage.setItem(currentKey, '{"current":1}');
-    localStorage.setItem('sb-some-other-ref-auth-token', '{"stale":1}');
-    localStorage.setItem('sb-127-auth-token', '{"stale":2}');
+    try {
+      localStorage.setItem(currentKey, '{"current":1}');
+      localStorage.setItem('sb-some-other-ref-auth-token', '{"stale":1}');
+      localStorage.setItem('sb-127-auth-token', '{"stale":2}');
 
-    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
-    render(
-      <AuthGate>
-        <div>app</div>
-      </AuthGate>,
-    );
+      getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+      render(
+        <AuthGate>
+          <div>app</div>
+        </AuthGate>,
+      );
 
-    await waitFor(() => {
-      expect(localStorage.getItem('sb-some-other-ref-auth-token')).toBeNull();
-      expect(localStorage.getItem('sb-127-auth-token')).toBeNull();
-    });
-    expect(localStorage.getItem(currentKey)).toBe('{"current":1}');
+      await waitFor(() => {
+        expect(localStorage.getItem('sb-some-other-ref-auth-token')).toBeNull();
+        expect(localStorage.getItem('sb-127-auth-token')).toBeNull();
+      });
+      expect(localStorage.getItem(currentKey)).toBe('{"current":1}');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
