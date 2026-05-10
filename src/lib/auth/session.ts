@@ -33,14 +33,5 @@ export const useSession = (): Session => useSessionContext().session;
 export const useSessionUser = (): User => useSessionContext().user;
 export const useSignOut = (): (() => Promise<void>) => useSessionContext().signOut;
 
-/**
- * Uppercase first character of the user's email, or undefined when the user
- * has no email on the session (rare — e.g. phone-only auth, not used here).
- */
-export const useUserInitial = (): string | undefined => {
-  const first = useSessionUser().email?.[0];
-  return first ? first.toUpperCase() : undefined;
-};
-
-/** Same undefined caveat as useUserInitial — phone-only auth has no email. */
+/** Returns undefined for phone-only auth sessions, which have no email. */
 export const useUserEmail = (): string | undefined => useSessionUser().email;

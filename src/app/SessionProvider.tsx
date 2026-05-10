@@ -11,7 +11,7 @@ interface SessionProviderProps {
 /**
  * Single source of truth for the signed-in user. Mounted by AuthGate after
  * the session has resolved; descendants read via useSession / useSessionUser
- * / useSignOut / useUserInitial without subscribing to auth themselves.
+ * / useSignOut / useUserEmail without subscribing to auth themselves.
  */
 export const SessionProvider = ({ session, children }: SessionProviderProps): JSX.Element => {
   const value = useMemo<SessionContextValue>(

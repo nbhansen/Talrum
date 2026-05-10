@@ -1,6 +1,5 @@
 import type { JSX, ReactNode } from 'react';
 
-import { useUserInitial } from '@/lib/auth/session';
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
 import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';
@@ -29,8 +28,6 @@ interface ParentShellProps {
   /**
    * Page-specific kid-mode entry point. Each route picks the right board
    * (e.g. ParentHome → first sequence board; BoardBuilder → this board).
-   * The avatar shows the user's initial from session and navigates to
-   * /settings via onNav; it no longer signs out directly.
    */
   onKidMode?: () => void;
   title?: string;
@@ -48,7 +45,6 @@ export const ParentShell = ({
   right,
   children,
 }: ParentShellProps): JSX.Element => {
-  const userInitial = useUserInitial();
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -75,15 +71,6 @@ export const ParentShell = ({
           <button type="button" className={styles.kidBtn} onClick={onKidMode}>
             <LockIcon size={22} />
             <span>KID</span>
-          </button>
-          <button
-            type="button"
-            className={styles.avatar}
-            onClick={() => onNav?.('settings')}
-            title="Open settings"
-            aria-label="Open settings"
-          >
-            {userInitial ?? ''}
           </button>
         </div>
       </aside>

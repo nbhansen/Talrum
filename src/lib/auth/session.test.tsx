@@ -7,7 +7,7 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signOut: signOutMock } },
 }));
 
-const { useSession, useSessionUser, useSignOut, useUserInitial } = await import('./session');
+const { useSession, useSessionUser, useSignOut } = await import('./session');
 const { TestSessionProvider } = await import('./session.test-utils');
 
 describe('session hooks', () => {
@@ -19,11 +19,6 @@ describe('session hooks', () => {
   it('useSessionUser exposes the user', () => {
     const { result } = renderHook(() => useSessionUser(), { wrapper: TestSessionProvider });
     expect(result.current.email).toBe('parent@example.com');
-  });
-
-  it('useUserInitial returns the uppercase first character of the email', () => {
-    const { result } = renderHook(() => useUserInitial(), { wrapper: TestSessionProvider });
-    expect(result.current).toBe('P');
   });
 
   it('useSignOut calls supabase.auth.signOut', async () => {
