@@ -29,22 +29,6 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
     void speakPictogram(p, board.voiceMode);
   };
 
-  if (options.length === 0) {
-    return (
-      <KidModeLayout
-        eyebrow={board.name.toUpperCase()}
-        title="Pick one place"
-        titleSize="large"
-        onExit={onExit}
-        logoTint="sky"
-        logoTintInk="sky-ink"
-        logoContent={<ChoiceConnectorIcon size={22} />}
-      >
-        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
-      </KidModeLayout>
-    );
-  }
-
   return (
     <KidModeLayout
       eyebrow={board.name.toUpperCase()}
@@ -55,64 +39,73 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
       logoTintInk="sky-ink"
       logoContent={<ChoiceConnectorIcon size={22} />}
     >
-      <div className={styles.choices}>
-        {options.map((p, idx) => {
-          const accent = accentForIndex(idx);
-          const isPicked = pickedId === p.id;
-          const isOther = pickedId !== null && !isPicked;
-          const markerStyle = {
-            background: cssVar(accent.bg),
-            color: cssVar(accent.ink),
-          };
-          const choiceStyle = isPicked ? { borderColor: cssVar(accent.ink) } : {};
-          const mediaStyle = {
-            background: p.style === 'photo' ? 'var(--tal-surface-alt)' : cssVar(accent.bg),
-          };
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => pick(p)}
-              className={[
-                styles.choice,
-                isPicked && styles.choicePicked,
-                isOther && styles.choiceDim,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              style={choiceStyle}
-              aria-label={
-                board.labelsVisible ? undefined : `${String.fromCharCode(65 + idx)} ${p.label}`
-              }
-            >
-              <span className={styles.marker} style={markerStyle}>
-                {String.fromCharCode(65 + idx)}
-              </span>
-              <div className={styles.mediaWrap} style={mediaStyle}>
-                <PictogramMedia picto={p} size={260} radius="0" />
-                {isPicked && (
-                  <div className={styles.pickedBadge} style={{ background: cssVar(accent.ink) }}>
-                    <CheckIcon size={26} />
+      {options.length === 0 ? (
+        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
+      ) : (
+        <>
+          <div className={styles.choices}>
+            {options.map((p, idx) => {
+              const accent = accentForIndex(idx);
+              const isPicked = pickedId === p.id;
+              const isOther = pickedId !== null && !isPicked;
+              const markerStyle = {
+                background: cssVar(accent.bg),
+                color: cssVar(accent.ink),
+              };
+              const choiceStyle = isPicked ? { borderColor: cssVar(accent.ink) } : {};
+              const mediaStyle = {
+                background: p.style === 'photo' ? 'var(--tal-surface-alt)' : cssVar(accent.bg),
+              };
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => pick(p)}
+                  className={[
+                    styles.choice,
+                    isPicked && styles.choicePicked,
+                    isOther && styles.choiceDim,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={choiceStyle}
+                  aria-label={
+                    board.labelsVisible ? undefined : `${String.fromCharCode(65 + idx)} ${p.label}`
+                  }
+                >
+                  <span className={styles.marker} style={markerStyle}>
+                    {String.fromCharCode(65 + idx)}
+                  </span>
+                  <div className={styles.mediaWrap} style={mediaStyle}>
+                    <PictogramMedia picto={p} size={260} radius="0" />
+                    {isPicked && (
+                      <div
+                        className={styles.pickedBadge}
+                        style={{ background: cssVar(accent.ink) }}
+                      >
+                        <CheckIcon size={26} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              {board.labelsVisible && <span className={styles.label}>{p.label}</span>}
-            </button>
-          );
-        })}
-      </div>
-      <div className={styles.bottom}>
-        {pickedLabel ? (
-          <button type="button" className={styles.confirmBtn}>
-            <span className={styles.confirmCheck}>
-              <CheckIcon size={18} />
-            </span>
-            Let&apos;s go to {pickedLabel}
-          </button>
-        ) : (
-          <span className={styles.placeholder}>Tap one to choose ✨</span>
-        )}
-      </div>
+                  {board.labelsVisible && <span className={styles.label}>{p.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.bottom}>
+            {pickedLabel ? (
+              <button type="button" className={styles.confirmBtn}>
+                <span className={styles.confirmCheck}>
+                  <CheckIcon size={18} />
+                </span>
+                Let&apos;s go to {pickedLabel}
+              </button>
+            ) : (
+              <span className={styles.placeholder}>Tap one to choose ✨</span>
+            )}
+          </div>
+        </>
+      )}
     </KidModeLayout>
   );
 };
