@@ -319,13 +319,13 @@ describe('AuthGate', () => {
     localStorage.setItem('talrum:pin-hash', 'should-survive-refresh');
     localStorage.setItem('talrum:last-board', '{"id":"keep","kind":"sequence"}');
 
-    act(() => {
+    await act(async () => {
       lastAuthListener?.('TOKEN_REFRESHED', sessionA);
     });
-    // Two microtask flushes guarantee any unwanted async scrub would have
-    // landed; waitFor doesn't fit a negative assertion.
-    await Promise.resolve();
-    await Promise.resolve();
+    // `act(async)` flushes React updates from the dispatched event; the
+    // same-id branch is synchronous so nothing further needs to settle.
+    // waitFor doesn't fit a negative assertion (it would pass immediately
+    // without ever actually waiting).
     expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');
     expect(localStorage.getItem('talrum:last-board')).toBe('{"id":"keep","kind":"sequence"}');
   });
