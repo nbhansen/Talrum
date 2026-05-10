@@ -6,6 +6,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
@@ -83,24 +84,30 @@ export const pictogramsQueryKey = ['pictograms'] as const;
  * Convenience: same underlying query as `usePictograms`, but returns a
  * `Map<id, Pictogram>` so callers resolving `board.stepIds → Pictogram`
  * don't keep rebuilding the lookup. Returns an empty map while loading.
+ *
+ * Memoized on the `data` reference: React Query holds the array identity-
+ * stable until it changes, so each consumer recomputes the Map at most
+ * once per cache update — not once per render.
  */
 export const usePictogramsById = (): Map<string, Pictogram> => {
   const { data } = usePictograms();
-  return new Map((data ?? []).map((p) => [p.id, p]));
+  return useMemo(() => new Map((data ?? []).map((p) => [p.id, p])), [data]);
 };
 
 /**
  * Lookup by seed slug ('apple', 'book') — useful for the few client-side
  * lists that reference specific seed pictograms by name. User-uploaded
- * pictograms have no slug and aren't in this map.
+ * pictograms have no slug and aren't in this map. Memoized on `data`.
  */
 export const usePictogramsBySlug = (): Map<string, Pictogram> => {
   const { data } = usePictograms();
-  const out = new Map<string, Pictogram>();
-  for (const p of data ?? []) {
-    if (p.slug) out.set(p.slug, p);
-  }
-  return out;
+  return useMemo(() => {
+    const out = new Map<string, Pictogram>();
+    for (const p of data ?? []) {
+      if (p.slug) out.set(p.slug, p);
+    }
+    return out;
+  }, [data]);
 };
 
 const patchPictogramInList = (
