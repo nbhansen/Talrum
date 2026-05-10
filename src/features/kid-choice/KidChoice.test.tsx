@@ -136,4 +136,17 @@ describe('KidChoice', () => {
     // sure we suppress it rather than stacking it under the empty-state.
     expect(screen.queryByText(/Tap one to choose/)).not.toBeInTheDocument();
   });
+
+  it('shows the empty-state when every stepId references a missing pictogram', () => {
+    // Realistic production case: parent deletes a pictogram from Library
+    // while it's still referenced by a choice board.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(pictogramsQueryKey, []); // both park + zoo missing
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(/grown-up/i);
+  });
 });
