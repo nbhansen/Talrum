@@ -1,7 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
-import { type JSX, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Login } from '@/features/login/Login';
+import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useOnline } from '@/lib/useOnline';
@@ -31,14 +32,22 @@ const normalizePath = (p: string): string => p.replace(/\/$/, '') || '/';
 export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const [retryCount, setRetryCount] = useState(0);
+  // Track the previously-known user.id so we can detect a same-tab account
+  // switch (SIGNED_IN with a different user without an intervening
+  // SIGNED_OUT, #179) and scrub before mounting SessionProvider.
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: 'loading' });
+    // Sweep stale `sb-<other-host>-auth-token` keys left by previous
+    // VITE_SUPABASE_URL values (#184). One-shot per mount; idempotent.
+    sweepStaleAuthTokens(import.meta.env.VITE_SUPABASE_URL);
     supabase.auth
       .getSession()
       .then(({ data }) => {
         if (cancelled) return;
+        lastUserIdRef.current = data.session?.user.id ?? null;
         setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
       })
       .catch((err: unknown) => {
@@ -47,12 +56,15 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
         setState({ status: 'error', message });
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      // Drop the persisted React Query cache when the user signs out so the
-      // next sign-in (potentially a different account on the same device)
-      // doesn't briefly render the previous user's boards from disk.
-      if (event === 'SIGNED_OUT') {
+      const newUserId = session?.user.id ?? null;
+      // Skip the scrub on token refresh (same id) and the very first sign-in
+      // (no prior id) — those are not auth boundaries.
+      const isUserSwitch =
+        newUserId !== null && lastUserIdRef.current !== null && newUserId !== lastUserIdRef.current;
+      if (event === 'SIGNED_OUT' || isUserSwitch) {
         void clearPersistedCache();
       }
+      lastUserIdRef.current = newUserId;
       setState(session ? { status: 'in', session } : { status: 'out' });
     });
     return () => {

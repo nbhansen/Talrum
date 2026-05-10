@@ -49,6 +49,7 @@ const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSess
 afterEach(() => {
   getSessionMock.mockReset();
   onAuthStateChangeMock.mockClear();
+  window.localStorage.clear();
 });
 
 describe('AuthGate', () => {
@@ -236,5 +237,128 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
     });
+  });
+
+  // #178: PIN hash and last-board pointer live in localStorage and were
+  // surviving sign-out, locking the next user out of kid-mode and pointing
+  // their auto-launch at user A's board UUID. The scrub on SIGNED_OUT now
+  // wipes both via clearPersistedCache → clearPin/clearLastBoard.
+  it('clears talrum:pin-hash and talrum:last-board from localStorage on SIGNED_OUT (#178)', async () => {
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    localStorage.setItem('talrum:pin-hash', 'hash-of-1234');
+    localStorage.setItem('talrum:last-board', '{"id":"abc","kind":"sequence"}');
+
+    render(
+      <AuthGate>
+        <div data-testid="app-body">app</div>
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('app-body')).toBeInTheDocument();
+    });
+
+    act(() => {
+      lastAuthListener?.('SIGNED_OUT', null);
+    });
+    await waitFor(() => {
+      expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
+      expect(localStorage.getItem('talrum:last-board')).toBeNull();
+    });
+  });
+
+  // #179: SIGNED_IN can fire for a different user without an intervening
+  // SIGNED_OUT (close-tab-then-resume, or fast account-switch). Without a
+  // user-id-change scrub, user B briefly sees user A's persisted cache and
+  // localStorage residue.
+  it('scrubs PIN + last-board when SIGNED_IN fires for a new user without SIGNED_OUT (#179)', async () => {
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    const sessionB = makeSession('user-b-id', 'b@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    });
+
+    // User A's residue lands in localStorage during their session.
+    localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
+    localStorage.setItem('talrum:last-board', '{"id":"a-board","kind":"choice"}');
+
+    // No SIGNED_OUT — user B simply signs in on the same device.
+    act(() => {
+      lastAuthListener?.('SIGNED_IN', sessionB);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
+      expect(localStorage.getItem('talrum:last-board')).toBeNull();
+    });
+  });
+
+  // Token refreshes fire SIGNED_IN with the same user.id. Scrubbing on
+  // every SIGNED_IN would wipe the cache on a routine refresh and cause a
+  // visible reload flicker; the user-id check below avoids that.
+  it('does NOT scrub on SIGNED_IN with the same user.id (token refresh)', async () => {
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    });
+
+    localStorage.setItem('talrum:pin-hash', 'should-survive-refresh');
+    localStorage.setItem('talrum:last-board', '{"id":"keep","kind":"sequence"}');
+
+    act(() => {
+      lastAuthListener?.('TOKEN_REFRESHED', sessionA);
+    });
+    // Two microtask flushes guarantee any unwanted async scrub would have
+    // landed; waitFor doesn't fit a negative assertion.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');
+    expect(localStorage.getItem('talrum:last-board')).toBe('{"id":"keep","kind":"sequence"}');
+  });
+
+  // #184: switching VITE_SUPABASE_URL leaves the previous project's
+  // sb-<host>-auth-token in localStorage forever. AuthGate sweeps once on
+  // mount; the current project's key (derived from VITE_SUPABASE_URL) is
+  // preserved.
+  it('sweeps stale sb-*-auth-token keys on mount, preserving the current project key (#184)', async () => {
+    // Stub the env var explicitly: CI doesn't load .env.local, so reading
+    // import.meta.env.VITE_SUPABASE_URL would be undefined.
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://testref.supabase.co');
+    const currentKey = 'sb-testref-auth-token';
+
+    try {
+      localStorage.setItem(currentKey, '{"current":1}');
+      localStorage.setItem('sb-some-other-ref-auth-token', '{"stale":1}');
+      localStorage.setItem('sb-127-auth-token', '{"stale":2}');
+
+      getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+      render(
+        <AuthGate>
+          <div>app</div>
+        </AuthGate>,
+      );
+
+      await waitFor(() => {
+        expect(localStorage.getItem('sb-some-other-ref-auth-token')).toBeNull();
+        expect(localStorage.getItem('sb-127-auth-token')).toBeNull();
+      });
+      expect(localStorage.getItem(currentKey)).toBe('{"current":1}');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
