@@ -322,8 +322,8 @@ describe('AuthGate', () => {
     act(() => {
       lastAuthListener?.('TOKEN_REFRESHED', sessionA);
     });
-    // Give any unwanted async clearPersistedCache a chance to land before
-    // we assert the canaries are still present.
+    // Two microtask flushes guarantee any unwanted async scrub would have
+    // landed; waitFor doesn't fit a negative assertion.
     await Promise.resolve();
     await Promise.resolve();
     expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');

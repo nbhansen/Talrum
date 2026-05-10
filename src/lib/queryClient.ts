@@ -76,11 +76,16 @@ export const clearPersistedCache = async (): Promise<void> => {
   queryClient.clear();
   clearPin();
   clearLastBoard();
-  await persister.removeClient();
-  const all = await keys();
-  const stripeKeys = all.filter(
-    (k): k is string =>
-      typeof k === 'string' && (k.startsWith('outbox:') || k.startsWith('signed-url:')),
-  );
-  await Promise.all(stripeKeys.map((k) => del(k)));
+  // persister and the outbox/signed-url sweep touch disjoint IDB entries,
+  // so the round trips parallelize cleanly.
+  await Promise.all([
+    persister.removeClient(),
+    keys().then((all) => {
+      const stripeKeys = all.filter(
+        (k): k is string =>
+          typeof k === 'string' && (k.startsWith('outbox:') || k.startsWith('signed-url:')),
+      );
+      return Promise.all(stripeKeys.map((k) => del(k)));
+    }),
+  ]);
 };

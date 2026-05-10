@@ -58,9 +58,6 @@ describe('sweepStaleAuthTokens', () => {
     localStorage.setItem('sb-stale-auth-token', '{"stale":1}');
 
     expect(() => sweepStaleAuthTokens('not a url')).not.toThrow();
-
-    // Without a parseable host we cannot identify the current key, so leave
-    // everything in place rather than risk wiping a valid session.
     expect(localStorage.getItem('sb-stale-auth-token')).toBe('{"stale":1}');
   });
 });

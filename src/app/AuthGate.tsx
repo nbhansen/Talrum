@@ -56,12 +56,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
         setState({ status: 'error', message });
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      // Drop ALL per-user persisted state at any auth boundary so the next
-      // user starts clean: explicit SIGNED_OUT, or a SIGNED_IN whose user.id
-      // differs from the one we last saw (account switch in the same tab).
-      // Token refreshes (same id) and the very first sign-in (no prior id)
-      // intentionally skip the scrub.
       const newUserId = session?.user.id ?? null;
+      // Skip the scrub on token refresh (same id) and the very first sign-in
+      // (no prior id) — those are not auth boundaries.
       const isUserSwitch =
         newUserId !== null && lastUserIdRef.current !== null && newUserId !== lastUserIdRef.current;
       if (event === 'SIGNED_OUT' || isUserSwitch) {
