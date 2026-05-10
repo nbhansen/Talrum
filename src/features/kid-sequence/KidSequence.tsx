@@ -5,6 +5,7 @@ import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import type { Board, Pictogram } from '@/types/domain';
+import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { SpeakerIcon } from '@/ui/icons';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
 import { type DragBindings, Reorderable } from '@/ui/Reorderable/Reorderable';
@@ -100,17 +101,21 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
 
   return (
     <KidModeLayout eyebrow={board.name.toUpperCase()} title="" onExit={onExit}>
-      <div className={styles.strip}>
-        {board.kidReorderable ? (
-          <Reorderable
-            items={steps}
-            onReorder={handleReorder}
-            renderItem={(step, _i, drag) => <div key={step.key}>{renderTile(step, drag)}</div>}
-          />
-        ) : (
-          steps.map((step) => <div key={step.key}>{renderTile(step)}</div>)
-        )}
-      </div>
+      {steps.length === 0 ? (
+        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
+      ) : (
+        <div className={styles.strip}>
+          {board.kidReorderable ? (
+            <Reorderable
+              items={steps}
+              onReorder={handleReorder}
+              renderItem={(step, _i, drag) => <div key={step.key}>{renderTile(step, drag)}</div>}
+            />
+          ) : (
+            steps.map((step) => <div key={step.key}>{renderTile(step)}</div>)
+          )}
+        </div>
+      )}
     </KidModeLayout>
   );
 };
