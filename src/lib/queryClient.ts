@@ -3,6 +3,9 @@ import { QueryClient } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { del, get, keys, set } from 'idb-keyval';
 
+import { clearLastBoard } from './lastBoard';
+import { clearPin } from './pin';
+
 /**
  * AAC use is calm, not real-time. Skip focus-refetching so an iPad tap away
  * doesn't churn; keep data fresh for 30s so a mutation + immediate re-read
@@ -49,8 +52,9 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
 };
 
 /**
- * Drop ALL per-user persisted state on sign-out so the next user starts
- * clean. Called by AuthGate's onAuthStateChange handler. Wipes:
+ * Drop ALL per-user persisted state at an auth boundary (sign-out, or a
+ * same-tab switch to a different user.id) so the next user starts clean.
+ * Called by AuthGate's onAuthStateChange handler. Wipes:
  *   - The React Query cache (in-memory + persisted under the persister key).
  *   - Every queued outbox entry — without this, mutations queued offline by
  *     user A would replay against user B's session on next sign-in. RLS
@@ -59,12 +63,19 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
  *     about user A's prior intent.
  *   - Persisted signed-URL entries — same logic, those reference user A's
  *     storage paths.
+ *   - The parent PIN hash (#178) — otherwise user B is locked out of kid
+ *     mode by user A's PIN on a shared device.
+ *   - The last-board pointer (#178) — otherwise user B's auto-launch lands
+ *     on user A's board UUID, which 404s under RLS.
  *
- * Synchronous from the caller's POV; the IDB deletes race with the next
- * sign-in's hydration but every operation is idempotent.
+ * Synchronous from the caller's POV for the localStorage clears; the IDB
+ * deletes race with the next sign-in's hydration but every operation is
+ * idempotent.
  */
 export const clearPersistedCache = async (): Promise<void> => {
   queryClient.clear();
+  clearPin();
+  clearLastBoard();
   await persister.removeClient();
   const all = await keys();
   const stripeKeys = all.filter(
