@@ -135,4 +135,25 @@ describe('KidSequence', () => {
     expect(screen.getByText('Apple')).toBeInTheDocument();
     expect(screen.queryByText('Drink')).not.toBeInTheDocument();
   });
+
+  it('shows a friendly empty-state when the board has zero steps (#183)', () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidSequence board={{ ...board, stepIds: [] }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(/grown-up/i);
+  });
+
+  it('shows the empty-state when every stepId references a missing pictogram', () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(pictogramsQueryKey, []); // both apple + cup missing
+    render(
+      <Wrap qc={qc}>
+        <KidSequence board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(/grown-up/i);
+  });
 });

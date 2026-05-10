@@ -5,6 +5,7 @@ import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import { accentForIndex, cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
+import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
 
@@ -27,6 +28,22 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
     setPickedId(p.id);
     void speakPictogram(p, board.voiceMode);
   };
+
+  if (options.length === 0) {
+    return (
+      <KidModeLayout
+        eyebrow={board.name.toUpperCase()}
+        title="Pick one place"
+        titleSize="large"
+        onExit={onExit}
+        logoTint="sky"
+        logoTintInk="sky-ink"
+        logoContent={<ChoiceConnectorIcon size={22} />}
+      >
+        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
+      </KidModeLayout>
+    );
+  }
 
   return (
     <KidModeLayout
