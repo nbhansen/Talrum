@@ -40,10 +40,10 @@ const fetchPictograms = async (): Promise<Pictogram[]> => {
   return data.map(rowToPictogram);
 };
 
-export const usePictograms = (): UseQueryResult<Pictogram[]> =>
-  useQuery({ queryKey: ['pictograms'], queryFn: fetchPictograms });
-
 export const pictogramsQueryKey = ['pictograms'] as const;
+
+export const usePictograms = (): UseQueryResult<Pictogram[]> =>
+  useQuery({ queryKey: pictogramsQueryKey, queryFn: fetchPictograms });
 
 /**
  * Convenience: same underlying query as `usePictograms`, but returns a
