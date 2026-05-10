@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Kid } from '@/types/domain';
@@ -46,10 +46,10 @@ describe('KidSheet', () => {
     render(<KidSheet kid={liam} boardCount={0} onClose={onClose} />);
     fireEvent.change(screen.getByDisplayValue('Liam'), { target: { value: 'Liam Jr.' } });
     fireEvent.click(screen.getByRole('button', { name: /save name/i }));
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(renameMock).toHaveBeenCalledWith({ kidId: 'k1', name: 'Liam Jr.' });
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(renameMock).toHaveBeenCalledWith({ kidId: 'k1', name: 'Liam Jr.' });
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it('disables Save when the name is unchanged or empty', () => {
@@ -95,9 +95,9 @@ describe('KidSheet', () => {
     expect(deleteMock).not.toHaveBeenCalled();
     // Second click confirms.
     fireEvent.click(screen.getByRole('button', { name: /delete forever/i }));
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(deleteMock).toHaveBeenCalledWith({ kidId: 'k1' });
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(deleteMock).toHaveBeenCalledWith({ kidId: 'k1' });
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 });

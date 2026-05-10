@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Board, Pictogram } from '@/types/domain';
@@ -102,11 +102,10 @@ describe('PictogramSheet', () => {
     const input = screen.getByDisplayValue('Apple');
     fireEvent.change(input, { target: { value: 'Big apple' } });
     fireEvent.click(screen.getByRole('button', { name: /save label/i }));
-    // Drain the awaited mutateAsync.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(renameMock).toHaveBeenCalledWith({ pictogramId: 'p1', label: 'Big apple' });
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(renameMock).toHaveBeenCalledWith({ pictogramId: 'p1', label: 'Big apple' });
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it('disables Save when the label is unchanged or empty', () => {
@@ -139,13 +138,13 @@ describe('PictogramSheet', () => {
     expect(deleteMock).not.toHaveBeenCalled();
     // Second click confirms.
     fireEvent.click(screen.getByRole('button', { name: /delete forever/i }));
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(deleteMock).toHaveBeenCalledWith({
-      pictogramId: 'p1',
-      scrubFromBoardIds: ['b1', 'b2'],
+    await waitFor(() => {
+      expect(deleteMock).toHaveBeenCalledWith({
+        pictogramId: 'p1',
+        scrubFromBoardIds: ['b1', 'b2'],
+      });
+      expect(onClose).toHaveBeenCalled();
     });
-    expect(onClose).toHaveBeenCalled();
   });
 
   it('shows a "used on N boards" hint when the picto is referenced', () => {

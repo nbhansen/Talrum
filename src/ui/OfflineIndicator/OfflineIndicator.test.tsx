@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const useOutboxStatusMock = vi.fn();
@@ -83,10 +83,7 @@ describe('OfflineIndicator', () => {
     discardEntryMock.mockResolvedValue(undefined);
     render(<OfflineIndicator />);
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    // Let the discardAllFailed promise chain settle.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(discardEntryMock).toHaveBeenCalledWith('a');
+    await waitFor(() => expect(discardEntryMock).toHaveBeenCalledWith('a'));
     expect(discardEntryMock).not.toHaveBeenCalledWith('b');
     expect(kickMock).not.toHaveBeenCalled();
   });
