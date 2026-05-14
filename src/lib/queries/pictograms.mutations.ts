@@ -10,32 +10,6 @@ import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
 import type { Board, Pictogram } from '@/types/domain';
-import type { Database } from '@/types/supabase';
-
-export const pictogramToInsert = (
-  p: Pictogram,
-  ownerId: string,
-): Database['public']['Tables']['pictograms']['Insert'] =>
-  p.style === 'illus'
-    ? {
-        id: p.id,
-        owner_id: ownerId,
-        slug: p.slug ?? null,
-        label: p.label,
-        style: 'illus',
-        glyph: p.glyph,
-        tint: p.tint,
-        audio_path: p.audioPath ?? null,
-      }
-    : {
-        id: p.id,
-        owner_id: ownerId,
-        slug: p.slug ?? null,
-        label: p.label,
-        style: 'photo',
-        image_path: p.imagePath ?? null,
-        audio_path: p.audioPath ?? null,
-      };
 
 const patchPictogramInList = (
   list: Pictogram[] | undefined,
