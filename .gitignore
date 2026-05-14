@@ -23,3 +23,6 @@ skills-lock.json
 
 # Git worktrees (isolated workspaces for parallel branches)
 .worktrees/
+
+# Graphify output (local knowledge graph artifacts)
+graphify-out/
