@@ -1,0 +1,10 @@
+.line {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.version {
+  color: var(--tal-ink);
+  font-weight: 600;
+}
