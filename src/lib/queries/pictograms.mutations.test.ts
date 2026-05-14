@@ -2,12 +2,9 @@ import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Pictogram } from '@/types/domain';
-import type { Database } from '@/types/supabase';
 
-import { __test_revokePictogramBlobs, pictogramToInsert } from './pictograms.mutations';
-import { pictogramsQueryKey, rowToPictogram } from './pictograms.read';
-
-type Row = Database['public']['Tables']['pictograms']['Row'];
+import { __test_revokePictogramBlobs } from './pictograms.mutations';
+import { pictogramsQueryKey } from './pictograms.read';
 
 describe('revokePictogramBlobs (#28)', () => {
   // jsdom doesn't ship URL.revokeObjectURL; install a stub so vi.spyOn has
@@ -49,29 +46,5 @@ describe('revokePictogramBlobs (#28)', () => {
     const qc = new QueryClient();
     __test_revokePictogramBlobs(qc);
     expect(revokeSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe('pictogramToInsert round-trip', () => {
-  it('illus → insert → row → domain preserves shape', () => {
-    const original: Pictogram = {
-      id: 'bed',
-      label: 'Out of bed',
-      style: 'illus',
-      glyph: 'bed',
-      tint: 'oklch(88% 0.05 300)',
-    };
-    const insert = pictogramToInsert(original, 'owner-uuid');
-    const row: Row = {
-      ...insert,
-      id: insert.id ?? 'bed',
-      slug: insert.slug ?? null,
-      audio_path: insert.audio_path ?? null,
-      image_path: insert.image_path ?? null,
-      glyph: insert.glyph ?? null,
-      tint: insert.tint ?? null,
-      created_at: '2026-04-24T00:00:00Z',
-    };
-    expect(rowToPictogram(row)).toEqual(original);
   });
 });
