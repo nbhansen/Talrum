@@ -1,0 +1,56 @@
+.muted {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tal-space-3);
+  margin-top: var(--tal-space-3);
+  align-items: center;
+}
+
+.button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--tal-space-3) var(--tal-space-4);
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  color: var(--tal-ink);
+  border: 1px solid var(--tal-line);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tal-space-3);
+  font-size: 14px;
+  color: var(--tal-ink);
+}
+
+.danger {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--tal-space-3) var(--tal-space-4);
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-danger);
+  color: white;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.flash {
+  margin-top: var(--tal-space-3);
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}

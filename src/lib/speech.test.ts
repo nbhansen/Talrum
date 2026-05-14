@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isSpeechSupported, speak } from './speech';
+import { __resetSpeechForTests, getAvailableVoices, isSpeechSupported, speak } from './speech';
+import { setSpeechPrefs } from './speechPrefs';
 
 interface FakeVoice {
   name: string;
   lang: string;
+  voiceURI?: string;
 }
 
 const makeFakeSynth = (voices: FakeVoice[]) => {
@@ -40,6 +42,8 @@ class StubUtterance {
 
 beforeEach(() => {
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
+  window.localStorage.removeItem('talrum:speech-prefs');
+  __resetSpeechForTests();
 });
 
 afterEach(() => {
@@ -87,5 +91,55 @@ describe('speak()', () => {
     speak('apple');
 
     expect(utters[0]?.voice?.name).toBe('Karen');
+  });
+
+  it('honors stored rate and pitch from speechPrefs', () => {
+    const { synth, utters } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    setSpeechPrefs({ rate: 1.4, pitch: 0.7, voiceURI: null });
+
+    speak('hello');
+
+    expect(utters[0]?.rate).toBe(1.4);
+    expect(utters[0]?.pitch).toBe(0.7);
+  });
+
+  it('uses the saved voiceURI when it matches an available voice', () => {
+    const voices = [
+      { name: 'Samantha', lang: 'en-US', voiceURI: 'urn:samantha' },
+      { name: 'Daniel', lang: 'en-GB', voiceURI: 'urn:daniel' },
+    ];
+    const { synth, utters } = makeFakeSynth(voices);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    setSpeechPrefs({ rate: 1, pitch: 1, voiceURI: 'urn:daniel' });
+
+    speak('hello');
+
+    expect(utters[0]?.voice?.name).toBe('Daniel');
+  });
+
+  it('falls back to the heuristic when the saved voiceURI is no longer present', () => {
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US', voiceURI: 'urn:samantha' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    setSpeechPrefs({ rate: 1, pitch: 1, voiceURI: 'urn:gone' });
+
+    speak('hello');
+
+    expect(utters[0]?.voice?.name).toBe('Samantha');
+  });
+});
+
+describe('getAvailableVoices()', () => {
+  it('returns the platform voice list', () => {
+    const { synth } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    expect(getAvailableVoices().map((v) => v.name)).toEqual(['Samantha']);
+  });
+
+  it('returns empty when speechSynthesis is unsupported', () => {
+    delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
+    expect(getAvailableVoices()).toEqual([]);
   });
 });

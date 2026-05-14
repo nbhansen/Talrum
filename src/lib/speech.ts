@@ -2,9 +2,12 @@
  * Thin wrapper around the browser's Web Speech API.
  *
  * `speechSynthesis.getVoices()` is async on first call in Chromium — voices
- * arrive via a `voiceschanged` event. We cache a preferred voice once it's
- * known so each `speak()` isn't a fresh lookup.
+ * arrive via a `voiceschanged` event. We cache a heuristic-picked voice once
+ * it's known so each `speak()` isn't a fresh lookup. The user's saved
+ * `voiceURI` (from speechPrefs) overrides the heuristic when present.
  */
+
+import { getSpeechPrefs } from './speechPrefs';
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
 let listenerAttached = false;
@@ -37,17 +40,49 @@ const ensureVoice = (synth: SpeechSynthesis): void => {
   );
 };
 
+const resolveVoice = (
+  synth: SpeechSynthesis,
+  voiceURI: string | null,
+): SpeechSynthesisVoice | null => {
+  if (voiceURI) {
+    const match = synth.getVoices().find((v) => v.voiceURI === voiceURI);
+    if (match) return match;
+  }
+  ensureVoice(synth);
+  return cachedVoice;
+};
+
 export const isSpeechSupported = (): boolean => getSynth() !== null;
+
+export const getAvailableVoices = (): readonly SpeechSynthesisVoice[] => {
+  const synth = getSynth();
+  return synth ? synth.getVoices() : [];
+};
+
+const noop = (): void => undefined;
+
+/**
+ * Subscribe to voice-list updates. Browsers populate the voice list async on
+ * first access (see `ensureVoice`), so the settings UI needs to re-read after
+ * the `voiceschanged` event fires. Returns an unsubscribe function.
+ */
+export const subscribeVoices = (cb: () => void): (() => void) => {
+  const synth = getSynth();
+  if (!synth) return noop;
+  synth.addEventListener('voiceschanged', cb);
+  return () => synth.removeEventListener('voiceschanged', cb);
+};
 
 export const speak = (text: string): void => {
   const synth = getSynth();
   if (!synth || !text.trim()) return;
-  ensureVoice(synth);
+  const prefs = getSpeechPrefs();
   synth.cancel();
   const utter = new SpeechSynthesisUtterance(text);
-  if (cachedVoice) utter.voice = cachedVoice;
-  utter.rate = 0.95;
-  utter.pitch = 1.05;
+  const voice = resolveVoice(synth, prefs.voiceURI);
+  if (voice) utter.voice = voice;
+  utter.rate = prefs.rate;
+  utter.pitch = prefs.pitch;
   synth.speak(utter);
 };
 
