@@ -151,9 +151,16 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Env-interpolated so local dev and prod can diverge cleanly. Set in shell or
+# via `--env-file` when running `supabase config push`:
+#   local:  SUPABASE_AUTH_SITE_URL=http://127.0.0.1:3000
+#           SUPABASE_AUTH_REDIRECT_URL=https://127.0.0.1:3000
+#   prod:   SUPABASE_AUTH_SITE_URL=https://talrum.pages.dev
+#           SUPABASE_AUTH_REDIRECT_URL=https://talrum.pages.dev/**
+site_url = "env(SUPABASE_AUTH_SITE_URL)"
+# A list of URLs that auth providers are permitted to redirect to post authentication.
+# Supports glob wildcards (e.g. `https://app.example.com/**`); see Supabase docs.
+additional_redirect_urls = ["env(SUPABASE_AUTH_REDIRECT_URL)"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -213,12 +220,18 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
+# Local-only value: prod has this `true`. e2e `delete_account_integration_test.sh`
+# signs up users and expects an immediate access_token, which requires `false` here.
+# DO NOT `supabase config push` from this file — it will weaken prod. Manage prod
+# auth.email and auth.mfa via the Supabase dashboard.
 enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
+# Local-only value: prod has "1m". See note above on enable_confirmations.
 max_frequency = "1s"
 # Number of characters used in the email OTP.
+# Local-only value: prod has 8. See note above on enable_confirmations.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
@@ -289,6 +302,7 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# Local-only values: prod has both `true`. See note above on enable_confirmations.
 [auth.mfa.totp]
 enroll_enabled = false
 verify_enabled = false
