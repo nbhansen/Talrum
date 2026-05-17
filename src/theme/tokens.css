@@ -2,10 +2,9 @@
  * Talrum design tokens.
  * Soft, calm, low-stim palette. Warm off-white base, muted pastels, pen-ink text.
  * All accents share low chroma (~0.05) so nothing visually screams.
- * Applied via the `:global(.tal)` scope — matches the prototype's `.tal` wrapper.
  */
 
-:global(.tal) {
+:root {
   /* Surfaces */
   --tal-bg: oklch(97.5% 0.008 85);
   --tal-surface: oklch(99% 0.004 85);

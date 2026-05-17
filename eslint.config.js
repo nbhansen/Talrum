@@ -40,6 +40,17 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      // #218: prevent side-effect imports of .module.css — prod minification
+      // drops their rules. Global CSS belongs in a plain .css file.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]",
+          message:
+            'Side-effect import of a .module.css file. CSS Modules must be imported as `import styles from ...`. For global CSS, rename to plain .css.',
+        },
+      ],
     },
   },
   {
@@ -96,6 +107,10 @@ export default tseslint.config(
     ],
     ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     rules: {
+      // Flat-config gotcha: this 'no-restricted-syntax' array fully replaces
+      // the one defined in the top-level block for files matched here, so
+      // the .module.css guard from #218 must be re-stated alongside the
+      // Supabase boundary checks to remain active in features/ui/layouts.
       'no-restricted-syntax': [
         'error',
         {
@@ -109,6 +124,12 @@ export default tseslint.config(
             "MemberExpression[object.name='supabase'][property.name='auth']",
           message:
             'supabase.auth.* is centralized — use hooks/helpers from @/lib/auth/ (useEmailOtp, performSignOut). AuthGate (src/app/) is the sole legitimate subscriber.',
+        },
+        {
+          selector:
+            "ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]",
+          message:
+            'Side-effect import of a .module.css file. CSS Modules must be imported as `import styles from ...`. For global CSS, rename to plain .css.',
         },
       ],
     },

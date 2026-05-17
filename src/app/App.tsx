@@ -27,14 +27,12 @@ const AppRootFallback = (): JSX.Element => (
 );
 
 export const App = (): React.JSX.Element => (
-  <div className="tal">
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      <AuthGate>
-        <ErrorBoundary fallback={() => <AppRootFallback />}>
-          <RouterProvider router={router} future={{ v7_startTransition: true }} />
-        </ErrorBoundary>
-      </AuthGate>
-      <SwUpdatePrompt />
-    </PersistQueryClientProvider>
-  </div>
+  <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+    <AuthGate>
+      <ErrorBoundary fallback={() => <AppRootFallback />}>
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      </ErrorBoundary>
+    </AuthGate>
+    <SwUpdatePrompt />
+  </PersistQueryClientProvider>
 );

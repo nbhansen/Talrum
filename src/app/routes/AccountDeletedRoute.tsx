@@ -14,7 +14,7 @@ import type { JSX } from 'react';
  * remounts, sees the new pathname `/`, and renders <Login /> as expected.
  */
 export const AccountDeletedRoute = (): JSX.Element => (
-  <main role="main" className="tal" data-testid="account-deleted-route">
+  <main role="main" data-testid="account-deleted-route">
     <h1>Your account has been deleted</h1>
     <p>
       All your data — kids, boards, pictograms, and recordings — has been removed. This cannot be

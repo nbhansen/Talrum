@@ -112,7 +112,7 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
 
   if (hung && !online) {
     return (
-      <div className={`tal ${styles.error}`}>
+      <div className={styles.error}>
         <h1 className={styles.errorTitle}>You're offline</h1>
         <p className={styles.errorBody}>
           We can't reach the server right now. Retry once your connection is back.
@@ -124,7 +124,7 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
     );
   }
   return (
-    <div className={`tal ${styles.loading}`}>
+    <div className={styles.loading}>
       <Spinner />
       <p className={styles.loadingBody}>Loading…</p>
     </div>
@@ -138,7 +138,7 @@ const AuthGateError = ({
   message: string;
   onRetry: () => void;
 }): JSX.Element => (
-  <div className={`tal ${styles.error}`}>
+  <div className={styles.error}>
     <h1 className={styles.errorTitle}>Could not reach the server</h1>
     <p className={styles.errorBody}>{message}</p>
     <AuthGateOfflineHint />

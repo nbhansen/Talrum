@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import policyMarkdown from '../../../docs/privacy-policy.md?raw';
 
 export const PrivacyPolicyRoute = (): JSX.Element => (
-  <main role="main" className="tal" data-testid="privacy-policy-route">
+  <main role="main" data-testid="privacy-policy-route">
     <ReactMarkdown>{policyMarkdown}</ReactMarkdown>
   </main>
 );

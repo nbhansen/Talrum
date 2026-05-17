@@ -77,7 +77,7 @@ export const kidRouteFallback = (): ReactNode => (
 );
 
 const parentSuspenseFallback = (
-  <div className={`tal ${styles.parentSuspense}`}>
+  <div className={styles.parentSuspense}>
     <Spinner />
     <p className={styles.parentSuspenseBody}>Loading…</p>
   </div>
