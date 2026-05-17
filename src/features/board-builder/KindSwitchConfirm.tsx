@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 
+import { kindLabel } from '@/lib/boardKindVocab';
 import type { BoardKind } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogActions } from '@/ui/DialogActions/DialogActions';
@@ -17,9 +18,6 @@ interface KindSwitchConfirmProps {
   onCancel: () => void;
 }
 
-// TODO(#236): replace with kindLabel from src/lib/boardKindVocab once #238 merges.
-const label = (kind: BoardKind): string => (kind === 'sequence' ? 'Sequence' : 'Choice');
-
 const BODY: Record<BoardKind, string> = {
   sequence:
     'Tiles become an ordered step list. The "Kid can reorder" toggle becomes available. Choice-only OR grouping no longer applies in kid mode.',
@@ -36,8 +34,8 @@ export const KindSwitchConfirm = ({
   <Modal onClose={onCancel} labelledBy={TITLE_ID}>
     <div className={styles.wrap}>
       <DialogHeader
-        title={`Switch to ${label(next)}?`}
-        subtitle={`This board is currently a ${label(current)} board. Switching changes how kids interact with it.`}
+        title={`Switch to ${kindLabel(next)}?`}
+        subtitle={`This board is currently a ${kindLabel(current)} board. Switching changes how kids interact with it.`}
         titleId={TITLE_ID}
         onClose={onCancel}
       />
@@ -47,7 +45,7 @@ export const KindSwitchConfirm = ({
           Cancel
         </Button>
         <Button type="button" variant="primary" onClick={onConfirm}>
-          Switch to {label(next)}
+          Switch to {kindLabel(next)}
         </Button>
       </DialogActions>
     </div>
