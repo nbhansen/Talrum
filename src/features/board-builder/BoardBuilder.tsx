@@ -10,7 +10,7 @@ import {
   useSetVoiceMode,
 } from '@/lib/queries/boards';
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
-import type { Board, Pictogram } from '@/types/domain';
+import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
 import { PictogramSheet } from '@/ui/PictogramSheet/PictogramSheet';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
@@ -18,6 +18,7 @@ import { Reorderable } from '@/ui/Reorderable/Reorderable';
 
 import styles from './BoardBuilder.module.css';
 import { BoardErrorBanner } from './BoardErrorBanner';
+import { KindSwitchConfirm } from './KindSwitchConfirm';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 
@@ -77,6 +78,7 @@ export const BoardBuilder = ({
   // on every board.name change would clobber in-progress typing when the
   // previous debounced write lands.
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
+  const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [titleDraft, setTitleDraft] = useState(board.name);
   useEffect(() => setTitleDraft(board.name), [board.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,7 +151,10 @@ export const BoardBuilder = ({
 
       <SettingsRow
         kind={board.kind}
-        onKindChange={(kind) => setKind.mutate({ boardId: board.id, kind })}
+        onKindChange={(kind) => {
+          if (kind === board.kind) return;
+          setPendingKind(kind);
+        }}
         labelsVisible={board.labelsVisible}
         onLabelsChange={(visible) => setLabels.mutate({ boardId: board.id, visible })}
         voiceMode={board.voiceMode}
@@ -210,6 +215,17 @@ export const BoardBuilder = ({
         </div>
       </section>
       {editTarget && <PictogramSheet picto={editTarget} onClose={() => setEditTarget(null)} />}
+      {pendingKind && (
+        <KindSwitchConfirm
+          current={board.kind}
+          next={pendingKind}
+          onCancel={() => setPendingKind(null)}
+          onConfirm={() => {
+            setKind.mutate({ boardId: board.id, kind: pendingKind });
+            setPendingKind(null);
+          }}
+        />
+      )}
     </ParentShell>
   );
 };
