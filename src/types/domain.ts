@@ -1,4 +1,4 @@
-import type { ColorToken } from '@/theme/tokens';
+import type { AccentBg } from '@/theme/tokens';
 
 /**
  * A CSS color expression used for pictogram tile backgrounds. Unlike the
@@ -77,7 +77,7 @@ export interface Board {
    * extra interaction surface.
    */
   kidReorderable: boolean;
-  accent: ColorToken;
+  accent: AccentBg;
   updatedLabel: string;
 }
 

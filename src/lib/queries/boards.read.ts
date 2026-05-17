@@ -2,7 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
 import { supabase } from '@/lib/supabase';
-import { type ColorToken } from '@/theme/tokens';
+import { type AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
@@ -24,7 +24,7 @@ export const rowToBoard = (row: BoardRow): Board => ({
   voiceMode: row.voice_mode as VoiceMode,
   stepIds: [...row.step_ids],
   kidReorderable: row.kid_reorderable,
-  accent: row.accent as ColorToken,
+  accent: row.accent as AccentBg,
   updatedLabel: formatUpdated(row.updated_at),
 });
 
