@@ -54,6 +54,17 @@ describe('KidChoice', () => {
     expect(screen.getByText('Zoo')).toBeInTheDocument();
   });
 
+  it('uses a generic "Pick one" title rather than baking in "place" (#237)', () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    expect(screen.getByText('Pick one')).toBeInTheDocument();
+    expect(screen.queryByText(/Pick one place/)).not.toBeInTheDocument();
+  });
+
   it('starts with no choice — a placeholder prompts to tap', () => {
     const qc = makeClient();
     render(

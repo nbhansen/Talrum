@@ -36,7 +36,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
   return (
     <KidModeLayout
       eyebrow={board.name.toUpperCase()}
-      title="Pick one place"
+      title="Pick one"
       titleSize="large"
       onExit={onExit}
       logoTint="sky"
