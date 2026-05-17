@@ -1,5 +1,6 @@
 import { type JSX, type ReactNode, useState } from 'react';
 
+import { kidCopy } from '@/lib/kidCopy';
 import { hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
 import { Modal } from '@/ui/Modal/Modal';
 
@@ -58,27 +59,28 @@ export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JS
         <Modal onClose={close}>
           {stage.kind === 'verify' && (
             <PinPad
-              title="Enter PIN to exit"
-              subtitle="Enter your 4-digit parent PIN."
+              title={kidCopy.pin.verifyTitle}
+              subtitle={kidCopy.pin.verifySubtitle}
               onSubmit={handleVerify}
               onCancel={close}
+              errorMessage={kidCopy.pin.wrongPin}
             />
           )}
           {stage.kind === 'setup-new' && (
             <PinPad
-              title="Set a parent PIN"
-              subtitle="Choose a 4-digit PIN for exiting kid mode."
+              title={kidCopy.pin.setupNewTitle}
+              subtitle={kidCopy.pin.setupNewSubtitle}
               onSubmit={handleSetupNew}
               onCancel={close}
             />
           )}
           {stage.kind === 'setup-confirm' && (
             <PinPad
-              title="Confirm your PIN"
-              subtitle="Enter the same 4 digits again."
+              title={kidCopy.pin.setupConfirmTitle}
+              subtitle={kidCopy.pin.setupConfirmSubtitle}
               onSubmit={handleSetupConfirm}
               onCancel={close}
-              errorMessage="PINs don't match"
+              errorMessage={kidCopy.pin.mismatchError}
             />
           )}
         </Modal>

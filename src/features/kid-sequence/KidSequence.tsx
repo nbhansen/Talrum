@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
+import { kidCopy } from '@/lib/kidCopy';
 import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
@@ -102,7 +103,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   return (
     <KidModeLayout eyebrow={board.name.toUpperCase()} title="" onExit={onExit}>
       {steps.length === 0 ? (
-        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
+        <EmptyState title={kidCopy.emptyBoard.title} body={kidCopy.emptyBoard.body} />
       ) : (
         <div className={styles.strip}>
           {board.kidReorderable ? (
