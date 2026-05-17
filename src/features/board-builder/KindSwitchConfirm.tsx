@@ -37,7 +37,7 @@ export const KindSwitchConfirm = ({
     <div className={styles.wrap}>
       <DialogHeader
         title={`Switch to ${label(next)}?`}
-        subtitle={`This board is currently a ${label(current)}. Switching changes how kids interact with it.`}
+        subtitle={`This board is currently a ${label(current)} board. Switching changes how kids interact with it.`}
         titleId={TITLE_ID}
         onClose={onCancel}
       />
