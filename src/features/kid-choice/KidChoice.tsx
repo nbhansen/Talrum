@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
+import { kidCopy } from '@/lib/kidCopy';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import { accentForIndex, cssVar } from '@/theme/tokens';
@@ -36,7 +37,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
   return (
     <KidModeLayout
       eyebrow={board.name.toUpperCase()}
-      title="Pick one"
+      title={kidCopy.choice.title}
       titleSize="large"
       onExit={onExit}
       logoTint="sky"
@@ -44,7 +45,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
       logoContent={<ChoiceConnectorIcon size={22} />}
     >
       {options.length === 0 ? (
-        <EmptyState title="This board is empty" body="Ask a grown-up to add some pictograms." />
+        <EmptyState title={kidCopy.emptyBoard.title} body={kidCopy.emptyBoard.body} />
       ) : (
         <>
           <div className={styles.choices}>
@@ -102,15 +103,15 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                 type="button"
                 className={styles.confirmBtn}
                 onClick={() => speakPicked(pickedPicto)}
-                aria-label={`Hear ${pickedPicto.label} again`}
+                aria-label={kidCopy.choice.hearAgain(pickedPicto.label)}
               >
                 <span className={styles.confirmCheck}>
                   <CheckIcon size={18} />
                 </span>
-                Let&apos;s go to {pickedPicto.label}
+                {kidCopy.choice.letsGoTo(pickedPicto.label)}
               </button>
             ) : (
-              <span className={styles.placeholder}>Tap one to choose ✨</span>
+              <span className={styles.placeholder}>{kidCopy.choice.tapPlaceholder}</span>
             )}
           </div>
         </>
