@@ -1,5 +1,5 @@
 /**
- * Typed token names matching the CSS custom properties in tokens.module.css.
+ * Typed token names matching the CSS custom properties in tokens.css.
  *
  * Components should prefer applying classes from CSS Modules that already
  * reference these tokens. `cssVar()` is only for the rare case where a value

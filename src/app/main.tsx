@@ -1,6 +1,6 @@
 import '@fontsource-variable/nunito';
-import '@/theme/tokens.module.css';
-import '@/theme/reset.module.css';
+import '@/theme/tokens.css';
+import '@/theme/reset.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
