@@ -3,6 +3,10 @@
 -- Order matters: recreate the trigger function first so it stops referencing
 -- the column, then drop. Body matches 20260425000000 except for the column
 -- list in the boards INSERT.
+--
+-- CREATE OR REPLACE preserves the function's OID, so the on_auth_user_created
+-- trigger binding from 20260425000000 keeps pointing at the same function
+-- record. No need to re-create the trigger.
 
 create or replace function private.handle_new_user() returns trigger
 language plpgsql security definer
@@ -34,12 +38,17 @@ begin
   end loop;
 
   for tb in select * from public.template_boards loop
+    -- `with ordinality` + `order by` pins step order: bare `unnest` has no
+    -- order guarantee. Board step order is user-facing (morning routine),
+    -- so we can't rely on planner behavior.
     remapped_steps := array(
       select (slug_to_uuid ->> s)::uuid
       from unnest(tb.step_slugs) with ordinality as t(s, ord)
       where slug_to_uuid ? s
       order by t.ord
     );
+    -- Raise loudly if a template_boards slug doesn't resolve. Silent short
+    -- boards would mask drift between template_pictograms and template_boards.
     if coalesce(array_length(remapped_steps, 1), 0)
        <> coalesce(array_length(tb.step_slugs, 1), 0) then
       raise exception
