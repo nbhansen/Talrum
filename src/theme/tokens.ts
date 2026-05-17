@@ -72,3 +72,11 @@ export const accentForIndex = (i: number): Accent => {
   }
   return accent;
 };
+
+/**
+ * Look up the ink that pairs with an accent bg. Falls back to the default
+ * `ink` token if the bg isn't an accent — keeps UI readable for any
+ * out-of-cycle value instead of crashing.
+ */
+export const inkForAccent = (bg: ColorToken): ColorToken =>
+  ACCENT_CYCLE.find((a) => a.bg === bg)?.ink ?? 'ink';

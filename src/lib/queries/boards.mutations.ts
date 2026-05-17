@@ -224,7 +224,6 @@ export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInp
           step_ids: [],
           kid_reorderable: false,
           accent: accent.bg,
-          accent_ink: accent.ink,
         })
         .select()
         .single();

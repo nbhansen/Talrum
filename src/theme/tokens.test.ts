@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { accentForIndex, cssVar, spaceVar } from './tokens';
+import { accentForIndex, cssVar, inkForAccent, spaceVar } from './tokens';
 
 describe('cssVar', () => {
   it('wraps a color token in a CSS var reference', () => {
@@ -22,5 +22,21 @@ describe('accentForIndex', () => {
     expect(accentForIndex(1)).toEqual({ bg: 'sky', ink: 'sky-ink' });
     expect(accentForIndex(2)).toEqual({ bg: 'peach', ink: 'peach-ink' });
     expect(accentForIndex(5)).toEqual(accentForIndex(0));
+  });
+});
+
+describe('inkForAccent', () => {
+  it.each([
+    ['sage', 'sage-ink'],
+    ['sky', 'sky-ink'],
+    ['peach', 'peach-ink'],
+    ['lavender', 'lavender-ink'],
+    ['sun', 'sun-ink'],
+  ] as const)('maps %s → %s', (bg, ink) => {
+    expect(inkForAccent(bg)).toBe(ink);
+  });
+
+  it('falls back to the default ink token when the bg is not an accent', () => {
+    expect(inkForAccent('photo-stripe-a')).toBe('ink');
   });
 });

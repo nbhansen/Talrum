@@ -78,7 +78,6 @@ export interface Board {
    */
   kidReorderable: boolean;
   accent: ColorToken;
-  accentInk: ColorToken;
   updatedLabel: string;
 }
 

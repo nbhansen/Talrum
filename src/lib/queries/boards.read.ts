@@ -9,9 +9,8 @@ import type { Database } from '@/types/supabase';
 export type BoardRow = Database['public']['Tables']['boards']['Row'];
 
 /**
- * DB columns for `kind`, `voice_mode`, `accent`, `accent_ink` are plain
- * `string` — Postgres CHECK constraints don't narrow TS types. The casts
- * below are safe because writes go through the mutation layer which only
+ * DB columns for `kind`, `voice_mode`, `accent` are plain `text`. The casts
+ * below are safe because writes flow through the mutation layer which only
  * ever supplies domain-typed values.
  */
 export const rowToBoard = (row: BoardRow): Board => ({
@@ -26,7 +25,6 @@ export const rowToBoard = (row: BoardRow): Board => ({
   stepIds: [...row.step_ids],
   kidReorderable: row.kid_reorderable,
   accent: row.accent as ColorToken,
-  accentInk: row.accent_ink as ColorToken,
   updatedLabel: formatUpdated(row.updated_at),
 });
 

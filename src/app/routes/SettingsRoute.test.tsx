@@ -92,7 +92,6 @@ describe('SettingsRoute', () => {
           stepIds: [],
           kidReorderable: false,
           accent: 'sage',
-          accentInk: 'sage-ink',
           updatedLabel: 'just now',
         },
       ],

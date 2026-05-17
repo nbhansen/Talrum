@@ -45,7 +45,6 @@ const baseBoard: Board = {
   stepIds: [],
   kidReorderable: false,
   accent: 'peach',
-  accentInk: 'peach-ink',
   updatedLabel: 'Edited just now',
 };
 

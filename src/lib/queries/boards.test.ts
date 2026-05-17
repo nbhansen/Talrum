@@ -18,7 +18,6 @@ const row = (overrides: Partial<Row> = {}): Row => ({
   step_ids: ['wakeup', 'brush', 'dress'],
   kid_reorderable: false,
   accent: 'peach',
-  accent_ink: 'peach-ink',
   updated_at: new Date().toISOString(),
   ...overrides,
 });
@@ -34,7 +33,6 @@ describe('rowToBoard', () => {
     expect(b.voiceMode).toBe('tts');
     expect(b.stepIds).toEqual(['wakeup', 'brush', 'dress']);
     expect(b.accent).toBe('peach');
-    expect(b.accentInk).toBe('peach-ink');
   });
 
   it('derives a human updatedLabel from updated_at', () => {

@@ -63,7 +63,6 @@ export type Database = {
       boards: {
         Row: {
           accent: string
-          accent_ink: string
           id: string
           kid_id: string
           kid_reorderable: boolean
@@ -78,7 +77,6 @@ export type Database = {
         }
         Insert: {
           accent: string
-          accent_ink: string
           id?: string
           kid_id: string
           kid_reorderable?: boolean
@@ -93,7 +91,6 @@ export type Database = {
         }
         Update: {
           accent?: string
-          accent_ink?: string
           id?: string
           kid_id?: string
           kid_reorderable?: boolean
@@ -179,7 +176,6 @@ export type Database = {
       template_boards: {
         Row: {
           accent: string
-          accent_ink: string
           kid_reorderable: boolean
           kind: string
           labels_visible: boolean
@@ -190,7 +186,6 @@ export type Database = {
         }
         Insert: {
           accent: string
-          accent_ink: string
           kid_reorderable: boolean
           kind: string
           labels_visible: boolean
@@ -201,7 +196,6 @@ export type Database = {
         }
         Update: {
           accent?: string
-          accent_ink?: string
           kid_reorderable?: boolean
           kind?: string
           labels_visible?: boolean

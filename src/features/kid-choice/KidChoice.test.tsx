@@ -26,7 +26,6 @@ const board: Board = {
   stepIds: [park.id, zoo.id],
   kidReorderable: false,
   accent: 'sky',
-  accentInk: 'sky-ink',
   updatedLabel: 'just now',
 };
 

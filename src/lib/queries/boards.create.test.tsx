@@ -48,7 +48,6 @@ const SERVER_ROW = {
   step_ids: [] as string[],
   kid_reorderable: false,
   accent: 'sage',
-  accent_ink: 'sage-ink',
   updated_at: '2026-04-26T12:00:00Z',
 };
 
@@ -90,7 +89,6 @@ describe('useCreateBoard', () => {
       step_ids: [],
       kid_reorderable: false,
       accent: 'sage',
-      accent_ink: 'sage-ink',
     });
     expect(returned?.name).toBe('Morning routine');
     expect(returned?.kind).toBe('sequence');
@@ -101,7 +99,7 @@ describe('useCreateBoard', () => {
 
   it('honors a caller-supplied accent override', async () => {
     singleMock.mockResolvedValueOnce({
-      data: { ...SERVER_ROW, accent: 'lavender', accent_ink: 'lavender-ink' },
+      data: { ...SERVER_ROW, accent: 'lavender' },
       error: null,
     });
 
@@ -120,7 +118,10 @@ describe('useCreateBoard', () => {
     });
 
     expect(insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ accent: 'lavender', accent_ink: 'lavender-ink', kind: 'choice' }),
+      expect.objectContaining({ accent: 'lavender', kind: 'choice' }),
+    );
+    expect(insertMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ accent_ink: expect.anything() }),
     );
   });
 
