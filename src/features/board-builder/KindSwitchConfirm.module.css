@@ -1,0 +1,13 @@
+.wrap {
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.body {
+  margin: var(--tal-space-3) 0 var(--tal-space-4);
+  color: var(--tal-ink-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
