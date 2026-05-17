@@ -151,10 +151,7 @@ export const BoardBuilder = ({
 
       <SettingsRow
         kind={board.kind}
-        onKindChange={(kind) => {
-          if (kind === board.kind) return;
-          setPendingKind(kind);
-        }}
+        onKindChange={setPendingKind}
         labelsVisible={board.labelsVisible}
         onLabelsChange={(visible) => setLabels.mutate({ boardId: board.id, visible })}
         voiceMode={board.voiceMode}
