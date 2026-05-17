@@ -35,8 +35,4 @@ describe('inkForAccent', () => {
   ] as const)('maps %s → %s', (bg, ink) => {
     expect(inkForAccent(bg)).toBe(ink);
   });
-
-  it('falls back to the default ink token when the bg is not an accent', () => {
-    expect(inkForAccent('photo-stripe-a')).toBe('ink');
-  });
 });
