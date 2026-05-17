@@ -8,7 +8,6 @@ import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 
 import { AuthGate } from './AuthGate';
 import { router } from './routes';
-import { SwUpdatePrompt } from './SwUpdatePrompt';
 
 // Last-resort fallback if anything escapes a route boundary or fires before
 // any route mounts. Lives outside RouterProvider so it can't use router hooks
@@ -33,6 +32,5 @@ export const App = (): React.JSX.Element => (
         <RouterProvider router={router} future={{ v7_startTransition: true }} />
       </ErrorBoundary>
     </AuthGate>
-    <SwUpdatePrompt />
   </PersistQueryClientProvider>
 );
