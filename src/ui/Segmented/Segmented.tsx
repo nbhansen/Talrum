@@ -29,7 +29,10 @@ export const Segmented = <V extends string>({
           role="tab"
           aria-selected={active}
           className={[styles.option, active && styles.active].filter(Boolean).join(' ')}
-          onClick={() => onChange(o.value)}
+          onClick={() => {
+            if (active) return;
+            onChange(o.value);
+          }}
         >
           <span>{o.label}</span>
           {active && o.sub && <span className={styles.sub}>{o.sub}</span>}
