@@ -115,8 +115,6 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
     );
     await userEvent.click(screen.getByRole('tab', { name: /Choice/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    // Anchor on the dialog heading specifically — "Switch to Choice" also
-    // appears in the confirm button label so a plain getByText is ambiguous.
     expect(screen.getByRole('heading', { name: /Switch to Choice/i })).toBeInTheDocument();
     expect(setBoardKindMock).not.toHaveBeenCalled();
   });

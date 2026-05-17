@@ -17,8 +17,7 @@ interface KindSwitchConfirmProps {
   onCancel: () => void;
 }
 
-// Inlined to avoid a cross-PR dependency on src/lib/boardKindVocab (which
-// ships in the #236 PR). Once that lands, this can route through kindLabel.
+// TODO(#236): replace with kindLabel from src/lib/boardKindVocab once #238 merges.
 const label = (kind: BoardKind): string => (kind === 'sequence' ? 'Sequence' : 'Choice');
 
 const BODY: Record<BoardKind, string> = {
