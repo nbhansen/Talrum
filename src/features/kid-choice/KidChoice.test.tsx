@@ -54,6 +54,17 @@ describe('KidChoice', () => {
     expect(screen.getByText('Zoo')).toBeInTheDocument();
   });
 
+  it('uses a generic "Pick one" title rather than baking in "place" (#237)', () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    expect(screen.getByText('Pick one')).toBeInTheDocument();
+    expect(screen.queryByText(/Pick one place/)).not.toBeInTheDocument();
+  });
+
   it('starts with no choice — a placeholder prompts to tap', () => {
     const qc = makeClient();
     render(
@@ -83,6 +94,23 @@ describe('KidChoice', () => {
     // Confirm CTA accessible name combines a CheckIcon (no name) with
     // split text nodes — anchor on the "Let's go to" prefix only.
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
+  });
+
+  it('tapping the confirm pill re-speaks the picked label (#231)', async () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Park/i }));
+    speakPictogramMock.mockClear();
+    await userEvent.click(screen.getByRole('button', { name: /Hear Park again/i }));
+    expect(speakPictogramMock).toHaveBeenCalledTimes(1);
+    expect(speakPictogramMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: park.id }),
+      'tts',
+    );
   });
 
   it('hides per-tile labels when board.labelsVisible is false, keeping marker+label as the accessible name', () => {
