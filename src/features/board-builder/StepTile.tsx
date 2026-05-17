@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 
+import { kindTileMarker } from '@/lib/boardKindVocab';
 import type { BoardKind, Pictogram } from '@/types/domain';
 import { PencilIcon, XIcon } from '@/ui/icons';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
@@ -27,8 +28,7 @@ export const StepTile = ({
   onEdit,
   drag,
 }: StepTileProps): JSX.Element => {
-  const marker =
-    kind === 'sequence' ? `STEP ${index + 1}` : `OPTION ${String.fromCharCode(65 + index)}`;
+  const marker = kindTileMarker(kind, index);
   return (
     <div
       ref={drag.setNodeRef}
