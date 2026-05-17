@@ -18,7 +18,6 @@ const row = (overrides: Partial<Row> = {}): Row => ({
   step_ids: ['wakeup', 'brush', 'dress'],
   kid_reorderable: false,
   accent: 'peach',
-  accent_ink: 'peach-ink',
   updated_at: new Date().toISOString(),
   ...overrides,
 });
@@ -35,6 +34,17 @@ describe('rowToBoard', () => {
     expect(b.stepIds).toEqual(['wakeup', 'brush', 'dress']);
     expect(b.accent).toBe('peach');
     expect(b.accentInk).toBe('peach-ink');
+  });
+
+  it('derives accentInk from accent rather than reading a stored column', () => {
+    expect(rowToBoard(row({ accent: 'sage' })).accentInk).toBe('sage-ink');
+    expect(rowToBoard(row({ accent: 'sky' })).accentInk).toBe('sky-ink');
+    expect(rowToBoard(row({ accent: 'lavender' })).accentInk).toBe('lavender-ink');
+    expect(rowToBoard(row({ accent: 'sun' })).accentInk).toBe('sun-ink');
+  });
+
+  it('falls back to the default ink token when accent is not in the cycle', () => {
+    expect(rowToBoard(row({ accent: 'photo-stripe-a' })).accentInk).toBe('ink');
   });
 
   it('derives a human updatedLabel from updated_at', () => {
