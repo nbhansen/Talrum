@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Talrum',
@@ -31,6 +31,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,jpg}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // Every new deploy: install → skip "waiting" → claim open tabs → next
+        // navigation serves the fresh bundle. Without these, users sit on a
+        // stale precache until they manually click "Reload" or close every tab.
+        skipWaiting: true,
+        clientsClaim: true,
         // CacheFirst keeps photo/audio bytes on disk so kid-mode in the car
         // works even after the signed-URL token has expired. URL persistence
         // (step 4) ensures we re-issue the same URL across reloads so the
