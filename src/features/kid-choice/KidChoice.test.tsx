@@ -96,6 +96,23 @@ describe('KidChoice', () => {
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
   });
 
+  it('tapping the confirm pill re-speaks the picked label (#231)', async () => {
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={board} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Park/i }));
+    speakPictogramMock.mockClear();
+    await userEvent.click(screen.getByRole('button', { name: /Hear Park again/i }));
+    expect(speakPictogramMock).toHaveBeenCalledTimes(1);
+    expect(speakPictogramMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: park.id }),
+      'tts',
+    );
+  });
+
   it('hides per-tile labels when board.labelsVisible is false, keeping marker+label as the accessible name', () => {
     const qc = makeClient();
     render(
