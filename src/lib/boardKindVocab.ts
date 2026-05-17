@@ -1,11 +1,5 @@
 import type { BoardKind } from '@/types/domain';
 
-/**
- * Single source of truth for per-kind copy. Adding a new BoardKind only
- * requires updating this module — callers in SettingsRow, StepTile, and
- * BoardCard pick up the new vocabulary automatically.
- */
-
 export const kindLabel = (kind: BoardKind): string => (kind === 'sequence' ? 'Sequence' : 'Choice');
 
 export const kindUnit = (kind: BoardKind, count: number): string => {
