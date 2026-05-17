@@ -2,7 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
 import { supabase } from '@/lib/supabase';
-import { type ColorToken, inkForAccent } from '@/theme/tokens';
+import { type ColorToken } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
@@ -12,26 +12,22 @@ export type BoardRow = Database['public']['Tables']['boards']['Row'];
  * DB columns for `kind`, `voice_mode`, `accent` are plain `string` — Postgres
  * CHECK constraints don't narrow TS types. The casts below are safe because
  * writes go through the mutation layer which only ever supplies domain-typed
- * values. `accentInk` is derived from `accent` rather than persisted (#240).
+ * values.
  */
-export const rowToBoard = (row: BoardRow): Board => {
-  const accent = row.accent as ColorToken;
-  return {
-    id: row.id,
-    ...(row.slug ? { slug: row.slug } : {}),
-    ownerId: row.owner_id,
-    kidId: row.kid_id,
-    name: row.name,
-    kind: row.kind as BoardKind,
-    labelsVisible: row.labels_visible,
-    voiceMode: row.voice_mode as VoiceMode,
-    stepIds: [...row.step_ids],
-    kidReorderable: row.kid_reorderable,
-    accent,
-    accentInk: inkForAccent(accent),
-    updatedLabel: formatUpdated(row.updated_at),
-  };
-};
+export const rowToBoard = (row: BoardRow): Board => ({
+  id: row.id,
+  ...(row.slug ? { slug: row.slug } : {}),
+  ownerId: row.owner_id,
+  kidId: row.kid_id,
+  name: row.name,
+  kind: row.kind as BoardKind,
+  labelsVisible: row.labels_visible,
+  voiceMode: row.voice_mode as VoiceMode,
+  stepIds: [...row.step_ids],
+  kidReorderable: row.kid_reorderable,
+  accent: row.accent as ColorToken,
+  updatedLabel: formatUpdated(row.updated_at),
+});
 
 export const boardsQueryKey = ['boards'] as const;
 export const boardQueryKey = (id: string): readonly ['boards', string] => ['boards', id];

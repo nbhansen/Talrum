@@ -81,7 +81,6 @@ describe('LibraryRoute', () => {
           stepIds: [],
           kidReorderable: false,
           accent: 'sage',
-          accentInk: 'sage-ink',
           updatedLabel: 'just now',
         },
       ],

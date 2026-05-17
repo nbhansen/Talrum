@@ -33,7 +33,6 @@ const seed: Board = {
   stepIds: ['wakeup'],
   kidReorderable: false,
   accent: 'peach',
-  accentInk: 'peach-ink',
   updatedLabel: 'Edited just now',
 };
 

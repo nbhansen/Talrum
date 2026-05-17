@@ -2,7 +2,7 @@ import { Fragment, type JSX, type MouseEventHandler } from 'react';
 
 import { kindLabel } from '@/lib/boardKindVocab';
 import { usePictogramsById } from '@/lib/queries/pictograms';
-import { cssVar } from '@/theme/tokens';
+import { cssVar, inkForAccent } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { StepArrowIcon } from '@/ui/icons';
 import { PictoCard } from '@/ui/PictoTile/PictoCard';
@@ -28,7 +28,7 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
       <div className={styles.topRow}>
         <span
           className={styles.pill}
-          style={{ background: cssVar(board.accent), color: cssVar(board.accentInk) }}
+          style={{ background: cssVar(board.accent), color: cssVar(inkForAccent(board.accent)) }}
         >
           {kindLabel(board.kind)} · {board.stepIds.length}
         </span>

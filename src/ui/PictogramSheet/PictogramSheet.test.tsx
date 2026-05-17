@@ -76,7 +76,6 @@ const board = (id: string, stepIds: string[]): Board => ({
   stepIds,
   kidReorderable: false,
   accent: 'sage',
-  accentInk: 'sage-ink',
   updatedLabel: 'today',
 });
 

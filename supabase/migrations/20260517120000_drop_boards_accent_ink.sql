@@ -1,16 +1,8 @@
--- Drop denormalised `accent_ink` column from boards + template_boards.
--- The ink is fully determined by `accent` via the ACCENT_CYCLE lookup in
--- src/theme/tokens.ts. Two columns where one suffices invites drift if a
--- future accent is added and only one column gets populated.
---
--- The read layer (`boards.read.ts`) now derives `accentInk` via `inkForAccent`.
--- Writes (`useCreateBoard`, `handle_new_user`) no longer set `accent_ink`.
---
--- Order matters: recreate `private.handle_new_user` first (so the trigger
--- stops referencing the column), then drop. The function was moved from
--- public to private in 20260427145144_move_helpers_to_private_schema.sql;
--- the body lives in 20260425000000_real_auth_onboarding.sql — kept
--- identical here except for the column list in the boards INSERT.
+-- Drop denormalised `accent_ink` from boards + template_boards. Ink is now
+-- derived from `accent` in the read layer via inkForAccent (src/theme/tokens.ts).
+-- Order matters: recreate the trigger function first so it stops referencing
+-- the column, then drop. Body matches 20260425000000 except for the column
+-- list in the boards INSERT.
 
 create or replace function private.handle_new_user() returns trigger
 language plpgsql security definer

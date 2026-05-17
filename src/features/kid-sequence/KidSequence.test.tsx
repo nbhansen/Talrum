@@ -38,7 +38,6 @@ const board: Board = {
   stepIds: [apple.id, cup.id],
   kidReorderable: false,
   accent: 'peach',
-  accentInk: 'peach-ink',
   updatedLabel: 'just now',
 };
 

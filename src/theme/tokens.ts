@@ -74,10 +74,9 @@ export const accentForIndex = (i: number): Accent => {
 };
 
 /**
- * Derive ink from the persisted accent bg. The DB stores only `boards.accent`;
- * the ink is computed in the read layer via this lookup. If a row carries a
- * legacy accent that isn't in the current cycle, fall back to the default
- * `ink` token so the UI stays readable instead of crashing.
+ * Look up the ink that pairs with an accent bg. Falls back to the default
+ * `ink` token if the bg isn't an accent — keeps UI readable for any
+ * out-of-cycle value instead of crashing.
  */
 export const inkForAccent = (bg: ColorToken): ColorToken =>
   ACCENT_CYCLE.find((a) => a.bg === bg)?.ink ?? 'ink';
