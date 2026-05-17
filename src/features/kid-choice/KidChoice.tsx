@@ -22,11 +22,15 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
     .map((id) => pictogramsById.get(id))
     .filter((p): p is Pictogram => Boolean(p));
   const [pickedId, setPickedId] = useState<string | null>(null);
-  const pickedLabel = options.find((o) => o.id === pickedId)?.label;
+  const pickedPicto = options.find((o) => o.id === pickedId) ?? null;
+
+  const speakPicked = (p: Pictogram): void => {
+    void speakPictogram(p, board.voiceMode);
+  };
 
   const pick = (p: Pictogram): void => {
     setPickedId(p.id);
-    void speakPictogram(p, board.voiceMode);
+    speakPicked(p);
   };
 
   return (
@@ -93,12 +97,17 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
             })}
           </div>
           <div className={styles.bottom}>
-            {pickedLabel ? (
-              <button type="button" className={styles.confirmBtn}>
+            {pickedPicto ? (
+              <button
+                type="button"
+                className={styles.confirmBtn}
+                onClick={() => speakPicked(pickedPicto)}
+                aria-label={`Hear ${pickedPicto.label} again`}
+              >
                 <span className={styles.confirmCheck}>
                   <CheckIcon size={18} />
                 </span>
-                Let&apos;s go to {pickedLabel}
+                Let&apos;s go to {pickedPicto.label}
               </button>
             ) : (
               <span className={styles.placeholder}>Tap one to choose ✨</span>
