@@ -1,5 +1,6 @@
 import { Fragment, type JSX, type MouseEventHandler } from 'react';
 
+import { kindLabel } from '@/lib/boardKindVocab';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
@@ -22,7 +23,6 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
     .map((id) => pictogramsById.get(id))
     .filter((p): p is Pictogram => Boolean(p));
 
-  const kindLabel = board.kind === 'choice' ? 'Choice' : 'Sequence';
   return (
     <button type="button" className={styles.card} onClick={onClick}>
       <div className={styles.topRow}>
@@ -30,7 +30,7 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
           className={styles.pill}
           style={{ background: cssVar(board.accent), color: cssVar(board.accentInk) }}
         >
-          {kindLabel} · {board.stepIds.length}
+          {kindLabel(board.kind)} · {board.stepIds.length}
         </span>
         <span className={styles.updated}>{board.updatedLabel}</span>
       </div>

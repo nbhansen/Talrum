@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 
+import { kindUnit } from '@/lib/boardKindVocab';
 import type { BoardKind, VoiceMode } from '@/types/domain';
 import { Segmented } from '@/ui/Segmented/Segmented';
 import { Select } from '@/ui/Select/Select';
@@ -50,7 +51,7 @@ export const SettingsRow = ({
     <Select label="Voice" value={voiceMode} onChange={onVoiceModeChange} options={VOICE_OPTIONS} />
     <div className={styles.spacer} />
     <div className={styles.count}>
-      {stepCount} step{stepCount === 1 ? '' : 's'} · drag to reorder
+      {stepCount} {kindUnit(kind, stepCount)} · drag to reorder
     </div>
   </div>
 );
