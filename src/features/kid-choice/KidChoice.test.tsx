@@ -94,9 +94,6 @@ describe('KidChoice', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /Park/i }));
     speakPictogramMock.mockClear();
-    // The confirm pill exposes itself by aria-label so screen readers
-    // announce the action; targeting by name keeps the test independent of
-    // the inner CheckIcon + split-text layout.
     await userEvent.click(screen.getByRole('button', { name: /Hear Park again/i }));
     expect(speakPictogramMock).toHaveBeenCalledTimes(1);
     expect(speakPictogramMock).toHaveBeenCalledWith(
