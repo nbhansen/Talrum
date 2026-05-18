@@ -2,6 +2,7 @@ import { del, get, set } from 'idb-keyval';
 
 import { type SignedUrlEntry, signedUrlMemCache as memCache } from './storage-cache';
 import { supabase } from './supabase';
+import { captureException } from './telemetry';
 
 export const AUDIO_BUCKET = 'pictogram-audio';
 export const IMAGES_BUCKET = 'pictogram-images';
@@ -87,6 +88,10 @@ export const signedUrlFor = async (bucket: string, path: string): Promise<string
     void writePersisted(cacheKey, entry);
     return data.signedUrl;
   } catch (err) {
+    captureException(err, {
+      level: 'warning',
+      tags: { component: 'storage', op: 'signedUrlFor' },
+    });
     const fallback = memCache.get(cacheKey) ?? (await readPersisted(cacheKey));
     if (fallback) return fallback.url;
     throw err;

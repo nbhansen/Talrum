@@ -12,6 +12,9 @@ const onAuthStateChangeMock = vi.fn((listener: AuthChangeListener) => {
   return { data: { subscription: { unsubscribe: vi.fn() } } };
 });
 
+const clearPersistedCacheMock = vi.fn<() => Promise<void>>();
+const captureExceptionMock = vi.fn();
+
 const makeSession = (id: string, email: string): Session =>
   ({
     access_token: `token-${id}`,
@@ -37,6 +40,24 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Default the mock to the real impl so the PIN/last-board localStorage tests
+// below keep working; individual tests override with mockRejectedValueOnce.
+vi.mock('@/lib/queryClient', async (importOriginal) => {
+  const actual = (await importOriginal()) as { clearPersistedCache: () => Promise<void> } & Record<
+    string,
+    unknown
+  >;
+  clearPersistedCacheMock.mockImplementation(actual.clearPersistedCache);
+  return {
+    ...actual,
+    clearPersistedCache: () => clearPersistedCacheMock(),
+  };
+});
+
+vi.mock('@/lib/telemetry', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
+}));
+
 vi.mock('@/features/login/Login', () => ({
   Login: (): JSX.Element => <div>login screen</div>,
 }));
@@ -49,6 +70,8 @@ const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSess
 afterEach(() => {
   getSessionMock.mockReset();
   onAuthStateChangeMock.mockClear();
+  clearPersistedCacheMock.mockClear();
+  captureExceptionMock.mockReset();
   window.localStorage.clear();
 });
 
@@ -328,6 +351,38 @@ describe('AuthGate', () => {
     // without ever actually waiting).
     expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');
     expect(localStorage.getItem('talrum:last-board')).toBe('{"id":"keep","kind":"sequence"}');
+  });
+
+  // #142: clearPersistedCache is fired-and-forgotten on auth boundaries — the
+  // UX is best-effort and we never block sign-out on it. Used to swallow the
+  // rejection silently; now reports a warning to telemetry so persistent IDB
+  // failures don't stay invisible.
+  it('captures a warning when clearPersistedCache rejects on SIGNED_OUT (#142)', async () => {
+    const cacheError = new Error('idb wedged');
+    clearPersistedCacheMock.mockRejectedValueOnce(cacheError);
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    render(
+      <AuthGate>
+        <div data-testid="app-body">app</div>
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('app-body')).toBeInTheDocument();
+    });
+    act(() => {
+      lastAuthListener?.('SIGNED_OUT', null);
+    });
+    await waitFor(() => {
+      expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    });
+    const [err, ctx] = captureExceptionMock.mock.calls[0] as [
+      unknown,
+      { level?: string; tags?: Record<string, string> },
+    ];
+    expect(err).toBe(cacheError);
+    expect(ctx.level).toBe('warning');
+    expect(ctx.tags).toMatchObject({ component: 'AuthGate', op: 'clearPersistedCache' });
   });
 
   // #184: switching VITE_SUPABASE_URL leaves the previous project's

@@ -5,6 +5,7 @@ import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/telemetry';
 import { useOnline } from '@/lib/useOnline';
 import { Spinner } from '@/ui/Spinner/Spinner';
 
@@ -62,7 +63,12 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       const isUserSwitch =
         newUserId !== null && lastUserIdRef.current !== null && newUserId !== lastUserIdRef.current;
       if (event === 'SIGNED_OUT' || isUserSwitch) {
-        void clearPersistedCache();
+        clearPersistedCache().catch((err: unknown) =>
+          captureException(err, {
+            level: 'warning',
+            tags: { component: 'AuthGate', op: 'clearPersistedCache' },
+          }),
+        );
       }
       lastUserIdRef.current = newUserId;
       setState(session ? { status: 'in', session } : { status: 'out' });

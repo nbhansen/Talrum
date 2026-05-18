@@ -1,10 +1,27 @@
 import { fileURLToPath, URL } from 'node:url';
 
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
 import pkg from './package.json' with { type: 'json' };
+
+// Emit + upload + delete source maps in one flag, gated on the Sentry auth
+// token. Any path that emits maps must upload-and-delete them — otherwise
+// CF Pages publishes the unminified bundles as `.map` siblings.
+const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
+const sentryPlugins = sentryEnabled
+  ? [
+      sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        release: { name: pkg.version },
+        sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+      }),
+    ]
+  : [];
 
 export default defineConfig({
   plugins: [
@@ -36,6 +53,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,jpg}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // Workbox emits sw.js.map + workbox-*.js.map in its closeBundle hook,
+        // which runs AFTER Sentry's filesToDeleteAfterUpload glob. Without
+        // this flag those maps would survive to CF Pages even with Sentry
+        // enabled, leaking unminified SW glue.
+        sourcemap: false,
         // Every new deploy: install → skip "waiting" → claim open tabs → next
         // navigation serves the fresh bundle. Without these, users sit on a
         // stale precache until they manually click "Reload" or close every tab.
@@ -70,7 +92,11 @@ export default defineConfig({
         enabled: false,
       },
     }),
+    ...sentryPlugins,
   ],
+  build: {
+    sourcemap: sentryEnabled,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

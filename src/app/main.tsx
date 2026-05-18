@@ -6,9 +6,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { startOutbox } from '@/lib/outbox';
+import { initTelemetry } from '@/lib/telemetry';
 
 import { App } from './App';
 
+initTelemetry();
 startOutbox();
 
 const root = document.getElementById('root');

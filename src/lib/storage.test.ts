@@ -15,8 +15,14 @@ const fromMock = vi.fn((_bucket: string) => ({
   createSignedUrl: createSignedUrlMock,
 }));
 
+const captureExceptionMock = vi.fn();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: { storage: { from: (bucket: string) => fromMock(bucket) } },
+}));
+
+vi.mock('@/lib/telemetry', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 
 const { signedUrlFor } = await import('./storage');
@@ -25,6 +31,7 @@ const { signedUrlFor } = await import('./storage');
 // vitest.setup.ts (#144) — only the per-test mock counter needs resetting here.
 beforeEach(() => {
   createSignedUrlMock.mockReset();
+  captureExceptionMock.mockReset();
 });
 
 describe('signedUrlFor', () => {
@@ -67,5 +74,28 @@ describe('signedUrlFor', () => {
     const { signedUrlFor: signedUrlForFresh } = await import('./storage');
     const recovered = await signedUrlForFresh('pictogram-images', 'a/test.jpg');
     expect(recovered).toBe('https://example.test/old?token=old');
+  });
+
+  // #142: persistent mint failures used to be invisible — the catch returned
+  // the stale URL and dropped the error. Now they're captured as warnings so
+  // Sentry can show an aggregate signal while the UX stays offline-tolerant.
+  it('captures a warning when minting fails, even if a fallback is returned (#142)', async () => {
+    await set('signed-url:pictogram-images/a/test.jpg', {
+      url: 'https://example.test/old?token=old',
+      expiresAt: Date.now() - 1000,
+    });
+    vi.resetModules();
+    const mintError = new Error('offline');
+    createSignedUrlMock.mockRejectedValueOnce(mintError);
+    const { signedUrlFor: signedUrlForFresh } = await import('./storage');
+    await signedUrlForFresh('pictogram-images', 'a/test.jpg');
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    const [err, ctx] = captureExceptionMock.mock.calls[0] as [
+      unknown,
+      { level?: string; tags?: Record<string, string> },
+    ];
+    expect(err).toBe(mintError);
+    expect(ctx.level).toBe('warning');
+    expect(ctx.tags).toMatchObject({ component: 'storage', op: 'signedUrlFor' });
   });
 });

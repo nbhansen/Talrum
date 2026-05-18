@@ -137,6 +137,9 @@ self-hosted Supabase on a VPS is in [docs/self-hosting.md](./docs/self-hosting.m
    - `SUPABASE_ACCESS_TOKEN` (the PAT)
    - `SUPABASE_PROJECT_REF` (the ref)
    - `SUPABASE_DB_PASSWORD` (Postgres password from the dashboard)
+   - `VITE_SENTRY_DSN` (Sentry project DSN; build embeds it in the prod bundle)
+   - `SENTRY_AUTH_TOKEN` (Sentry org auth token with `project:releases` scope)
+   - `SENTRY_ORG` / `SENTRY_PROJECT` (org slug + project slug for source-map upload)
 4. In Cloudflare Pages, connect the repo with build command `npm run build`,
    output directory `dist`, production branch `main`. Add build env vars
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see
@@ -161,6 +164,19 @@ merge to `main`.
 - Schema: revert the migration commit; CI applies the revert. Destructive
   migrations need a forward-only undo migration — Postgres has no built-in
   rollback for already-applied DDL.
+
+**Observability**
+
+Production builds report errors to Sentry via `src/lib/telemetry.ts`. Dev
+builds and any build missing `VITE_SENTRY_DSN` no-op silently. Posture:
+
+- `sendDefaultPii: false`, no session replay, no traces — errors only.
+- `beforeSend` drops `event.user.email` and strips breadcrumb messages
+  longer than 120 chars (board names + pictogram labels are short; the cap
+  catches long user-content leaks without scrubbing legit stack frames).
+- Source maps are uploaded to Sentry during the CF Pages build and deleted
+  from `dist/` before deploy, so unminified traces appear in the Sentry
+  dashboard but `.map` files are never served from Pages.
 
 ## Conventions
 
