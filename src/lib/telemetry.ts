@@ -2,14 +2,7 @@ import * as Sentry from '@sentry/react';
 
 type CaptureContext = Parameters<typeof Sentry.captureException>[1];
 
-let initialized = false;
-
 /**
- * Initialize Sentry once, before React mounts, when running a production build
- * with a DSN configured. Dev builds and unwired environments leave Sentry
- * inert; the `captureException` / `captureMessage` exports below no-op so
- * callers don't need their own gate.
- *
  * PII posture (intentional):
  *   - sendDefaultPii: false (no IP, no cookies, no headers).
  *   - tracesSampleRate: 0 (errors only — no performance/transaction data).
@@ -21,7 +14,7 @@ let initialized = false;
  *     stack content.
  */
 export const initTelemetry = (): void => {
-  if (initialized) return;
+  if (Sentry.getClient()) return;
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (!import.meta.env.PROD || !dsn) return;
   Sentry.init({
@@ -39,15 +32,9 @@ export const initTelemetry = (): void => {
       return event;
     },
   });
-  initialized = true;
 };
 
 export const captureException = (err: unknown, ctx?: CaptureContext): void => {
-  if (!initialized) return;
+  if (!Sentry.getClient()) return;
   Sentry.captureException(err, ctx);
-};
-
-export const captureMessage = (msg: string, ctx?: CaptureContext): void => {
-  if (!initialized) return;
-  Sentry.captureMessage(msg, ctx);
 };

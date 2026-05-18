@@ -40,10 +40,8 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Real clearPersistedCache fans out into PIN + last-board localStorage clears
-// that several tests below assert on. Default the mock to the real impl, then
-// let individual tests override it (e.g. to make it reject so we can prove the
-// telemetry path fires).
+// Default the mock to the real impl so the PIN/last-board localStorage tests
+// below keep working; individual tests override with mockRejectedValueOnce.
 vi.mock('@/lib/queryClient', async (importOriginal) => {
   const actual = (await importOriginal()) as { clearPersistedCache: () => Promise<void> } & Record<
     string,
