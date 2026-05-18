@@ -6,12 +6,25 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
-import type { Board, Kid } from '@/types/domain';
+import type { Board, Kid, Pictogram } from '@/types/domain';
 
 const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
 
+// One pictogram is enough to unhide the "Recently added pictograms" strip so
+// the "See all" button under it renders. The conditional hides the section
+// when zero slugs resolve.
+const RECENT_PICTO: Pictogram = {
+  id: 'p-apple',
+  slug: 'apple',
+  label: 'Apple',
+  style: 'illus',
+  glyph: 'apple',
+  tint: 'sunny',
+};
+
 const useKidsMock = vi.fn(() => ({ data: [KID] as Kid[], isPending: false }));
 const useBoardsMock = vi.fn(() => ({ data: [] as Board[], isPending: false }));
+const usePictogramsBySlugMock = vi.fn(() => new Map<string, Pictogram>([['apple', RECENT_PICTO]]));
 const createBoardMutateMock = vi.fn();
 const useCreateBoardMock = vi.fn(() => ({
   mutate: createBoardMutateMock,
@@ -31,6 +44,14 @@ vi.mock('@/lib/queries/boards', async (importOriginal) => {
     ...actual,
     useBoards: () => useBoardsMock(),
     useCreateBoard: () => useCreateBoardMock(),
+  };
+});
+
+vi.mock('@/lib/queries/pictograms', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    usePictogramsBySlug: () => usePictogramsBySlugMock(),
   };
 });
 
@@ -267,6 +288,15 @@ describe('ParentHomeRoute create flows', () => {
     await user.click(screen.getByRole('button', { name: /see all/i }));
 
     expect(screen.getByTestId('library-route')).toBeInTheDocument();
+  });
+
+  it('hides the "Recently added pictograms" section when no slugs resolve (#234)', () => {
+    usePictogramsBySlugMock.mockReturnValueOnce(new Map<string, Pictogram>());
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+
+    expect(screen.queryByRole('heading', { name: /recently added pictograms/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /see all/i })).toBeNull();
   });
 
   it('saving the New board modal navigates to the new board edit route', async () => {

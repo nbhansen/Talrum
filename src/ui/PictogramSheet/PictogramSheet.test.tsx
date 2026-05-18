@@ -146,9 +146,21 @@ describe('PictogramSheet', () => {
     });
   });
 
-  it('shows a "used on N boards" hint when the picto is referenced', () => {
+  it('shows a singular "used on 1 board" hint with "that board" copy (#235)', () => {
     useBoardsMock.mockReturnValue({ data: [board('b1', ['p1'])] });
     render(<PictogramSheet picto={illusPicto} onClose={() => undefined} />);
-    expect(screen.getByText(/used on 1 board/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/used on 1 board\. deleting removes it from that board too\./i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a plural "used on N boards" hint with "those boards" copy (#235)', () => {
+    useBoardsMock.mockReturnValue({
+      data: [board('b1', ['p1']), board('b2', ['p1'])],
+    });
+    render(<PictogramSheet picto={illusPicto} onClose={() => undefined} />);
+    expect(
+      screen.getByText(/used on 2 boards\. deleting removes it from those boards too\./i),
+    ).toBeInTheDocument();
   });
 });

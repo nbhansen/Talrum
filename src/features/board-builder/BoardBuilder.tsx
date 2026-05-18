@@ -198,19 +198,21 @@ export const BoardBuilder = ({
         </div>
       </div>
 
-      <section className={styles.quickAdd}>
-        <div className={styles.quickAddHeader}>
-          <h2 className={styles.quickAddHeading}>Quick add from library</h2>
-          <button type="button" className={styles.browseAll} onClick={onOpenPicker}>
-            Browse all →
-          </button>
-        </div>
-        <div className={styles.quickAddGrid}>
-          {quickAdd.map((p) => (
-            <PictoTile key={p.id} picto={p} size={88} onClick={() => appendPicto(p.id)} />
-          ))}
-        </div>
-      </section>
+      {quickAdd.length > 0 && (
+        <section className={styles.quickAdd}>
+          <div className={styles.quickAddHeader}>
+            <h2 className={styles.quickAddHeading}>Quick add from library</h2>
+            <button type="button" className={styles.browseAll} onClick={onOpenPicker}>
+              Browse all →
+            </button>
+          </div>
+          <div className={styles.quickAddGrid}>
+            {quickAdd.map((p) => (
+              <PictoTile key={p.id} picto={p} size={88} onClick={() => appendPicto(p.id)} />
+            ))}
+          </div>
+        </section>
+      )}
       {editTarget && <PictogramSheet picto={editTarget} onClose={() => setEditTarget(null)} />}
       {pendingKind && (
         <KindSwitchConfirm

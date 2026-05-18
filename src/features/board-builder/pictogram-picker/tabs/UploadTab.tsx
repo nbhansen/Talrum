@@ -43,7 +43,6 @@ export const UploadTab = (): JSX.Element => {
     try {
       const next = await cropToSquareJpeg(chosen);
       setProcessed(next);
-      if (!label) setLabel(chosen.name.replace(/\.[^.]+$/, '').slice(0, 40));
     } catch {
       setError('Could not read that image. Try a JPG or PNG.');
       setFile(null);

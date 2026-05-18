@@ -123,9 +123,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
           <h2 id={TITLE_ID} className={styles.title}>
             Edit pictogram
           </h2>
-          <p className={styles.subtitle}>
-            Rename, replace the photo, or delete <strong>{picto.label}</strong>.
-          </p>
+          <p className={styles.subtitle}>Rename, replace the photo, or delete it.</p>
         </div>
         <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
           <XIcon size={16} />
@@ -210,8 +208,8 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
           {referencedBoardIds.length > 0 && (
             <p className={styles.dangerHint}>
               Used on {referencedBoardIds.length} board
-              {referencedBoardIds.length === 1 ? '' : 's'}. Deleting removes it from those boards
-              too.
+              {referencedBoardIds.length === 1 ? '' : 's'}. Deleting removes it from{' '}
+              {referencedBoardIds.length === 1 ? 'that board' : 'those boards'} too.
             </p>
           )}
           <div className={styles.sectionActions}>
