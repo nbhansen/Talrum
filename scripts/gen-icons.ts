@@ -37,8 +37,11 @@ await Promise.all([
       .toFile(out),
   ),
   // Maskable variant: logo at 80% of canvas, centered, on opaque brand bg.
-  // Android's adaptive-icon safe zone is the inner 80% diameter circle; 80%
-  // square padding guarantees the logo survives every system mask shape.
+  // The web-manifest maskable safe zone is the inner 80% diameter circle, so
+  // the rounded-square logo's corners will clip on circular system masks —
+  // that's expected and the whole point of the maskable purpose. The actual
+  // content (speaker glyph + wordmark) stays well within the safe circle;
+  // only the outer brand-frame corners get cropped.
   sharp(src)
     .resize(410, 410, { fit: 'contain', background: BRAND_BG })
     .extend({ top: 51, bottom: 51, left: 51, right: 51, background: BRAND_BG })
