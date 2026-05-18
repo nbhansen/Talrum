@@ -4,6 +4,7 @@ import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
 import { setActiveKidId, useActiveKid, useKids } from '@/lib/queries/kids';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
+import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
@@ -56,6 +57,12 @@ export const ParentHome = ({
   const noBoards = boards.length === 0;
   const showSwitcher = kids.length > 1;
 
+  // Only render the strip when at least one slug resolves — otherwise the
+  // heading sits alone over empty whitespace and reads like a load failure.
+  const recentPictos = RECENT_STRIP_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
+    (p): p is Pictogram => Boolean(p),
+  );
+
   return (
     <ParentShell
       active="home"
@@ -105,25 +112,23 @@ export const ParentHome = ({
           </button>
         </div>
       )}
-      <section className={styles.recent}>
-        <div className={styles.recentHeader}>
-          <h2 className={styles.recentHeading}>Recently added pictograms</h2>
-          <button type="button" className={styles.seeAll} onClick={onSeeAll}>
-            See all
-          </button>
-        </div>
-        <div className={`${styles.recentStrip} tal-scroll`}>
-          {RECENT_STRIP_SLUGS.map((slug) => {
-            const p = pictogramsBySlug.get(slug);
-            if (!p) return null;
-            return (
-              <div key={slug} className={styles.recentItem}>
+      {recentPictos.length > 0 && (
+        <section className={styles.recent}>
+          <div className={styles.recentHeader}>
+            <h2 className={styles.recentHeading}>Recently added pictograms</h2>
+            <button type="button" className={styles.seeAll} onClick={onSeeAll}>
+              See all
+            </button>
+          </div>
+          <div className={`${styles.recentStrip} tal-scroll`}>
+            {recentPictos.map((p) => (
+              <div key={p.id} className={styles.recentItem}>
                 <PictoTile picto={p} size={96} />
               </div>
-            );
-          })}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
     </ParentShell>
   );
 };
