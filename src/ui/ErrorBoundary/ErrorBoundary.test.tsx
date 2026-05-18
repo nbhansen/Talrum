@@ -2,7 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { type JSX, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorBoundary } from './ErrorBoundary';
+const captureExceptionMock = vi.fn();
+vi.mock('@/lib/telemetry', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
+}));
+
+const { ErrorBoundary } = await import('./ErrorBoundary');
 
 const Boom = ({ msg = 'boom' }: { msg?: string }): JSX.Element => {
   throw new Error(msg);
@@ -14,6 +19,7 @@ describe('ErrorBoundary', () => {
   let errSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    captureExceptionMock.mockReset();
   });
   afterEach(() => {
     errSpy.mockRestore();
@@ -36,6 +42,21 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText('fallback')).toBeInTheDocument();
+  });
+
+  it('forwards the caught error and component stack to telemetry (#45)', () => {
+    render(
+      <ErrorBoundary fallback={() => <span>fallback</span>}>
+        <Boom msg="telemetry-target" />
+      </ErrorBoundary>,
+    );
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    const [err, ctx] = captureExceptionMock.mock.calls[0] as [Error, { contexts?: unknown }];
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('telemetry-target');
+    expect(ctx).toMatchObject({
+      contexts: { react: { componentStack: expect.any(String) } },
+    });
   });
 
   it('clears error state when reset() is called from the fallback', () => {

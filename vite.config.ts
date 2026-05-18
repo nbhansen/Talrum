@@ -1,10 +1,31 @@
 import { fileURLToPath, URL } from 'node:url';
 
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
 import pkg from './package.json' with { type: 'json' };
+
+// Source-map upload to Sentry. Disabled (plugin omitted) unless SENTRY_AUTH_TOKEN
+// is set — keeps local dev and CI's verify-job build identical to today. Maps
+// are emitted into dist/, uploaded to Sentry for unminified stack traces, then
+// deleted by the plugin so CF Pages never serves them publicly. The
+// `build.sourcemap` flag below is gated on the same condition so a deploy
+// without the token doesn't emit maps at all — otherwise CF Pages would
+// publish them with no upload-and-delete step to clean up.
+const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
+const sentryPlugins = sentryEnabled
+  ? [
+      sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        release: { name: pkg.version },
+        sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+      }),
+    ]
+  : [];
 
 export default defineConfig({
   plugins: [
@@ -70,7 +91,14 @@ export default defineConfig({
         enabled: false,
       },
     }),
+    ...sentryPlugins,
   ],
+  build: {
+    // Only emit maps when the Sentry plugin is active to upload-and-delete
+    // them. Otherwise a deploy without the token would leak unminified source
+    // via the `.map` files served by CF Pages.
+    sourcemap: sentryEnabled,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
