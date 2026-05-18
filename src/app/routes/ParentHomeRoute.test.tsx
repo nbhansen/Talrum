@@ -290,6 +290,15 @@ describe('ParentHomeRoute create flows', () => {
     expect(screen.getByTestId('library-route')).toBeInTheDocument();
   });
 
+  it('hides the "Recently added pictograms" section when no slugs resolve (#234)', () => {
+    usePictogramsBySlugMock.mockReturnValueOnce(new Map<string, Pictogram>());
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+
+    expect(screen.queryByRole('heading', { name: /recently added pictograms/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /see all/i })).toBeNull();
+  });
+
   it('saving the New board modal navigates to the new board edit route', async () => {
     createBoardMutateMock.mockImplementation(
       (_input: unknown, opts?: { onSuccess?: (b: Partial<Board>) => void }) => {

@@ -169,3 +169,20 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
     expect(setBoardKindMock).not.toHaveBeenCalled();
   });
 });
+
+describe('BoardBuilder Quick add section (#234)', () => {
+  it('hides the "Quick add from library" section when no slugs resolve', () => {
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onKidMode={noop}
+      />,
+    );
+    expect(screen.queryByRole('heading', { name: /quick add from library/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /browse all/i })).toBeNull();
+  });
+});
