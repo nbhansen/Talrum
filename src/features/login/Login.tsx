@@ -40,7 +40,7 @@ export const Login = (): JSX.Element => {
   };
 
   return (
-    <div className={styles.wrap}>
+    <main className={styles.wrap} role="main">
       <div className={styles.card}>
         <div className={styles.brand}>
           <img src={talrumLogo} alt="" width={72} height={72} className={styles.mark} />
@@ -111,6 +111,6 @@ export const Login = (): JSX.Element => {
           </form>
         )}
       </div>
-    </div>
+    </main>
   );
 };
