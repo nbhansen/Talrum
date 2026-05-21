@@ -59,6 +59,11 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+const captureExceptionMock = vi.fn();
+vi.mock('@/lib/telemetry', () => ({
+  captureException: (err: unknown, ctx?: unknown) => captureExceptionMock(err, ctx),
+}));
+
 const { runHandler, UnretryableOutboxError } = await import('./handlers');
 
 const baseProps = {
@@ -78,6 +83,7 @@ beforeEach(() => {
   deleteMock.mockClear();
   uploadMock.mockReset();
   removeMock.mockReset();
+  captureExceptionMock.mockReset();
   fromMock.mockClear();
   storageFromMock.mockClear();
   // Defaults: every supabase call succeeds.
@@ -232,6 +238,24 @@ describe('runHandler · clearPictoAudio', () => {
     await runHandler(entry);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
+  });
+
+  it('reports a failed file removal to telemetry but still nulls audio_path', async () => {
+    removeMock.mockResolvedValue({ error: new Error('storage offline') });
+    const entry: ClearPictogramAudioEntry = {
+      ...baseProps,
+      kind: 'clearPictoAudio',
+      pictogramId: 'p-1',
+      path: 'o-1/p-1.webm',
+    };
+    await runHandler(entry);
+    // Cleanup failure is swallowed — the row is still updated.
+    expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
+    // ...but the leak is reported, not silent (#255).
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: { component: 'outbox', op: 'storage-cleanup' } }),
+    );
   });
 });
 
