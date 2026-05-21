@@ -21,22 +21,18 @@ const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 // literal strings. Mirrors `supabase/functions/delete-account/types.ts`
 // byte-for-byte. If the function adds a new code, add it here and update
 // DeleteAccountDialog's toast map.
-export type DeleteAccountErrorCode =
-  | 'unauthorized'
-  | 'method_not_allowed'
-  | 'bad_request'
-  | 'storage_purge_failed'
-  | 'auth_delete_failed'
-  | 'internal_error';
-
-const KNOWN_CODES: ReadonlySet<DeleteAccountErrorCode> = new Set([
+const DELETE_ACCOUNT_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
   'bad_request',
   'storage_purge_failed',
   'auth_delete_failed',
   'internal_error',
-]);
+] as const;
+
+export type DeleteAccountErrorCode = (typeof DELETE_ACCOUNT_ERROR_CODES)[number];
+
+const KNOWN_CODES: ReadonlySet<DeleteAccountErrorCode> = new Set(DELETE_ACCOUNT_ERROR_CODES);
 
 export class DeleteAccountError extends Error {
   constructor(
