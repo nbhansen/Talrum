@@ -86,8 +86,17 @@ export const handleRequest = async (
       return errorResponse('bad_request', 'request body must be empty or {}', 400);
     }
 
+    // Short-circuit on missing/malformed Authorization before calling
+    // admin.auth.getUser, so unauthenticated spam costs only a header read
+    // (no Supabase auth round-trip, no edge-function quota beyond this).
     const auth = req.headers.get('Authorization') ?? '';
-    const jwt = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
+    if (!auth.startsWith('Bearer ')) {
+      return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
+    }
+    const jwt = auth.slice('Bearer '.length);
+    if (jwt.length === 0) {
+      return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
+    }
     const { data } = await admin.auth.getUser(jwt);
     if (!data.user) {
       return errorResponse('unauthorized', 'missing or invalid JWT', 401);

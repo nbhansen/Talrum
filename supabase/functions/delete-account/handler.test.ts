@@ -45,16 +45,21 @@ Deno.test('handler: valid POST + valid Bearer → 200 { ok: true }', async () =>
   assertEquals(body, { ok: true });
 });
 
-Deno.test('handler: no Authorization header → 401 unauthorized', async () => {
+Deno.test('handler: no Authorization header → 401 without calling admin.auth.getUser', async () => {
   const req = new Request('https://x.invalid/delete-account', { method: 'POST', body: '' });
+  let getUserCalls = 0;
   const admin = makeAdminStub({
-    getUser: async () => ({ data: { user: null }, error: { message: 'no jwt' } }),
+    getUser: async () => {
+      getUserCalls += 1;
+      return { data: { user: null }, error: { message: 'should not be reached' } };
+    },
   });
   const res = await handleRequest(req, admin, noopDelete);
   assertEquals(res.status, 401);
   const body = await res.json();
   assertEquals(body.ok, false);
   assertEquals(body.error, 'unauthorized');
+  assertEquals(getUserCalls, 0);
 });
 
 Deno.test('handler: invalid Bearer → 401 unauthorized', async () => {
@@ -129,30 +134,33 @@ Deno.test('handler: unanticipated error → 500 internal_error', async () => {
   assertEquals(body.error, 'internal_error');
 });
 
-Deno.test(
-  'handler: malformed Authorization (lowercase bearer / missing scheme) → 401 unauthorized',
-  async () => {
-    const cases = [
-      'bearer x.y.z', // wrong case on scheme
-      'x.y.z', // no scheme at all
-      'Basic abc:def', // wrong scheme
-    ];
-    for (const authHeader of cases) {
-      const req = new Request('https://x.invalid/delete-account', {
-        method: 'POST',
-        headers: { Authorization: authHeader },
-        body: '',
-      });
-      const admin = makeAdminStub({
-        getUser: async () => ({ data: { user: null }, error: { message: 'no jwt' } }),
-      });
-      const res = await handleRequest(req, admin, noopDelete);
-      assertEquals(res.status, 401, `auth header: ${authHeader}`);
-      const body = await res.json();
-      assertEquals(body.error, 'unauthorized');
-    }
-  },
-);
+Deno.test('handler: malformed Authorization → 401 without calling admin.auth.getUser', async () => {
+  const cases = [
+    'bearer x.y.z', // wrong case on scheme
+    'x.y.z', // no scheme at all
+    'Basic abc:def', // wrong scheme
+    'Bearer ', // scheme present but empty token
+  ];
+  for (const authHeader of cases) {
+    const req = new Request('https://x.invalid/delete-account', {
+      method: 'POST',
+      headers: { Authorization: authHeader },
+      body: '',
+    });
+    let getUserCalls = 0;
+    const admin = makeAdminStub({
+      getUser: async () => {
+        getUserCalls += 1;
+        return { data: { user: null }, error: { message: 'should not be reached' } };
+      },
+    });
+    const res = await handleRequest(req, admin, noopDelete);
+    assertEquals(res.status, 401, `auth header: ${authHeader}`);
+    const body = await res.json();
+    assertEquals(body.error, 'unauthorized');
+    assertEquals(getUserCalls, 0, `getUser should not be called for header: ${authHeader}`);
+  }
+});
 
 Deno.test('handler: empty {} body is accepted (matches supabase-js invoke shape)', async () => {
   const req = new Request('https://x.invalid/delete-account', {
