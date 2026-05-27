@@ -26,7 +26,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --model claude-sonnet-4-6
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Read,Grep"
           prompt: |
             REPO: ${{ github.repository }}
             PR: ${{ github.event.pull_request.number }}
@@ -40,12 +40,16 @@ jobs:
             - Supabase migration syntax / function compile errors
             - Formatting, unused imports, naming-only nits
 
+            ALSO DO NOT FLAG:
+            - SOLID principles beyond SRP. OCP/LSP/ISP/DIP push toward overengineering in a solo Vite+Supabase codebase. Only SRP is in scope (see Architecture below).
+
             YOUR JOB IS THE STUFF CI CANNOT SEE. Focus on:
 
             1. Architecture
-               - A file or function doing too much; leaky abstractions; broken module boundaries.
+               - SRP violations: a function mixing IO, business logic, and presentation; a module owning unrelated concerns; leaky abstractions across boundaries.
                - Drive-by refactors unrelated to the PR's stated purpose — flag and ask to revert per the project's "surgical changes" rule.
                - New abstractions / configurability / hooks added "for future extensibility" with no current consumer.
+               - Duplication (DRY) — flag ONLY when ALL of these hold: (a) the duplicated block is ≥10 lines OR contains real business logic (not boilerplate, types, or config); (b) both copies are visible in the diff OR you have grep-confirmed the second copy in the repo; (c) a clear extraction point exists. Do NOT recommend extracting a helper for code that appears 2–3 times — per project rules, three similar lines beats premature abstraction. Never speculate about duplication you cannot see.
 
             2. Security (highest weight)
                - RLS policy regressions: missing or weakened policies on new tables; policies that reference public-schema helpers; helpers that should be SECURITY DEFINER but are not (or vice versa).
