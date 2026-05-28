@@ -80,7 +80,10 @@ export const BoardBuilder = ({
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [titleDraft, setTitleDraft] = useState(board.name);
-  useEffect(() => setTitleDraft(board.name), [board.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-sync the title draft only when navigating to a different board (keyed on
+  // board.id, not board.name) — see the note above. The sync write is intended.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => setTitleDraft(board.name), [board.id]);
   const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueTitleWrite = (next: string): void => {
     setTitleDraft(next);
