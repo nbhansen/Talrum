@@ -1,4 +1,4 @@
-import '@fontsource-variable/nunito';
+import '@fontsource-variable/nunito/index.css';
 import '@/theme/tokens.css';
 import '@/theme/reset.css';
 

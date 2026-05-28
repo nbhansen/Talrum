@@ -14,7 +14,9 @@ const css = readdirSync(dir)
 // a future single-component `box-sizing: border-box` rule must not satisfy
 // the universal-selector reset check, and `.somebody{font-family:...}` must
 // not satisfy the body check. Vite's minifier collapses `::before` to `:before`
-// so the universal-selector pattern tolerates either form.
+// and drops the redundant `*` before a pseudo-element (`*::before` → `:before`),
+// so the universal-selector pattern tolerates both forms. The leading bare `*`
+// stays required so a scoped `.foo{box-sizing:border-box}` can't pass.
 const required = [
   { name: '--tal-space-4 token definition', re: /--tal-space-4:/ },
   { name: '--tal-ink token definition', re: /--tal-ink:/ },
@@ -22,7 +24,7 @@ const required = [
   { name: 'body font-family rule', re: /(?:^|[},])body\s*\{[^}]*font-family/ },
   {
     name: 'universal-selector box-sizing reset',
-    re: /\*\s*,\s*\*::?before\s*,\s*\*::?after\s*\{[^}]*box-sizing:\s*border-box/,
+    re: /\*\s*,\s*\*?::?before\s*,\s*\*?::?after\s*\{[^}]*box-sizing:\s*border-box/,
   },
   { name: 'html/body margin reset', re: /html\s*,\s*body\s*\{[^}]*margin/ },
 ];
