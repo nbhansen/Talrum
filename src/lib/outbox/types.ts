@@ -1,17 +1,26 @@
 import type { BoardKind, VoiceMode } from '@/types/domain';
+import type { Database } from '@/types/supabase';
+
+type BoardUpdate = Database['public']['Tables']['boards']['Update'];
 
 /**
- * Patch shape for a board UPDATE. Field names match the DB columns so the
- * handler can pass it straight to `supabase.from('boards').update(patch)`.
+ * Patch shape for a board UPDATE. Field names and shapes are derived from the
+ * generated `boards` Update type so a schema change can't leave this stale —
+ * the handler passes it straight to `supabase.from('boards').update(patch)`.
+ *
+ * `kind` and `voice_mode` are re-narrowed to their domain unions: the columns
+ * are plain `text` (generated as `string`), but DB CHECK constraints plus the
+ * camelCase→snake_case mappers in `boards.mutations.ts` guarantee only the
+ * union members ever flow through. Keeping the narrow types here stops a
+ * caller from queueing an arbitrary string.
  */
-export interface BoardRowPatch {
-  name?: string;
+export type BoardRowPatch = Pick<
+  BoardUpdate,
+  'name' | 'labels_visible' | 'step_ids' | 'kid_reorderable'
+> & {
   kind?: BoardKind;
-  labels_visible?: boolean;
   voice_mode?: VoiceMode;
-  step_ids?: string[];
-  kid_reorderable?: boolean;
-}
+};
 
 export type OutboxEntryStatus = 'pending' | 'failed';
 
