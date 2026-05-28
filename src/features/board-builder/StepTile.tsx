@@ -29,6 +29,11 @@ export const StepTile = ({
   drag,
 }: StepTileProps): JSX.Element => {
   const marker = kindTileMarker(kind, index);
+  // dnd-kit render-prop bindings: `setNodeRef` is a callback ref setter and
+  // `style`/`attributes`/`listeners` are plain values from useSortable — none
+  // are React refs. react-hooks 7's `refs` rule misfires on the whole `drag`
+  // object because of the `setNodeRef` name; this is the documented dnd-kit usage.
+  /* eslint-disable react-hooks/refs */
   return (
     <div
       ref={drag.setNodeRef}
@@ -70,4 +75,5 @@ export const StepTile = ({
       </button>
     </div>
   );
+  /* eslint-enable react-hooks/refs */
 };

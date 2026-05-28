@@ -6,6 +6,12 @@ import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Spinner } from '@/ui/Spinner/Spinner';
 
+// This is the router manifest, not a fast-refresh component module: it
+// deliberately exports the lazy route components alongside non-component
+// helpers (`wrap`, the fallbacks, `router`). react-refresh's HMR-boundary
+// rule doesn't apply here.
+/* eslint-disable react-refresh/only-export-components */
+
 const ParentHomeRoute = lazy(() =>
   import('@/app/routes/ParentHomeRoute').then((m) => ({ default: m.ParentHomeRoute })),
 );

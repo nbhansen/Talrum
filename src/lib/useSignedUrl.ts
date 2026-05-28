@@ -9,6 +9,11 @@ import { signedUrlFor } from './storage';
  */
 export const useSignedUrl = (bucket: string, path: string | undefined): string | null => {
   const [url, setUrl] = useState<string | null>(null);
+  // The synchronous setUrl(null) resets to the loading/placeholder state when
+  // bucket/path change so a stale signed URL doesn't flash before the new fetch
+  // resolves. Intentional for an async storage loader — not the cascading-render
+  // anti-pattern react-hooks 7's set-state-in-effect rule targets.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!path) {
       setUrl(null);
@@ -27,5 +32,6 @@ export const useSignedUrl = (bucket: string, path: string | undefined): string |
       cancelled = true;
     };
   }, [bucket, path]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   return url;
 };

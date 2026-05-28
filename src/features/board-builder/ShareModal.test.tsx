@@ -4,8 +4,8 @@ import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionContext } from '@/lib/auth/session';
-import type { BoardMember } from '@/lib/queries/board-members';
 import type * as BoardMembersModule from '@/lib/queries/board-members';
+import type { BoardMember } from '@/lib/queries/board-members';
 
 const useBoardMembersMock = vi.fn();
 const removeMutateMock = vi.fn();

@@ -40,6 +40,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   useEffect(() => {
     let cancelled = false;
+    // Reset to loading before re-resolving the session (re-runs on retry).
+    // Deliberate sync reset for an async init effect, not a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ status: 'loading' });
     // Sweep stale `sb-<other-host>-auth-token` keys left by previous
     // VITE_SUPABASE_URL values (#184). One-shot per mount; idempotent.
