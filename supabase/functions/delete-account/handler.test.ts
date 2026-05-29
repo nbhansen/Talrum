@@ -75,6 +75,35 @@ Deno.test('handler: invalid Bearer → 401 unauthorized', async () => {
   assertEquals(res.status, 401);
 });
 
+Deno.test(
+  'handler: replayed JWT after the account is gone → 401 without re-running deletion (#217)',
+  async () => {
+    // Acceptance criterion #2: once an account is deleted, its JWT no longer
+    // resolves to a user, so admin.auth.getUser returns null and we 401 before
+    // ever entering the deletion path again. This bounds the authenticated abuse
+    // surface — a replayed token can't trigger a second deletion run.
+    const req = new Request('https://x.invalid/delete-account', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer once.valid.now.deleted' },
+      body: '',
+    });
+    const admin = makeAdminStub({
+      getUser: async () => ({ data: { user: null }, error: null }),
+    });
+    let deleteCalls = 0;
+    const deleteFn = async (uid: string): Promise<{ audioCount: number; imageCount: number }> => {
+      deleteCalls += 1;
+      return noopDelete(uid);
+    };
+    const res = await handleRequest(req, admin, deleteFn);
+    assertEquals(res.status, 401);
+    const body = await res.json();
+    assertEquals(body.ok, false);
+    assertEquals(body.error, 'unauthorized');
+    assertEquals(deleteCalls, 0);
+  },
+);
+
 Deno.test('handler: non-empty body → 400 bad_request', async () => {
   const req = new Request('https://x.invalid/delete-account', {
     method: 'POST',
