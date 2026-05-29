@@ -75,10 +75,7 @@ const makeWrap = (initialPath: string): (() => JSX.Element) => {
   return (): JSX.Element => (
     <TestSessionProvider>
       <QueryClientProvider client={qc}>
-        <MemoryRouter
-          initialEntries={[initialPath]}
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-        >
+        <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
             <Route path="/" element={<ParentHomeRoute />} />
             <Route path="/boards/:boardId/edit" element={<div data-testid="board-edit-route" />} />

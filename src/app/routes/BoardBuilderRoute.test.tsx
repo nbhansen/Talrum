@@ -32,10 +32,7 @@ const makeWrapper = (qc: QueryClient, initialPath: string): (() => JSX.Element) 
   return (): JSX.Element => (
     <TestSessionProvider>
       <QueryClientProvider client={qc}>
-        <MemoryRouter
-          initialEntries={[initialPath]}
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-        >
+        <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
             <Route path="/boards/:boardId/edit" element={<BoardBuilderRoute />} />
           </Routes>

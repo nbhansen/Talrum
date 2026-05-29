@@ -30,10 +30,7 @@ describe('DeleteAccountSection', () => {
   const renderIt = (): void => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter
-          initialEntries={['/settings']}
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-        >
+        <MemoryRouter initialEntries={['/settings']}>
           <Routes>
             <Route path="/settings" element={<DeleteAccountSection />} />
             <Route path="/account-deleted" element={<div data-testid="deleted" />} />

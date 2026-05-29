@@ -45,10 +45,7 @@ const renderRoute = (): void => {
   render(
     <TestSessionProvider>
       <QueryClientProvider client={qc}>
-        <MemoryRouter
-          initialEntries={['/kids']}
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-        >
+        <MemoryRouter initialEntries={['/kids']}>
           <Routes>
             <Route path="/kids" element={<KidsRoute />} />
             <Route

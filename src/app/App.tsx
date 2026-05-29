@@ -29,7 +29,7 @@ export const App = (): React.JSX.Element => (
   <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
     <AuthGate>
       <ErrorBoundary fallback={() => <AppRootFallback />}>
-        <RouterProvider router={router} future={{ v7_startTransition: true }} />
+        <RouterProvider router={router} />
       </ErrorBoundary>
     </AuthGate>
   </PersistQueryClientProvider>

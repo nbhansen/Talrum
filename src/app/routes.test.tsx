@@ -67,7 +67,7 @@ describe('routes — error boundary wiring', () => {
 
   it('parent fallback shows Retry + Go home and surrounding tree stays mounted', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <div data-testid="shell">
           <ErrorBoundary fallback={parentRouteFallback}>
             <Boom />
@@ -112,7 +112,7 @@ describe('routes — error boundary wiring', () => {
 
   it('kid fallback shows only "Tap to go back" — no Retry, no body copy', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <div data-testid="shell">
           <ErrorBoundary fallback={kidRouteFallback}>
             <Boom />

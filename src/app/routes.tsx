@@ -106,26 +106,15 @@ export const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   </ErrorBoundary>
 );
 
-export const router = createBrowserRouter(
-  [
-    { path: '/', element: wrap(<ParentHomeRoute />, 'parent') },
-    { path: '/boards/:boardId/edit', element: wrap(<BoardBuilderRoute />, 'parent') },
-    { path: '/library', element: wrap(<LibraryRoute />, 'parent') },
-    { path: '/kids', element: wrap(<KidsRoute />, 'parent') },
-    { path: '/settings', element: wrap(<SettingsRoute />, 'parent') },
-    { path: '/kid/sequence/:boardId', element: wrap(<KidSequenceRoute />, 'kid') },
-    { path: '/kid/choice/:boardId', element: wrap(<KidChoiceRoute />, 'kid') },
-    { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
-    { path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') },
-    { path: '*', element: <Navigate to="/" replace /> },
-  ],
-  {
-    future: {
-      v7_fetcherPersist: true,
-      v7_normalizeFormMethod: true,
-      v7_partialHydration: true,
-      v7_relativeSplatPath: true,
-      v7_skipActionErrorRevalidation: true,
-    },
-  },
-);
+export const router = createBrowserRouter([
+  { path: '/', element: wrap(<ParentHomeRoute />, 'parent') },
+  { path: '/boards/:boardId/edit', element: wrap(<BoardBuilderRoute />, 'parent') },
+  { path: '/library', element: wrap(<LibraryRoute />, 'parent') },
+  { path: '/kids', element: wrap(<KidsRoute />, 'parent') },
+  { path: '/settings', element: wrap(<SettingsRoute />, 'parent') },
+  { path: '/kid/sequence/:boardId', element: wrap(<KidSequenceRoute />, 'kid') },
+  { path: '/kid/choice/:boardId', element: wrap(<KidChoiceRoute />, 'kid') },
+  { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
+  { path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') },
+  { path: '*', element: <Navigate to="/" replace /> },
+]);
