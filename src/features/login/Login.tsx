@@ -1,42 +1,34 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
 import talrumLogo from '@/assets/talrum-logo.png';
-import { useEmailOtp } from '@/lib/auth/login';
+import { useMagicLink } from '@/lib/auth/login';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
 import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './Login.module.css';
 
-type Stage = 'email' | 'otp';
+type Stage = 'email' | 'sent';
 
 /**
- * Two-step magic-link sign-in. Step 1 sends an OTP email; step 2 verifies the
- * 6-digit code. In local dev the email is captured by Inbucket at
- * http://localhost:54324 — open the latest message, copy the code, paste.
+ * Magic-link sign-in. Step 1 sends an email with a sign-in link; the parent
+ * opens it on the same device and supabase-js exchanges the URL for a session
+ * (AuthGate then flips to the app). In local dev the email is captured by
+ * Mailpit at http://localhost:54324 — open the latest message, click the link.
  * New emails trigger handle_new_user() which clones the starter library.
  */
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const online = useOnline();
-  const { sendCode, verify, busy, error, resetError } = useEmailOtp();
+  const { sendLink, busy, error, resetError } = useMagicLink();
 
-  const onSendCode = async (e: FormEvent): Promise<void> => {
+  const onSendLink = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
-    const ok = await sendCode(trimmed);
-    if (ok) setStage('otp');
-  };
-
-  const onVerify = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    const trimmedCode = code.trim();
-    if (!trimmedCode) return;
-    await verify(email.trim().toLowerCase(), trimmedCode);
-    // Success path: AuthGate sees the new session and flips to the app.
+    const ok = await sendLink(trimmed);
+    if (ok) setStage('sent');
   };
 
   return (
@@ -45,7 +37,7 @@ export const Login = (): JSX.Element => {
         <div className={styles.brand}>
           <img src={talrumLogo} alt="" width={72} height={72} className={styles.mark} />
           <h1 className={styles.title}>Talrum</h1>
-          <p className={styles.subtitle}>Sign in with a one-time code.</p>
+          <p className={styles.subtitle}>Sign in with a magic link.</p>
         </div>
         {!online && (
           <div role="status" className={styles.offline}>
@@ -53,7 +45,7 @@ export const Login = (): JSX.Element => {
           </div>
         )}
         {stage === 'email' ? (
-          <form className={styles.form} onSubmit={(e) => void onSendCode(e)}>
+          <form className={styles.form} onSubmit={(e) => void onSendLink(e)}>
             <TextField
               label="Email"
               type="email"
@@ -67,48 +59,27 @@ export const Login = (): JSX.Element => {
             />
             {error && <div className={styles.error}>{error}</div>}
             <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
-              {busy ? 'Sending…' : 'Send code'}
+              {busy ? 'Sending…' : 'Send link'}
             </Button>
           </form>
         ) : (
-          <form className={styles.form} onSubmit={(e) => void onVerify(e)}>
-            <div className={styles.hint}>
-              Code sent to <strong>{email}</strong>. Check your email (or Inbucket in dev).
+          <div className={styles.form}>
+            <div role="status" className={styles.hint}>
+              Check your email — we sent a sign-in link to <strong>{email}</strong>. Open it on this
+              device to sign in. (In dev, see Mailpit.)
             </div>
-            <TextField
-              label="Code"
-              type="text"
-              name="otp"
-              required
-              autoFocus
-              autoComplete="one-time-code"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="••••••"
-              inputClassName={styles.otp}
-            />
-            {error && <div className={styles.error}>{error}</div>}
-            <div className={styles.row}>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setStage('email');
-                  setCode('');
-                  resetError();
-                }}
-                disabled={busy}
-              >
-                Back
-              </Button>
-              <Button type="submit" variant="primary" disabled={busy || code.length < 6 || !online}>
-                {busy ? 'Verifying…' : 'Sign in'}
-              </Button>
-            </div>
-          </form>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setStage('email');
+                resetError();
+              }}
+              disabled={busy}
+            >
+              Use a different email
+            </Button>
+          </div>
         )}
       </div>
     </main>

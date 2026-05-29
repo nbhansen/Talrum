@@ -3,11 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const signInWithOtpMock = vi.fn();
-const verifyOtpMock = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { signInWithOtp: signInWithOtpMock, verifyOtp: verifyOtpMock },
+    auth: { signInWithOtp: signInWithOtpMock },
   },
 }));
 
@@ -15,69 +14,44 @@ const { Login } = await import('./Login');
 
 afterEach(() => {
   signInWithOtpMock.mockReset();
-  verifyOtpMock.mockReset();
 });
 
 describe('Login', () => {
-  it('starts on the email step with a Send code button', () => {
+  it('starts on the email step with a Send link button', () => {
     render(<Login />);
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send link' })).toBeInTheDocument();
   });
 
-  it('submitting an email calls signInWithOtp and advances to the OTP step', async () => {
+  it('submitting an email sends a magic link redirecting back to the app, then confirms', async () => {
     signInWithOtpMock.mockResolvedValueOnce({ error: null });
     render(<Login />);
     await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send link' }));
     expect(signInWithOtpMock).toHaveBeenCalledWith({
       email: 'parent@example.com',
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
     });
-    expect(await screen.findByLabelText('Code')).toBeInTheDocument();
+    // Advances to the confirmation step naming the address it was sent to.
+    expect(await screen.findByText(/Check your email/)).toBeInTheDocument();
+    expect(screen.getByText('parent@example.com')).toBeInTheDocument();
   });
 
-  it('shows the API error when sending the code fails and stays on the email step', async () => {
+  it('shows the API error when sending fails and stays on the email step', async () => {
     signInWithOtpMock.mockResolvedValueOnce({ error: { message: 'rate limit hit' } });
     render(<Login />);
     await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send link' }));
     expect(await screen.findByText('rate limit hit')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Code')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Check your email/)).not.toBeInTheDocument();
   });
 
-  it('submitting a 6-digit code calls verifyOtp', async () => {
-    signInWithOtpMock.mockResolvedValueOnce({ error: null });
-    verifyOtpMock.mockResolvedValueOnce({ error: null });
-    render(<Login />);
-    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
-    await screen.findByLabelText('Code');
-    await userEvent.type(screen.getByLabelText('Code'), '123456');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(verifyOtpMock).toHaveBeenCalledWith({
-      email: 'parent@example.com',
-      token: '123456',
-      type: 'email',
-    });
-  });
-
-  it('non-numeric input is stripped from the OTP field', async () => {
+  it('Use a different email returns to the email step', async () => {
     signInWithOtpMock.mockResolvedValueOnce({ error: null });
     render(<Login />);
     await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
-    const otp = (await screen.findByLabelText('Code')) as HTMLInputElement;
-    await userEvent.type(otp, 'abc12def34');
-    expect(otp.value).toBe('1234');
-  });
-
-  it('Back from the OTP step returns to the email step and clears errors', async () => {
-    signInWithOtpMock.mockResolvedValueOnce({ error: null });
-    render(<Login />);
-    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Back' }));
-    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Send link' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Use a different email' }));
+    expect(screen.getByRole('button', { name: 'Send link' })).toBeInTheDocument();
   });
 });
