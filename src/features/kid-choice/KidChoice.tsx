@@ -22,15 +22,18 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
   const options: Pictogram[] = board.stepIds
     .map((id) => pictogramsById.get(id))
     .filter((p): p is Pictogram => Boolean(p));
-  const [pickedId, setPickedId] = useState<string | null>(null);
-  const pickedPicto = options.find((o) => o.id === pickedId) ?? null;
+  // Selection is keyed by slot position, not pictogram id: a choice board may
+  // legitimately list the same pictogram twice, and an id-keyed selection
+  // would mark every identical tile as picked (#273).
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const pickedPicto = pickedIndex === null ? null : (options[pickedIndex] ?? null);
 
   const speakPicked = (p: Pictogram): void => {
     void speakPictogram(p, board.voiceMode);
   };
 
-  const pick = (p: Pictogram): void => {
-    setPickedId(p.id);
+  const pick = (p: Pictogram, index: number): void => {
+    setPickedIndex(index);
     speakPicked(p);
   };
 
@@ -51,8 +54,8 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
           <div className={styles.choices}>
             {options.map((p, idx) => {
               const accent = accentForIndex(idx);
-              const isPicked = pickedId === p.id;
-              const isOther = pickedId !== null && !isPicked;
+              const isPicked = pickedIndex === idx;
+              const isOther = pickedIndex !== null && !isPicked;
               const markerStyle = {
                 background: cssVar(accent.bg),
                 color: cssVar(accent.ink),
@@ -63,9 +66,9 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
               };
               return (
                 <button
-                  key={p.id}
+                  key={`${p.id}-${idx}`}
                   type="button"
-                  onClick={() => pick(p)}
+                  onClick={() => pick(p, idx)}
                   className={[
                     styles.choice,
                     isPicked && styles.choicePicked,

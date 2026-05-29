@@ -95,6 +95,23 @@ describe('KidChoice', () => {
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
   });
 
+  it('selects only the tapped slot when a board lists the same pictogram twice (#273)', async () => {
+    // A choice board may legitimately repeat a pictogram. Selection must be
+    // keyed by slot position, not pictogram id — otherwise tapping one tile
+    // marks every identical tile as picked (and the React key collides).
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidChoice board={{ ...board, stepIds: [park.id, park.id] }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    const first = screen.getByRole('button', { name: /A.*Park/i });
+    const second = screen.getByRole('button', { name: /B.*Park/i });
+    await userEvent.click(first);
+    expect(first.className).toMatch(/choicePicked/);
+    expect(second.className).not.toMatch(/choicePicked/);
+  });
+
   it('tapping the confirm pill re-speaks the picked label (#231)', async () => {
     const qc = makeClient();
     render(
