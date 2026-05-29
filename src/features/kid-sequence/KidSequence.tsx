@@ -38,7 +38,10 @@ const buildSteps = (stepIds: readonly string[], byId: Map<string, Pictogram>): S
 export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const steps = buildSteps(board.stepIds, pictogramsById);
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  // Track the speaking flash by slot key, not pictogram id: a sequence may
+  // repeat the same pictogram ("jump, jump, jump"), and an id-keyed flash
+  // would light up every identical tile at once (#273).
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
   const setStepIds = useSetStepIds();
 
   // Track the flash timer so unmount cancels it. Otherwise a stray setState
@@ -55,11 +58,11 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   );
 
   const announce = (step: Step): void => {
-    setSpeakingId(step.picto.id);
+    setSpeakingKey(step.key);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => {
       flashTimer.current = null;
-      setSpeakingId((curr) => (curr === step.picto.id ? null : curr));
+      setSpeakingKey((curr) => (curr === step.key ? null : curr));
     }, SPEAK_FLASH_MS);
     void speakPictogram(step.picto, board.voiceMode);
   };
@@ -73,7 +76,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   };
 
   const renderTile = (step: Step, drag?: DragBindings): JSX.Element => {
-    const isSpeaking = speakingId === step.picto.id;
+    const isSpeaking = speakingKey === step.key;
     return (
       <button
         ref={drag?.setNodeRef}

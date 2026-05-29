@@ -79,6 +79,23 @@ describe('KidSequence', () => {
     );
   });
 
+  it('flashes only the tapped slot when a step repeats the same pictogram (#273)', async () => {
+    // "jump, jump, jump" is a valid sequence. The speaking flash must track
+    // the tapped slot, not the pictogram id — an id-keyed flash lights up
+    // every identical tile at once.
+    const qc = makeClient();
+    render(
+      <Wrap qc={qc}>
+        <KidSequence board={{ ...board, stepIds: [apple.id, apple.id] }} onExit={vi.fn()} />
+      </Wrap>,
+    );
+    const [first, second] = screen.getAllByRole('button', { name: /Apple/i });
+    if (!first || !second) throw new Error('expected two Apple tiles');
+    await userEvent.click(first);
+    expect(first.className).toMatch(/tileActive/);
+    expect(second.className).not.toMatch(/tileActive/);
+  });
+
   it('hides per-tile labels when board.labelsVisible is false, but keeps an accessible name', () => {
     const qc = makeClient();
     render(
