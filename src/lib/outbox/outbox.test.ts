@@ -206,6 +206,31 @@ describe('enqueueAndDrain', () => {
     expect(entries[0]?.attemptCount).toBe(1);
   });
 
+  it('online + pending backlog: enqueues behind the queue instead of jumping it (#279)', async () => {
+    // An older write is still queued (e.g. offline backlog). A new online
+    // write must not bypass it — the queued entry would replay later and
+    // overwrite the newer state on the server.
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'board-new', patch: { name: 'x' } });
+    expect(eqMock.mock.calls).toEqual([
+      ['id', 'board-old'],
+      ['id', 'board-new'],
+    ]);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('online + failed-only backlog: fast path stays available', async () => {
+    // drain() skips failed entries, so holding the fast path hostage to them
+    // would queue new writes behind a dam that never breaks.
+    await putEntry(
+      baseEntry({ id: '01HZZA', boardId: 'board-old', status: 'failed', attemptCount: 3 }),
+    );
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'board-new', patch: { name: 'x' } });
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-new');
+    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZA']);
+  });
+
   it('offline: enqueues without trying the handler', async () => {
     setOnline(false);
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });

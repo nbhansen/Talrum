@@ -37,10 +37,17 @@ type EntryInput = DistributiveOmit<
  *
  * Offline: skip the immediate attempt — persist the entry and resolve. The
  * UI keeps the optimistic state; the drain loop replays when `online` fires.
+ *
+ * The fast path requires an empty pending queue: a write that bypasses older
+ * queued entries gets overwritten when they replay — stale data wins (#279).
+ * In that case the write joins the queue and a drain flushes everything in
+ * FIFO order. Failed entries don't count — drain() skips them, so they'd
+ * block the fast path forever for nothing.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
-  if (isOnline) {
+  const hasPendingBacklog = isOnline && (await listEntries()).some((e) => e.status === 'pending');
+  if (isOnline && !hasPendingBacklog) {
     const entry: OutboxEntry = {
       ...input,
       id: ulid(),
@@ -74,6 +81,11 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
+  if (isOnline) {
+    // Online with a backlog: flush the queue (oldest first, this entry last).
+    await drain();
+    return;
+  }
   // The offline path doesn't call drain() (which is what normally emits),
   // so the indicator wouldn't update its pending count until the next
   // online/offline event. Push the new status now.
