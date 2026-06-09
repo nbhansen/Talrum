@@ -2,13 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const useOutboxStatusMock = vi.fn();
-const kickMock = vi.fn();
+const retryFailedMock = vi.fn();
 const peekEntriesMock = vi.fn();
 const discardEntryMock = vi.fn();
 
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
-  kick: (...args: unknown[]) => kickMock(...args),
+  retryFailed: (...args: unknown[]) => retryFailedMock(...args),
   peekEntries: (...args: unknown[]) => peekEntriesMock(...args),
   discardEntry: (...args: unknown[]) => discardEntryMock(...args),
 }));
@@ -17,7 +17,7 @@ const { OfflineIndicator } = await import('./OfflineIndicator');
 
 afterEach(() => {
   useOutboxStatusMock.mockReset();
-  kickMock.mockReset();
+  retryFailedMock.mockReset();
   peekEntriesMock.mockReset();
   discardEntryMock.mockReset();
 });
@@ -69,6 +69,20 @@ describe('OfflineIndicator', () => {
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
   });
 
+  it('Retry resets failed entries via retryFailed, not a plain drain kick (#277)', () => {
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 0,
+      failedCount: 2,
+      draining: false,
+    });
+    retryFailedMock.mockResolvedValue(undefined);
+    render(<OfflineIndicator />);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    // A plain drain skips failed entries — kicking one here was the #277 bug.
+    expect(retryFailedMock).toHaveBeenCalledTimes(1);
+  });
+
   it('discards failed entries without kicking the drain (#31)', async () => {
     useOutboxStatusMock.mockReturnValue({
       online: true,
@@ -85,6 +99,6 @@ describe('OfflineIndicator', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(discardEntryMock).toHaveBeenCalledWith('a'));
     expect(discardEntryMock).not.toHaveBeenCalledWith('b');
-    expect(kickMock).not.toHaveBeenCalled();
+    expect(retryFailedMock).not.toHaveBeenCalled();
   });
 });

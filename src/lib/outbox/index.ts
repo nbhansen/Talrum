@@ -4,7 +4,6 @@ import { ulid } from 'ulid';
 import {
   drain,
   getStatus,
-  kick,
   type OutboxStatus,
   refreshStatus,
   startOutbox,
@@ -15,7 +14,7 @@ import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
 export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
-export { kick, startOutbox, UnretryableOutboxError };
+export { startOutbox, UnretryableOutboxError };
 
 /**
  * Distribute the Omit over each member of the union so caller payloads keep
@@ -79,6 +78,19 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   // so the indicator wouldn't update its pending count until the next
   // online/offline event. Push the new status now.
   await refreshStatus();
+};
+
+/**
+ * Reset every failed entry to pending (fresh retry budget, stale lastError
+ * dropped) and drain. The indicator's "Retry" — a plain `drain()` skips
+ * failed entries, so without the reset the button is a no-op (#277).
+ */
+export const retryFailed = async (): Promise<void> => {
+  const failed = (await listEntries()).filter((e) => e.status === 'failed');
+  for (const { lastError: _lastError, ...entry } of failed) {
+    await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
+  }
+  await drain();
 };
 
 /** Drop a single failed entry from the queue (the indicator's "Discard"). */

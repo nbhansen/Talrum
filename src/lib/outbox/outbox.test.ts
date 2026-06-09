@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase', () => ({
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, startOutbox, subscribeStatus } = await import('./drain');
-const { enqueueAndDrain } = await import('./index');
+const { enqueueAndDrain, retryFailed } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -131,6 +131,39 @@ describe('outbox drain', () => {
     expect(eqMock).toHaveBeenCalledTimes(1);
     const remaining = await listEntries();
     expect(remaining.map((e) => e.id)).toEqual(['01HZZA', '01HZZB']);
+  });
+});
+
+describe('retryFailed', () => {
+  it('re-attempts failed entries and clears them on success (#277)', async () => {
+    await putEntry(
+      baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3, lastError: 'Failed to fetch' }),
+    );
+    await retryFailed();
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('grants a failed entry a fresh retry budget', async () => {
+    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(
+      baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3, lastError: 'Failed to fetch' }),
+    );
+    await retryFailed();
+    const entries = await listEntries();
+    expect(entries).toHaveLength(1);
+    // Reset to pending with attemptCount restarted — one drain attempt has
+    // run since the reset, so the count is 1, not 4.
+    expect(entries[0]?.status).toBe('pending');
+    expect(entries[0]?.attemptCount).toBe(1);
+  });
+
+  it('leaves pending entries untouched when there is nothing failed', async () => {
+    setOnline(false); // drain is a no-op offline, so the entry must survive as-is
+    await putEntry(baseEntry({ id: '01HZZA', attemptCount: 2 }));
+    await retryFailed();
+    const entries = await listEntries();
+    expect(entries[0]?.attemptCount).toBe(2);
   });
 });
 

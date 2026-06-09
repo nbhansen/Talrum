@@ -114,5 +114,3 @@ export const startOutbox = (): void => {
   }
   void drain();
 };
-
-export const kick = (): Promise<void> => drain();

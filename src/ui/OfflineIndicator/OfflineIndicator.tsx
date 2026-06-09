@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { discardEntry, kick, peekEntries, useOutboxStatus } from '@/lib/outbox';
+import { discardEntry, peekEntries, retryFailed, useOutboxStatus } from '@/lib/outbox';
 
 import styles from './OfflineIndicator.module.css';
 
@@ -26,7 +26,7 @@ export const OfflineIndicator = (): JSX.Element | null => {
         <span className={styles.label}>
           {failedCount} sync {failedCount === 1 ? 'change' : 'changes'} failed
         </span>
-        <button type="button" className={styles.action} onClick={() => void kick()}>
+        <button type="button" className={styles.action} onClick={() => void retryFailed()}>
           Retry
         </button>
         <button type="button" className={styles.action} onClick={() => void discardAllFailed()}>
