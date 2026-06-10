@@ -244,7 +244,6 @@ export const useReplacePictogramImage = (): UseMutationResult<
 
 export interface DeletePictogramInput {
   pictogramId: string;
-  scrubFromBoardIds: string[];
   previousImagePath?: string;
   previousAudioPath?: string;
 }
@@ -279,11 +278,10 @@ export const useDeletePictogram = (): UseMutationResult<
       );
       return { previousPictograms, previousBoards };
     },
-    mutationFn: ({ pictogramId, scrubFromBoardIds, previousImagePath, previousAudioPath }) =>
+    mutationFn: ({ pictogramId, previousImagePath, previousAudioPath }) =>
       enqueueAndDrain({
         kind: 'deletePicto',
         pictogramId,
-        scrubFromBoardIds,
         ...(previousImagePath ? { previousImagePath } : {}),
         ...(previousAudioPath ? { previousAudioPath } : {}),
       }),

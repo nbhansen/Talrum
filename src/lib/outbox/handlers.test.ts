@@ -52,9 +52,15 @@ const storageFromMock = vi.fn((_bucket: string) => ({
   createSignedUrl: createSignedUrlMock,
 }));
 
+const rpcMock =
+  vi.fn<
+    (fn: string, args: Record<string, unknown>) => Promise<{ error: MockPostgrestError | null }>
+  >();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => fromMock(table),
+    rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args),
     storage: { from: (bucket: string) => storageFromMock(bucket) },
   },
 }));
@@ -91,6 +97,8 @@ beforeEach(() => {
   insertMock.mockResolvedValue({ error: null });
   inMock.mockResolvedValue({ data: [], error: null });
   deleteEqMock.mockResolvedValue({ error: null });
+  rpcMock.mockReset();
+  rpcMock.mockResolvedValue({ error: null });
   uploadMock.mockResolvedValue({ error: null });
   removeMock.mockResolvedValue({ error: null });
 });
@@ -328,33 +336,20 @@ describe('runHandler · replacePictoImage', () => {
 });
 
 describe('runHandler · deletePicto', () => {
-  it('scrubs the id from referenced boards, deletes the row, and cleans up uploads', async () => {
-    inMock.mockResolvedValue({
-      data: [
-        { id: 'b-1', step_ids: ['p-1', 'p-2'] },
-        { id: 'b-2', step_ids: ['p-2'] }, // already not referenced — no update
-      ],
-      error: null,
-    });
+  it('cleans up uploads then deletes via the delete_pictogram RPC', async () => {
     const entry: DeletePictogramEntry = {
       ...baseProps,
       kind: 'deletePicto',
       pictogramId: 'p-1',
       previousImagePath: 'o-1/p-1.jpg',
       previousAudioPath: 'o-1/p-1.webm',
-      scrubFromBoardIds: ['b-1', 'b-2'],
     };
     await runHandler(entry);
-    expect(selectMock).toHaveBeenCalledWith('id, step_ids');
-    expect(inMock).toHaveBeenCalledWith('id', ['b-1', 'b-2']);
-    // Only b-1 had a step_ids change.
-    expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateMock).toHaveBeenCalledWith({ step_ids: ['p-2'] });
-    expect(eqMock).toHaveBeenCalledWith('id', 'b-1');
-    expect(deleteMock).toHaveBeenCalledTimes(1);
-    expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.jpg']);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
+    expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p-1' });
+    // The boards scrub + row delete happen inside the RPC — no table traffic.
+    expect(fromMock).not.toHaveBeenCalled();
   });
 
   it('skips storage cleanup for stock-prefixed previous paths', async () => {
@@ -363,24 +358,22 @@ describe('runHandler · deletePicto', () => {
       kind: 'deletePicto',
       pictogramId: 'p-1',
       previousImagePath: 'stock:park',
-      scrubFromBoardIds: [],
     };
     await runHandler(entry);
-    expect(deleteMock).toHaveBeenCalled();
+    expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p-1' });
     expect(removeMock).not.toHaveBeenCalled();
   });
 
-  it('skips the boards round-trip when scrubFromBoardIds is empty', async () => {
+  it('classifies a coded RPC error as unretryable', async () => {
+    rpcMock.mockResolvedValue({
+      error: { code: '42501', message: 'denied', details: '', hint: '' },
+    });
     const entry: DeletePictogramEntry = {
       ...baseProps,
       kind: 'deletePicto',
       pictogramId: 'p-1',
-      scrubFromBoardIds: [],
     };
-    await runHandler(entry);
-    expect(selectMock).not.toHaveBeenCalled();
-    expect(inMock).not.toHaveBeenCalled();
-    expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
