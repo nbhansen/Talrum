@@ -17,7 +17,6 @@ const deleteMock =
   vi.fn<
     (input: {
       pictogramId: string;
-      scrubFromBoardIds: string[];
       previousImagePath?: string;
       previousAudioPath?: string;
     }) => Promise<void>
@@ -140,7 +139,6 @@ describe('PictogramSheet', () => {
     await waitFor(() => {
       expect(deleteMock).toHaveBeenCalledWith({
         pictogramId: 'p1',
-        scrubFromBoardIds: ['b1', 'b2'],
       });
       expect(onClose).toHaveBeenCalled();
     });

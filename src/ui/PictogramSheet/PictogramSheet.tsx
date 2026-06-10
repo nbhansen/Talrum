@@ -104,7 +104,6 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
     try {
       await deleteMut.mutateAsync({
         pictogramId: picto.id,
-        scrubFromBoardIds: referencedBoardIds,
         ...(picto.style === 'photo' && picto.imagePath
           ? { previousImagePath: picto.imagePath }
           : {}),

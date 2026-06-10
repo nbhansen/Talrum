@@ -142,35 +142,13 @@ const handleReplacePictogramImage = async (entry: ReplacePictogramImageEntry): P
 };
 
 const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void> => {
-  // Order matters: scrub boards' step_ids → clean up storage → delete the
-  // pictograms row last. step_ids is a uuid[] with no FK, so we have to
-  // strip references manually before the row goes away (otherwise boards
-  // that referenced it keep dangling UUIDs). Storage cleanup runs *before*
-  // the row delete so a transient storage failure throws and the outbox
-  // retries the whole entry — once the row is gone, a retry can't re-derive
-  // which keys to remove. Each step is idempotent on retry: the SELECT
-  // re-reads current step_ids, the UPDATEs are no-ops where already
-  // scrubbed, the storage removes return success on missing keys, and the
-  // final DELETE returns no error if the row is already gone.
-  //
-  // The boards scrub takes one SELECT plus N sequential UPDATE calls (one
-  // per actually-referencing board); idempotent so retries are safe.
-  if (entry.scrubFromBoardIds.length > 0) {
-    const { data: rows, error: readErr } = await supabase
-      .from('boards')
-      .select('id, step_ids')
-      .in('id', entry.scrubFromBoardIds);
-    if (readErr) throw readErr;
-    for (const row of rows ?? []) {
-      const next = row.step_ids.filter((id: string) => id !== entry.pictogramId);
-      if (next.length === row.step_ids.length) continue;
-      const { error: updErr } = await supabase
-        .from('boards')
-        .update({ step_ids: next })
-        .eq('id', row.id);
-      if (updErr) throw updErr;
-    }
-  }
+  // The boards scrub + row delete run server-side in the `delete_pictogram`
+  // RPC, one transaction, with the referencing boards recomputed at execution
+  // time (#280) — no stale client-cache scrub list. Storage cleanup runs
+  // *before* the RPC so a transient storage failure throws and the outbox
+  // retries the whole entry. Each step is idempotent on retry: the storage
+  // removes return success on missing keys, and the RPC is a no-op once the
+  // row is gone.
   if (isUploadedStoragePath(entry.previousImagePath)) {
     await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]);
     invalidateSignedUrl(IMAGES_BUCKET, entry.previousImagePath);
@@ -179,7 +157,9 @@ const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void>
     await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]);
     invalidateSignedUrl(AUDIO_BUCKET, entry.previousAudioPath);
   }
-  const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
+  const { error } = await supabase.rpc('delete_pictogram', {
+    p_pictogram_id: entry.pictogramId,
+  });
   if (error) throw error;
 };
 

@@ -92,12 +92,6 @@ export interface DeletePictogramEntry extends OutboxEntryBase {
   /** Storage paths to clean up. Stock-prefixed paths are skipped by the handler. */
   previousImagePath?: string;
   previousAudioPath?: string;
-  /**
-   * Boards whose `step_ids` reference this pictogram. Scrubbed via
-   * `array_remove` before the row is deleted, so we don't leave dangling
-   * UUIDs in any board the user owns.
-   */
-  scrubFromBoardIds: string[];
 }
 
 export interface RenameKidEntry extends OutboxEntryBase {
