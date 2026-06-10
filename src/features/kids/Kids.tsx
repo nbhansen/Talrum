@@ -6,7 +6,7 @@ import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
-import { KidSheet } from '@/ui/KidSheet/KidSheet';
+import { KidSheet } from '@/widgets/KidSheet/KidSheet';
 
 import styles from './Kids.module.css';
 

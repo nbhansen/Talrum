@@ -54,6 +54,7 @@ flowchart TD
     app[app/]
     routes[app/routes/]
     features[features/]
+    widgets[widgets/]
     lib[lib/]
     ui[ui/]
     layouts[layouts/]
@@ -61,9 +62,13 @@ flowchart TD
     sb[(Supabase)]
 
     app --> routes --> features
+    features --> widgets
     features --> lib
     features --> ui
     features --> layouts
+    widgets --> lib
+    widgets --> ui
+    layouts --> widgets
     lib --> base
     ui --> base
     layouts --> base
@@ -73,8 +78,12 @@ flowchart TD
 - `app/` — router, AuthGate, SessionProvider, SW update prompt.
 - `app/routes/` — one file per route, composed from features.
 - `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature imports.
+- `widgets/` — shared, query-aware, feature-agnostic components (PictogramSheet,
+  KidSheet, NewKidModal, OfflineIndicator).
 - `lib/` — queries (reads), outbox (writes), storage URL minting, auth helpers.
-- `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …).
+- `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …). No data
+  access — a component that needs `lib/queries` or `lib/outbox` belongs in
+  `widgets/`.
 - `layouts/` — ParentShell, KidModeLayout, TalrumLogo.
 - `theme/` and `types/` — CSS tokens and shared/generated TS types.
 - Supabase — Postgres, Auth, and Storage; the only external runtime dependency.
@@ -97,6 +106,7 @@ src/
   app/         router, AuthGate, SessionProvider, SW update prompt
   app/routes/  one file per route, composed from features
   features/    one folder per screen (parent-home, board-builder, kid-*)
+  widgets/     shared query-aware components (PictogramSheet, KidSheet, …)
   lib/         supabase client, react-query hooks, outbox, auth helpers
   ui/          domain-agnostic primitives (Button, Modal, PictoTile, …)
   layouts/     ParentShell, KidModeLayout, TalrumLogo

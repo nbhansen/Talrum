@@ -54,7 +54,10 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/{lib,ui,theme,types,glyphs,layouts}/**/*.{ts,tsx}'],
+    // Flat-config gotcha: a later block's 'no-restricted-imports' array fully
+    // replaces an earlier one for files matched by both, so each tier below
+    // gets exactly one block and restates every pattern it needs.
+    files: ['src/{lib,theme,types,glyphs}/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -64,7 +67,77 @@ export default tseslint.config(
             {
               group: ['@/app', '@/app/*'],
               message:
-                'Reverse import: lib/ui/theme/types/glyphs/layouts MUST NOT import from app/. Move the consumed surface down a layer (e.g. session hooks live in @/lib/auth/session).',
+                'Reverse import: shared layers MUST NOT import from app/. Move the consumed surface down a layer (e.g. session hooks live in @/lib/auth/session).',
+            },
+            {
+              group: ['@/features', '@/features/*'],
+              message:
+                'Reverse import: shared layers MUST NOT import from features/. Lift the consumed surface into lib/, ui/, or widgets/.',
+            },
+            {
+              group: ['@/widgets', '@/widgets/*'],
+              message:
+                'Circular dep: widgets/ depends on lib/. Move the shared logic further down (lib/ or ui/) instead of importing the widget.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // widgets/ and layouts/ may import @/widgets (ParentShell renders
+    // OfflineIndicator), so they skip the circular-dep pattern above.
+    files: ['src/{widgets,layouts}/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: widgets/layouts MUST NOT import from app/. Move the consumed surface down a layer.',
+            },
+            {
+              group: ['@/features', '@/features/*'],
+              message:
+                'Reverse import: widgets/layouts MUST NOT import from features/. Widgets are feature-agnostic by definition (#282).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // ui/ is the dumb tier (#282): presentational primitives only. Anything
+    // that reads or writes data is a domain widget and lives in src/widgets/.
+    files: ['src/ui/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: ui/ MUST NOT import from app/. Move the consumed surface down a layer.',
+            },
+            {
+              group: ['@/features', '@/features/*'],
+              message:
+                'Reverse import: ui/ MUST NOT import from features/.',
+            },
+            {
+              group: ['@/widgets', '@/widgets/*'],
+              message:
+                'Reverse import: ui/ primitives MUST NOT import query-aware widgets. Compose them one layer up (widgets/ or features/).',
+            },
+            {
+              group: ['@/lib/queries', '@/lib/queries/*', '@/lib/outbox', '@/lib/outbox/*'],
+              message:
+                'ui/ is domain-agnostic — no data access. A component that needs lib/queries or lib/outbox is a domain widget; move it to src/widgets/ (#282).',
             },
           ],
         },
@@ -98,11 +171,12 @@ export default tseslint.config(
     // Mirrors the data-access boundary: DB reads go through lib/queries,
     // writes through lib/outbox, and Storage minting through lib/storage.
     // Auth subscription is centralized in app/AuthGate (#126/#148);
-    // sign-in/out helpers live in lib/auth/. Features, ui, and layouts must
-    // not call supabase.storage or supabase.auth directly.
+    // sign-in/out helpers live in lib/auth/. Features, ui, widgets, and
+    // layouts must not call supabase.storage or supabase.auth directly.
     files: [
       'src/features/**/*.{ts,tsx}',
       'src/ui/**/*.{ts,tsx}',
+      'src/widgets/**/*.{ts,tsx}',
       'src/layouts/**/*.{ts,tsx}',
     ],
     ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],

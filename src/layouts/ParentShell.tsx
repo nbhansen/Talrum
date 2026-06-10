@@ -2,7 +2,7 @@ import type { JSX, ReactNode } from 'react';
 
 import type { NavIconName } from '@/ui/icons';
 import { LockIcon, NavIcon } from '@/ui/icons';
-import { OfflineIndicator } from '@/ui/OfflineIndicator/OfflineIndicator';
+import { OfflineIndicator } from '@/widgets/OfflineIndicator/OfflineIndicator';
 
 import styles from './ParentShell.module.css';
 import { TalrumLogo } from './TalrumLogo';

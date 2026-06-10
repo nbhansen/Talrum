@@ -6,7 +6,7 @@ import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { Button } from '@/ui/Button/Button';
 import { PlusIcon } from '@/ui/icons';
-import { NewKidModal } from '@/ui/NewKidModal/NewKidModal';
+import { NewKidModal } from '@/widgets/NewKidModal/NewKidModal';
 
 export const KidsRoute = (): JSX.Element => {
   const onNav = useParentNav();
