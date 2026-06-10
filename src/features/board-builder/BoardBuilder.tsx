@@ -12,9 +12,9 @@ import {
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
 import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
-import { PictogramSheet } from '@/ui/PictogramSheet/PictogramSheet';
 import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { Reorderable } from '@/ui/Reorderable/Reorderable';
+import { PictogramSheet } from '@/widgets/PictogramSheet/PictogramSheet';
 
 import styles from './BoardBuilder.module.css';
 import { BoardErrorBanner } from './BoardErrorBanner';

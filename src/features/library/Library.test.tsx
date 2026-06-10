@@ -9,7 +9,7 @@ vi.mock('@/lib/queries/pictograms', () => ({
   usePictograms: () => usePictogramsMock(),
 }));
 
-vi.mock('@/ui/PictogramSheet/PictogramSheet', () => ({
+vi.mock('@/widgets/PictogramSheet/PictogramSheet', () => ({
   PictogramSheet: ({ picto, onClose }: { picto: Pictogram; onClose: () => void }) => (
     <div data-testid="picto-sheet">
       <span>Editing {picto.label}</span>
