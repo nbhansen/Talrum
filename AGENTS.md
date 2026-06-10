@@ -165,7 +165,7 @@ After every session where the agent did something wrong:
 Prefer single-file or single-test runs during iteration. Full suites are for the final verification pass.
 
 ### Layout
-- Source lives in: `src/` — layered `app → routes → features → lib/ui/layouts → theme/types`; ESLint forbids upward imports. See the README architecture section.
+- Source lives in: `src/` — layered `app → routes → features → widgets → lib/ui/layouts → theme/types`; ESLint forbids upward imports. See the README architecture section.
 - Tests live in: colocated `*.test.ts(x)` next to source; pgTAP SQL tests in `supabase/tests/`.
 - Do not modify: `src/types/supabase.ts` (generated — regenerate with `npm run types:db`).
 

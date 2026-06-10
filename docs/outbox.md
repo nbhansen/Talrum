@@ -9,7 +9,7 @@ doc comments in `src/lib/outbox/*` carry the per-decision detail.
 ## The shape
 
 ```
-mutation hook (lib/queries/*.mutations.ts)
+mutation hook (lib/queries/*)
   │  onMutate: optimistic patch into the React Query cache
   ▼
 enqueueAndDrain(entry)            src/lib/outbox/index.ts
@@ -30,7 +30,7 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
   (`outbox:{ulid}`); ULID key order = enqueue order, so FIFO is free.
 - **`drain.ts`** — the replay loop plus the status feed
   (`pendingCount` / `failedCount` / `draining` / `online`) that
-  `useOutboxStatus` exposes and `ui/OfflineIndicator` renders.
+  `useOutboxStatus` exposes and `widgets/OfflineIndicator` renders.
 - **`handlers.ts`** — the only code that talks to Supabase for writes, and
   the single place errors are classified (`runHandler` wraps every handler).
 
@@ -45,9 +45,11 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
    pending queue*: jumping ahead of older queued entries would let their
    replay overwrite this newer write with stale data (#279).
 3. **Slow path.** Offline, or online with a backlog: the entry is persisted
-   to IndexedDB and `drain()` (or the next `online` event) replays it. The
-   promise resolves as soon as the entry is persisted — the UI keeps its
-   optimistic state and the indicator shows the pending count.
+   to IndexedDB and `drain()` (or the next `online` event) replays it.
+   Offline, the promise resolves as soon as the entry is persisted — the UI
+   keeps its optimistic state and the indicator shows the pending count.
+   Online with a backlog, it resolves only after the queue flush attempt
+   (`drain()` never rejects), so the write may already have landed.
 4. **Drain.** `drain()` walks pending entries oldest-first. It stops at the
    first *transient* failure to preserve ordering, but marks *permanent*
    failures as `failed` and moves on, so one bad entry can't dam the queue.
