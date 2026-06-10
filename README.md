@@ -92,7 +92,8 @@ Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
 in `eslint.config.js`:
 
 - DB reads go through `src/lib/queries/*` (react-query hooks).
-- Writes go through `src/lib/outbox` (offline-tolerant queue).
+- Writes go through `src/lib/outbox` (offline-tolerant queue) — the full
+  write-path lifecycle is in [docs/outbox.md](./docs/outbox.md).
 - Storage URL minting goes through `src/lib/storage`.
 - Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
   live in `src/lib/auth/`.
