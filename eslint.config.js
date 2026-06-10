@@ -54,7 +54,10 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/{lib,ui,widgets,theme,types,glyphs,layouts}/**/*.{ts,tsx}'],
+    // Flat-config gotcha: a later block's 'no-restricted-imports' array fully
+    // replaces an earlier one for files matched by both, so each tier below
+    // gets exactly one block and restates every pattern it needs.
+    files: ['src/{lib,theme,types,glyphs}/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -64,12 +67,42 @@ export default tseslint.config(
             {
               group: ['@/app', '@/app/*'],
               message:
-                'Reverse import: lib/ui/widgets/theme/types/glyphs/layouts MUST NOT import from app/. Move the consumed surface down a layer (e.g. session hooks live in @/lib/auth/session).',
+                'Reverse import: shared layers MUST NOT import from app/. Move the consumed surface down a layer (e.g. session hooks live in @/lib/auth/session).',
             },
             {
               group: ['@/features', '@/features/*'],
               message:
                 'Reverse import: shared layers MUST NOT import from features/. Lift the consumed surface into lib/, ui/, or widgets/.',
+            },
+            {
+              group: ['@/widgets', '@/widgets/*'],
+              message:
+                'Circular dep: widgets/ depends on lib/. Move the shared logic further down (lib/ or ui/) instead of importing the widget.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // widgets/ and layouts/ may import @/widgets (ParentShell renders
+    // OfflineIndicator), so they skip the circular-dep pattern above.
+    files: ['src/{widgets,layouts}/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*'],
+              message:
+                'Reverse import: widgets/layouts MUST NOT import from app/. Move the consumed surface down a layer.',
+            },
+            {
+              group: ['@/features', '@/features/*'],
+              message:
+                'Reverse import: widgets/layouts MUST NOT import from features/. Widgets are feature-agnostic by definition (#282).',
             },
           ],
         },
