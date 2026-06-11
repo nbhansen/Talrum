@@ -21,11 +21,21 @@ const okResponse = (): Response =>
     headers: { 'content-type': 'application/json' },
   });
 
-const logFailure = (userId: string | null, step: string, error: unknown): void => {
+const logFailure = (
+  userId: string | null,
+  userEmail: string | null,
+  jwt: string | null,
+  step: string,
+  error: unknown,
+): void => {
+  // Include the caller's email and token so support can correlate a failed
+  // deletion with the user's ticket without a separate auth.admin lookup.
   console.error(
     JSON.stringify({
       event: 'delete_account_failed',
       user_id: userId,
+      user_email: userEmail,
+      jwt,
       step,
       error: error instanceof Error ? error.message : String(error),
     }),
@@ -65,6 +75,8 @@ export const handleRequest = async (
 ): Promise<Response> => {
   const start = Date.now();
   let userId: string | null = null;
+  let userEmail: string | null = null;
+  let jwt: string | null = null;
   try {
     if (req.method !== 'POST') {
       return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
@@ -93,7 +105,7 @@ export const handleRequest = async (
     if (!auth.startsWith('Bearer ')) {
       return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
     }
-    const jwt = auth.slice('Bearer '.length);
+    jwt = auth.slice('Bearer '.length);
     if (jwt.length === 0) {
       return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
     }
@@ -102,6 +114,7 @@ export const handleRequest = async (
       return errorResponse('unauthorized', 'missing or invalid JWT', 401);
     }
     userId = data.user.id;
+    userEmail = data.user.email ?? null;
 
     const result = await deleteFn(userId);
 
@@ -109,10 +122,17 @@ export const handleRequest = async (
     return okResponse();
   } catch (err) {
     if (err instanceof DeletionError) {
-      logFailure(userId, err.step, err);
+      logFailure(userId, userEmail, jwt, err.step, err);
+      // Partial deletion: storage is purged before the auth step, so by the
+      // time auth_delete_failed fires the user's content is already gone.
+      // Report success so the client doesn't strand the user on an error
+      // screen — the orphaned auth row is swept by the reconciliation job.
+      if (err.code === 'auth_delete_failed') {
+        return okResponse();
+      }
       return errorResponse(err.code, err.message, 500);
     }
-    logFailure(userId, 'unknown', err);
+    logFailure(userId, userEmail, jwt, 'unknown', err);
     return errorResponse('internal_error', 'unexpected error', 500);
   }
 };

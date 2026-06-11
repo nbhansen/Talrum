@@ -20,7 +20,7 @@ export interface AdminClient {
   };
   auth: {
     getUser: (jwt: string | undefined) => Promise<{
-      data: { user: { id: string } | null };
+      data: { user: { id: string; email?: string } | null };
       error: unknown;
     }>;
     admin: {

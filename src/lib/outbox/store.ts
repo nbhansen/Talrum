@@ -8,22 +8,23 @@ import type { OutboxEntry } from './types';
  * enqueue order, so FIFO is free.
  */
 const PREFIX = 'outbox:';
-const idbKey = (id: string): string => `${PREFIX}${id}`;
-const isOutboxKey = (k: IDBValidKey): k is string => typeof k === 'string' && k.startsWith(PREFIX);
+const outboxKey = (id: string): string => `${PREFIX}${id}`;
+const hasOutboxPrefix = (k: IDBValidKey): k is string =>
+  typeof k === 'string' && k.startsWith(PREFIX);
 
 export const putEntry = async (entry: OutboxEntry): Promise<void> => {
-  await set(idbKey(entry.id), entry);
+  await set(outboxKey(entry.id), entry);
 };
 
 export const getEntry = (id: string): Promise<OutboxEntry | undefined> =>
-  get<OutboxEntry>(idbKey(id));
+  get<OutboxEntry>(outboxKey(id));
 
 export const deleteEntry = async (id: string): Promise<void> => {
-  await del(idbKey(id));
+  await del(outboxKey(id));
 };
 
 export const listEntries = async (): Promise<OutboxEntry[]> => {
-  const allKeys = (await keys()).filter(isOutboxKey).sort();
+  const allKeys = (await keys()).filter(hasOutboxPrefix).sort();
   const entries = await Promise.all(allKeys.map((k) => get<OutboxEntry>(k)));
   return entries.filter((e): e is OutboxEntry => e !== undefined);
 };
