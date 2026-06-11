@@ -15,6 +15,9 @@ export const putEntry = async (entry: OutboxEntry): Promise<void> => {
   await set(idbKey(entry.id), entry);
 };
 
+export const getEntry = (id: string): Promise<OutboxEntry | undefined> =>
+  get<OutboxEntry>(idbKey(id));
+
 export const deleteEntry = async (id: string): Promise<void> => {
   await del(idbKey(id));
 };

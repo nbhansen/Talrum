@@ -134,6 +134,78 @@ describe('outbox drain', () => {
   });
 });
 
+describe('cross-tab coordination (#278)', () => {
+  /**
+   * Minimal Web Locks fake: serializes callbacks per lock name via a promise
+   * chain. jsdom has no `navigator.locks`, so installing this opts drain()
+   * into its locked path; the surrounding afterEach removes it again.
+   */
+  const installFakeLocks = () => {
+    const chains = new Map<string, Promise<unknown>>();
+    const request = vi.fn((name: string, cb: () => unknown): Promise<unknown> => {
+      const prev = chains.get(name) ?? Promise.resolve();
+      const run = prev.then(() => cb());
+      chains.set(
+        name,
+        run.then(
+          () => undefined,
+          () => undefined,
+        ),
+      );
+      return run;
+    });
+    Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true });
+    return request;
+  };
+
+  afterEach(() => {
+    delete (navigator as { locks?: unknown }).locks;
+  });
+
+  it('drain waits for the talrum-outbox web lock held by another tab', async () => {
+    const request = installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // "Another tab" grabs the lock first.
+    void navigator.locks.request('talrum-outbox', () => held);
+    const drainDone = drain();
+    // Wait until drain has queued its own lock request, then give the
+    // microtask queue a chance to (incorrectly) run handlers anyway.
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(eqMock).not.toHaveBeenCalled();
+    release();
+    await drainDone;
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('does not resurrect an entry another tab completed mid-flight (permanent error)', async () => {
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    eqMock.mockImplementation(async () => {
+      // Another tab finished this entry and deleted it while our attempt was
+      // in flight; our duplicate write then hits a unique-key violation.
+      await deleteEntry('01HZZA');
+      return { error: { code: '23505', message: 'duplicate key', details: '', hint: '' } };
+    });
+    await drain();
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('does not resurrect an entry another tab completed mid-flight (transient error)', async () => {
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    eqMock.mockImplementation(async () => {
+      await deleteEntry('01HZZA');
+      throw new TypeError('Failed to fetch');
+    });
+    await drain();
+    expect(await listEntries()).toEqual([]);
+  });
+});
+
 describe('retryFailed', () => {
   it('re-attempts failed entries and clears them on success (#277)', async () => {
     await putEntry(

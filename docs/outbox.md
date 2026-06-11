@@ -94,7 +94,10 @@ New entry kind? Add the interface in `types.ts`, the handler in
 
 ## Known limits
 
-- The queue is per-tab: two open tabs each drain independently, which can
-  duplicate work (#278).
 - Replays are last-write-wins per column; concurrent edits to a shared board
   can silently discard one side (#281).
+
+Cross-tab drains (a PWA window plus a browser tab over the same IndexedDB
+queue) used to race and could resurrect completed entries as failed; drains
+now serialize on a `navigator.locks` web lock, and the mark-failed path
+tolerates an entry deleted by another tab mid-flight (#278).
