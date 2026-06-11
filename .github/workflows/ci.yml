@@ -33,7 +33,11 @@ jobs:
       - run: npm run test:functions
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # Pinned: v2.106.0 (2026-06-11) ported `gen types` to the new TS CLI
+          # and broke `--local` generation ("Access token not provided"),
+          # failing the types-drift step. Bump deliberately after verifying
+          # `supabase gen types typescript --local` works without a token.
+          version: 2.105.0
       - run: supabase start
       - name: Regenerate supabase types and fail on drift (#132)
         run: |
@@ -90,6 +94,7 @@ jobs:
       - run: npm ci
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          # Same pin as the verify job — keep both jobs on one CLI version.
+          version: 2.105.0
       - run: supabase link --project-ref "$PROJECT_REF"
       - run: npm run migrations:check-drift
