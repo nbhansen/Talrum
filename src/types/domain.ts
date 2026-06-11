@@ -79,6 +79,13 @@ export interface Board {
   kidReorderable: boolean;
   accent: AccentBg;
   updatedLabel: string;
+  /**
+   * Raw server `updated_at`, the optimistic-concurrency baseline for guarded
+   * board updates (#281). Optional because boards rehydrated from a query
+   * cache persisted before this field existed lack it — their writes degrade
+   * to unguarded last-write-wins until the next refetch.
+   */
+  serverUpdatedAt?: string;
 }
 
 export interface Kid {

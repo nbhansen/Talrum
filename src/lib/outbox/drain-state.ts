@@ -7,6 +7,11 @@ export interface OutboxStatus {
   online: boolean;
   pendingCount: number;
   failedCount: number;
+  /**
+   * How many of the failed entries are board conflicts (#281) — lets the
+   * indicator name the conflict instead of only counting generic failures.
+   */
+  conflictCount: number;
   draining: boolean;
 }
 
@@ -21,6 +26,7 @@ const initialStatus = (): OutboxStatus => ({
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   pendingCount: 0,
   failedCount: 0,
+  conflictCount: 0,
   draining: false,
 });
 

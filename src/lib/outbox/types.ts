@@ -38,6 +38,16 @@ export interface UpdateBoardEntry extends OutboxEntryBase {
   kind: 'updateBoard';
   boardId: string;
   patch: BoardRowPatch;
+  /**
+   * Server `updated_at` the patch was computed against. When present the
+   * handler updates conditionally and a zero-row result means another device
+   * wrote the board since — surfaced as a failed entry instead of a silent
+   * overwrite (#281). Absent on entries persisted before the guard existed
+   * and when the board cache had no baseline; those replay as plain
+   * last-write-wins, and `retryFailed` strips it to make Retry-after-conflict
+   * an explicit overwrite.
+   */
+  expectedUpdatedAt?: string;
 }
 
 export interface CreatePhotoPictogramEntry extends OutboxEntryBase {

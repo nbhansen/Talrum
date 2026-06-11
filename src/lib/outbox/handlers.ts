@@ -9,6 +9,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { captureException } from '@/lib/telemetry';
 
+import { noteBoardUpdatedAt, resolveExpectedUpdatedAt } from './board-clock';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
@@ -70,9 +71,47 @@ const reportCleanupFailure = (err: unknown): void => {
   });
 };
 
+/**
+ * `lastError` of an entry that failed the optimistic-concurrency check below.
+ * `retryFailed` matches on it to strip the guard, turning Retry into an
+ * explicit "apply my version anyway" — #281 only forbids *silent* overwrites.
+ */
+export const BOARD_CONFLICT_MESSAGE = "couldn't sync — board changed on another device";
+
 const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
-  const { error } = await supabase.from('boards').update(entry.patch).eq('id', entry.boardId);
+  const expected = resolveExpectedUpdatedAt(entry.boardId, entry.expectedUpdatedAt);
+  if (expected === undefined) {
+    // Unguarded last-write-wins: pre-#281 persisted entries, conflict
+    // retries with the guard stripped, and edits made before the board
+    // query delivered a baseline. Zero rows back stays a silent success
+    // (board already deleted/hidden — pre-#281 semantics). The clock note
+    // is not optional: an unguarded replay bumps the server's updated_at
+    // like any write, and queued guarded entries for the same board must
+    // not self-conflict against it.
+    const { data, error } = await supabase
+      .from('boards')
+      .update(entry.patch)
+      .eq('id', entry.boardId)
+      .select('updated_at');
+    if (error) throw error;
+    const row = data?.[0];
+    if (row !== undefined) noteBoardUpdatedAt(entry.boardId, row.updated_at);
+    return;
+  }
+  // Conditional update (#281): zero rows back means `updated_at` moved —
+  // another device wrote the board since this entry's baseline. Permanent
+  // failure, so the indicator offers Retry (overwrite) / Discard instead of
+  // silently clobbering the other side. The returned `updated_at` feeds the
+  // board clock so this device's own queued edits don't trip the guard.
+  const { data, error } = await supabase
+    .from('boards')
+    .update(entry.patch)
+    .match({ id: entry.boardId, updated_at: expected })
+    .select('updated_at');
   if (error) throw error;
+  const row = data?.[0];
+  if (row === undefined) throw new UnretryableOutboxError(BOARD_CONFLICT_MESSAGE);
+  noteBoardUpdatedAt(entry.boardId, row.updated_at);
 };
 
 const handleCreatePhotoPictogram = async (entry: CreatePhotoPictogramEntry): Promise<void> => {

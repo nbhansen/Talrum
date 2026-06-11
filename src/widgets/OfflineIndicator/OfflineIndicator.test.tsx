@@ -61,12 +61,26 @@ describe('OfflineIndicator', () => {
       online: true,
       pendingCount: 0,
       failedCount: 2,
+      conflictCount: 0,
       draining: false,
     });
     render(<OfflineIndicator />);
     expect(screen.getByRole('status')).toHaveTextContent(/2 sync changes failed/);
+    expect(screen.getByRole('status')).not.toHaveTextContent(/board changed/);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
+  });
+
+  it('names the conflict when a failed entry is one (#281)', () => {
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 0,
+      failedCount: 2,
+      conflictCount: 1,
+      draining: false,
+    });
+    render(<OfflineIndicator />);
+    expect(screen.getByRole('status')).toHaveTextContent(/board changed on another device/);
   });
 
   it('Retry resets failed entries via retryFailed, not a plain drain kick (#277)', () => {

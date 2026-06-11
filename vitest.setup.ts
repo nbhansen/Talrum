@@ -7,6 +7,7 @@ import 'fake-indexeddb/auto';
 import { clear } from 'idb-keyval';
 import { afterEach, vi } from 'vitest';
 
+import { __resetBoardClockForTests } from './src/lib/outbox/board-clock';
 import { __resetDrainForTests } from './src/lib/outbox/drain-state';
 import { __resetSpeechForTests } from './src/lib/speech';
 import { __resetSignedUrlCache } from './src/lib/storage-cache';
@@ -60,4 +61,5 @@ afterEach(async () => {
   __resetSignedUrlCache();
   __resetSpeechForTests();
   __resetDrainForTests();
+  __resetBoardClockForTests();
 });

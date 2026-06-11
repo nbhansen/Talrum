@@ -10,7 +10,7 @@ import {
   subscribeStatus,
   withCrossTabLock,
 } from './drain';
-import { runHandler, UnretryableOutboxError } from './handlers';
+import { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -102,11 +102,20 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
  * another tab can't land between the list and the put and get resurrected as
  * pending (#289). `drain()` takes the same (non-reentrant) lock, so it must
  * stay outside the callback.
+ *
+ * Entries that failed the board conflict guard lose their guard here: their
+ * baseline is permanently behind the other device's write, so a guarded
+ * retry can only re-conflict. Stripping it turns Retry into "apply my
+ * version anyway" — the overwrite #281 forbids is the *silent* one, and the
+ * user is choosing it explicitly now. Other failures keep their guard.
  */
 export const retryFailed = async (): Promise<void> => {
   await withCrossTabLock(async () => {
     const failed = (await listEntries()).filter((e) => e.status === 'failed');
-    for (const { lastError: _lastError, ...entry } of failed) {
+    for (const { lastError, ...entry } of failed) {
+      if (entry.kind === 'updateBoard' && lastError === BOARD_CONFLICT_MESSAGE) {
+        delete entry.expectedUpdatedAt;
+      }
       await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
     }
   });

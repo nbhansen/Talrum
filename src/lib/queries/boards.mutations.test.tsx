@@ -11,9 +11,17 @@ interface MockPostgrestError {
   details: string;
   hint: string;
 }
-const eqMock =
-  vi.fn<(column: string, value: string) => Promise<{ error: MockPostgrestError | null }>>();
-const updateMock = vi.fn(() => ({ eq: eqMock }));
+interface UpdateSelectResult {
+  data: { updated_at: string }[] | null;
+  error: MockPostgrestError | null;
+}
+const guardSelectMock = vi.fn<(cols: string) => Promise<UpdateSelectResult>>();
+const unguardedSelectMock = vi.fn<(cols: string) => Promise<UpdateSelectResult>>();
+// Unguarded chain: `.update().eq('id', ...).select('updated_at')`. eqMock
+// stays a spy on the (column, value) pair; the select call is the terminal.
+const eqMock = vi.fn((_c: string, _v: string) => ({ select: unguardedSelectMock }));
+const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
+const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
@@ -45,7 +53,12 @@ const makeWrapper = (qc: QueryClient) => {
 
 describe('useRenameBoard (useBoardPatch)', () => {
   beforeEach(() => {
-    eqMock.mockReset();
+    eqMock.mockClear();
+    unguardedSelectMock.mockReset();
+    unguardedSelectMock.mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+      error: null,
+    });
     updateMock.mockClear();
     fromMock.mockClear();
   });
@@ -55,10 +68,10 @@ describe('useRenameBoard (useBoardPatch)', () => {
     qc.setQueryData(boardQueryKey('morning'), seed);
 
     // Block the mutation so we can observe the optimistic state.
-    let resolveEq: (v: { error: null }) => void = () => {
+    let resolveEq: (v: UpdateSelectResult) => void = () => {
       throw new Error('resolver not assigned');
     };
-    eqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+    unguardedSelectMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
 
     const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
 
@@ -70,7 +83,7 @@ describe('useRenameBoard (useBoardPatch)', () => {
       expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Sunrise');
     });
 
-    resolveEq({ error: null });
+    resolveEq({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
@@ -84,7 +97,8 @@ describe('useRenameBoard (useBoardPatch)', () => {
     // permanent — that's the path that triggers React Query's onError,
     // which rolls the optimistic patch back. A plain TypeError without
     // a code would instead enqueue silently.
-    eqMock.mockResolvedValueOnce({
+    unguardedSelectMock.mockResolvedValueOnce({
+      data: null,
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
@@ -99,9 +113,73 @@ describe('useRenameBoard (useBoardPatch)', () => {
   });
 });
 
+describe('useBoardPatch conflict baseline (#281)', () => {
+  beforeEach(() => {
+    eqMock.mockClear();
+    unguardedSelectMock.mockReset();
+    unguardedSelectMock.mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+      error: null,
+    });
+    guardSelectMock.mockReset();
+    matchMock.mockClear();
+    updateMock.mockClear();
+    fromMock.mockClear();
+  });
+
+  it('guards the update with the cached serverUpdatedAt', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), {
+      ...seed,
+      serverUpdatedAt: '2026-06-11T10:00:00.000001+00:00',
+    });
+    guardSelectMock.mockResolvedValueOnce({
+      data: [{ updated_at: '2026-06-11T10:00:01.000001+00:00' }],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(matchMock).toHaveBeenCalledWith({
+      id: 'morning',
+      updated_at: '2026-06-11T10:00:00.000001+00:00',
+    });
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('stays unguarded when the cached board predates serverUpdatedAt', async () => {
+    // Boards rehydrated from a query cache persisted before #281 have no
+    // baseline; their writes must keep the plain last-write-wins path.
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), seed);
+
+    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(eqMock).toHaveBeenCalledWith('id', 'morning');
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('useSetStepIds', () => {
   beforeEach(() => {
-    eqMock.mockReset();
+    eqMock.mockClear();
+    unguardedSelectMock.mockReset();
+    unguardedSelectMock.mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+      error: null,
+    });
     updateMock.mockClear();
     fromMock.mockClear();
   });
@@ -117,8 +195,6 @@ describe('useSetStepIds', () => {
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
-
-    eqMock.mockResolvedValueOnce({ error: null });
 
     const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
 
@@ -140,7 +216,8 @@ describe('useSetStepIds', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
-    eqMock.mockResolvedValueOnce({
+    unguardedSelectMock.mockResolvedValueOnce({
+      data: null,
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
@@ -159,14 +236,13 @@ describe('useSetStepIds', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
-    // First attempt fails (RLS), second succeeds. Between the two, the
-    // cache has shifted — retry must re-merge against the new state, not
-    // replay the original computed array.
-    eqMock
-      .mockResolvedValueOnce({
-        error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
-      })
-      .mockResolvedValueOnce({ error: null });
+    // First attempt fails (RLS), second succeeds (beforeEach default).
+    // Between the two, the cache has shifted — retry must re-merge against
+    // the new state, not replay the original computed array.
+    unguardedSelectMock.mockResolvedValueOnce({
+      data: null,
+      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+    });
 
     const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
 
@@ -192,7 +268,8 @@ describe('useSetStepIds', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
-    eqMock.mockResolvedValueOnce({
+    unguardedSelectMock.mockResolvedValueOnce({
+      data: null,
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
