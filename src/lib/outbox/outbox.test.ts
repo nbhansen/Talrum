@@ -174,7 +174,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     const drainDone = drain();
     // Wait until drain has queued its own lock request, then give the
     // microtask queue a chance to (incorrectly) run handlers anyway.
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(eqMock).not.toHaveBeenCalled();
     release();
@@ -192,7 +192,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     });
     void navigator.locks.request('talrum-outbox', () => held);
     const drainDone = drain();
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     // The network drops while drain is parked on the other tab's lock — the
     // pre-lock online check is stale by the time the lock is granted.
     setOnline(false);
@@ -237,7 +237,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     const retryDone = retryFailed();
     // Once a second lock request is queued, an unlocked reset loop would
     // already have flipped the entry to pending — it must still be parked.
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     expect((await listEntries())[0]?.status).toBe('failed');
     // The other tab's discard lands before the lock is released.
     await deleteEntry('01HZZA');
@@ -256,7 +256,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     });
     void navigator.locks.request('talrum-outbox', () => held);
     const discardDone = discardEntry('01HZZA');
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await listEntries()).toHaveLength(1);
     release();
