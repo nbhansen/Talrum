@@ -8,6 +8,7 @@ import {
   refreshStatus,
   startOutbox,
   subscribeStatus,
+  withCrossTabLock,
 } from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, listEntries, putEntry } from './store';
@@ -96,18 +97,29 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
  * Reset every failed entry to pending (fresh retry budget, stale lastError
  * dropped) and drain. The indicator's "Retry" — a plain `drain()` skips
  * failed entries, so without the reset the button is a no-op (#277).
+ *
+ * The list-then-put loop runs under the cross-tab lock so a Discard in
+ * another tab can't land between the list and the put and get resurrected as
+ * pending (#289). `drain()` takes the same (non-reentrant) lock, so it must
+ * stay outside the callback.
  */
 export const retryFailed = async (): Promise<void> => {
-  const failed = (await listEntries()).filter((e) => e.status === 'failed');
-  for (const { lastError: _lastError, ...entry } of failed) {
-    await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
-  }
+  await withCrossTabLock(async () => {
+    const failed = (await listEntries()).filter((e) => e.status === 'failed');
+    for (const { lastError: _lastError, ...entry } of failed) {
+      await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
+    }
+  });
   await drain();
 };
 
-/** Drop a single failed entry from the queue (the indicator's "Discard"). */
+/**
+ * Drop a single failed entry from the queue (the indicator's "Discard").
+ * Takes the cross-tab lock: an unlocked delete could land inside another
+ * tab's `retryFailed` reset loop, which would re-create the entry (#289).
+ */
 export const discardEntry = async (id: string): Promise<void> => {
-  await deleteEntry(id);
+  await withCrossTabLock(() => deleteEntry(id));
 };
 
 /** Inspect the queue (e.g. to render a per-entry error list). */

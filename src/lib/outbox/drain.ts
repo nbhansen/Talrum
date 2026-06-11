@@ -68,8 +68,12 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * (held locks are released automatically if the tab dies). jsdom and SSR have
  * no `navigator.locks`; fall back to running unlocked — the per-tab guard
  * still covers the single-context case.
+ *
+ * Also wraps the queue rewrites in `retryFailed`/`discardEntry` (#289). The
+ * lock is exclusive and non-reentrant: never call `drain()` (or anything else
+ * that takes the lock) from inside the callback.
  */
-const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> => {
+export const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> => {
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
     await navigator.locks.request('talrum-outbox', fn);
     return;

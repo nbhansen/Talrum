@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase', () => ({
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, startOutbox, subscribeStatus } = await import('./drain');
-const { enqueueAndDrain, retryFailed } = await import('./index');
+const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -134,7 +134,7 @@ describe('outbox drain', () => {
   });
 });
 
-describe('cross-tab coordination (#278)', () => {
+describe('cross-tab coordination (#278, #289)', () => {
   /**
    * Minimal Web Locks fake: serializes callbacks per lock name via a promise
    * chain. jsdom has no `navigator.locks`, so installing this opts drain()
@@ -222,6 +222,45 @@ describe('cross-tab coordination (#278)', () => {
       throw new TypeError('Failed to fetch');
     });
     await drain();
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('retryFailed cannot resurrect an entry another tab discards while it waits (#289)', async () => {
+    const request = installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Another tab holds the lock, mid-discard.
+    void navigator.locks.request('talrum-outbox', () => held);
+    const retryDone = retryFailed();
+    // Once a second lock request is queued, an unlocked reset loop would
+    // already have flipped the entry to pending — it must still be parked.
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    expect((await listEntries())[0]?.status).toBe('failed');
+    // The other tab's discard lands before the lock is released.
+    await deleteEntry('01HZZA');
+    release();
+    await retryDone;
+    expect(await listEntries()).toEqual([]);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
+    const request = installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const discardDone = discardEntry('01HZZA');
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await listEntries()).toHaveLength(1);
+    release();
+    await discardDone;
     expect(await listEntries()).toEqual([]);
   });
 });
