@@ -95,6 +95,10 @@ export const drain = async (): Promise<void> => {
   await emit();
   try {
     await withCrossTabLock(async () => {
+      // The pre-drain online check can be seconds stale by the time another
+      // tab releases the lock; attempting entries on a network that dropped
+      // meanwhile burns their transient-retry budget on guaranteed failures.
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       let stop = false;
       while (!stop) {
         const entries = (await listEntries()).filter((e) => e.status === 'pending');

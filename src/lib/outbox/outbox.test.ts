@@ -183,6 +183,26 @@ describe('cross-tab coordination (#278)', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  it('re-checks onLine after the lock wait so a dead network burns no attempts', async () => {
+    const request = installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const drainDone = drain();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    // The network drops while drain is parked on the other tab's lock — the
+    // pre-lock online check is stale by the time the lock is granted.
+    setOnline(false);
+    release();
+    await drainDone;
+    expect(eqMock).not.toHaveBeenCalled();
+    const entries = await listEntries();
+    expect(entries[0]?.attemptCount).toBe(0);
+  });
+
   it('does not resurrect an entry another tab completed mid-flight (permanent error)', async () => {
     await putEntry(baseEntry({ id: '01HZZA' }));
     eqMock.mockImplementation(async () => {
