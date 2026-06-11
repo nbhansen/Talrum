@@ -68,10 +68,13 @@ jobs:
             - No stacked PRs — every branch must be off `main`. Flag if the PR base is not `main`.
 
             VERDICT RULES:
-            - File a `REQUEST_CHANGES` review (via `gh pr review --request-changes`) ONLY for:
+            The line between blocking and advisory is CONFIDENCE, not category. Block only what you can prove; comment on everything you suspect.
+            - File a `REQUEST_CHANGES` review (via `gh pr review --request-changes`) for:
               * A confirmed security finding (RLS hole, secret leak, auth bypass, injection, PII exposure).
               * A clearly broken load-bearing invariant (e.g., a migration that drops a column the app still reads).
-            - For everything else, post as `COMMENT` review (`gh pr review --comment`) with inline comments.
+              * A confirmed logic bug you can trace to specific broken behavior — a silently swallowed failure, an off-by-one at a boundary, a data-losing race, a missing transaction boundary. Not "this might be wrong"; you must be able to name the input and the wrong output.
+              * An OBJECTIVE architecture violation: a drive-by / out-of-scope change unrelated to the PR's stated purpose (per the surgical-changes rule), or a function that demonstrably mixes IO, business logic, and presentation in one body. Objective means a reasonable reviewer could not disagree it's out of scope or mixed.
+            - Post as `COMMENT` review (`gh pr review --comment`) with inline comments for everything that is a judgment call: speculative abstractions, borderline SRP ("feels like two responsibilities"), DRY-extraction suggestions, naming, or any finding where you are not certain it is a real defect. When unsure whether something blocks, COMMENT — do not block.
             - NEVER post `APPROVE` — leave that to the human.
 
             OUTPUT DISCIPLINE:
