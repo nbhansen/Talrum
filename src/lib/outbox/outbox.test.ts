@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
-const { drain, getStatus, startOutbox, subscribeStatus } = await import('./drain');
+const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -261,6 +261,24 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(await listEntries()).toHaveLength(1);
     release();
     await discardDone;
+    expect(await listEntries()).toEqual([]);
+  });
+});
+
+describe('discardEntry', () => {
+  it('emits a status refresh so the failed pill drops without another outbox event (#290)', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
+    const seen: number[] = [];
+    const unsub = subscribeStatus((s) => seen.push(s.failedCount));
+    // Surface the "1 failed" state to subscribers up front so the post-discard
+    // drop is an observable transition, not just a coincidental end value.
+    await refreshStatus();
+    expect(seen[seen.length - 1]).toBe(1);
+    // No drain, no online/offline event follows — discardEntry must push the
+    // updated count itself, or the pill keeps its stale "1 failed".
+    await discardEntry('01HZZA');
+    unsub();
+    expect(seen[seen.length - 1]).toBe(0);
     expect(await listEntries()).toEqual([]);
   });
 });

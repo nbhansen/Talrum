@@ -117,9 +117,16 @@ export const retryFailed = async (): Promise<void> => {
  * Drop a single failed entry from the queue (the indicator's "Discard").
  * Takes the cross-tab lock: an unlocked delete could land inside another
  * tab's `retryFailed` reset loop, which would re-create the entry (#289).
+ *
+ * Unlike Retry (which ends in `drain()`, which emits), a discard does no
+ * draining, so it must push status itself — otherwise the "N failed" pill
+ * keeps its stale count until the next unrelated outbox event (#290). Mirrors
+ * the offline-enqueue path in `enqueueAndDrain`. refreshStatus stays outside
+ * the lock: it only reads IDB and the lock is non-reentrant.
  */
 export const discardEntry = async (id: string): Promise<void> => {
   await withCrossTabLock(() => deleteEntry(id));
+  await refreshStatus();
 };
 
 /** Inspect the queue (e.g. to render a per-entry error list). */
