@@ -19,9 +19,18 @@
  */
 const newestByBoard = new Map<string, string>();
 
+/**
+ * Timestamps compare lexicographically, not via `Date.parse`. Every value
+ * here is PostgREST's timestamptz rendering (`rowToBoard`, the handlers'
+ * `.select('updated_at')`): UTC `+00:00` suffix, fields ordered most- to
+ * least-significant — so string order equals time order, including the
+ * microseconds `Date.parse` would truncate. Within one millisecond that
+ * truncation lets a stale value win a `>=` race and resolve a guard
+ * backwards, surfacing as a spurious conflict.
+ */
 export const noteBoardUpdatedAt = (boardId: string, updatedAt: string): void => {
   const known = newestByBoard.get(boardId);
-  if (known === undefined || Date.parse(updatedAt) >= Date.parse(known)) {
+  if (known === undefined || updatedAt >= known) {
     newestByBoard.set(boardId, updatedAt);
   }
 };
@@ -40,7 +49,7 @@ export const resolveExpectedUpdatedAt = (
   if (baseline === undefined) return undefined;
   const known = newestByBoard.get(boardId);
   if (known === undefined) return baseline;
-  return Date.parse(known) >= Date.parse(baseline) ? known : baseline;
+  return known >= baseline ? known : baseline;
 };
 
 export const __resetBoardClockForTests = (): void => {
