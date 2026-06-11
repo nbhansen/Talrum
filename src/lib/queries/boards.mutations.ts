@@ -24,12 +24,19 @@ const useBoardPatch = <Input extends { boardId: string }>(
 ): UseMutationResult<void, Error, Input, { previous: Board | undefined }> => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input) =>
-      enqueueAndDrain({
+    mutationFn: (input) => {
+      // Conflict-guard baseline (#281): the server updated_at of the board
+      // this edit was computed against. Cache misses and boards rehydrated
+      // from a pre-#281 persisted cache have none — those writes stay
+      // unguarded last-write-wins.
+      const baseline = qc.getQueryData<Board>(boardQueryKey(input.boardId))?.serverUpdatedAt;
+      return enqueueAndDrain({
         kind: 'updateBoard',
         boardId: input.boardId,
         patch: toRowPatch(input),
-      }),
+        ...(baseline === undefined ? {} : { expectedUpdatedAt: baseline }),
+      });
+    },
     onMutate: async (input) => {
       const { boardId } = input;
       await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });

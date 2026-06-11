@@ -10,7 +10,14 @@ interface MockPostgrestError {
   hint: string;
 }
 const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
-const updateMock = vi.fn(() => ({ eq: eqMock }));
+const guardSelectMock =
+  vi.fn<
+    (
+      cols: string,
+    ) => Promise<{ data: { updated_at: string }[] | null; error: MockPostgrestError | null }>
+  >();
+const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
+const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -20,6 +27,8 @@ vi.mock('@/lib/supabase', () => ({
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
+const { BOARD_CONFLICT_MESSAGE } = await import('./handlers');
+const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -42,6 +51,8 @@ beforeEach(async () => {
   updateMock.mockClear();
   fromMock.mockClear();
   eqMock.mockReset();
+  guardSelectMock.mockReset();
+  matchMock.mockClear();
   // Default: handler succeeds.
   eqMock.mockResolvedValue({ error: null });
 });
@@ -313,6 +324,107 @@ describe('retryFailed', () => {
     await retryFailed();
     const entries = await listEntries();
     expect(entries[0]?.attemptCount).toBe(2);
+  });
+});
+
+describe('conflict guard (#281)', () => {
+  const T0 = '2026-06-11T10:00:00.000001+00:00';
+  const T1 = '2026-06-11T10:00:01.000001+00:00';
+  const T2 = '2026-06-11T10:00:02.000001+00:00';
+
+  it('marks a conflicted entry failed with the conflict message', async () => {
+    guardSelectMock.mockResolvedValue({ data: [], error: null });
+    await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
+    await drain();
+    const entries = await listEntries();
+    expect(entries[0]?.status).toBe('failed');
+    expect(entries[0]?.lastError).toBe(BOARD_CONFLICT_MESSAGE);
+  });
+
+  it('persists forwarded baselines so another tab can continue the chain', async () => {
+    // A and B were enqueued against the same snapshot. A lands (server clock
+    // moves to T1); B fails transiently and stays queued. The forwarded
+    // baseline must be in IDB, not just this tab's memory — the tab that
+    // picks the queue up later starts with an empty board clock.
+    guardSelectMock
+      .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
+    await putEntry(baseEntry({ id: '01HZZB', expectedUpdatedAt: T0 }));
+    await drain();
+    const [b] = await listEntries();
+    expect(b?.id).toBe('01HZZB');
+    expect(b?.kind === 'updateBoard' && b.expectedUpdatedAt).toBe(T1);
+    // "Another tab": same IDB queue, fresh module state.
+    __resetBoardClockForTests();
+    guardSelectMock.mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
+    await drain();
+    expect(matchMock).toHaveBeenLastCalledWith({ id: 'board-1', updated_at: T1 });
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('does not forward baselines onto other boards or unguarded entries', async () => {
+    guardSelectMock
+      .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
+      .mockRejectedValue(new TypeError('Failed to fetch'));
+    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
+    await putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2', expectedUpdatedAt: T0 }));
+    await putEntry(baseEntry({ id: '01HZZC' }));
+    await drain();
+    const entries = await listEntries();
+    const other = entries.find((e) => e.id === '01HZZB');
+    const unguarded = entries.find((e) => e.id === '01HZZC');
+    expect(other?.kind === 'updateBoard' && other.expectedUpdatedAt).toBe(T0);
+    expect(unguarded?.kind === 'updateBoard' && unguarded.expectedUpdatedAt).toBeUndefined();
+  });
+
+  it('fast path: a conflict rejects the mutation without enqueueing', async () => {
+    guardSelectMock.mockResolvedValue({ data: [], error: null });
+    await expect(
+      enqueueAndDrain({
+        kind: 'updateBoard',
+        boardId: 'b',
+        patch: { step_ids: [] },
+        expectedUpdatedAt: T0,
+      }),
+    ).rejects.toMatchObject({ message: BOARD_CONFLICT_MESSAGE });
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('retryFailed strips the guard from conflict-failed entries — Retry is an explicit overwrite', async () => {
+    await putEntry(
+      baseEntry({
+        id: '01HZZA',
+        status: 'failed',
+        attemptCount: 1,
+        expectedUpdatedAt: T0,
+        lastError: BOARD_CONFLICT_MESSAGE,
+      }),
+    );
+    await retryFailed();
+    // Replayed through the unguarded eq path; a kept guard would re-conflict
+    // forever, making the Retry button a dead end.
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('retryFailed keeps the guard on entries that failed for other reasons', async () => {
+    guardSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
+    await putEntry(
+      baseEntry({
+        id: '01HZZA',
+        status: 'failed',
+        attemptCount: 3,
+        expectedUpdatedAt: T0,
+        lastError: 'Failed to fetch',
+      }),
+    );
+    await retryFailed();
+    expect(matchMock).toHaveBeenCalledWith({ id: 'board-1', updated_at: T0 });
+    expect(eqMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toEqual([]);
   });
 });
 

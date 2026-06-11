@@ -26,6 +26,7 @@ export const rowToBoard = (row: BoardRow): Board => ({
   kidReorderable: row.kid_reorderable,
   accent: row.accent as AccentBg,
   updatedLabel: formatUpdated(row.updated_at),
+  serverUpdatedAt: row.updated_at,
 });
 
 export const boardsQueryKey = ['boards'] as const;

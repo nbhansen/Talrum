@@ -13,7 +13,14 @@ interface MockPostgrestError {
 }
 const eqMock =
   vi.fn<(column: string, value: string) => Promise<{ error: MockPostgrestError | null }>>();
-const updateMock = vi.fn(() => ({ eq: eqMock }));
+const guardSelectMock =
+  vi.fn<
+    (
+      cols: string,
+    ) => Promise<{ data: { updated_at: string }[] | null; error: MockPostgrestError | null }>
+  >();
+const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
+const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
@@ -96,6 +103,61 @@ describe('useRenameBoard (useBoardPatch)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Morning routine');
+  });
+});
+
+describe('useBoardPatch conflict baseline (#281)', () => {
+  beforeEach(() => {
+    eqMock.mockReset();
+    guardSelectMock.mockReset();
+    matchMock.mockClear();
+    updateMock.mockClear();
+    fromMock.mockClear();
+  });
+
+  it('guards the update with the cached serverUpdatedAt', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), {
+      ...seed,
+      serverUpdatedAt: '2026-06-11T10:00:00.000001+00:00',
+    });
+    guardSelectMock.mockResolvedValueOnce({
+      data: [{ updated_at: '2026-06-11T10:00:01.000001+00:00' }],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(matchMock).toHaveBeenCalledWith({
+      id: 'morning',
+      updated_at: '2026-06-11T10:00:00.000001+00:00',
+    });
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('stays unguarded when the cached board predates serverUpdatedAt', async () => {
+    // Boards rehydrated from a query cache persisted before #281 have no
+    // baseline; their writes must keep the plain last-write-wins path.
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), seed);
+    eqMock.mockResolvedValueOnce({ error: null });
+
+    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(eqMock).toHaveBeenCalledWith('id', 'morning');
+    expect(matchMock).not.toHaveBeenCalled();
   });
 });
 

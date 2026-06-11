@@ -1,3 +1,4 @@
+import { resolveExpectedUpdatedAt } from './board-clock';
 import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
@@ -38,25 +39,50 @@ export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => 
 
 export const getStatus = (): OutboxStatus => drainState.lastStatus;
 
+/**
+ * A landed updateBoard bumps the server's `updated_at`, staling the guard on
+ * every queued entry for the same board (#281). The handler's board clock
+ * already covers this tab; persisting the resolved baseline into IDB covers
+ * the tab that picks the queue up later with an empty clock. Only refreshes
+ * existing guards — unguarded entries (pre-#281, stripped by Retry) must stay
+ * unguarded. Runs inside the drain's cross-tab lock, like every queue rewrite.
+ */
+const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
+  if (done.kind !== 'updateBoard') return;
+  for (const e of await listEntries()) {
+    if (e.kind !== 'updateBoard' || e.boardId !== done.boardId) continue;
+    if (e.status !== 'pending' || e.expectedUpdatedAt === undefined) continue;
+    const resolved = resolveExpectedUpdatedAt(e.boardId, e.expectedUpdatedAt);
+    if (resolved !== undefined && resolved !== e.expectedUpdatedAt) {
+      await putEntry({ ...e, expectedUpdatedAt: resolved });
+    }
+  }
+};
+
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
   try {
     await runHandler(entry);
     await deleteEntry(entry.id);
+    await forwardBoardGuards(entry);
     return 'ok';
   } catch (err) {
     // Another tab's drain may have completed this entry and deleted it while
     // our attempt was in flight (our duplicate write then fails, e.g. on a
     // unique-key violation). Re-creating the entry as failed/pending would
     // resurrect a write that already succeeded (#278).
-    if ((await getEntry(entry.id)) === undefined) return 'ok';
-    const attemptCount = entry.attemptCount + 1;
+    const current = await getEntry(entry.id);
+    if (current === undefined) return 'ok';
+    // Rewrite from the fresh IDB copy, not the loop's snapshot: an earlier
+    // entry in this same drain pass may have forwarded this entry's conflict
+    // baseline (#281), and `entry` predates that.
+    const attemptCount = current.attemptCount + 1;
     const message = err instanceof Error ? err.message : 'unknown error';
     if (err instanceof UnretryableOutboxError) {
-      await putEntry({ ...entry, attemptCount, status: 'failed', lastError: message });
+      await putEntry({ ...current, attemptCount, status: 'failed', lastError: message });
       return 'failed';
     }
     const status = attemptCount >= MAX_ATTEMPTS_BEFORE_FAILED ? 'failed' : 'pending';
-    await putEntry({ ...entry, attemptCount, status, lastError: message });
+    await putEntry({ ...current, attemptCount, status, lastError: message });
     return status === 'failed' ? 'failed' : 'transient';
   }
 };

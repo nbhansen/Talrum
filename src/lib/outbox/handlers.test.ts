@@ -20,7 +20,14 @@ interface MockPostgrestError {
 }
 
 const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
-const updateMock = vi.fn(() => ({ eq: eqMock }));
+const guardSelectMock =
+  vi.fn<
+    (
+      cols: string,
+    ) => Promise<{ data: { updated_at: string }[] | null; error: MockPostgrestError | null }>
+  >();
+const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
+const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 const insertMock = vi.fn<(row: unknown) => Promise<{ error: MockPostgrestError | null }>>();
 const inMock = vi.fn<
   (
@@ -70,7 +77,8 @@ vi.mock('@/lib/telemetry', () => ({
   captureException: (err: unknown, ctx?: unknown) => captureExceptionMock(err, ctx),
 }));
 
-const { runHandler, UnretryableOutboxError } = await import('./handlers');
+const { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } = await import('./handlers');
+const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseProps = {
   id: '01HZZA',
@@ -81,6 +89,8 @@ const baseProps = {
 
 beforeEach(() => {
   eqMock.mockReset();
+  guardSelectMock.mockReset();
+  matchMock.mockClear();
   updateMock.mockClear();
   insertMock.mockReset();
   inMock.mockReset();
@@ -131,6 +141,94 @@ describe('runHandler · updateBoard', () => {
       patch: { name: 'X' },
     };
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+  });
+});
+
+describe('runHandler · updateBoard conflict guard (#281)', () => {
+  const T0 = '2026-06-11T10:00:00.000001+00:00';
+  const T1 = '2026-06-11T10:00:01.000001+00:00';
+  const T2 = '2026-06-11T10:00:02.000001+00:00';
+
+  const guarded = (expectedUpdatedAt: string, boardId = 'b-1'): UpdateBoardEntry => ({
+    ...baseProps,
+    kind: 'updateBoard',
+    boardId,
+    patch: { step_ids: ['s-1'] },
+    expectedUpdatedAt,
+  });
+
+  beforeEach(() => {
+    __resetBoardClockForTests();
+  });
+
+  it('updates conditionally on the baseline and resolves when a row matches', async () => {
+    guardSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
+    await runHandler(guarded(T0));
+    expect(updateMock).toHaveBeenCalledWith({ step_ids: ['s-1'] });
+    expect(matchMock).toHaveBeenCalledWith({ id: 'b-1', updated_at: T0 });
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects with the conflict message when zero rows match the baseline', async () => {
+    guardSelectMock.mockResolvedValue({ data: [], error: null });
+    await expect(runHandler(guarded(T0))).rejects.toMatchObject({
+      name: 'UnretryableOutboxError',
+      message: BOARD_CONFLICT_MESSAGE,
+    });
+  });
+
+  it('keeps the unguarded path for entries without a baseline', async () => {
+    eqMock.mockResolvedValue({ error: null });
+    const entry: UpdateBoardEntry = {
+      ...baseProps,
+      kind: 'updateBoard',
+      boardId: 'b-1',
+      patch: { name: 'X' },
+    };
+    await runHandler(entry);
+    expect(eqMock).toHaveBeenCalledWith('id', 'b-1');
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it('replaces a stale baseline with the updated_at its own prior write produced', async () => {
+    // Two entries enqueued against the same snapshot (offline chain): the
+    // first replay bumps the server clock, so the second must guard against
+    // the produced T1, not its own stale T0 — guarding with T0 would
+    // conflict against ourselves.
+    guardSelectMock
+      .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
+      .mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
+    await runHandler(guarded(T0));
+    await runHandler(guarded(T0));
+    expect(matchMock).toHaveBeenNthCalledWith(2, { id: 'b-1', updated_at: T1 });
+  });
+
+  it('prefers a newer entry baseline over an older produced timestamp', async () => {
+    // A refetch can hand a later edit a baseline newer than anything this
+    // device produced; the device clock must not drag the guard backwards.
+    guardSelectMock
+      .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
+      .mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
+    await runHandler(guarded(T0));
+    await runHandler(guarded(T2));
+    expect(matchMock).toHaveBeenNthCalledWith(2, { id: 'b-1', updated_at: T2 });
+  });
+
+  it('scopes produced timestamps per board', async () => {
+    guardSelectMock
+      .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
+      .mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
+    await runHandler(guarded(T0, 'b-1'));
+    await runHandler(guarded(T0, 'b-2'));
+    expect(matchMock).toHaveBeenNthCalledWith(2, { id: 'b-2', updated_at: T0 });
+  });
+
+  it('wraps coded DB errors from the guarded path in UnretryableOutboxError', async () => {
+    guardSelectMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+    });
+    await expect(runHandler(guarded(T0))).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
