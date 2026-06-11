@@ -53,8 +53,9 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
 4. **Drain.** `drain()` walks pending entries oldest-first. It stops at the
    first *transient* failure to preserve ordering, but marks *permanent*
    failures as `failed` and moves on, so one bad entry can't dam the queue.
-   Drains serialize across tabs on a `navigator.locks` web lock, so a PWA
-   window plus a browser tab can't replay the same entry twice (#278).
+   Drains — and the Retry/Discard queue rewrites (#289) — serialize across
+   tabs on a `navigator.locks` web lock, so a PWA window plus a browser tab
+   can't replay the same entry twice (#278).
    `startOutbox()` (called once at app boot) wires the `online` event and
    kicks an initial drain for entries left over from a previous session.
 
@@ -98,6 +99,6 @@ New entry kind? Add the interface in `types.ts`, the handler in
 
 - Replays are last-write-wins per column; concurrent edits to a shared board
   can silently discard one side (#281).
-- Cross-tab drain serialization (#278) relies on the Web Locks API; in an
+- Cross-tab serialization (#278, #289) relies on the Web Locks API; in an
   environment without `navigator.locks` only the per-tab re-entrancy guard
   applies.
