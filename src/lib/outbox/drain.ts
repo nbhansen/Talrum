@@ -1,6 +1,6 @@
 import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
-import { deleteEntry, listEntries, putEntry } from './store';
+import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
 const MAX_ATTEMPTS_BEFORE_FAILED = 3;
@@ -44,6 +44,11 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
     await deleteEntry(entry.id);
     return 'ok';
   } catch (err) {
+    // Another tab's drain may have completed this entry and deleted it while
+    // our attempt was in flight (our duplicate write then fails, e.g. on a
+    // unique-key violation). Re-creating the entry as failed/pending would
+    // resurrect a write that already succeeded (#278).
+    if ((await getEntry(entry.id)) === undefined) return 'ok';
     const attemptCount = entry.attemptCount + 1;
     const message = err instanceof Error ? err.message : 'unknown error';
     if (err instanceof UnretryableOutboxError) {
@@ -54,6 +59,22 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
     await putEntry({ ...entry, attemptCount, status, lastError: message });
     return status === 'failed' ? 'failed' : 'transient';
   }
+};
+
+/**
+ * The `drainState.draining` guard above is per-tab, but the queue lives in
+ * shared IndexedDB: a PWA window plus a browser tab can otherwise drain the
+ * same entries concurrently (#278). Serialize cross-tab via the Web Locks API
+ * (held locks are released automatically if the tab dies). jsdom and SSR have
+ * no `navigator.locks`; fall back to running unlocked — the per-tab guard
+ * still covers the single-context case.
+ */
+const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> => {
+  if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+    await navigator.locks.request('talrum-outbox', fn);
+    return;
+  }
+  await fn();
 };
 
 /**
@@ -73,18 +94,24 @@ export const drain = async (): Promise<void> => {
   drainState.draining = true;
   await emit();
   try {
-    let stop = false;
-    while (!stop) {
-      const entries = (await listEntries()).filter((e) => e.status === 'pending');
-      if (entries.length === 0) break;
-      for (const entry of entries) {
-        const outcome = await runOne(entry);
-        if (outcome === 'transient') {
-          stop = true;
-          break;
+    await withCrossTabLock(async () => {
+      // The pre-drain online check can be seconds stale by the time another
+      // tab releases the lock; attempting entries on a network that dropped
+      // meanwhile burns their transient-retry budget on guaranteed failures.
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      let stop = false;
+      while (!stop) {
+        const entries = (await listEntries()).filter((e) => e.status === 'pending');
+        if (entries.length === 0) break;
+        for (const entry of entries) {
+          const outcome = await runOne(entry);
+          if (outcome === 'transient') {
+            stop = true;
+            break;
+          }
         }
       }
-    }
+    });
   } finally {
     drainState.draining = false;
     await emit();
