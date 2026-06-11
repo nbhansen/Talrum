@@ -15,6 +15,12 @@ jobs:
       # redirects — these are the local-dev values from the config.toml comment.
       SUPABASE_AUTH_SITE_URL: http://127.0.0.1:3000
       SUPABASE_AUTH_REDIRECT_URL: https://127.0.0.1:3000
+      # The CLI's telemetry writer can crash ("NotFound: FileSystem.rename
+      # ~/.supabase/telemetry.json.tmp...") when two invocations run
+      # concurrently — observed 2026-06-11 when `supabase status` raced the
+      # backgrounded `functions serve`. CI needs no telemetry; this is the
+      # CLI's documented opt-out.
+      DO_NOT_TRACK: '1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -57,7 +63,11 @@ jobs:
           # gateway is up but the function isn't — accepting it here lets the
           # e2e step run against a stalled function and exit non-zero with no
           # useful diagnostics. Require a 4xx (handler response) instead.
-          API_URL="$(supabase status -o json | jq -r '.API_URL')"
+          # Reuse the URL captured into .env.local above — another
+          # `supabase status` here would run concurrently with the
+          # backgrounded serve, the exact telemetry race that emptied
+          # API_URL and failed this step on 2026-06-11.
+          API_URL="$(grep '^SUPABASE_URL=' supabase/functions/.env.local | cut -d= -f2-)"
           ready=0
           for i in {1..30}; do
             STATUS=$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' \
@@ -85,6 +95,8 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # Same telemetry opt-out as the verify job.
+      DO_NOT_TRACK: '1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
