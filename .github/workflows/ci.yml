@@ -9,6 +9,12 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # config.toml env-interpolates auth.site_url / additional_redirect_urls;
+      # unset, every supabase CLI call warns (#260). CI never exercises auth
+      # redirects — these are the local-dev values from the config.toml comment.
+      SUPABASE_AUTH_SITE_URL: http://127.0.0.1:3000
+      SUPABASE_AUTH_REDIRECT_URL: https://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
