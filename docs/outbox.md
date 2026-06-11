@@ -76,11 +76,12 @@ themselves are happy-path only.
 - **Conflict** (boards only, #281): `updateBoard` entries carry the server
   `updated_at` they were computed against and update conditionally; zero
   rows back means another device wrote the board since, and the entry fails
-  with "couldn't sync — board changed on another device" instead of
-  silently overwriting. Your own queued edits don't trip the guard: each
-  landed replay feeds the produced `updated_at` forward (in-memory board
-  clock + persisted into the remaining queue, see `board-clock.ts`). After
-  a conflict, **Retry** strips the guard — applying your version becomes an
+  instead of silently overwriting. The indicator's pill names it ("board
+  changed on another device", via `conflictCount` in the status feed). Your
+  own queued edits don't trip the guard: every landed replay — guarded or
+  not — feeds the produced `updated_at` forward (in-memory board clock +
+  persisted into the remaining queue, see `board-clock.ts`). After a
+  conflict, **Retry** strips the guard — applying your version becomes an
   explicit choice — and **Discard** keeps the other device's version.
 
 ## Rules for writing a handler

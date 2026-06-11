@@ -83,9 +83,19 @@ const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
   if (expected === undefined) {
     // Unguarded last-write-wins: pre-#281 persisted entries, conflict
     // retries with the guard stripped, and edits made before the board
-    // query delivered a baseline.
-    const { error } = await supabase.from('boards').update(entry.patch).eq('id', entry.boardId);
+    // query delivered a baseline. Zero rows back stays a silent success
+    // (board already deleted/hidden — pre-#281 semantics). The clock note
+    // is not optional: an unguarded replay bumps the server's updated_at
+    // like any write, and queued guarded entries for the same board must
+    // not self-conflict against it.
+    const { data, error } = await supabase
+      .from('boards')
+      .update(entry.patch)
+      .eq('id', entry.boardId)
+      .select('updated_at');
     if (error) throw error;
+    const row = data?.[0];
+    if (row !== undefined) noteBoardUpdatedAt(entry.boardId, row.updated_at);
     return;
   }
   // Conditional update (#281): zero rows back means `updated_at` moved —

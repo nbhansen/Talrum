@@ -16,7 +16,7 @@ const discardAllFailed = async (): Promise<void> => {
  * row with Retry + Discard.
  */
 export const OfflineIndicator = (): JSX.Element | null => {
-  const { online, pendingCount, failedCount, draining } = useOutboxStatus();
+  const { online, pendingCount, failedCount, conflictCount, draining } = useOutboxStatus();
 
   if (online && pendingCount === 0 && failedCount === 0 && !draining) return null;
 
@@ -25,6 +25,9 @@ export const OfflineIndicator = (): JSX.Element | null => {
       <div role="status" className={`${styles.pill} ${styles.pillFailed}`}>
         <span className={styles.label}>
           {failedCount} sync {failedCount === 1 ? 'change' : 'changes'} failed
+          {/* Name the conflict (#281): for these entries Retry means "apply
+              my version anyway", so the label must say what happened. */}
+          {conflictCount > 0 ? ' — board changed on another device' : ''}
         </span>
         <button type="button" className={styles.action} onClick={() => void retryFailed()}>
           Retry

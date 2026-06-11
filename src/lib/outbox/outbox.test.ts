@@ -9,13 +9,15 @@ interface MockPostgrestError {
   details: string;
   hint: string;
 }
-const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
-const guardSelectMock =
-  vi.fn<
-    (
-      cols: string,
-    ) => Promise<{ data: { updated_at: string }[] | null; error: MockPostgrestError | null }>
-  >();
+type UpdateSelectResult = Promise<{
+  data: { updated_at: string }[] | null;
+  error: MockPostgrestError | null;
+}>;
+const guardSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
+const unguardedSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
+// Unguarded chain: `.update().eq('id', ...).select('updated_at')`. eqMock
+// stays a spy on the (column, value) pair; the select call is the terminal.
+const eqMock = vi.fn((_c: string, _v: string) => ({ select: unguardedSelectMock }));
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
@@ -50,11 +52,15 @@ beforeEach(async () => {
   setOnline(true);
   updateMock.mockClear();
   fromMock.mockClear();
-  eqMock.mockReset();
+  eqMock.mockClear();
   guardSelectMock.mockReset();
+  unguardedSelectMock.mockReset();
   matchMock.mockClear();
   // Default: handler succeeds.
-  eqMock.mockResolvedValue({ error: null });
+  unguardedSelectMock.mockResolvedValue({
+    data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+    error: null,
+  });
 });
 
 afterEach(() => {
@@ -108,7 +114,7 @@ describe('outbox drain', () => {
   });
 
   it('marks an entry as failed after MAX_ATTEMPTS transient failures', async () => {
-    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA' }));
     await drain();
     await drain();
@@ -120,7 +126,8 @@ describe('outbox drain', () => {
   });
 
   it('marks an entry as failed immediately on a coded (non-retryable) error', async () => {
-    eqMock.mockResolvedValue({
+    unguardedSelectMock.mockResolvedValue({
+      data: null,
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
     await putEntry(baseEntry({ id: '01HZZA' }));
@@ -132,9 +139,12 @@ describe('outbox drain', () => {
   });
 
   it('stops on a transient failure so order is preserved across the queue', async () => {
-    eqMock
+    unguardedSelectMock
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      .mockResolvedValue({ error: null });
+      .mockResolvedValue({
+        data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+        error: null,
+      });
     await putEntry(baseEntry({ id: '01HZZA' }));
     await putEntry(baseEntry({ id: '01HZZB' }));
     await drain();
@@ -216,11 +226,14 @@ describe('cross-tab coordination (#278, #289)', () => {
 
   it('does not resurrect an entry another tab completed mid-flight (permanent error)', async () => {
     await putEntry(baseEntry({ id: '01HZZA' }));
-    eqMock.mockImplementation(async () => {
+    unguardedSelectMock.mockImplementation(async () => {
       // Another tab finished this entry and deleted it while our attempt was
       // in flight; our duplicate write then hits a unique-key violation.
       await deleteEntry('01HZZA');
-      return { error: { code: '23505', message: 'duplicate key', details: '', hint: '' } };
+      return {
+        data: null,
+        error: { code: '23505', message: 'duplicate key', details: '', hint: '' },
+      };
     });
     await drain();
     expect(await listEntries()).toEqual([]);
@@ -228,7 +241,7 @@ describe('cross-tab coordination (#278, #289)', () => {
 
   it('does not resurrect an entry another tab completed mid-flight (transient error)', async () => {
     await putEntry(baseEntry({ id: '01HZZA' }));
-    eqMock.mockImplementation(async () => {
+    unguardedSelectMock.mockImplementation(async () => {
       await deleteEntry('01HZZA');
       throw new TypeError('Failed to fetch');
     });
@@ -305,7 +318,7 @@ describe('retryFailed', () => {
   });
 
   it('grants a failed entry a fresh retry budget', async () => {
-    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(
       baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3, lastError: 'Failed to fetch' }),
     );
@@ -367,7 +380,7 @@ describe('conflict guard (#281)', () => {
     guardSelectMock
       .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
       .mockRejectedValue(new TypeError('Failed to fetch'));
-    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
     await putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2', expectedUpdatedAt: T0 }));
     await putEntry(baseEntry({ id: '01HZZC' }));
@@ -410,6 +423,56 @@ describe('conflict guard (#281)', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  it('a guard-stripped retry still feeds the board clock — queued edits do not self-conflict', async () => {
+    // A conflict-failed and the user tapped Retry (guard stripped); B was
+    // queued meanwhile against the still-stale cached baseline. A's unguarded
+    // replay bumps the server clock like any write, so B must guard against
+    // the value A produced, not its own T0 — otherwise the device conflicts
+    // with itself and the pill cries wolf.
+    await putEntry(
+      baseEntry({
+        id: '01HZZA',
+        status: 'failed',
+        attemptCount: 1,
+        expectedUpdatedAt: T0,
+        lastError: BOARD_CONFLICT_MESSAGE,
+      }),
+    );
+    await putEntry(baseEntry({ id: '01HZZB', expectedUpdatedAt: T0 }));
+    unguardedSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
+    guardSelectMock.mockResolvedValue({ data: [{ updated_at: T2 }], error: null });
+    await retryFailed();
+    expect(matchMock).toHaveBeenCalledWith({ id: 'board-1', updated_at: T1 });
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('reports conflict failures separately in the status feed', async () => {
+    // One conflict, one unrelated permanent failure: the pill needs to know
+    // a conflict is among them to name it (#281's promised message).
+    guardSelectMock.mockResolvedValue({ data: [], error: null });
+    unguardedSelectMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+    });
+    await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
+    await putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2' }));
+    await drain();
+    expect(getStatus().failedCount).toBe(2);
+    expect(getStatus().conflictCount).toBe(1);
+  });
+
+  it('a fast-path transient failure preserves the guard on the queued entry', async () => {
+    guardSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await enqueueAndDrain({
+      kind: 'updateBoard',
+      boardId: 'board-1',
+      patch: { name: 'x' },
+      expectedUpdatedAt: T0,
+    });
+    const [e] = await listEntries();
+    expect(e?.kind === 'updateBoard' && e.expectedUpdatedAt).toBe(T0);
+  });
+
   it('retryFailed keeps the guard on entries that failed for other reasons', async () => {
     guardSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
     await putEntry(
@@ -444,13 +507,13 @@ describe('subscribeStatus', () => {
 
 describe('enqueueAndDrain', () => {
   it('online + success: bypasses IDB entirely', async () => {
-    eqMock.mockResolvedValue({ error: null });
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
     expect(await listEntries()).toEqual([]);
   });
 
   it('online + non-retryable: rejects without enqueueing', async () => {
-    eqMock.mockResolvedValue({
+    unguardedSelectMock.mockResolvedValue({
+      data: null,
       error: { code: 'PGRST116', message: 'not found', details: '', hint: '' },
     });
     await expect(
@@ -460,7 +523,7 @@ describe('enqueueAndDrain', () => {
   });
 
   it('online + transient: enqueues and resolves', async () => {
-    eqMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
     const entries = await listEntries();
     expect(entries).toHaveLength(1);

@@ -1,6 +1,6 @@
 import { resolveExpectedUpdatedAt } from './board-clock';
 import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
-import { runHandler, UnretryableOutboxError } from './handlers';
+import { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -11,10 +11,12 @@ export { __resetDrainForTests } from './drain-state';
 
 const emit = async (): Promise<void> => {
   const entries = await listEntries();
+  const failed = entries.filter((e) => e.status === 'failed');
   const next: OutboxStatus = {
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     pendingCount: entries.filter((e) => e.status === 'pending').length,
-    failedCount: entries.filter((e) => e.status === 'failed').length,
+    failedCount: failed.length,
+    conflictCount: failed.filter((e) => e.lastError === BOARD_CONFLICT_MESSAGE).length,
     draining: drainState.draining,
   };
   drainState.lastStatus = next;

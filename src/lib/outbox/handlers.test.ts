@@ -20,14 +20,20 @@ interface MockPostgrestError {
 }
 
 const eqMock = vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
-const guardSelectMock =
-  vi.fn<
-    (
-      cols: string,
-    ) => Promise<{ data: { updated_at: string }[] | null; error: MockPostgrestError | null }>
-  >();
+type UpdateSelectResult = Promise<{
+  data: { updated_at: string }[] | null;
+  error: MockPostgrestError | null;
+}>;
+const guardSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
+const unguardedSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
-const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
+// `.eq()` serves two chain shapes: pictogram/kid handlers await it as the
+// terminal, the unguarded boards path chains `.select('updated_at')` off it.
+// Mirrors supabase-js, where the filter builder is a thenable with `.select`.
+const updateMock = vi.fn(() => ({
+  eq: (c: string, v: string) => Object.assign(eqMock(c, v), { select: unguardedSelectMock }),
+  match: matchMock,
+}));
 const insertMock = vi.fn<(row: unknown) => Promise<{ error: MockPostgrestError | null }>>();
 const inMock = vi.fn<
   (
@@ -90,6 +96,7 @@ const baseProps = {
 beforeEach(() => {
   eqMock.mockReset();
   guardSelectMock.mockReset();
+  unguardedSelectMock.mockReset();
   matchMock.mockClear();
   updateMock.mockClear();
   insertMock.mockReset();
@@ -104,6 +111,10 @@ beforeEach(() => {
   storageFromMock.mockClear();
   // Defaults: every supabase call succeeds.
   eqMock.mockResolvedValue({ error: null });
+  unguardedSelectMock.mockResolvedValue({
+    data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+    error: null,
+  });
   insertMock.mockResolvedValue({ error: null });
   inMock.mockResolvedValue({ data: [], error: null });
   deleteEqMock.mockResolvedValue({ error: null });
@@ -131,7 +142,8 @@ describe('runHandler · updateBoard', () => {
   });
 
   it('wraps coded DB errors in UnretryableOutboxError', async () => {
-    eqMock.mockResolvedValue({
+    unguardedSelectMock.mockResolvedValue({
+      data: null,
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
     const entry: UpdateBoardEntry = {
@@ -212,6 +224,24 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
     await runHandler(guarded(T0));
     await runHandler(guarded(T2));
     expect(matchMock).toHaveBeenNthCalledWith(2, { id: 'b-1', updated_at: T2 });
+  });
+
+  it('feeds the board clock from unguarded successes too', async () => {
+    // An unguarded replay (pre-#281 entry, or a conflict retry with the
+    // guard stripped) bumps the server clock like any other write. A queued
+    // guarded entry for the same board must not self-conflict against it.
+    unguardedSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
+    await runHandler({ ...baseProps, kind: 'updateBoard', boardId: 'b-1', patch: { name: 'X' } });
+    guardSelectMock.mockResolvedValue({ data: [{ updated_at: T2 }], error: null });
+    await runHandler(guarded(T0));
+    expect(matchMock).toHaveBeenCalledWith({ id: 'b-1', updated_at: T1 });
+  });
+
+  it('keeps zero rows on the unguarded path a silent success (board already gone)', async () => {
+    unguardedSelectMock.mockResolvedValue({ data: [], error: null });
+    await expect(
+      runHandler({ ...baseProps, kind: 'updateBoard', boardId: 'b-1', patch: { name: 'X' } }),
+    ).resolves.toBeUndefined();
   });
 
   it('scopes produced timestamps per board', async () => {
