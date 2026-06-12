@@ -75,7 +75,7 @@ describe('SettingsRoute', () => {
     expect(screen.getByRole('link', { name: /privacy policy/i })).toBeInTheDocument();
   });
 
-  it('clicking KID navigates into the first sequence board (regression: #71)', async () => {
+  it('clicking KID navigates into the most recent non-empty board (regression: #71, #301)', async () => {
     useBoardsMock.mockReturnValue({
       data: [
         {
@@ -86,7 +86,7 @@ describe('SettingsRoute', () => {
           kind: 'sequence',
           labelsVisible: true,
           voiceMode: 'tts',
-          stepIds: [],
+          stepIds: ['p1'],
           kidReorderable: false,
           accent: 'sage',
           updatedLabel: 'just now',

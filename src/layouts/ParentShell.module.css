@@ -73,6 +73,12 @@
   box-shadow: var(--tal-shadow-1);
 }
 
+.kidBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .main {
   flex: 1;
   min-width: 0;

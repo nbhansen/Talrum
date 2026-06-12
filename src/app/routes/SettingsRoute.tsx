@@ -13,7 +13,12 @@ export const SettingsRoute = (): JSX.Element => {
   const onNav = useParentNav();
   const onKidMode = useKidModeNav();
   return (
-    <ParentShell active="settings" onNav={onNav} onKidMode={onKidMode} title="Settings">
+    <ParentShell
+      active="settings"
+      onNav={onNav}
+      {...(onKidMode ? { onKidMode } : {})}
+      title="Settings"
+    >
       <AccountSection />
       <PinManagementSection />
       <SpeechPrefsSection />

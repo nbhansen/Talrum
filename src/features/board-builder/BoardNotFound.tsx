@@ -11,7 +11,7 @@ interface BoardNotFoundProps {
   variant: BoardLoadFailureVariant;
   onBack: () => void;
   onRetry?: () => void;
-  onKidMode: () => void;
+  onKidMode?: () => void;
   onNav?: (id: ParentNavKey) => void;
 }
 
@@ -35,7 +35,7 @@ export const BoardNotFound = ({
 }: BoardNotFoundProps): JSX.Element => {
   const { title, body } = COPY[variant];
   return (
-    <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
+    <ParentShell active="home" {...(onKidMode ? { onKidMode } : {})} {...(onNav ? { onNav } : {})}>
       <div className={styles.wrap}>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.body}>{body}</p>
