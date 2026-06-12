@@ -51,7 +51,12 @@ afterEach(() => {
     (globalThis as { speechSynthesis: SpeechSynthesis }).speechSynthesis = originalSynth;
   else delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = originalUtter;
+  vi.restoreAllMocks();
 });
+
+const stubDeviceLocale = (locale: string): void => {
+  vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(locale);
+};
 
 describe('speak()', () => {
   it('cancels in-flight speech and speaks the requested text', () => {
@@ -81,7 +86,8 @@ describe('speak()', () => {
     expect(isSpeechSupported()).toBe(false);
   });
 
-  it('prefers an English voice when multiple languages are available', () => {
+  it('prefers an English voice on an English-locale device', () => {
+    stubDeviceLocale('en-US');
     const { synth, utters } = makeFakeSynth([
       { name: 'Xander', lang: 'nl-NL' },
       { name: 'Karen', lang: 'en-AU' },
@@ -89,6 +95,45 @@ describe('speak()', () => {
     (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('apple');
+
+    expect(utters[0]?.voice?.name).toBe('Karen');
+  });
+
+  it('prefers a voice matching the device locale over English (#304)', () => {
+    stubDeviceLocale('da-DK');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Sara', lang: 'da-DK' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('støj');
+
+    expect(utters[0]?.voice?.name).toBe('Sara');
+  });
+
+  it('matches the locale language across region and separator variants', () => {
+    stubDeviceLocale('da');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Sara', lang: 'da_DK' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('støj');
+
+    expect(utters[0]?.voice?.name).toBe('Sara');
+  });
+
+  it('falls back to an English voice when nothing matches the device locale', () => {
+    stubDeviceLocale('da-DK');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Xander', lang: 'nl-NL' },
+      { name: 'Karen', lang: 'en-AU' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('støj');
 
     expect(utters[0]?.voice?.name).toBe('Karen');
   });
