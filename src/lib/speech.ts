@@ -15,10 +15,20 @@ let listenerAttached = false;
 const getSynth = (): SpeechSynthesis | null =>
   typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 
+/** Primary BCP-47 subtag, lowercased: 'da-DK', 'da_DK' (Android), 'da' → 'da'. */
+const primarySubtag = (lang: string): string => lang.toLowerCase().split(/[-_]/)[0] ?? '';
+
+/**
+ * Default-voice heuristic: prefer the device locale's language — a Danish
+ * household's iPad should read Danish labels with a Danish voice (#304) —
+ * then English (the app's own copy), then anything.
+ */
 const pickVoice = (voices: readonly SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
   if (voices.length === 0) return null;
-  const en = voices.filter((v) => v.lang.startsWith('en'));
-  const pool = en.length > 0 ? en : voices;
+  const deviceLang = primarySubtag(navigator.language);
+  const matchesDevice = voices.filter((v) => primarySubtag(v.lang) === deviceLang);
+  const english = voices.filter((v) => primarySubtag(v.lang) === 'en');
+  const pool = matchesDevice.length > 0 ? matchesDevice : english.length > 0 ? english : voices;
   return pool.find((v) => /female|samantha|karen|victoria/i.test(v.name)) ?? pool[0] ?? null;
 };
 
