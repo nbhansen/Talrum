@@ -44,6 +44,11 @@ jobs:
           # failing the types-drift step. Bump deliberately after verifying
           # `supabase gen types typescript --local` works without a token.
           version: 2.105.0
+      - name: Reserve Supabase ports from ephemeral assignment (#310)
+        # Supabase's fixed host ports (5432x) sit inside the kernel's ephemeral
+        # source-port range (32768–60999). A runner process's outbound connection
+        # can land on one, and `supabase start` then dies binding it (EADDRINUSE).
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
       - run: supabase start
       - name: Regenerate supabase types and fail on drift (#132)
         run: |
