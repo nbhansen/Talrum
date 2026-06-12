@@ -17,7 +17,7 @@ export const KidsRoute = (): JSX.Element => {
       <ParentShell
         active="kids"
         onNav={onNav}
-        onKidMode={onKidMode}
+        {...(onKidMode ? { onKidMode } : {})}
         title="Kids"
         subtitle="Tap a kid to rename, delete, or set them as active."
         right={

@@ -6,14 +6,15 @@ import { BoardErrorBanner } from '@/features/board-builder/BoardErrorBanner';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
 import { PictoPicker } from '@/features/board-builder/pictogram-picker/PictoPicker';
 import { ShareModal } from '@/features/board-builder/ShareModal';
+import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
-import { isNotFoundError, useBoard, useBoards, useSetStepIds } from '@/lib/queries/boards';
+import { isNotFoundError, useBoard, useSetStepIds } from '@/lib/queries/boards';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
   const boardQuery = useBoard(boardId);
-  const boardsQuery = useBoards();
+  const fallbackKidMode = useKidModeNav();
   const setStepIds = useSetStepIds();
   const board = boardQuery.data;
   const navigate = useNavigate();
@@ -54,15 +55,12 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   if (boardQuery.isError || (boardQuery.isSuccess && !board)) {
     const variant =
       isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board) ? 'not-found' : 'error';
-    const fallbackKid = boardsQuery.data?.find((b) => b.kind === 'sequence');
     return (
       <BoardNotFound
         variant={variant}
         onBack={() => navigate('/')}
         onRetry={() => void boardQuery.refetch()}
-        onKidMode={() => {
-          if (fallbackKid) navigate(`/kid/sequence/${fallbackKid.id}`);
-        }}
+        {...(fallbackKidMode ? { onKidMode: fallbackKidMode } : {})}
         onNav={onNav}
       />
     );

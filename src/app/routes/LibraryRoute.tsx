@@ -12,7 +12,7 @@ export const LibraryRoute = (): JSX.Element => {
     <ParentShell
       active="library"
       onNav={onNav}
-      onKidMode={onKidMode}
+      {...(onKidMode ? { onKidMode } : {})}
       title="Library"
       subtitle="Every pictogram in your library — tap one to rename, replace its photo, or delete."
     >
