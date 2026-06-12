@@ -27,7 +27,8 @@ interface ParentShellProps {
   onNav?: (id: ParentNavKey) => void;
   /**
    * Page-specific kid-mode entry point. Each route picks the right board
-   * (e.g. ParentHome → first sequence board; BoardBuilder → this board).
+   * (most routes via useKidModeNav; BoardBuilder → the board being edited).
+   * Omitted when no board qualifies — the button renders disabled.
    */
   onKidMode?: () => void;
   title?: string;
@@ -68,7 +69,7 @@ export const ParentShell = ({
           })}
         </nav>
         <div className={styles.bottom}>
-          <button type="button" className={styles.kidBtn} onClick={onKidMode}>
+          <button type="button" className={styles.kidBtn} onClick={onKidMode} disabled={!onKidMode}>
             <LockIcon size={22} />
             <span>KID</span>
           </button>

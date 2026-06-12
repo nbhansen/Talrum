@@ -58,7 +58,7 @@ export const ParentHomeRoute = (): JSX.Element => {
       <ParentHome
         {...(activeKid ? { kidName: activeKid.name } : {})}
         onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
-        onKidMode={onKidMode}
+        {...(onKidMode ? { onKidMode } : {})}
         onNav={onNav}
         onNewKid={() => setNewKidOpen(true)}
         onNewBoard={() => setNewBoardOpen(true)}
