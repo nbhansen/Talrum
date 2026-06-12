@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
 
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -10,6 +11,16 @@ import pkg from './package.json' with { type: 'json' };
 // Emit + upload + delete source maps in one flag, gated on the Sentry auth
 // token. Any path that emits maps must upload-and-delete them — otherwise
 // CF Pages publishes the unminified bundles as `.map` siblings.
+// package.json's version is never bumped (the app deploys continuously from
+// main), so the Settings "About" readout identifies builds by commit instead.
+const commitSha = ((): string => {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'dev';
+  }
+})();
+
 const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
 const sentryPlugins = sentryEnabled
   ? [
@@ -99,6 +110,7 @@ export default defineConfig({
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_COMMIT__: JSON.stringify(commitSha),
   },
   resolve: {
     alias: {
