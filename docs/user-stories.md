@@ -101,9 +101,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   current step large and prominent.
 - ✅ As a kid, an empty board tells me kindly to "ask a grown-up to add some
   pictograms" instead of breaking.
-- 🔜 As a kid, the KID button takes me to a board that is actually mine and
-  actually has content — not the first sequence board the account happens
-  to own. ([#301])
+- ✅ As a kid, the KID button takes me to the most recent board that is
+  actually mine and actually has content, and renders disabled when no
+  board qualifies. ([#301])
 
 ## Epic 7 — Parent gate (PIN)
 
@@ -153,8 +153,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 
 - ✅ Settings shows: signed-in account + sign out, PIN management, speech
   preferences, app version, and account deletion with a privacy-policy link.
-- 🔜 As a maintainer, the version readout identifies the deployed build
-  (commit hash), not a never-bumped `0.1.0`. ([#302])
+- ✅ As a maintainer, the version readout identifies the deployed build by
+  commit hash. ([#302])
 
 ---
 
