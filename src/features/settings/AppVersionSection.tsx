@@ -6,7 +6,10 @@ export const AppVersionSection = (): JSX.Element => (
   <section>
     <h2>About</h2>
     <p className={styles.line}>
-      Talrum version <code className={styles.version}>{__APP_VERSION__}</code>
+      Talrum version{' '}
+      <code className={styles.version}>
+        {__APP_VERSION__} ({__APP_COMMIT__})
+      </code>
     </p>
   </section>
 );
