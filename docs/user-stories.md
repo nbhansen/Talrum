@@ -173,20 +173,22 @@ Candidate stories:
   motion-sensitive kids.
 - 💭 As a parent, I can enlarge tile labels for kids who read large print.
 
-### Epic 13 — Offline kid mode & installability 🔜
+### Epic 13 — Offline kid mode & installability ✅
 
 > As a kid I can use my board in the car, at school, or in a waiting room —
 > places with no Wi-Fi are exactly where I need it most.
 
-Epic 10 protects parent *writes* offline; this epic is about kid mode
-*working* offline. ([#303])
+Shipped — initially mis-filed as a gap ([#303], closed). The PWA setup in
+`vite.config.ts` does both:
 
-- 🔜 As a kid, a board that has been opened once keeps working with no
-  network: images render and recorded voices play (TTS already works
-  offline).
-- 🔜 As a parent, I install Talrum to the iPad home screen so it launches
-  full-screen (PWA manifest), and the docs tell me how to pair that with
-  Guided Access.
+- ✅ As a kid, a board that has been opened once keeps working with no
+  network: a service-worker CacheFirst cache keeps photo and audio bytes on
+  disk (keyed by storage path, surviving signed-URL token rotation), and TTS
+  works offline natively.
+- ✅ As a parent, I install Talrum to the iPad home screen and it launches
+  full-screen landscape (PWA manifest, `display: standalone`).
+- 💭 Document the recommended iPad setup (Add to Home Screen + Guided
+  Access) for parents.
 
 ### Epic 14 — Language matching 🔜
 
