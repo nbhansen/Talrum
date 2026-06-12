@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { setLanguagePref } from './language';
 import { __resetSpeechForTests, getAvailableVoices, isSpeechSupported, speak } from './speech';
 import { setSpeechPrefs } from './speechPrefs';
 
@@ -43,6 +44,7 @@ class StubUtterance {
 beforeEach(() => {
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
   window.localStorage.removeItem('talrum:speech-prefs');
+  window.localStorage.removeItem('talrum:language');
   __resetSpeechForTests();
 });
 
@@ -123,6 +125,36 @@ describe('speak()', () => {
     speak('støj');
 
     expect(utters[0]?.voice?.name).toBe('Sara');
+  });
+
+  it('lets an explicit language pref override the device locale (#304)', () => {
+    stubDeviceLocale('en-US');
+    setLanguagePref('da');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Sara', lang: 'da-DK' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('støj');
+
+    expect(utters[0]?.voice?.name).toBe('Sara');
+  });
+
+  it('re-picks the voice when the language pref changes between taps (#304)', () => {
+    stubDeviceLocale('en-US');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Sara', lang: 'da-DK' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('hello');
+    setLanguagePref('da');
+    speak('støj');
+
+    expect(utters[0]?.voice?.name).toBe('Samantha');
+    expect(utters[1]?.voice?.name).toBe('Sara');
   });
 
   it('falls back to an English voice when nothing matches the device locale', () => {

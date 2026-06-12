@@ -1,6 +1,6 @@
 import { type JSX, type ReactNode, useState } from 'react';
 
-import { kidCopy } from '@/lib/kidCopy';
+import { getKidCopy } from '@/lib/kidCopy';
 import { hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
 import { Modal } from '@/ui/Modal/Modal';
 
@@ -18,6 +18,7 @@ interface KidModeGateProps {
 }
 
 export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JSX.Element => {
+  const kidCopy = getKidCopy();
   const [stage, setStage] = useState<Stage>({ kind: 'idle' });
 
   const requestExit = (): void => {

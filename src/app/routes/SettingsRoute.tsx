@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { AccountSection } from '@/features/settings/AccountSection';
 import { AppVersionSection } from '@/features/settings/AppVersionSection';
 import { DeleteAccountSection } from '@/features/settings/DeleteAccountSection';
+import { LanguageSection } from '@/features/settings/LanguageSection';
 import { PinManagementSection } from '@/features/settings/PinManagementSection';
 import { SpeechPrefsSection } from '@/features/settings/SpeechPrefsSection';
 import { ParentShell } from '@/layouts/ParentShell';
@@ -21,6 +22,7 @@ export const SettingsRoute = (): JSX.Element => {
     >
       <AccountSection />
       <PinManagementSection />
+      <LanguageSection />
       <SpeechPrefsSection />
       <AppVersionSection />
       <DeleteAccountSection />

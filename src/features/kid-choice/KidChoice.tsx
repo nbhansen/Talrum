@@ -1,7 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
-import { kidCopy } from '@/lib/kidCopy';
+import { getKidCopy } from '@/lib/kidCopy';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
 import { accentForIndex, cssVar } from '@/theme/tokens';
@@ -18,6 +18,7 @@ interface KidChoiceProps {
 }
 
 export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
+  const kidCopy = getKidCopy();
   const pictogramsById = usePictogramsById();
   const options: Pictogram[] = board.stepIds
     .map((id) => pictogramsById.get(id))
