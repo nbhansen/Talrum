@@ -41,6 +41,7 @@ const originalUtter = (globalThis as { SpeechSynthesisUtterance?: unknown })
 
 beforeEach(() => {
   window.localStorage.removeItem('talrum:speech-prefs');
+  window.localStorage.removeItem('talrum:language');
   __resetSpeechForTests();
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
 });
@@ -71,6 +72,24 @@ describe('SpeechPrefsSection', () => {
     expect(labels).toEqual([
       'Default (auto-pick)',
       'Daniel (en-GB)',
+      'Samantha (en-US)',
+      'Xander (nl-NL)',
+    ]);
+  });
+
+  it('sorts voices matching the language pref first (#304)', () => {
+    window.localStorage.setItem('talrum:language', 'da');
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = makeFakeSynth([
+      { name: 'Xander', lang: 'nl-NL', voiceURI: 'urn:x' },
+      { name: 'Samantha', lang: 'en-US', voiceURI: 'urn:s' },
+      { name: 'Sara', lang: 'da-DK', voiceURI: 'urn:sara' },
+    ]);
+    render(<SpeechPrefsSection />);
+    const select = screen.getByLabelText(/voice/i) as HTMLSelectElement;
+    const labels = Array.from(select.options).map((o) => o.textContent);
+    expect(labels).toEqual([
+      'Default (auto-pick)',
+      'Sara (da-DK)',
       'Samantha (en-US)',
       'Xander (nl-NL)',
     ]);

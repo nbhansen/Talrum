@@ -1,0 +1,29 @@
+.muted {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 80px 1fr 56px;
+  align-items: center;
+  gap: var(--tal-space-3);
+  margin-top: var(--tal-space-3);
+}
+
+.label {
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}
+
+.select {
+  font: inherit;
+  font-size: 14px;
+  padding: var(--tal-space-2) var(--tal-space-3);
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  color: var(--tal-ink);
+  border: 1px solid var(--tal-line);
+  grid-column: 2 / span 2;
+}

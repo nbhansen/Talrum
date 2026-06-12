@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useState } from 'react';
 
+import { getVoiceLanguage, primarySubtag } from '@/lib/language';
 import { getAvailableVoices, isSpeechSupported, speak, subscribeVoices } from '@/lib/speech';
 import {
   clearSpeechPrefs,
@@ -17,10 +18,14 @@ interface VoiceOption {
 }
 
 const toVoiceOptions = (voices: readonly SpeechSynthesisVoice[]): VoiceOption[] => {
+  // Likely-wanted voices first: the target language (chosen app language,
+  // else device locale — #304), then English, then the rest.
+  const target = getVoiceLanguage();
+  const rank = (lang: string): number =>
+    primarySubtag(lang) === target ? 0 : primarySubtag(lang) === 'en' ? 1 : 2;
   const sorted = [...voices].sort((a, b) => {
-    const aEn = a.lang.startsWith('en') ? 0 : 1;
-    const bEn = b.lang.startsWith('en') ? 0 : 1;
-    if (aEn !== bEn) return aEn - bEn;
+    const byRank = rank(a.lang) - rank(b.lang);
+    if (byRank !== 0) return byRank;
     return a.name.localeCompare(b.name);
   });
   return sorted.map((v) => ({ uri: v.voiceURI, label: `${v.name} (${v.lang})` }));

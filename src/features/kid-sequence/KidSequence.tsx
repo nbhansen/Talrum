@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
-import { kidCopy } from '@/lib/kidCopy';
+import { getKidCopy } from '@/lib/kidCopy';
 import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
@@ -36,6 +36,7 @@ const buildSteps = (stepIds: readonly string[], byId: Map<string, Pictogram>): S
   });
 
 export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element => {
+  const kidCopy = getKidCopy();
   const pictogramsById = usePictogramsById();
   const steps = buildSteps(board.stepIds, pictogramsById);
   // Track the speaking flash by slot key, not pictogram id: a sequence may

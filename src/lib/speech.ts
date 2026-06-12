@@ -3,40 +3,46 @@
  *
  * `speechSynthesis.getVoices()` is async on first call in Chromium — voices
  * arrive via a `voiceschanged` event. We cache a heuristic-picked voice once
- * it's known so each `speak()` isn't a fresh lookup. The user's saved
- * `voiceURI` (from speechPrefs) overrides the heuristic when present.
+ * it's known so each `speak()` isn't a fresh lookup; the cache is keyed on
+ * the target language so a settings change applies on the next tap. The
+ * user's saved `voiceURI` (from speechPrefs) overrides the heuristic when
+ * present.
  */
 
+import { getVoiceLanguage, primarySubtag } from './language';
 import { getSpeechPrefs } from './speechPrefs';
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
+let cachedVoiceLang: string | null = null;
 let listenerAttached = false;
 
 const getSynth = (): SpeechSynthesis | null =>
   typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 
-/** Primary BCP-47 subtag, lowercased: 'da-DK', 'da_DK' (Android), 'da' → 'da'. */
-const primarySubtag = (lang: string): string => lang.toLowerCase().split(/[-_]/)[0] ?? '';
-
 /**
- * Default-voice heuristic: prefer the device locale's language — a Danish
- * household's iPad should read Danish labels with a Danish voice (#304) —
- * then English (the app's own copy), then anything.
+ * Default-voice heuristic: prefer the target language (chosen app language,
+ * else device locale — a Danish household's iPad should read Danish labels
+ * with a Danish voice, #304), then English (the app's own copy), then
+ * anything.
  */
-const pickVoice = (voices: readonly SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+const pickVoice = (
+  voices: readonly SpeechSynthesisVoice[],
+  targetLang: string,
+): SpeechSynthesisVoice | null => {
   if (voices.length === 0) return null;
-  const deviceLang = primarySubtag(navigator.language);
-  const matchesDevice = voices.filter((v) => primarySubtag(v.lang) === deviceLang);
+  const matchesTarget = voices.filter((v) => primarySubtag(v.lang) === targetLang);
   const english = voices.filter((v) => primarySubtag(v.lang) === 'en');
-  const pool = matchesDevice.length > 0 ? matchesDevice : english.length > 0 ? english : voices;
+  const pool = matchesTarget.length > 0 ? matchesTarget : english.length > 0 ? english : voices;
   return pool.find((v) => /female|samantha|karen|victoria/i.test(v.name)) ?? pool[0] ?? null;
 };
 
 const ensureVoice = (synth: SpeechSynthesis): void => {
-  if (cachedVoice) return;
+  const targetLang = getVoiceLanguage();
+  if (cachedVoice && cachedVoiceLang === targetLang) return;
   const voices = synth.getVoices();
   if (voices.length > 0) {
-    cachedVoice = pickVoice(voices);
+    cachedVoice = pickVoice(voices, targetLang);
+    cachedVoiceLang = targetLang;
     return;
   }
   if (listenerAttached) return;
@@ -44,7 +50,9 @@ const ensureVoice = (synth: SpeechSynthesis): void => {
   synth.addEventListener(
     'voiceschanged',
     () => {
-      cachedVoice = pickVoice(synth.getVoices());
+      const lang = getVoiceLanguage();
+      cachedVoice = pickVoice(synth.getVoices(), lang);
+      cachedVoiceLang = lang;
     },
     { once: true },
   );
@@ -98,5 +106,6 @@ export const speak = (text: string): void => {
 
 export const __resetSpeechForTests = (): void => {
   cachedVoice = null;
+  cachedVoiceLang = null;
   listenerAttached = false;
 };

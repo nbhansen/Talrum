@@ -190,20 +190,23 @@ Shipped — initially mis-filed as a gap ([#303], closed). The PWA setup in
 - 💭 Document the recommended iPad setup (Add to Home Screen + Guided
   Access) for parents.
 
-### Epic 14 — Language matching 🔜
+### Epic 14 — Language matching ✅
 
 > As a Danish kid I hear Danish — not my Danish words read by an English
 > robot voice next to English prompts.
 
-Today board labels can be Danish while TTS auto-picks an English voice and
-all kid-mode copy is English. ([#304])
+The TTS default follows the device locale, an explicit language setting in
+Settings overrides it, and kid-mode copy ships in Danish and English.
+([#304])
 
-- 🔜 As a parent, I set my family's language; tapped pictograms are spoken
-  by a voice in that language, with graceful fallback when the device has
-  none.
-- 🔜 As a kid, the on-screen prompts ("Tap one to choose", "Ask a
+- ✅ As a parent, I set my family's language (per device, like the PIN and
+  speech prefs); tapped pictograms are spoken by a voice in that language,
+  with graceful fallback when the device has none.
+- ✅ As a kid, the on-screen prompts ("Tap one to choose", "Ask a
   grown-up…") are in my language. Danish first, given the actual user base.
 - 💭 Per-board language override, if households turn out to mix languages.
+- 💭 Per-account language synced to the DB — together with the other
+  device-local prefs — if multi-device households materialise.
 
 ### Epic 15 — Kid-initiated communication 💭
 

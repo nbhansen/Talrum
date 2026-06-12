@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from 'react';
 
 import { TalrumLogo } from '@/layouts/TalrumLogo';
-import { kidCopy } from '@/lib/kidCopy';
+import { getKidCopy } from '@/lib/kidCopy';
 import type { ColorToken } from '@/theme/tokens';
 import { LockIcon } from '@/ui/icons';
 
@@ -50,7 +50,7 @@ export const KidModeLayout = ({
       </div>
       <button type="button" className={styles.exit} onClick={onExit}>
         <LockIcon size={14} />
-        {kidCopy.exitButton}
+        {getKidCopy().exitButton}
       </button>
     </div>
     <div className={styles.body}>{children}</div>

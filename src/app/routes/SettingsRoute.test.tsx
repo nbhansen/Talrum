@@ -69,6 +69,12 @@ describe('SettingsRoute', () => {
     expect(screen.getByRole('button', { name: /^sign out$/i })).toBeInTheDocument();
   });
 
+  it('renders the Language section (#304)', () => {
+    renderRoute();
+    expect(screen.getByRole('heading', { name: 'Language' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /automatic/i })).toBeInTheDocument();
+  });
+
   it('renders the Delete-my-account section', () => {
     renderRoute();
     expect(screen.getByRole('button', { name: /delete my account/i })).toBeInTheDocument();
