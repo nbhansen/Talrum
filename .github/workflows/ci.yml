@@ -100,10 +100,15 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-      # Optional: session-pooler (IPv4) connection string. Without it the CLI's
-      # --linked fallback can dial the direct IPv6 address — unreachable from
-      # GitHub-hosted runners — when the project is paused or freshly resumed
-      # (observed 2026-07-05 after a free-tier auto-pause).
+      # With the DB password, `supabase link` stores session-pooler (IPv4)
+      # credentials and `migration list --linked` connects through the pooler —
+      # same pattern as deploy-migrations.yml. Without it the CLI can fall back
+      # to the direct IPv6 address, unreachable from GitHub-hosted runners,
+      # when the project is paused or freshly resumed (observed 2026-07-05
+      # after a free-tier auto-pause).
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      # Optional override: a full session-pooler connection string; when set,
+      # the drift script uses --db-url and skips --linked entirely.
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       # Same telemetry opt-out as the verify job.
       DO_NOT_TRACK: '1'
