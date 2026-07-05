@@ -7,8 +7,6 @@
  *
  * Run with:
  *   npm run migrations:check-drift
- *
- * See docs/superpowers/specs/2026-05-02-migration-version-drift-check-design.md
  */
 
 import { spawnSync } from 'node:child_process';
