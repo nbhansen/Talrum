@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  connectivityHint,
   findOrphans,
   formatOrphanError,
+  migrationListArgs,
   parseLocalVersions,
   parseRemoteVersions,
 } from './check-migration-drift.ts';
@@ -81,5 +83,29 @@ describe('formatOrphanError', () => {
     expect(msg).toContain('  - 20260501134522');
     expect(msg).toContain('CLAUDE.md');
     expect(msg).toContain('MCP');
+  });
+});
+
+describe('migrationListArgs', () => {
+  it('uses --db-url when a pooler connection string is provided', () => {
+    const url = 'postgresql://u:p@aws-0-eu-central-1.pooler.supabase.com:5432/postgres';
+    expect(migrationListArgs(url)).toEqual(['migration', 'list', '--db-url', url]);
+  });
+
+  it('falls back to --linked when no URL is set', () => {
+    expect(migrationListArgs(undefined)).toEqual(['migration', 'list', '--linked']);
+  });
+});
+
+describe('connectivityHint', () => {
+  it('maps the IPv6 dial failure to a paused-project hint', () => {
+    const reason = 'IPv6 is not supported on your current network: dial tcp [2a05::1]:5432';
+    const hint = connectivityHint(reason);
+    expect(hint).toContain('paused');
+    expect(hint).toContain('SUPABASE_DB_URL');
+  });
+
+  it('returns null for unrelated failures', () => {
+    expect(connectivityHint('permission denied for schema supabase_migrations')).toBeNull();
   });
 });
