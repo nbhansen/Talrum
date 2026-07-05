@@ -1,7 +1,9 @@
-# Auth (Phase 3: real sign-in via OTP magic link)
+# Auth — email OTP sign-in
 
-Phase 3 replaced the Phase 2 stub with real email-based sign-in and
-uuid-native per-user onboarding.
+Real email-based sign-in with uuid-native per-user onboarding. It replaced
+an earlier stubbed single-user auth from the initial build — the "Phase 2" /
+"Phase 3" labels in the storage caveat at the bottom refer to that
+transition.
 
 ## Flow
 
