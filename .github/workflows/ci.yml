@@ -100,6 +100,11 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # Optional: session-pooler (IPv4) connection string. Without it the CLI's
+      # --linked fallback can dial the direct IPv6 address — unreachable from
+      # GitHub-hosted runners — when the project is paused or freshly resumed
+      # (observed 2026-07-05 after a free-tier auto-pause).
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       # Same telemetry opt-out as the verify job.
       DO_NOT_TRACK: '1'
     steps:
