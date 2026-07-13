@@ -12,7 +12,7 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { TrashIcon, UploadIcon, XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
-import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
+import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import styles from './PictogramSheet.module.css';
 

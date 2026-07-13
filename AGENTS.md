@@ -170,7 +170,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 - Do not modify: `src/types/supabase.ts` (generated — regenerate with `npm run types:db`).
 
 ### Conventions specific to this repo
-- DB reads go through `src/lib/queries/*` react-query hooks; writes go through the `src/lib/outbox` queue (`enqueueAndDrain`) — see `docs/outbox.md`; storage URL minting through `src/lib/storage`. All ESLint-enforced.
+- DB reads go through `src/lib/queries/*` react-query hooks; writes go through the `src/lib/outbox` queue (`enqueueAndDrain`) — see `docs/outbox.md`; storage URL minting through `src/lib/storage`. All ESLint-enforced (`@/lib/supabase` is import-restricted outside `lib/`; AuthGate is the sole exception). Documented exception to "writes via outbox": creates (`useCreateBoard`, `useCreateKid`, board members) write directly — create-then-navigate needs the row to exist and RLS should fail loudly at call time; pictogram creates still go through the outbox because file uploads must survive going offline. Decision rule in `docs/queries.md`.
 - `features/` never import each other — compose at the route layer.
 - Colors and spacing in `*.module.css` must use theme tokens; stylelint blocks raw hex/rgb/hsl and raw `px` in padding/margin/gap.
 - Testing: Vitest + Testing Library; assert what users see, not internal state.

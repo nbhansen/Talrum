@@ -4,7 +4,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { KidChoice } from '@/features/kid-choice/KidChoice';
 import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
-import { KidModeGate } from '@/ui/KidModeGate/KidModeGate';
+import { KidModeGate } from '@/widgets/KidModeGate/KidModeGate';
 
 export const KidChoiceRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();

@@ -8,8 +8,8 @@ import { speakPictogram } from '@/lib/voiceOut';
 import type { Board, Pictogram } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { SpeakerIcon } from '@/ui/icons';
-import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
 import { type DragBindings, Reorderable } from '@/ui/Reorderable/Reorderable';
+import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import styles from './KidSequence.module.css';
 
