@@ -25,7 +25,8 @@ npm run dev
 ```
 
 Open the URL Vite prints. Sign in with any email; grab the 6-digit OTP from
-Inbucket at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all).
+Mailpit at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all;
+the config.toml section is still named `[inbucket]` for historical reasons).
 Supabase Studio is at <http://127.0.0.1:54323>.
 
 ## Commands
