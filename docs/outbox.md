@@ -4,7 +4,9 @@ Every mutation in Talrum goes through `src/lib/outbox` instead of calling
 Supabase directly. The goal: a parent on a flaky tablet connection can rename
 a pictogram, lose Wi-Fi, close the lid, and the write still lands — without
 the UI ever blocking on the network. This page is the narrative; the inline
-doc comments in `src/lib/outbox/*` carry the per-decision detail.
+doc comments in `src/lib/outbox/*` carry the per-decision detail. For the
+*read* side — the persisted React Query cache and its auth-boundary scrub —
+see `docs/offline-cache.md`.
 
 ## The shape
 

@@ -1,8 +1,8 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { clearPin, hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
-import { PinPad } from '@/ui/KidModeGate/PinPad';
 import { Modal } from '@/ui/Modal/Modal';
+import { PinPad } from '@/widgets/KidModeGate/PinPad';
 
 import styles from './PinManagementSection.module.css';
 

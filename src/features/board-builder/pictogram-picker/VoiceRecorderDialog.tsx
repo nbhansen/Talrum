@@ -13,7 +13,7 @@ import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { MicIcon, PlayIcon, StopIcon, TrashIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
-import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
+import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import styles from './VoiceRecorderDialog.module.css';
 

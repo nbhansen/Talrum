@@ -3,8 +3,8 @@ import type { JSX } from 'react';
 import { kindTileMarker } from '@/lib/boardKindVocab';
 import type { BoardKind, Pictogram } from '@/types/domain';
 import { PencilIcon, XIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import type { DragBindings } from '@/ui/Reorderable/Reorderable';
+import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './StepTile.module.css';
 
