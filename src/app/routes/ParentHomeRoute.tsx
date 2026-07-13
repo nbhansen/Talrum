@@ -1,7 +1,6 @@
 import { type JSX, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
-import { NewBoardModal } from '@/features/parent-home/NewBoardModal';
 import { ParentHome } from '@/features/parent-home/ParentHome';
 import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
@@ -9,6 +8,7 @@ import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/l
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
 import { useActiveKid } from '@/lib/queries/kids';
 import { accentForIndex } from '@/theme/tokens';
+import { NewBoardModal } from '@/widgets/NewBoardModal/NewBoardModal';
 import { NewKidModal } from '@/widgets/NewKidModal/NewKidModal';
 
 export const ParentHomeRoute = (): JSX.Element => {
