@@ -1,6 +1,5 @@
-import { type ChangeEvent, type JSX, useEffect, useMemo, useRef, useState } from 'react';
+import { type JSX, useMemo, useState } from 'react';
 
-import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { useBoards } from '@/lib/queries/boards.read';
 import {
   referencingBoardIds,
@@ -8,9 +7,11 @@ import {
   useRenamePictogram,
   useReplacePictogramImage,
 } from '@/lib/queries/pictograms';
+import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { TrashIcon, UploadIcon, XIcon } from '@/ui/icons';
+import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
+import { UploadIcon, XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
 
@@ -26,11 +27,15 @@ const LABEL_MAX = 40;
 
 export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   const [label, setLabel] = useState(picto.label);
-  const [processed, setProcessed] = useState<ProcessedImage | null>(null);
-  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    fileInputRef,
+    processed,
+    processing,
+    error: pickError,
+    pickFile,
+    onInputChange,
+  } = useImagePicker();
 
   const renameMut = useRenamePictogram();
   const replaceMut = useReplacePictogramImage();
@@ -41,36 +46,11 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
     [picto.id, boards],
   );
 
-  useEffect(
-    () => () => {
-      if (processed) URL.revokeObjectURL(processed.previewUrl);
-    },
-    [processed],
-  );
-
   const trimmedLabel = label.trim();
   const labelDirty = trimmedLabel.length > 0 && trimmedLabel !== picto.label;
   const saving = renameMut.isPending || replaceMut.isPending || deleteMut.isPending;
   const busy = processing || saving;
-
-  const onPickFile = (): void => fileInputRef.current?.click();
-
-  const onFile = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0] ?? null;
-    e.target.value = '';
-    if (!file) return;
-    setError(null);
-    if (processed) URL.revokeObjectURL(processed.previewUrl);
-    setProcessed(null);
-    setProcessing(true);
-    try {
-      setProcessed(await cropToSquareJpeg(file));
-    } catch {
-      setError('Could not read that image. Try a JPG or PNG.');
-    } finally {
-      setProcessing(false);
-    }
-  };
+  const shownError = error ?? pickError;
 
   const onSaveLabel = async (): Promise<void> => {
     if (!labelDirty) return;
@@ -167,14 +147,12 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className={styles.fileInput}
-              onChange={(e) => {
-                void onFile(e);
-              }}
+              onChange={onInputChange}
             />
             {processed ? (
               <div className={styles.photoPreview}>
                 <img src={processed.previewUrl} alt="" className={styles.photoPreviewImg} />
-                <Button variant="ghost" onClick={onPickFile} disabled={busy}>
+                <Button variant="ghost" onClick={pickFile} disabled={busy}>
                   Choose another
                 </Button>
               </div>
@@ -182,7 +160,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
               <Button
                 variant="ghost"
                 icon={<UploadIcon size={16} />}
-                onClick={onPickFile}
+                onClick={pickFile}
                 disabled={busy}
               >
                 {processing ? 'Preparing…' : 'Choose a new photo'}
@@ -211,38 +189,16 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
               {referencedBoardIds.length === 1 ? 'that board' : 'those boards'} too.
             </p>
           )}
-          <div className={styles.sectionActions}>
-            {confirmDelete ? (
-              <>
-                <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={busy}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  className={styles.dangerBtn}
-                  icon={<TrashIcon size={14} />}
-                  onClick={() => {
-                    void onDelete();
-                  }}
-                  disabled={busy}
-                >
-                  Delete forever
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<TrashIcon size={14} />}
-                onClick={() => setConfirmDelete(true)}
-                disabled={busy}
-              >
-                Delete pictogram
-              </Button>
-            )}
-          </div>
+          <ConfirmDeleteRow
+            label="Delete pictogram"
+            onConfirm={() => {
+              void onDelete();
+            }}
+            disabled={busy}
+          />
         </section>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {shownError && <div className={styles.error}>{shownError}</div>}
       </div>
     </Modal>
   );

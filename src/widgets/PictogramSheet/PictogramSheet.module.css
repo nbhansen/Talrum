@@ -123,12 +123,6 @@
   margin: 0;
 }
 
-.dangerBtn {
-  background: var(--tal-danger);
-  color: var(--tal-on-accent);
-  border-color: var(--tal-danger);
-}
-
 .error {
   color: var(--tal-danger);
   font-size: 14px;
