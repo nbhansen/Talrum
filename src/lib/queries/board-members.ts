@@ -6,6 +6,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { hasPgCode } from '@/lib/hasPgCode';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
 
@@ -53,11 +54,9 @@ export const useBoardMembers = (boardId: string): UseQueryResult<BoardMember[]> 
 // the RLS rejection when a non-owner tries to share. Anything else falls
 // through to a generic "couldn't add member" message.
 
-export const isAlreadyMemberError = (err: unknown): boolean =>
-  typeof err === 'object' && err !== null && 'code' in err && err.code === '23505';
+export const isAlreadyMemberError = (err: unknown): boolean => hasPgCode(err, '23505');
 
-export const isShareForbiddenError = (err: unknown): boolean =>
-  typeof err === 'object' && err !== null && 'code' in err && err.code === '42501';
+export const isShareForbiddenError = (err: unknown): boolean => hasPgCode(err, '42501');
 
 // ─── Mutations ──────────────────────────────────────────────────────────────
 // Direct supabase writes (no outbox). Sharing is rare, low-throughput, and
