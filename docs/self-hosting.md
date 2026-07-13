@@ -11,7 +11,7 @@ We start on Supabase Cloud. This doc captures the path to a self-hosted Supabase
   (plain Deno, no Supabase-only APIs beyond the admin client) — a self-hosted
   stack must deploy it too or in-app account deletion breaks (see
   `docs/runbooks/deploy.md` and `docs/runbooks/account-deletion.md`).
-  No Supabase-only Postgres extensions.
+- We use no Supabase-only Postgres extensions.
 - The frontend reads only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — point them at any Supabase instance.
 
 ## Target shape
