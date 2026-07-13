@@ -33,6 +33,8 @@ const pickVoice = (
   const matchesTarget = voices.filter((v) => primarySubtag(v.lang) === targetLang);
   const english = voices.filter((v) => primarySubtag(v.lang) === 'en');
   const pool = matchesTarget.length > 0 ? matchesTarget : english.length > 0 ? english : voices;
+  // Samantha/Karen/Victoria are Apple's built-in voice names — iPad is the
+  // design target device. On other platforms this misses and pool[0] wins.
   return pool.find((v) => /female|samantha|karen|victoria/i.test(v.name)) ?? pool[0] ?? null;
 };
 

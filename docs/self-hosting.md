@@ -7,7 +7,11 @@ We start on Supabase Cloud. This doc captures the path to a self-hosted Supabase
 - All schema lives in `supabase/migrations/*.sql` — plain Postgres, no Supabase-only DSL.
 - Auth uses Supabase's standard `auth.users` table + email OTP. The `handle_new_user()` trigger is in our migrations.
 - Storage uses Supabase Storage's standard S3-compatible buckets (`pictogram-images`, `pictogram-audio`).
-- We do **not** use Supabase Edge Functions or Supabase-only Postgres extensions.
+- We use exactly one Edge Function, `supabase/functions/delete-account/`
+  (plain Deno, no Supabase-only APIs beyond the admin client) — a self-hosted
+  stack must deploy it too or in-app account deletion breaks (see
+  `docs/runbooks/deploy.md` and `docs/runbooks/account-deletion.md`).
+- We use no Supabase-only Postgres extensions.
 - The frontend reads only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — point them at any Supabase instance.
 
 ## Target shape

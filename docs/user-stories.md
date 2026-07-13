@@ -32,7 +32,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 - ✅ As a parent, I can sign out from Settings.
 - ✅ As a parent, I can read the privacy policy without signing in.
 - ✅ As a parent, I can delete my account and all my data from Settings
-  (see `docs/auth.md`); afterwards I land on a confirmation page.
+  (see `docs/runbooks/account-deletion.md`); afterwards I land on a
+  confirmation page.
 - 🔜 As a parent, I must re-confirm with a fresh OTP before account deletion,
   so a stolen open session can't destroy my data. ([#111], deferred until
   real users)
