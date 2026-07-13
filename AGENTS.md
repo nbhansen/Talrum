@@ -153,7 +153,7 @@ After every session where the agent did something wrong:
 
 ### Commands
 - Install: `npm install`
-- Run locally: `supabase start && supabase db reset && npm run dev` (OTPs land in Inbucket at http://127.0.0.1:54324)
+- Run locally: `supabase start && supabase db reset && npm run dev` (OTPs land in Mailpit at http://127.0.0.1:54324)
 - Build: `npm run build`
 - Test (all): `npm run test`
 - Test (single file): `npx vitest run src/path/to/file.test.ts`

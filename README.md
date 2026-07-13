@@ -11,6 +11,9 @@ picture boards; kids tap pictograms to communicate or make choices.
 Target surface: full-screen iPad in landscape (1194 × 834). On desktop, open
 Chrome DevTools device mode at that viewport.
 
+What has shipped and what's planned is tracked as epics and user stories in
+[docs/user-stories.md](./docs/user-stories.md).
+
 ## Quick start
 
 You need Node 22+, Docker, and the [Supabase CLI](https://github.com/supabase/cli/releases).
@@ -25,7 +28,8 @@ npm run dev
 ```
 
 Open the URL Vite prints. Sign in with any email; grab the 6-digit OTP from
-Inbucket at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all).
+Mailpit at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all;
+the config.toml section is still named `[inbucket]` for historical reasons).
 Supabase Studio is at <http://127.0.0.1:54323>.
 
 ## Commands
