@@ -8,6 +8,11 @@ import {
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
+import {
+  listCache,
+  type OptimisticListContext,
+  useOptimisticListMutation,
+} from '@/lib/queries/optimistic';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
 import type { Board, Pictogram } from '@/types/domain';
 
@@ -161,28 +166,17 @@ export const useRenamePictogram = (): UseMutationResult<
   void,
   Error,
   RenameInput,
-  { previous: Pictogram[] | undefined }
-> => {
-  const qc = useQueryClient();
-  return useMutation({
-    onMutate: async ({ pictogramId, label }) => {
-      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
-      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+  OptimisticListContext
+> =>
+  useOptimisticListMutation({
+    caches: [
+      listCache<Pictogram, RenameInput>(pictogramsQueryKey, (list, { pictogramId, label }) =>
         patchPictogramInList(list, pictogramId, (p) => ({ ...p, label })),
-      );
-      return { previous };
-    },
+      ),
+    ],
     mutationFn: ({ pictogramId, label }) =>
       enqueueAndDrain({ kind: 'renamePicto', pictogramId, label }),
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
   });
-};
 
 interface ReplaceImageInput {
   pictogramId: string;
@@ -249,27 +243,21 @@ export const useDeletePictogram = (): UseMutationResult<
   void,
   Error,
   DeletePictogramInput,
-  { previousPictograms: Pictogram[] | undefined; previousBoards: Board[] | undefined }
-> => {
-  const qc = useQueryClient();
-  return useMutation({
-    onMutate: async ({ pictogramId }) => {
-      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
-      await qc.cancelQueries({ queryKey: boardsQueryKey });
-      const previousPictograms = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
-      const previousBoards = qc.getQueryData<Board[]>(boardsQueryKey);
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+  OptimisticListContext
+> =>
+  useOptimisticListMutation({
+    caches: [
+      listCache<Pictogram, DeletePictogramInput>(pictogramsQueryKey, (list, { pictogramId }) =>
         list?.filter((p) => p.id !== pictogramId),
-      );
-      qc.setQueryData<Board[]>(boardsQueryKey, (list) =>
+      ),
+      listCache<Board, DeletePictogramInput>(boardsQueryKey, (list, { pictogramId }) =>
         list?.map((b) =>
           b.stepIds.includes(pictogramId)
             ? { ...b, stepIds: b.stepIds.filter((id) => id !== pictogramId) }
             : b,
         ),
-      );
-      return { previousPictograms, previousBoards };
-    },
+      ),
+    ],
     mutationFn: ({ pictogramId, previousImagePath, previousAudioPath }) =>
       enqueueAndDrain({
         kind: 'deletePicto',
@@ -277,30 +265,26 @@ export const useDeletePictogram = (): UseMutationResult<
         ...(previousImagePath ? { previousImagePath } : {}),
         ...(previousAudioPath ? { previousAudioPath } : {}),
       }),
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previousPictograms) qc.setQueryData(pictogramsQueryKey, ctx.previousPictograms);
-      if (ctx?.previousBoards) qc.setQueryData(boardsQueryKey, ctx.previousBoards);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-      qc.invalidateQueries({ queryKey: boardsQueryKey });
-    },
   });
-};
 
-export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAudioInput> => {
+export const useClearPictogramAudio = (): UseMutationResult<
+  void,
+  Error,
+  ClearAudioInput,
+  OptimisticListContext
+> => {
   const qc = useQueryClient();
-  return useMutation({
-    onMutate: ({ pictogramId }) => {
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
+  return useOptimisticListMutation({
+    caches: [
+      listCache<Pictogram, ClearAudioInput>(pictogramsQueryKey, (list, { pictogramId }) =>
         patchPictogramInList(list, pictogramId, (p) => {
           const { audioPath: _audioPath, ...rest } = p;
           return rest as Pictogram;
         }),
-      );
-    },
+      ),
+    ],
     mutationFn: ({ pictogramId, path }) =>
       enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId, path }),
-    onSettled: revokeThenInvalidate(qc),
+    settle: revokeThenInvalidate(qc),
   });
 };

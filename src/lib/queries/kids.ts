@@ -10,6 +10,11 @@ import { useSyncExternalStore } from 'react';
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
+import {
+  listCache,
+  type OptimisticListContext,
+  useOptimisticListMutation,
+} from '@/lib/queries/optimistic';
 import { supabase } from '@/lib/supabase';
 import type { Board, Kid } from '@/types/domain';
 import type { Database } from '@/types/supabase';
@@ -130,27 +135,16 @@ export const useRenameKid = (): UseMutationResult<
   void,
   Error,
   RenameKidInput,
-  { previous: Kid[] | undefined }
-> => {
-  const qc = useQueryClient();
-  return useMutation({
-    onMutate: async ({ kidId, name }) => {
-      await qc.cancelQueries({ queryKey: kidsQueryKey });
-      const previous = qc.getQueryData<Kid[]>(kidsQueryKey);
-      qc.setQueryData<Kid[]>(kidsQueryKey, (list) =>
+  OptimisticListContext
+> =>
+  useOptimisticListMutation({
+    caches: [
+      listCache<Kid, RenameKidInput>(kidsQueryKey, (list, { kidId, name }) =>
         list?.map((k) => (k.id === kidId ? { ...k, name } : k)),
-      );
-      return { previous };
-    },
+      ),
+    ],
     mutationFn: ({ kidId, name }) => enqueueAndDrain({ kind: 'renameKid', kidId, name }),
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previous) qc.setQueryData(kidsQueryKey, ctx.previous);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: kidsQueryKey });
-    },
   });
-};
 
 interface DeleteKidInput {
   kidId: string;
@@ -160,33 +154,22 @@ export const useDeleteKid = (): UseMutationResult<
   void,
   Error,
   DeleteKidInput,
-  { previousKids: Kid[] | undefined; previousBoards: Board[] | undefined }
-> => {
-  const qc = useQueryClient();
-  return useMutation({
-    onMutate: async ({ kidId }) => {
-      await Promise.all([
-        qc.cancelQueries({ queryKey: kidsQueryKey }),
-        qc.cancelQueries({ queryKey: boardsQueryKey }),
-      ]);
-      const previousKids = qc.getQueryData<Kid[]>(kidsQueryKey);
-      const previousBoards = qc.getQueryData<Board[]>(boardsQueryKey);
-      qc.setQueryData<Kid[]>(kidsQueryKey, (list) => list?.filter((k) => k.id !== kidId));
-      qc.setQueryData<Board[]>(boardsQueryKey, (list) => list?.filter((b) => b.kidId !== kidId));
-      // Drop the stored id so useActiveKid's first-kid fallback picks up a
-      // remaining one. The error rollback doesn't restore it — at worst the
-      // active kid flickers back on the next render, which is fine.
+  OptimisticListContext
+> =>
+  useOptimisticListMutation({
+    caches: [
+      listCache<Kid, DeleteKidInput>(kidsQueryKey, (list, { kidId }) =>
+        list?.filter((k) => k.id !== kidId),
+      ),
+      listCache<Board, DeleteKidInput>(boardsQueryKey, (list, { kidId }) =>
+        list?.filter((b) => b.kidId !== kidId),
+      ),
+    ],
+    // Drop the stored id so useActiveKid's first-kid fallback picks up a
+    // remaining one. The error rollback doesn't restore it — at worst the
+    // active kid flickers back on the next render, which is fine.
+    onMutateSideEffect: ({ kidId }) => {
       if (getStoredActiveKidId() === kidId) setActiveKidId(null);
-      return { previousKids, previousBoards };
     },
     mutationFn: ({ kidId }) => enqueueAndDrain({ kind: 'deleteKid', kidId }),
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previousKids) qc.setQueryData(kidsQueryKey, ctx.previousKids);
-      if (ctx?.previousBoards) qc.setQueryData(boardsQueryKey, ctx.previousBoards);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: kidsQueryKey });
-      qc.invalidateQueries({ queryKey: boardsQueryKey });
-    },
   });
-};
