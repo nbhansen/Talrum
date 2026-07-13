@@ -11,6 +11,9 @@ picture boards; kids tap pictograms to communicate or make choices.
 Target surface: full-screen iPad in landscape (1194 × 834). On desktop, open
 Chrome DevTools device mode at that viewport.
 
+What has shipped and what's planned is tracked as epics and user stories in
+[docs/user-stories.md](./docs/user-stories.md).
+
 ## Quick start
 
 You need Node 22+, Docker, and the [Supabase CLI](https://github.com/supabase/cli/releases).
