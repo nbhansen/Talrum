@@ -39,7 +39,9 @@ Supabase Studio is at <http://127.0.0.1:54323>.
 | Dev server           | `npm run dev`       |
 | Typecheck            | `npm run typecheck` |
 | Lint (zero warnings) | `npm run lint`      |
+| Lint CSS tokens      | `npm run lint:css`  |
 | Tests                | `npm run test`      |
+| DB tests (pgTAP)     | `npm run test:db`   |
 | Format               | `npm run format`    |
 | Reset DB + reseed    | `supabase db reset` |
 | Regenerate DB types  | `npm run types:db`  |
@@ -50,57 +52,32 @@ commit both the migration and the regenerated `src/types/supabase.ts`.
 ## Architecture
 
 The app is a single-page React app talking to Supabase (Postgres + Auth +
-Storage). Code is layered: top layers may import from layers below, never the
-reverse. ESLint enforces this.
+Storage) — the only external runtime dependency. Code is layered: a layer may
+import from any layer below it, never above. ESLint enforces every boundary.
 
 ```mermaid
 flowchart TD
-    app[app/]
-    routes[app/routes/]
-    features[features/]
-    widgets[widgets/]
-    lib[lib/]
-    ui[ui/]
-    glyphs[glyphs/]
-    layouts[layouts/]
-    base[theme/ + types/]
-    sb[(Supabase)]
-
-    app --> routes --> features
-    features --> widgets
-    features --> lib
-    features --> ui
-    features --> layouts
-    widgets --> lib
-    widgets --> ui
-    layouts --> widgets
-    ui --> glyphs
-    glyphs --> base
-    lib --> base
-    ui --> base
-    layouts --> base
-    lib --> sb
+    app["app/ · app/routes/"] --> features["features/"]
+    features --> shared["widgets/ · layouts/"]
+    shared --> ui["ui/"]
+    ui --> lib["lib/ · glyphs/"]
+    lib --> tokens["theme/ · types/"]
+    lib --> supa[(Supabase)]
 ```
 
-- `app/` — router, AuthGate, SessionProvider, SW update prompt.
-- `app/routes/` — one file per route, composed from features.
-- `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature
-  imports. The kid-mode PIN soft-gate is documented in
-  [docs/kid-mode.md](./docs/kid-mode.md).
-- `widgets/` — shared, query-aware, feature-agnostic components (PictogramSheet,
-  KidSheet, NewKidModal, OfflineIndicator).
-- `lib/` — queries (reads), outbox (writes), storage URL minting, auth
-  helpers, speech/TTS + app-language helpers
-  ([docs/speech.md](./docs/speech.md)).
-- `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …). No data
-  access — a component that needs `lib/queries` or `lib/outbox` belongs in
-  `widgets/`.
-- `glyphs/` — hand-drawn inline-SVG glyph set (`GlyphName` → SVG, theme-var
-  strokes/fills); same import tier as `lib/`. Distinct from photo pictograms,
-  which live in Supabase Storage.
-- `layouts/` — ParentShell, KidModeLayout, TalrumLogo.
-- `theme/` and `types/` — CSS tokens and shared/generated TS types.
-- Supabase — Postgres, Auth, and Storage; the only external runtime dependency.
+Top layer to bottom:
+
+| Directory          | Role                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`             | Composition root: router, AuthGate, SessionProvider, SW update prompt. `app/routes/` holds one file per route, composed from features.                                                  |
+| `features/`        | One folder per screen (parent-home, board-builder, kid-mode, …). Never import each other — composed at the route layer. Kid-mode PIN soft-gate: [docs/kid-mode.md](./docs/kid-mode.md). |
+| `widgets/`         | Shared, query-aware, feature-agnostic components (PictogramSheet, KidSheet, NewKidModal, OfflineIndicator).                                                                             |
+| `layouts/`         | ParentShell, KidModeLayout, TalrumLogo. Same tier as `widgets/` and may render them.                                                                                                    |
+| `ui/`              | Domain-agnostic primitives (Button, Modal, PictoTile, …). No data access — a component that needs `lib/queries` or `lib/outbox` belongs in `widgets/`.                                  |
+| `lib/`             | Queries (reads), outbox (writes), storage URL minting, auth helpers, speech/TTS + app-language helpers ([docs/speech.md](./docs/speech.md)).                                            |
+| `glyphs/`          | Hand-drawn inline-SVG glyph set (`GlyphName` → SVG, theme-var strokes). Same tier as `lib/`; distinct from photo pictograms, which live in Supabase Storage.                            |
+| `theme/`, `types/` | CSS design tokens; domain types + generated `supabase.ts` (regenerate with `npm run types:db`, never edit).                                                                             |
+| `supabase/`        | Outside `src/`: config, migrations, seed.sql, pgTAP tests, edge functions.                                                                                                              |
 
 Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
 in `eslint.config.js`:
@@ -116,24 +93,6 @@ in `eslint.config.js`:
   ([docs/storage.md](./docs/storage.md)).
 - Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
   live in `src/lib/auth/`.
-- `features/` never cross-import each other — compose at the route layer.
-
-Directory map:
-
-```
-src/
-  app/         router, AuthGate, SessionProvider, SW update prompt
-  app/routes/  one file per route, composed from features
-  features/    one folder per screen (parent-home, board-builder, kid-*)
-  widgets/     shared query-aware components (PictogramSheet, KidSheet, …)
-  lib/         supabase client, react-query hooks, outbox, auth, speech
-  ui/          domain-agnostic primitives (Button, Modal, PictoTile, …)
-  glyphs/      hand-drawn SVG glyph set (GlyphName → inline SVG)
-  layouts/     ParentShell, KidModeLayout, TalrumLogo
-  theme/       CSS custom properties + typed token re-exports
-  types/       domain types + generated supabase.ts (do not edit)
-supabase/      config, migrations, seed.sql, pgTAP tests, edge functions
-```
 
 Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
 hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint). The same
