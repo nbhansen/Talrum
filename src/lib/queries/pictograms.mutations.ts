@@ -56,6 +56,16 @@ const revokePictogramBlobs = (qc: QueryClient): void => {
 
 export const __test_revokePictogramBlobs = revokePictogramBlobs;
 
+/**
+ * Shared settle tail for blob-planting mutations: sweep stale `blob:` URLs,
+ * then refetch so the cache picks up the real signed paths (success) or
+ * drops the optimistic row (error). Runs on both outcomes via `onSettled`.
+ */
+const revokeThenInvalidate = (qc: QueryClient) => (): void => {
+  revokePictogramBlobs(qc);
+  qc.invalidateQueries({ queryKey: pictogramsQueryKey });
+};
+
 interface SetAudioInput {
   pictogramId: string;
   blob: Blob;
@@ -88,14 +98,7 @@ export const useSetPictogramAudio = (): UseMutationResult<void, Error, SetAudioI
         extension,
         ...(previousPath ? { previousPath } : {}),
       }),
-    onSuccess: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
-    onError: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
+    onSettled: revokeThenInvalidate(qc),
   });
 };
 
@@ -145,15 +148,7 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       // onSuccess refetches and replaces the blob URL with the signed path.
       return { id, imagePath: `${ownerId}/${id}.${extension}` };
     },
-    onSuccess: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
-    onError: (_err, _input, _ctx) => {
-      // Drop the optimistic row; the user got an error.
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
+    onSettled: revokeThenInvalidate(qc),
   });
 };
 
@@ -226,10 +221,7 @@ export const useReplacePictogramImage = (): UseMutationResult<
         extension,
         ...(previousPath ? { previousPath } : {}),
       }),
-    onSuccess: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
+    onSuccess: revokeThenInvalidate(qc),
     onError: (_err, _input, ctx) => {
       // Revoke first while the blob URL is still in the cache (revoke walks
       // current cache state), then restore the pre-mutation snapshot so the
@@ -309,13 +301,6 @@ export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAu
     },
     mutationFn: ({ pictogramId, path }) =>
       enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId, path }),
-    onSuccess: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
-    onError: () => {
-      revokePictogramBlobs(qc);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
+    onSettled: revokeThenInvalidate(qc),
   });
 };
