@@ -1,8 +1,8 @@
-import { type ChangeEvent, type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useState } from 'react';
 
-import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { useCreatePhotoPictogram, usePictograms } from '@/lib/queries/pictograms';
 import { isUploadedStoragePath } from '@/lib/storage';
+import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { UploadIcon } from '@/ui/icons';
@@ -13,48 +13,26 @@ import styles from './UploadTab.module.css';
 const RECENT_LIMIT = 6;
 
 export const UploadTab = (): JSX.Element => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [processed, setProcessed] = useState<ProcessedImage | null>(null);
+  const {
+    fileInputRef,
+    processed,
+    processing,
+    fileName,
+    error: pickError,
+    pickFile,
+    onInputChange,
+    reset: resetPick,
+  } = useImagePicker();
   const [label, setLabel] = useState('');
-  const [status, setStatus] = useState<'idle' | 'processing' | 'uploading'>('idle');
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: pictograms = [] } = usePictograms();
   const createPhoto = useCreatePhotoPictogram();
 
-  useEffect(
-    () => () => {
-      if (processed) URL.revokeObjectURL(processed.previewUrl);
-    },
-    [processed],
-  );
-
-  const pickFile = (): void => fileInputRef.current?.click();
-
-  const handleFile = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const chosen = e.target.files?.[0] ?? null;
-    e.target.value = '';
-    if (!chosen) return;
-    setError(null);
-    setFile(chosen);
-    setStatus('processing');
-    if (processed) URL.revokeObjectURL(processed.previewUrl);
-    setProcessed(null);
-    try {
-      const next = await cropToSquareJpeg(chosen);
-      setProcessed(next);
-    } catch {
-      setError('Could not read that image. Try a JPG or PNG.');
-      setFile(null);
-    } finally {
-      setStatus('idle');
-    }
-  };
+  const shownError = error ?? pickError;
 
   const reset = (): void => {
-    if (processed) URL.revokeObjectURL(processed.previewUrl);
-    setProcessed(null);
-    setFile(null);
+    resetPick();
     setLabel('');
     setError(null);
   };
@@ -66,7 +44,7 @@ export const UploadTab = (): JSX.Element => {
       setError('Give the photo a short label.');
       return;
     }
-    setStatus('uploading');
+    setUploading(true);
     setError(null);
     try {
       await createPhoto.mutateAsync({
@@ -78,7 +56,7 @@ export const UploadTab = (): JSX.Element => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
-      setStatus('idle');
+      setUploading(false);
     }
   };
 
@@ -100,9 +78,7 @@ export const UploadTab = (): JSX.Element => {
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className={styles.fileInput}
-        onChange={(e) => {
-          void handleFile(e);
-        }}
+        onChange={onInputChange}
       />
       {processed ? (
         <div className={styles.preview}>
@@ -119,9 +95,9 @@ export const UploadTab = (): JSX.Element => {
                 maxLength={40}
               />
             </label>
-            {error && <div className={styles.error}>{error}</div>}
+            {shownError && <div className={styles.error}>{shownError}</div>}
             <div className={styles.previewActions}>
-              <Button variant="ghost" onClick={reset} disabled={status === 'uploading'}>
+              <Button variant="ghost" onClick={reset} disabled={uploading}>
                 Choose another
               </Button>
               <Button
@@ -129,31 +105,26 @@ export const UploadTab = (): JSX.Element => {
                 onClick={() => {
                   void upload();
                 }}
-                disabled={status === 'uploading' || !label.trim()}
+                disabled={uploading || !label.trim()}
               >
-                {status === 'uploading' ? 'Uploading…' : 'Add to library'}
+                {uploading ? 'Uploading…' : 'Add to library'}
               </Button>
             </div>
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          className={styles.dropzone}
-          onClick={pickFile}
-          disabled={status === 'processing'}
-        >
+        <button type="button" className={styles.dropzone} onClick={pickFile} disabled={processing}>
           <div className={styles.iconCircle}>
             <UploadIcon size={28} />
           </div>
           <div className={styles.title}>
-            {status === 'processing' ? 'Preparing photo…' : 'Tap to choose a photo'}
+            {processing ? 'Preparing photo…' : 'Tap to choose a photo'}
           </div>
           <div className={styles.hint}>
-            Real photos of {file?.name ? file.name : 'cereal, shoes, or bed'} work best. We crop to
-            a square automatically.
+            Real photos of {fileName ?? 'cereal, shoes, or bed'} work best. We crop to a square
+            automatically.
           </div>
-          {error && <div className={styles.error}>{error}</div>}
+          {shownError && <div className={styles.error}>{shownError}</div>}
         </button>
       )}
       {recentPhotos.length > 0 && (
