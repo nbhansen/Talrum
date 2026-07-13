@@ -9,7 +9,9 @@ import {
 } from '@/lib/queries/kids';
 import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { CheckIcon, TrashIcon, XIcon } from '@/ui/icons';
+import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { CheckIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './KidSheet.module.css';
@@ -27,7 +29,6 @@ const NAME_MAX = 40;
 export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
   const [name, setName] = useState(kid.name);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const renameMut = useRenameKid();
   const deleteMut = useDeleteKid();
@@ -69,19 +70,18 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
-      <header className={styles.header}>
-        <div>
-          <h2 id={TITLE_ID} className={styles.title}>
-            Edit kid
-          </h2>
-          <p className={styles.subtitle}>
-            Rename, set active, or delete <strong>{kid.name}</strong>.
-          </p>
-        </div>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-          <XIcon size={16} />
-        </button>
-      </header>
+      <div className={styles.headerWrap}>
+        <DialogHeader
+          title="Edit kid"
+          subtitle={
+            <>
+              Rename, set active, or delete <strong>{kid.name}</strong>.
+            </>
+          }
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
+      </div>
 
       <div className={styles.body}>
         <section className={styles.section}>
@@ -145,35 +145,13 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
               </p>
             )
           )}
-          <div className={styles.sectionActions}>
-            {confirmDelete ? (
-              <>
-                <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  className={styles.dangerBtn}
-                  icon={<TrashIcon size={14} />}
-                  onClick={() => {
-                    void onDelete();
-                  }}
-                  disabled={saving}
-                >
-                  Delete forever
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<TrashIcon size={14} />}
-                onClick={() => setConfirmDelete(true)}
-                disabled={saving || isLastKid}
-              >
-                Delete kid
-              </Button>
-            )}
-          </div>
+          <ConfirmDeleteRow
+            label="Delete kid"
+            onConfirm={() => {
+              void onDelete();
+            }}
+            disabled={saving || isLastKid}
+          />
         </section>
 
         {error && <div className={styles.error}>{error}</div>}

@@ -4,8 +4,8 @@ import { usePictograms } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { SearchIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
 import { PictogramSheet } from '@/widgets/PictogramSheet/PictogramSheet';
+import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './Library.module.css';
 

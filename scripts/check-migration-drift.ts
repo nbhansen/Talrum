@@ -7,8 +7,6 @@
  *
  * Run with:
  *   npm run migrations:check-drift
- *
- * See docs/superpowers/specs/2026-05-02-migration-version-drift-check-design.md
  */
 
 import { spawnSync } from 'node:child_process';
@@ -63,12 +61,35 @@ export function formatOrphanError(orphans: readonly string[]): string {
 
 const MIGRATIONS_DIR = 'supabase/migrations';
 
+export function migrationListArgs(dbUrl: string | undefined): string[] {
+  // With SUPABASE_DB_URL set (session-pooler connection string, IPv4), connect
+  // through the pooler. Without it, `--linked` lets the CLI pick — which can
+  // fall back to the direct db.<ref>.supabase.co address (IPv6-only) while the
+  // project is paused or freshly resumed, unreachable from GitHub-hosted runners.
+  return dbUrl ? ['migration', 'list', '--db-url', dbUrl] : ['migration', 'list', '--linked'];
+}
+
+const IPV6_FALLBACK_RE = /IPv6 is not supported|network is unreachable/i;
+
+export function connectivityHint(reason: string): string | null {
+  if (!IPV6_FALLBACK_RE.test(reason)) return null;
+  return [
+    '[migration-drift] The CLI dialed the direct IPv6 connection, which',
+    'GitHub-hosted runners cannot reach. This happens when the Supabase project',
+    'is paused (free tier pauses after ~1 week idle) — resume it in the',
+    'dashboard and re-run this job. To make the check pause-proof, set a',
+    'SUPABASE_DB_URL repo secret with the session-pooler (IPv4) connection',
+    'string from the dashboard.',
+  ].join('\n');
+}
+
 function runSupabaseMigrationList(): { ok: true; stdout: string } | { ok: false; reason: string } {
+  const args = migrationListArgs(process.env.SUPABASE_DB_URL || undefined);
   // Single retry with 5s backoff. CI flakes on transient network errors are common enough
   // that a one-shot retry is worth it; deeper than that and the failure is real.
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) spawnSync('sleep', ['5']);
-    const res = spawnSync('supabase', ['migration', 'list', '--linked'], {
+    const res = spawnSync('supabase', args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -89,7 +110,9 @@ export function main(): number {
 
   const result = runSupabaseMigrationList();
   if (!result.ok) {
-    console.error(`[migration-drift] supabase migration list --linked failed: ${result.reason}`);
+    console.error(`[migration-drift] supabase migration list failed: ${result.reason}`);
+    const hint = connectivityHint(result.reason);
+    if (hint) console.error(hint);
     return 1;
   }
 
