@@ -61,6 +61,7 @@ flowchart TD
     widgets[widgets/]
     lib[lib/]
     ui[ui/]
+    glyphs[glyphs/]
     layouts[layouts/]
     base[theme/ + types/]
     sb[(Supabase)]
@@ -73,6 +74,8 @@ flowchart TD
     widgets --> lib
     widgets --> ui
     layouts --> widgets
+    ui --> glyphs
+    glyphs --> base
     lib --> base
     ui --> base
     layouts --> base
@@ -81,13 +84,20 @@ flowchart TD
 
 - `app/` — router, AuthGate, SessionProvider, SW update prompt.
 - `app/routes/` — one file per route, composed from features.
-- `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature imports.
+- `features/` — parent-home, board-builder, kid-mode, etc. No cross-feature
+  imports. The kid-mode PIN soft-gate is documented in
+  [docs/kid-mode.md](./docs/kid-mode.md).
 - `widgets/` — shared, query-aware, feature-agnostic components (PictogramSheet,
   KidSheet, NewKidModal, OfflineIndicator).
-- `lib/` — queries (reads), outbox (writes), storage URL minting, auth helpers.
+- `lib/` — queries (reads), outbox (writes), storage URL minting, auth
+  helpers, speech/TTS + app-language helpers
+  ([docs/speech.md](./docs/speech.md)).
 - `ui/` — domain-agnostic primitives (Button, Modal, PictoTile, …). No data
   access — a component that needs `lib/queries` or `lib/outbox` belongs in
   `widgets/`.
+- `glyphs/` — hand-drawn inline-SVG glyph set (`GlyphName` → SVG, theme-var
+  strokes/fills); same import tier as `lib/`. Distinct from photo pictograms,
+  which live in Supabase Storage.
 - `layouts/` — ParentShell, KidModeLayout, TalrumLogo.
 - `theme/` and `types/` — CSS tokens and shared/generated TS types.
 - Supabase — Postgres, Auth, and Storage; the only external runtime dependency.
@@ -95,10 +105,15 @@ flowchart TD
 Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
 in `eslint.config.js`:
 
-- DB reads go through `src/lib/queries/*` (react-query hooks).
+- DB reads go through `src/lib/queries/*` (react-query hooks) — conventions
+  and the write-pattern decision guide are in
+  [docs/queries.md](./docs/queries.md).
 - Writes go through `src/lib/outbox` (offline-tolerant queue) — the full
-  write-path lifecycle is in [docs/outbox.md](./docs/outbox.md).
-- Storage URL minting goes through `src/lib/storage`.
+  write-path lifecycle is in [docs/outbox.md](./docs/outbox.md); the
+  read-side persisted cache and its auth-boundary wipe are in
+  [docs/offline-cache.md](./docs/offline-cache.md).
+- Storage URL minting goes through `src/lib/storage`
+  ([docs/storage.md](./docs/storage.md)).
 - Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
   live in `src/lib/auth/`.
 - `features/` never cross-import each other — compose at the route layer.
@@ -111,8 +126,9 @@ src/
   app/routes/  one file per route, composed from features
   features/    one folder per screen (parent-home, board-builder, kid-*)
   widgets/     shared query-aware components (PictogramSheet, KidSheet, …)
-  lib/         supabase client, react-query hooks, outbox, auth helpers
+  lib/         supabase client, react-query hooks, outbox, auth, speech
   ui/          domain-agnostic primitives (Button, Modal, PictoTile, …)
+  glyphs/      hand-drawn SVG glyph set (GlyphName → inline SVG)
   layouts/     ParentShell, KidModeLayout, TalrumLogo
   theme/       CSS custom properties + typed token re-exports
   types/       domain types + generated supabase.ts (do not edit)
