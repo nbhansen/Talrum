@@ -4,7 +4,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { KidSequence } from '@/features/kid-sequence/KidSequence';
 import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
-import { KidModeGate } from '@/ui/KidModeGate/KidModeGate';
+import { KidModeGate } from '@/widgets/KidModeGate/KidModeGate';
 
 export const KidSequenceRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();

@@ -6,7 +6,7 @@ import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { UploadIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './UploadTab.module.css';
 

@@ -10,9 +10,10 @@ import {
 } from '@/lib/recording';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { MicIcon, PlayIcon, StopIcon, TrashIcon, XIcon } from '@/ui/icons';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { MicIcon, PlayIcon, StopIcon, TrashIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
-import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
+import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import styles from './VoiceRecorderDialog.module.css';
 
@@ -100,20 +101,19 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
-      <header className={styles.header}>
-        <div>
-          <h2 id={TITLE_ID} className={styles.title}>
-            Record voice
-          </h2>
-          <p className={styles.subtitle}>
-            This voice plays for <strong>{picto.label}</strong> when a board uses &ldquo;Parent
-            voice&rdquo;.
-          </p>
-        </div>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-          <XIcon size={16} />
-        </button>
-      </header>
+      <div className={styles.headerWrap}>
+        <DialogHeader
+          title="Record voice"
+          subtitle={
+            <>
+              This voice plays for <strong>{picto.label}</strong> when a board uses &ldquo;Parent
+              voice&rdquo;.
+            </>
+          }
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
+      </div>
       <div className={styles.body}>
         <div className={styles.preview}>
           <PictogramMedia picto={picto} size={180} />

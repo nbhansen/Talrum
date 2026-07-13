@@ -3,7 +3,7 @@ import { type JSX, useState } from 'react';
 import { usePictograms } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { XIcon } from '@/ui/icons';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './PictoPicker.module.css';
@@ -58,22 +58,15 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
-      <header className={styles.header}>
-        <div>
-          <h2 id={TITLE_ID} className={styles.title}>
-            Add pictograms
-          </h2>
-          <p className={styles.subtitle}>Pick from the library or upload a photo.</p>
-        </div>
-        <button
-          type="button"
-          className={styles.closeBtn}
-          onClick={onClose}
-          aria-label="Close picker"
-        >
-          <XIcon size={16} />
-        </button>
-      </header>
+      <div className={styles.headerWrap}>
+        <DialogHeader
+          title="Add pictograms"
+          subtitle="Pick from the library or upload a photo."
+          titleId={TITLE_ID}
+          onClose={onClose}
+          closeLabel="Close picker"
+        />
+      </div>
       <div className={styles.tabs} role="tablist">
         {tabs.map((t) => {
           const active = tab === t.value;

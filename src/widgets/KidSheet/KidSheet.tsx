@@ -10,7 +10,8 @@ import {
 import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
-import { CheckIcon, XIcon } from '@/ui/icons';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { CheckIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './KidSheet.module.css';
@@ -69,19 +70,18 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
-      <header className={styles.header}>
-        <div>
-          <h2 id={TITLE_ID} className={styles.title}>
-            Edit kid
-          </h2>
-          <p className={styles.subtitle}>
-            Rename, set active, or delete <strong>{kid.name}</strong>.
-          </p>
-        </div>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-          <XIcon size={16} />
-        </button>
-      </header>
+      <div className={styles.headerWrap}>
+        <DialogHeader
+          title="Edit kid"
+          subtitle={
+            <>
+              Rename, set active, or delete <strong>{kid.name}</strong>.
+            </>
+          }
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
+      </div>
 
       <div className={styles.body}>
         <section className={styles.section}>

@@ -6,10 +6,19 @@ import { Modal } from '@/ui/Modal/Modal';
 
 import { PinPad } from './PinPad';
 
+/**
+ * The gate's modal flow. From 'idle', requestExit branches on whether a
+ * device PIN exists: 'verify' (one correct entry exits) or first-time setup,
+ * which is two steps — 'setup-new' captures a PIN, 'setup-confirm' makes the
+ * parent re-enter it before storing the hash. Setup deliberately skips any
+ * existing-PIN verification: there is nothing to verify against yet, and the
+ * confirm step is what protects against a typo'd PIN locking the device.
+ * Cancelling at any step returns to 'idle' without storing anything.
+ */
 type Stage =
   | { kind: 'idle' }
   | { kind: 'verify' }
-  | { kind: 'setup-new'; firstPin?: string }
+  | { kind: 'setup-new' }
   | { kind: 'setup-confirm'; firstPin: string };
 
 interface KidModeGateProps {

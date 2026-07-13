@@ -9,7 +9,7 @@ import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
 import { KidSwitcher } from '@/ui/KidSwitcher/KidSwitcher';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import { BoardCard } from './BoardCard';
 import styles from './ParentHome.module.css';

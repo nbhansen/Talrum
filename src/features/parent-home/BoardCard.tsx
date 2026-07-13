@@ -5,7 +5,7 @@ import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar, inkForAccent } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { StepArrowIcon } from '@/ui/icons';
-import { PictoCard } from '@/ui/PictoTile/PictoCard';
+import { PictoCard } from '@/widgets/PictoTile/PictoCard';
 
 import styles from './BoardCard.module.css';
 

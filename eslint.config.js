@@ -104,6 +104,11 @@ export default tseslint.config(
               message:
                 'Reverse import: widgets/layouts MUST NOT import from features/. Widgets are feature-agnostic by definition (#282).',
             },
+            {
+              group: ['@/lib/supabase'],
+              message:
+                'The supabase client is data-layer plumbing: reads go through @/lib/queries, writes through @/lib/outbox, storage through @/lib/storage (docs/queries.md).',
+            },
           ],
         },
       ],
@@ -139,6 +144,16 @@ export default tseslint.config(
               message:
                 'ui/ is domain-agnostic — no data access. A component that needs lib/queries or lib/outbox is a domain widget; move it to src/widgets/ (#282).',
             },
+            {
+              group: ['@/lib/storage', '@/lib/useSignedUrl', '@/lib/pin'],
+              message:
+                'ui/ is presentational — signed-URL minting and PIN state are domain logic. A component that needs them is a domain widget; move it to src/widgets/ (#282).',
+            },
+            {
+              group: ['@/lib/supabase'],
+              message:
+                'The supabase client is data-layer plumbing: reads go through @/lib/queries, writes through @/lib/outbox, storage through @/lib/storage (docs/queries.md).',
+            },
           ],
         },
       ],
@@ -161,6 +176,32 @@ export default tseslint.config(
               group: ['@/features/*'],
               message:
                 'No cross-feature imports. Compose features at the route layer; lift shared code to lib/, ui/, or layouts/.',
+            },
+            {
+              group: ['@/lib/supabase'],
+              message:
+                'The supabase client is data-layer plumbing: reads go through @/lib/queries, writes through @/lib/outbox, storage through @/lib/storage (docs/queries.md).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // app/ composes everything, but the supabase client itself stays in
+    // lib/ — AuthGate is the sole exception (the centralized auth
+    // subscriber, #126/#148).
+    files: ['src/app/**/*.{ts,tsx}'],
+    ignores: ['src/app/AuthGate.tsx', '**/*.test.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/lib/supabase'],
+              message:
+                'The supabase client is data-layer plumbing: reads go through @/lib/queries, writes through @/lib/outbox, storage through @/lib/storage (docs/queries.md). AuthGate is the sole app/ exception.',
             },
           ],
         },

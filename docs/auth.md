@@ -1,7 +1,9 @@
-# Auth (Phase 3: real sign-in via OTP magic link)
+# Auth — email OTP sign-in
 
-Phase 3 replaced the Phase 2 stub with real email-based sign-in and
-uuid-native per-user onboarding.
+Real email-based sign-in with uuid-native per-user onboarding. It replaced
+an earlier stubbed single-user auth from the initial build — the "Phase 2" /
+"Phase 3" labels in the storage caveat at the bottom refer to that
+transition.
 
 ## Flow
 
@@ -34,9 +36,12 @@ on `auth.users` that clones every row from `template_pictograms` and
 and rewrites board step arrays via a slug→uuid map. It's idempotent:
 if the user already has a kid, the trigger no-ops.
 
-Template tables are populated by `supabase/seed.sql` (edit it directly).
-They have RLS enabled with a read-only-for-authenticated policy so PostgREST
-can't be abused to mutate them.
+Template tables are populated by the
+`supabase/migrations/20260427162919_seed_templates.sql` migration — the
+single source of truth for template content (`supabase/seed.sql` is
+intentionally empty; edit the migration instead). They have RLS enabled
+with a read-only-for-authenticated policy so PostgREST can't be abused to
+mutate them.
 
 ## Smoke-test RLS isolation
 
@@ -60,8 +65,8 @@ gen_random_uuid()`.
 - Text slugs ('apple', 'morning', 'liam') are preserved as an optional
   `slug text` column (with a `unique (owner_id, slug)` constraint on
   pictograms and boards). They're used by a handful of client-side lookup
-  sites — `ParentHome.RECENT_STRIP_SLUGS`, `BoardBuilder.QUICK_ADD_SLUGS`,
-  `GenerateTab.RESULT_SLUGS` — via `usePictogramsBySlug`.
+  sites — `ParentHome.RECENT_STRIP_SLUGS`, `BoardBuilder.QUICK_ADD_SLUGS` —
+  via `usePictogramsBySlug`.
 - `boards.kid_id uuid references kids(id) on delete cascade` — real FK.
 - `boards.step_ids uuid[]` — the trigger rewrites template `step_slugs
 text[]` into per-user uuids at signup.

@@ -1,4 +1,4 @@
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { XIcon } from '@/ui/icons';
 
@@ -6,9 +6,10 @@ import styles from './DialogHeader.module.css';
 
 interface DialogHeaderProps {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   titleId: string;
   onClose: () => void;
+  closeLabel?: string;
 }
 
 export const DialogHeader = ({
@@ -16,6 +17,7 @@ export const DialogHeader = ({
   subtitle,
   titleId,
   onClose,
+  closeLabel = 'Close',
 }: DialogHeaderProps): JSX.Element => (
   <header className={styles.header}>
     <div>
@@ -24,7 +26,7 @@ export const DialogHeader = ({
       </h2>
       {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
     </div>
-    <button type="button" onClick={onClose} aria-label="Close" className={styles.closeBtn}>
+    <button type="button" onClick={onClose} aria-label={closeLabel} className={styles.closeBtn}>
       <XIcon size={18} />
     </button>
   </header>
