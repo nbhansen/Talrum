@@ -242,6 +242,22 @@ describe('useClearPictogramAudio', () => {
     expect(removeMock).toHaveBeenCalledWith(['owner-uuid/p1.webm']);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
+
+  it('restores audioPath on a non-retryable DB error (RLS denial)', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    removeMock.mockResolvedValue({ error: null });
+    eqMock.mockResolvedValueOnce({ error: rlsError });
+
+    const { result } = renderHook(() => useClearPictogramAudio(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({ pictogramId: 'p1', path: 'owner-uuid/p1.webm' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(pictogramSeed());
+  });
 });
 
 describe('revokePictogramBlobs (#28)', () => {
