@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
+import { hasPgCode } from '@/lib/hasPgCode';
 import { supabase } from '@/lib/supabase';
 import { type AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
@@ -51,8 +52,7 @@ const fetchBoard = async (id: string): Promise<Board> => {
  * by `.single()` when a board doesn't exist or is hidden by RLS. It's
  * terminal: retrying the same UUID will produce the same answer.
  */
-export const isNotFoundError = (err: unknown): boolean =>
-  typeof err === 'object' && err !== null && 'code' in err && err.code === 'PGRST116';
+export const isNotFoundError = (err: unknown): boolean => hasPgCode(err, 'PGRST116');
 
 export const useBoards = (): UseQueryResult<Board[]> =>
   useQuery({ queryKey: boardsQueryKey, queryFn: fetchBoards });
