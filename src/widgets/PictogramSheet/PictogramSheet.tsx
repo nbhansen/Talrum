@@ -10,7 +10,8 @@ import {
 } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { TrashIcon, UploadIcon, XIcon } from '@/ui/icons';
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { TrashIcon, UploadIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
@@ -117,17 +118,14 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
-      <header className={styles.header}>
-        <div>
-          <h2 id={TITLE_ID} className={styles.title}>
-            Edit pictogram
-          </h2>
-          <p className={styles.subtitle}>Rename, replace the photo, or delete it.</p>
-        </div>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-          <XIcon size={16} />
-        </button>
-      </header>
+      <div className={styles.headerWrap}>
+        <DialogHeader
+          title="Edit pictogram"
+          subtitle="Rename, replace the photo, or delete it."
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
+      </div>
 
       <div className={styles.body}>
         <div className={styles.preview}>

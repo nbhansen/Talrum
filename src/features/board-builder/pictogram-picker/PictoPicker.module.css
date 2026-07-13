@@ -1,35 +1,6 @@
-.header {
-  padding: var(--tal-space-6) var(--tal-space-7);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.headerWrap {
+  padding: var(--tal-space-6) var(--tal-space-7) var(--tal-space-2);
   border-bottom: 1px solid var(--tal-line-soft);
-}
-
-.title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--tal-ink);
-  letter-spacing: -0.3px;
-}
-
-.subtitle {
-  margin: var(--tal-space-1) 0 0;
-  font-size: 13px;
-  color: var(--tal-ink-soft);
-  font-weight: 500;
-}
-
-.closeBtn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--tal-r-pill);
-  background: var(--tal-surface-alt);
-  color: var(--tal-ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .tabs {
