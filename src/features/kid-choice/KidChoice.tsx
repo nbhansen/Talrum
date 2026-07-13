@@ -8,7 +8,7 @@ import { accentForIndex, cssVar } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
-import { PictogramMedia } from '@/ui/PictoTile/PictogramMedia';
+import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import styles from './KidChoice.module.css';
 

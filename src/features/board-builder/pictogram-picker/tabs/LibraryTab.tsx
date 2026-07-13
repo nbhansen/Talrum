@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import type { Pictogram } from '@/types/domain';
 import { Chip } from '@/ui/Chip/Chip';
 import { MicIcon, SearchIcon } from '@/ui/icons';
-import { PictoTile } from '@/ui/PictoTile/PictoTile';
+import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './LibraryTab.module.css';
 
