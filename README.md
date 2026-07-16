@@ -8,8 +8,39 @@ A low-stim AAC (Augmentative & Alternative Communication) web app for non-verbal
 autistic kids and their caregivers — a modernised PECS. Parents build small
 picture boards; kids tap pictograms to communicate or make choices.
 
+![Kid mode: a four-step board](docs/screenshots/kid-mode.png)
+
+_Kid mode is the whole screen: cards, labels, nothing else. Tapping a card
+reads it aloud._
+
 Target surface: full-screen iPad in landscape (1194 × 834). On desktop, open
 Chrome DevTools device mode at that viewport.
+
+## Why it looks like this
+
+Most AAC apps are busy — menus, badges, colour everywhere. For a child who is
+easily overstimulated that's exactly wrong, which is part of why AAC practice
+still runs on laminated paper cards. Talrum aims at the gap: as calm as paper,
+but shareable, speakable, and still working when the tablet loses its
+connection.
+
+Concretely, "low-stim" means things were removed, not added. Kid mode and
+parent mode are strictly separated: kid mode is tap-only and full-screen, with
+no navigation, badges, or decoration, and a child can never land in parent UI
+or have confusing text read aloud. Each board controls whether text labels
+show and whether a tapped pictogram is spoken. And writes never block on the
+network — a spinner a typical user shrugs at can mean real distress and
+rejection of the tool here, so the UI updates optimistically and an outbox
+replays the write when the connection returns.
+
+![Parent mode: the board builder](docs/screenshots/board-builder.png)
+
+_Parent mode: building a sequence board — labels on, kid-reorder off,
+read-aloud voice picked per board._
+
+The longer version — the architecture, the offline model, and the design
+trade-offs — is written up at
+[nbhansen.dk/2026-07-15-how-talrum-is-built](https://nbhansen.dk/2026-07-15-how-talrum-is-built/).
 
 What has shipped and what's planned is tracked as epics and user stories in
 [docs/user-stories.md](./docs/user-stories.md).
