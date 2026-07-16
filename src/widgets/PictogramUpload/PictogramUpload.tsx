@@ -8,11 +8,11 @@ import { Button } from '@/ui/Button/Button';
 import { UploadIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
-import styles from './UploadTab.module.css';
+import styles from './PictogramUpload.module.css';
 
 const RECENT_LIMIT = 6;
 
-export const UploadTab = (): JSX.Element => {
+export const PictogramUpload = (): JSX.Element => {
   const {
     fileInputRef,
     processed,

@@ -14,6 +14,11 @@ vi.mock('@/lib/queries/pictograms', () => ({
     data: [{ id: 'p1', label: 'Apple', style: 'illus', glyph: 'apple', tint: '#ff0000' }],
     isPending: false,
   }),
+  // NewPictogramModal renders the upload flow, which needs the create hook.
+  useCreatePhotoPictogram: (): { mutateAsync: () => Promise<void>; isPending: boolean } => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {
@@ -62,6 +67,18 @@ describe('LibraryRoute', () => {
     renderRoute();
     expect(screen.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
     expect(screen.getByText('Apple')).toBeInTheDocument();
+  });
+
+  it('Add pictogram opens the upload modal and Close dismisses it (#339)', async () => {
+    renderRoute();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /add pictogram/i }));
+
+    expect(screen.getByRole('dialog', { name: /add a pictogram/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^close$/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('clicking KID navigates into the most recent non-empty board (regression: #71, #301)', async () => {
