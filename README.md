@@ -139,17 +139,19 @@ self-hosted Supabase on a VPS is in [docs/self-hosting.md](./docs/self-hosting.m
 
 **Per release**
 
-`git push origin main` does both halves:
+`git push origin main` runs `.github/workflows/deploy.yml`, which deploys
+in order:
 
-- `.github/workflows/deploy-migrations.yml` runs `supabase db push --linked`
-  whenever `supabase/migrations/**` changes, retries once on transient
-  failure, then asserts the remote schema matches local migrations.
-- Cloudflare Pages rebuilds and deploys the SPA on every push.
+1. **Migrations** — `supabase db push --linked` (retried once on transient
+   failure), then an assertion that the remote schema matches local
+   migrations.
+2. **SPA** — built and pushed to Cloudflare Pages, but only if the
+   migration job succeeded, so the deployed frontend is never newer than
+   the schema it talks to.
 
-Pages deploys regardless of the migration outcome, so a failed migration
-run means prod serves frontend code against a stale schema — the workflow
-files a GitHub issue when that happens. Re-deploy after fixing the cause
-with `gh workflow run deploy-migrations`.
+A failed migration job skips the SPA deploy (prod keeps serving the
+previous release) and files a GitHub issue. After fixing the cause,
+re-deploy with `gh workflow run deploy`.
 
 PRs get Cloudflare preview URLs automatically. Migrations only deploy on
 merge to `main`.

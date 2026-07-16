@@ -102,7 +102,7 @@ jobs:
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       # With the DB password, `supabase link` stores session-pooler (IPv4)
       # credentials and `migration list --linked` connects through the pooler —
-      # same pattern as deploy-migrations.yml. Without it the CLI can fall back
+      # same pattern as deploy.yml. Without it the CLI can fall back
       # to the direct IPv6 address, unreachable from GitHub-hosted runners,
       # when the project is paused or freshly resumed (observed 2026-07-05
       # after a free-tier auto-pause).
