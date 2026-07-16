@@ -41,6 +41,14 @@ describe('Library', () => {
     expect(screen.getByRole('heading', { name: /no pictograms yet/i })).toBeInTheDocument();
   });
 
+  it('empty-state CTA calls onAdd', () => {
+    usePictogramsMock.mockReturnValue({ data: [], isPending: false });
+    const onAdd = vi.fn();
+    render(<Library onAdd={onAdd} />);
+    fireEvent.click(screen.getByRole('button', { name: /add your first pictogram/i }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
   it('filters tiles by the search query (case-insensitive)', () => {
     usePictogramsMock.mockReturnValue({ data: PICTOS, isPending: false });
     render(<Library />);

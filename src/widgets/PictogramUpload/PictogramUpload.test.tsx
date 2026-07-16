@@ -22,7 +22,7 @@ vi.mock('@/lib/image', () => ({
   cropToSquareJpeg: vi.fn(),
 }));
 
-const { UploadTab } = await import('./UploadTab');
+const { PictogramUpload } = await import('./PictogramUpload');
 
 const mkPhoto = (id: string, label: string, imagePath?: string): Pictogram =>
   ({
@@ -40,7 +40,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('UploadTab · YOUR UPLOADS section', () => {
+describe('PictogramUpload · YOUR UPLOADS section', () => {
   it('hides the section entirely when only stock + null-image photos exist', () => {
     usePictogramsMock.mockReturnValue({
       data: [
@@ -49,7 +49,7 @@ describe('UploadTab · YOUR UPLOADS section', () => {
         mkPhoto('p3', 'Empty'), // null imagePath
       ],
     });
-    render(<UploadTab />);
+    render(<PictogramUpload />);
     expect(screen.queryByText(/your uploads/i)).toBeNull();
   });
 
@@ -61,7 +61,7 @@ describe('UploadTab · YOUR UPLOADS section', () => {
         mkPhoto('p3', 'My shoes', 'owner-id/p3.jpg'),
       ],
     });
-    render(<UploadTab />);
+    render(<PictogramUpload />);
     expect(screen.getByText(/your uploads/i)).toBeInTheDocument();
     expect(screen.getByText('My cereal')).toBeInTheDocument();
     expect(screen.getByText('My shoes')).toBeInTheDocument();

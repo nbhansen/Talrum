@@ -5,10 +5,10 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
+import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 
 import styles from './PictoPicker.module.css';
 import { LibraryTab } from './tabs/LibraryTab';
-import { UploadTab } from './tabs/UploadTab';
 import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
 type PickerTab = 'library' | 'upload';
@@ -96,7 +96,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
             onEditVoice={setEditingVoice}
           />
         )}
-        {tab === 'upload' && <UploadTab />}
+        {tab === 'upload' && <PictogramUpload />}
       </div>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>

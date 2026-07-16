@@ -38,7 +38,7 @@ We start on Supabase Cloud. This doc captures the path to a self-hosted Supabase
    - Storage objects: `rclone sync` between the two S3-compatible endpoints.
 6. **Cut over**:
    - Update `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in Cloudflare Pages env.
-   - Update GitHub Actions secrets so `deploy-migrations.yml` targets the new instance (replace `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` with a direct `--db-url`).
+   - Update GitHub Actions secrets so `deploy.yml` targets the new instance (replace `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` with a direct `--db-url`).
    - Update mobile app config and ship a release.
 7. **Decommission** the Cloud project after a verification window.
 

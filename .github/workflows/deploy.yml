@@ -1,0 +1,101 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # manual re-run for failed deploys older than GitHub's 30-day rerun window (#337)
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+jobs:
+  # Schema first, SPA second — `needs:` makes it impossible to ship
+  # frontend code against a database that missed its migration (#337).
+  # Push is idempotent and a no-op when nothing is pending, so this job
+  # runs on every push and doubles as a local-ahead drift check (CI's
+  # migration-drift job only catches the remote-orphan direction).
+  migrations:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: supabase/setup-cli@v2
+        with:
+          # Same pin as ci.yml; the sync check below greps CLI output, so
+          # bump deliberately, not via `latest`.
+          version: 2.105.0
+      # Link + push are idempotent, so retrying the pair once covers
+      # transient runner/network failures — the June 2026 outage was one
+      # (#337) — with no risk of double-applying a migration.
+      - name: Link and push migrations
+        run: |
+          deploy() {
+            supabase link --project-ref "$PROJECT_REF" && supabase db push --linked
+          }
+          if ! deploy; then
+            echo "::warning::first deploy attempt failed; retrying in 30s"
+            sleep 30
+            deploy
+          fi
+      # `db push --dry-run` exits 0 whether or not migrations are pending,
+      # so assert on the in-sync message: pending migrations or unexpected
+      # CLI output both fail the job.
+      - name: Verify remote schema is in sync
+        run: |
+          out=$(supabase db push --linked --dry-run 2>&1)
+          echo "$out"
+          if ! grep -qF 'Remote database is up to date.' <<< "$out"; then
+            echo "::error::remote database does not match local migrations after push"
+            exit 1
+          fi
+      # A red migration run on main once went unnoticed for five weeks
+      # (#337). The SPA job below is skipped on failure, so prod keeps
+      # serving the previous release — but someone still has to know.
+      - name: File issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "The migration deploy failed, so the SPA deploy for this commit was skipped and production keeps serving the previous release (see #337 for the failure mode this prevents)."
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo
+            echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
+          } > /tmp/issue-body.md
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
+            --body-file /tmp/issue-body.md
+  pages:
+    needs: migrations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=talrum --branch=main --commit-hash=${{ github.sha }}

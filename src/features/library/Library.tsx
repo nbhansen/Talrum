@@ -2,14 +2,20 @@ import { type JSX, useMemo, useState } from 'react';
 
 import { usePictograms } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
+import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
-import { SearchIcon } from '@/ui/icons';
+import { PlusIcon, SearchIcon } from '@/ui/icons';
 import { PictogramSheet } from '@/widgets/PictogramSheet/PictogramSheet';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './Library.module.css';
 
-export const Library = (): JSX.Element => {
+interface LibraryProps {
+  /** Opens the Add pictogram modal (owned by the route, like KidsRoute). */
+  onAdd?: () => void;
+}
+
+export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
   const { data: pictograms = [] } = usePictograms();
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<Pictogram | null>(null);
@@ -25,6 +31,11 @@ export const Library = (): JSX.Element => {
       <EmptyState
         title="No pictograms yet"
         body="Pictograms you upload, generate, or pick from the library will show up here."
+        action={
+          <Button variant="primary" icon={<PlusIcon />} onClick={onAdd}>
+            Add your first pictogram
+          </Button>
+        }
       />
     );
   }

@@ -1,0 +1,11 @@
+.headerWrap {
+  padding: var(--tal-space-6) var(--tal-space-7) var(--tal-space-2);
+  border-bottom: 1px solid var(--tal-line-soft);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--tal-bg);
+}
