@@ -153,8 +153,7 @@ A failed migration job skips the SPA deploy (prod keeps serving the
 previous release) and files a GitHub issue. After fixing the cause,
 re-deploy with `gh workflow run deploy`.
 
-PRs get Cloudflare preview URLs automatically. Migrations only deploy on
-merge to `main`.
+Nothing deploys on PRs — both halves run only on push to `main`.
 
 **Rollback**
 
