@@ -6,14 +6,14 @@ needs, and how to do it by hand if the workflows are broken.
 ## Required GitHub secrets
 
 Set on the repo with `gh secret set <NAME> --repo nbhansen/Talrum`. CI
-reads them in `.github/workflows/deploy-migrations.yml` and
+reads them in `.github/workflows/deploy.yml` (migrations + SPA) and
 `.github/workflows/deploy-functions.yml`.
 
 | Secret | Used by | Source |
 | --- | --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | `deploy-migrations.yml`, `deploy-functions.yml` | dashboard → Account → Access Tokens |
-| `SUPABASE_DB_PASSWORD` | `deploy-migrations.yml` | dashboard → Project settings → Database |
-| `SUPABASE_PROJECT_REF` | `deploy-migrations.yml`, `deploy-functions.yml` | dashboard → Project settings → General |
+| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`, `deploy-functions.yml` | dashboard → Account → Access Tokens |
+| `SUPABASE_DB_PASSWORD` | `deploy.yml` | dashboard → Project settings → Database |
+| `SUPABASE_PROJECT_REF` | `deploy.yml`, `deploy-functions.yml` | dashboard → Project settings → General |
 
 ## Edge function default secrets — no manual bootstrap
 
