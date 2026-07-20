@@ -104,7 +104,7 @@ Top layer to bottom:
 | `features/`        | One folder per screen (parent-home, board-builder, kid-mode, …). Never import each other — composed at the route layer. Kid-mode PIN soft-gate: [docs/kid-mode.md](./docs/kid-mode.md). |
 | `widgets/`         | Shared, query-aware, feature-agnostic components (PictogramSheet, KidSheet, NewKidModal, OfflineIndicator).                                                                             |
 | `layouts/`         | ParentShell, KidModeLayout, TalrumLogo. Same tier as `widgets/` and may render them.                                                                                                    |
-| `ui/`              | Domain-agnostic primitives (Button, Modal, PictoTile, …). No data access — a component that needs `lib/queries` or `lib/outbox` belongs in `widgets/`.                                  |
+| `ui/`              | Domain-agnostic primitives (Button, Modal, TextField, …). No data access — a component that needs `lib/queries` or `lib/outbox` belongs in `widgets/`.                                  |
 | `lib/`             | Queries (reads), outbox (writes), storage URL minting, auth helpers, speech/TTS + app-language helpers ([docs/speech.md](./docs/speech.md)).                                            |
 | `glyphs/`          | Hand-drawn inline-SVG glyph set (`GlyphName` → SVG, theme-var strokes). Same tier as `lib/`; distinct from photo pictograms, which live in Supabase Storage.                            |
 | `theme/`, `types/` | CSS design tokens; domain types + generated `supabase.ts` (regenerate with `npm run types:db`, never edit).                                                                             |
