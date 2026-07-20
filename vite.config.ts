@@ -127,5 +127,25 @@ export default defineConfig({
     // and fails to resolve the imports. Run those tests via
     // `npm run test:functions` instead.
     exclude: ['node_modules/**', 'dist/**', 'supabase/functions/**'],
+    coverage: {
+      provider: 'v8',
+      // Explicit include so files no test ever imports still count — without
+      // it Vitest 4 only reports files loaded during the run.
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/types/**', // generated + type-only
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.test-utils.tsx',
+      ],
+      reporter: ['text-summary'],
+      // Ratchet floors, not targets: raise them when coverage rises, never
+      // lower them to make a PR pass.
+      thresholds: {
+        lines: 87,
+        statements: 84,
+        functions: 77,
+        branches: 78,
+      },
+    },
   },
 });
