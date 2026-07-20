@@ -193,3 +193,13 @@ When the user corrects your approach, append a one-line rule here before ending 
 
 - For Supabase schema work (push migrations, regenerate types, `db reset`), always use the official `supabase` CLI — never the Supabase MCP server. The MCP `apply_migration` stamps apply-time timestamps into `supabase_migrations.schema_migrations.version` instead of the file's timestamp prefix, which makes future `supabase db push --linked` see local files as missing and try to re-apply (schema conflict). MCP `generate_typescript_types` only emits the `public` schema, missing `graphql_public` that the CLI includes. MCP is fine for read-only inspection (list_tables, get_advisors, ad-hoc SELECT) but not for writes that need to match what CI does.
 - RLS helper functions (SECURITY DEFINER) live in the `private` schema, never `public`. PostgREST exposes every function in schemas listed under `[api].schemas` (currently `["public", "graphql_public"]`) as `/rest/v1/rpc/<name>`; helpers like `is_board_owner` are internal RLS plumbing, not API surface. Policies reference them by qualified name `private.X(...)` (Postgres rewrites this automatically when you do `ALTER FUNCTION ... SET SCHEMA private`). DO NOT revoke EXECUTE on these helpers from anon/authenticated/PUBLIC — empirically that crashes Postgres mid-policy-evaluation. The schema move is sufficient to clear the advisor lints (0028 + 0029) because PostgREST only exposes functions in configured schemas. Pinned by `supabase/tests/rest_surface_contract_test.sql`.
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+This repository uses OpenWiki for recurring code documentation. Start with `openwiki/quickstart.md`, then follow its links to architecture, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+
+The scheduled OpenWiki GitHub Actions workflow refreshes the repository wiki. Do not hand-edit generated OpenWiki pages unless explicitly asked; prefer updating source code/docs and letting OpenWiki regenerate.
+
+<!-- OPENWIKI:END -->
