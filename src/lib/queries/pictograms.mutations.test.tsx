@@ -11,24 +11,33 @@ interface MockPostgrestError {
   details: string;
   hint: string;
 }
+/** Supabase Storage errors carry an HTTP statusCode instead of a PG code. */
+interface MockStorageError {
+  statusCode: number;
+  message: string;
+}
 interface MockResult {
-  error: MockPostgrestError | null;
+  error: MockPostgrestError | MockStorageError | null;
 }
 
 // Rename / clear-audio row updates: from('pictograms').update({...}).eq('id', ...)
 // — the eq call is the awaited terminal.
 const eqMock = vi.fn<(col: string, val: string) => Promise<MockResult>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
+// Photo creation inserts the row after the storage upload.
+const insertMock = vi.fn<(row: Record<string, unknown>) => Promise<MockResult>>();
 // Delete runs server-side through the `delete_pictogram` RPC.
 const rpcMock = vi.fn<(fn: string, args: Record<string, unknown>) => Promise<MockResult>>();
+// Blob-planting mutations upload through the outbox before touching the row.
+const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 // Clear-audio best-effort removes the recording from storage before the row update.
 const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ update: updateMock }),
+    from: () => ({ update: updateMock, insert: insertMock }),
     rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args),
-    storage: { from: () => ({ remove: removeMock }) },
+    storage: { from: () => ({ remove: removeMock, upload: uploadMock }) },
   },
 }));
 
@@ -38,13 +47,27 @@ const { boardsQueryKey } = await import('./boards.read');
 const {
   __test_revokePictogramBlobs,
   useClearPictogramAudio,
+  useCreatePhotoPictogram,
   useDeletePictogram,
   useRenamePictogram,
+  useReplacePictogramImage,
+  useSetPictogramAudio,
 } = await import('./pictograms.mutations');
+const { TestSessionProvider } = await import('@/lib/auth/session.test-utils');
 
 const makeWrapper = (qc: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+  return Wrapper;
+};
+
+// The upload mutations read the owner id from the session.
+const makeSessionWrapper = (qc: QueryClient) => {
+  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
+    <QueryClientProvider client={qc}>
+      <TestSessionProvider>{children}</TestSessionProvider>
+    </QueryClientProvider>
   );
   return Wrapper;
 };
@@ -109,8 +132,14 @@ const rlsError: MockPostgrestError = {
 beforeEach(() => {
   eqMock.mockReset();
   updateMock.mockClear();
+  insertMock.mockReset();
   rpcMock.mockReset();
+  uploadMock.mockReset();
   removeMock.mockReset();
+  // Fresh per test: later describes spyOn/assert these, and a mock carried
+  // across tests would leak call history into their counts.
+  URL.createObjectURL = vi.fn(() => 'blob:planted');
+  URL.revokeObjectURL = vi.fn();
 });
 
 describe('useRenamePictogram', () => {
@@ -257,6 +286,278 @@ describe('useClearPictogramAudio', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(pictogramSeed());
+  });
+});
+
+describe('useSetPictogramAudio', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:planted-audio');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it('plants a blob URL optimistically, uploads, points the row at the path, then revokes and invalidates', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    let resolveUpload: (v: MockResult) => void = () => {
+      throw new Error('resolver not assigned');
+    };
+    uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
+    eqMock.mockResolvedValue({ error: null });
+
+    const { result } = renderHook(() => useSetPictogramAudio(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    const blob = new Blob(['voice'], { type: 'audio/webm' });
+    act(() => {
+      result.current.mutate({ pictogramId: 'p2', blob, extension: 'webm', previousPath: null });
+    });
+
+    // Optimistic window: tile plays the local blob before the upload lands.
+    await waitFor(() => {
+      const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      expect(list?.find((p) => p.id === 'p2')?.audioPath).toBe('blob:planted-audio');
+    });
+
+    resolveUpload({ error: null });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const [path, uploadedBlob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
+    expect(path).toMatch(/\/p2\.webm$/);
+    expect(uploadedBlob).toBe(blob);
+    expect(updateMock).toHaveBeenCalledWith({ audio_path: path });
+    expect(eqMock).toHaveBeenCalledWith('id', 'p2');
+    // No previous recording → no storage cleanup.
+    expect(removeMock).not.toHaveBeenCalled();
+    // Settle sweep: the planted blob URL is revoked, then the cache refetches.
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
+  });
+
+  it('cleans up the previous recording when the extension changed', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    uploadMock.mockResolvedValue({ error: null });
+    eqMock.mockResolvedValue({ error: null });
+    removeMock.mockResolvedValue({ error: null });
+
+    const { result } = renderHook(() => useSetPictogramAudio(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        pictogramId: 'p1',
+        blob: new Blob(['voice'], { type: 'audio/webm' }),
+        extension: 'webm',
+        previousPath: 'owner-uuid/p1.m4a',
+      });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(removeMock).toHaveBeenCalledWith(['owner-uuid/p1.m4a']);
+  });
+
+  it('still revokes the planted blob URL and invalidates when the upload fails permanently', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    uploadMock.mockResolvedValue({ error: { statusCode: 403, message: 'not allowed' } });
+
+    const { result } = renderHook(() => useSetPictogramAudio(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        pictogramId: 'p2',
+        blob: new Blob(['voice'], { type: 'audio/webm' }),
+        extension: 'webm',
+        previousPath: null,
+      });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
+  });
+});
+
+describe('useCreatePhotoPictogram', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:planted-photo');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it('appends an optimistic row, uploads + inserts, and resolves with the real path', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    let resolveUpload: (v: MockResult) => void = () => {
+      throw new Error('resolver not assigned');
+    };
+    uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
+    insertMock.mockResolvedValue({ error: null });
+
+    const { result } = renderHook(() => useCreatePhotoPictogram(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    const blob = new Blob(['jpeg'], { type: 'image/jpeg' });
+    let created: { id: string; imagePath: string } | undefined;
+    act(() => {
+      void result.current
+        .mutateAsync({ label: '  Cereal bowl  ', blob, extension: 'jpg' })
+        .then((r) => (created = r));
+    });
+
+    // Optimistic window: the new tile renders from the local blob, trimmed label.
+    await waitFor(() => {
+      const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      const optimistic = list?.find((p) => p.label === 'Cereal bowl');
+      expect(optimistic).toMatchObject({ style: 'photo', imagePath: 'blob:planted-photo' });
+    });
+
+    resolveUpload({ error: null });
+    await waitFor(() => expect(created).toBeDefined());
+
+    // The resolved path is the real server path the refetch will serve.
+    expect(created?.imagePath.endsWith(`/${created?.id ?? ''}.jpg`)).toBe(true);
+    expect(insertMock).toHaveBeenCalledWith({
+      id: created?.id,
+      owner_id: expect.any(String) as unknown,
+      label: 'Cereal bowl',
+      style: 'photo',
+      image_path: created?.imagePath,
+    });
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
+  });
+
+  it('removes the uploaded blob from storage when the row insert fails', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, pictogramSeed());
+    uploadMock.mockResolvedValue({ error: null });
+    insertMock.mockResolvedValue({ error: rlsError });
+    removeMock.mockResolvedValue({ error: null });
+
+    const { result } = renderHook(() => useCreatePhotoPictogram(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        label: 'Cereal bowl',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+        extension: 'jpg',
+      });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    const [uploadedPath] = uploadMock.mock.calls[0] as [string, Blob, unknown];
+    expect(removeMock).toHaveBeenCalledWith([uploadedPath]);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
+  });
+});
+
+describe('useReplacePictogramImage', () => {
+  const photoSeed = (): Pictogram[] => [
+    { id: 'ph1', label: 'Cereal', style: 'photo', imagePath: 'owner-uuid/ph1.jpg' },
+    ...pictogramSeed(),
+  ];
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:planted-replace');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it('optimistically swaps only photo-style rows to the local blob URL', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, photoSeed());
+    uploadMock.mockReturnValue(new Promise(() => undefined)); // hold the optimistic window open
+
+    const { result } = renderHook(() => useReplacePictogramImage(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        pictogramId: 'ph1',
+        blob: new Blob(['jpeg']),
+        extension: 'jpg',
+        previousPath: 'owner-uuid/ph1.jpg',
+      });
+    });
+
+    await waitFor(() => {
+      const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
+      const ph1 = list?.find((p) => p.id === 'ph1');
+      expect(ph1?.style === 'photo' && ph1.imagePath).toBe('blob:planted-replace');
+    });
+    // Illustrated rows are guarded — an id mixup must not graft an imagePath
+    // onto an illus pictogram.
+    expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)?.find((p) => p.id === 'p1')).toEqual(
+      pictogramSeed()[0],
+    );
+  });
+
+  it('uploads, updates the row, and removes the replaced image on success', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, photoSeed());
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    uploadMock.mockResolvedValue({ error: null });
+    eqMock.mockResolvedValue({ error: null });
+    removeMock.mockResolvedValue({ error: null });
+
+    const { result } = renderHook(() => useReplacePictogramImage(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        pictogramId: 'ph1',
+        blob: new Blob(['jpeg']),
+        extension: 'png',
+        previousPath: 'owner-uuid/ph1.jpg',
+      });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const [path] = uploadMock.mock.calls[0] as [string, Blob, unknown];
+    expect(path).toMatch(/\/ph1\.png$/);
+    expect(updateMock).toHaveBeenCalledWith({ image_path: path });
+    expect(removeMock).toHaveBeenCalledWith(['owner-uuid/ph1.jpg']);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-replace');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
+  });
+
+  it('restores the previous image path and revokes the planted blob on a permanent error', async () => {
+    const qc = makeClient();
+    qc.setQueryData(pictogramsQueryKey, photoSeed());
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    uploadMock.mockResolvedValue({ error: { statusCode: 403, message: 'not allowed' } });
+
+    const { result } = renderHook(() => useReplacePictogramImage(), {
+      wrapper: makeSessionWrapper(qc),
+    });
+
+    act(() => {
+      result.current.mutate({
+        pictogramId: 'ph1',
+        blob: new Blob(['jpeg']),
+        extension: 'jpg',
+        previousPath: 'owner-uuid/ph1.jpg',
+      });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(photoSeed());
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-replace');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 });
 

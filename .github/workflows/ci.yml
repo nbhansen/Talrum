@@ -31,7 +31,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:css
-      - run: npm run test
+      # Coverage thresholds (vite.config.ts) gate here — they are ratchet
+      # floors: raise them as coverage rises, never lower them to pass.
+      - run: npm run test:coverage
       - run: npm run build
       - uses: denoland/setup-deno@v2
         with:
