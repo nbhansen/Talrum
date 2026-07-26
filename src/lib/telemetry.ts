@@ -38,3 +38,13 @@ export const captureException = (err: unknown, ctx?: CaptureContext): void => {
   if (!Sentry.getClient()) return;
   Sentry.captureException(err, ctx);
 };
+
+/**
+ * For conditions that are not crashes but that we still need to hear about —
+ * a capability the app depends on being switched off, for instance. Pass
+ * `{ level: 'warning' }` so they do not sit in the same bucket as exceptions.
+ */
+export const captureMessage = (message: string, ctx?: CaptureContext): void => {
+  if (!Sentry.getClient()) return;
+  Sentry.captureMessage(message, ctx);
+};
