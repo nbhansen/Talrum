@@ -42,12 +42,26 @@ const sentryPlugins = sentryEnabled
  * Printing the target on every boot is the cheap structural guard; `npm run dev`
  * is local by construction and only `dev:cloud` loads Cloud credentials.
  */
+/**
+ * Compare the parsed hostname, not a substring: `notlocalhost.example.com`
+ * contains "localhost" and must not read as safe. Anything unparseable counts
+ * as not-local, so a malformed URL warns rather than reassures.
+ */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+const isLocalSupabase = (raw: string): boolean => {
+  try {
+    return LOCAL_HOSTS.has(new URL(raw).hostname);
+  } catch {
+    return false;
+  }
+};
+
 const supabaseTargetBanner = (): Plugin => ({
   name: 'talrum-supabase-target-banner',
   apply: 'serve',
   configResolved(config) {
     const url = String(config.env.VITE_SUPABASE_URL ?? '(unset)');
-    const isLocal = url.includes('127.0.0.1') || url.includes('localhost');
+    const isLocal = isLocalSupabase(url);
     config.logger.info(
       isLocal
         ? `\n  Supabase → ${url}  (local)\n`
