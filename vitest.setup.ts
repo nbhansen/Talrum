@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 // touches the persistence layer.
 import 'fake-indexeddb/auto';
 
+import { format } from 'node:util';
+
 import { clear } from 'idb-keyval';
 import { afterEach, vi } from 'vitest';
 
@@ -51,6 +53,38 @@ Object.defineProperty(window, 'sessionStorage', {
   configurable: true,
 });
 
+/**
+ * Fail any test that logs to console.error (#387).
+ *
+ * React reports its correctness warnings this way — "Cannot update a component
+ * while rendering a different component", "not wrapped in act(...)" — and they
+ * are bugs wherever they appear, not just where someone thought to look. This
+ * replaces a single test that walked the whole set-a-PIN flow purely to assert
+ * `console.error` was never called during one transition: slow enough to time
+ * out under coverage instrumentation about one run in four, and it pinned the
+ * invariant for exactly one component.
+ *
+ * React deduplicates each warning per process, which is what made the old test
+ * order-dependent — anything that tripped the warning first left it passing
+ * silently. Checking globally makes that irrelevant: the first occurrence
+ * anywhere fails the test it happened in, which is the one worth looking at.
+ *
+ * Tests that expect React to log — an ErrorBoundary catching a deliberate
+ * throw — opt out for free by spying: `vi.spyOn(console, 'error')` replaces
+ * this wrapper for the test's duration, so nothing is recorded. The caveat is
+ * a spy that is never restored, which silently disables the check for the rest
+ * of that worker.
+ *
+ * console.warn is deliberately not covered: `useSetStepIds` logs there on
+ * purpose behind an `import.meta.env.DEV` guard.
+ */
+const originalConsoleError = console.error;
+const consoleErrorCalls: unknown[][] = [];
+console.error = (...args: unknown[]): void => {
+  consoleErrorCalls.push(args);
+  originalConsoleError(...args);
+};
+
 // #144 / #168: module-level caches in storage, outbox/drain, and speech persist
 // across `it()` blocks within the same worker — a flake class whose failure
 // mode depends on test order. Reset all three globally; pairs with idb-keyval's
@@ -62,4 +96,20 @@ afterEach(async () => {
   __resetSpeechForTests();
   __resetDrainForTests();
   __resetBoardClockForTests();
+});
+
+// Registered last so the resets above always run, even on the throw.
+afterEach(() => {
+  const calls = consoleErrorCalls.splice(0);
+  if (calls.length === 0) return;
+  throw new Error(
+    `console.error was called ${calls.length} time(s) during this test.\n` +
+      'React reports correctness warnings this way, so treat it as the bug it is. ' +
+      'If the log is expected (an ErrorBoundary catching a deliberate throw), ' +
+      "silence it in the test with vi.spyOn(console, 'error').\n\n" +
+      // format() so React's `%s` placeholders are filled in — the raw args are
+      // the format string followed by the component names, which reads as
+      // gibberish at exactly the moment someone needs to understand it.
+      calls.map((args) => format(...args)).join('\n'),
+  );
 });
