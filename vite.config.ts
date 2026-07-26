@@ -61,12 +61,15 @@ const supabaseTargetBanner = (): Plugin => ({
   apply: 'serve',
   configResolved(config) {
     const url = String(config.env.VITE_SUPABASE_URL ?? '(unset)');
-    const isLocal = isLocalSupabase(url);
-    config.logger.info(
-      isLocal
-        ? `\n  Supabase → ${url}  (local)\n`
-        : `\n  ⚠  Supabase → ${url}\n  ⚠  NOT LOCAL. Writes hit a real project with real data.\n`,
-    );
+    // warn, not info, for the non-local case: it routes through Vite's warning
+    // channel so it is coloured and survives log filtering.
+    if (isLocalSupabase(url)) {
+      config.logger.info(`\n  Supabase → ${url}  (local)\n`);
+    } else {
+      config.logger.warn(
+        `\n  ⚠  Supabase → ${url}\n  ⚠  NOT LOCAL. Writes hit a real project with real data.\n`,
+      );
+    }
   },
 });
 
