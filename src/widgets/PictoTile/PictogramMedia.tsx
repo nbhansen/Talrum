@@ -54,7 +54,16 @@ export const PictogramMedia = ({
     <div className={classes} style={style}>
       {isPhoto ? (
         photoSrc ? (
-          <img className={styles.photoImg} src={photoSrc} alt={picto.label} />
+          /* crossOrigin makes this a CORS request, so the service worker caches
+             a readable 200 instead of an opaque response — which the browser
+             charges ~6 MB of quota apiece and whose status can't be checked
+             (#355). A no-op for the same-origin /seed-photos/ and blob: cases. */
+          <img
+            className={styles.photoImg}
+            crossOrigin="anonymous"
+            src={photoSrc}
+            alt={picto.label}
+          />
         ) : (
           <PhotoPlaceholder label={picto.label} />
         )

@@ -119,26 +119,41 @@ export default defineConfig({
         // stale precache until they manually click "Reload" or close every tab.
         skipWaiting: true,
         clientsClaim: true,
-        // CacheFirst keeps photo/audio bytes on disk so kid-mode in the car
-        // works even after the signed-URL token has expired. URL persistence
-        // (step 4) ensures we re-issue the same URL across reloads so the
-        // cache key stays stable.
+        // CacheFirst keeps photo bytes on disk so kid mode in the car works
+        // even after the signed-URL token has expired: offline, signedUrlFor
+        // fails to mint and returns the last URL it persisted (see
+        // src/lib/storage.ts), which is exactly the key already in this cache.
+        // Every clause below is load-bearing — see #355 and the assertion in
+        // scripts/verify-sw-routes.mjs.
         runtimeCaching: [
           {
-            urlPattern: /\/storage\/v1\/object\/.*/i,
+            // Anchored to the start of the URL. Workbox applies a RegExp route
+            // to a cross-origin request only when the match begins at index 0
+            // (workbox-routing/RegExpRoute.ts), and Supabase Storage is always
+            // cross-origin — so the mid-URL pattern this replaces never fired
+            // at all, and the cache below was never created.
+            urlPattern: /^https?:\/\/[^/]+\/storage\/v1\/object\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'talrum-storage-v1',
-              // Strip the ?token=... query so hourly-rotating signed URLs all
-              // resolve to the same cache entry. Without this, the 200-entry
-              // cap fills with rotation-duplicates of the same storage path
-              // instead of 200 distinct paths.
-              matchOptions: { ignoreSearch: true },
+              // Deliberately NO `matchOptions: { ignoreSearch: true }`. It
+              // looks like the way to collapse hourly-rotating signed URLs
+              // onto one entry, but ExpirationPlugin keys its bookkeeping on
+              // the *request* URL while the cache keys on the token that first
+              // stored the bytes. The two diverge, the stored entry is never
+              // touched again, and LRU deletes it while the photo is still in
+              // use. Rotation duplicates are the cheaper problem: they cost a
+              // re-download per hour online and LRU evicts them correctly.
               expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 30 * 24 * 60 * 60,
               },
-              cacheableResponse: { statuses: [0, 200] },
+              // 200 only, never 0. An opaque response (a no-cors `<img>` load)
+              // is charged ~6 MB of storage quota apiece regardless of the real
+              // byte count, and its status is unreadable, so a 403 on an
+              // expired token would cache as if it were the photo. The
+              // pictogram <img> sets crossOrigin so these are real CORS 200s.
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],
