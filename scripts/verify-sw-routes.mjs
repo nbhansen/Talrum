@@ -8,6 +8,13 @@
 // Self-test: drop the leading `^https?://[^/]+` from the urlPattern in
 // vite.config.ts and re-run `npm run build`. The build must fail with
 // `pattern does not match a cross-origin storage URL at index 0`.
+//
+// This reads minified output, so it is coupled to the shape workbox-build
+// emits: `registerRoute(/…/i, new X.CacheFirst({cacheName:"…"}), "GET")`. If a
+// workbox or vite-plugin-pwa upgrade changes that — passing a RegExp reference
+// instead of a literal, say — this fails loudly with `could not read the
+// urlPattern`, which is a stale assertion rather than a real regression. Check
+// `dist/sw.js` before assuming the config broke.
 import { readFileSync } from 'node:fs';
 
 const CACHE_NAME = 'talrum-storage-v1';
