@@ -25,7 +25,7 @@ does not do.
 
 ## Blockers — fix before the iPad is handed over
 
-### B1. A child can let themselves out of kid mode
+### B1. A child can let themselves out of kid mode — ~~blocker~~ fixed in #353
 
 `src/widgets/KidModeGate/KidModeGate.tsx:38`
 
@@ -44,6 +44,19 @@ Options, cheapest first: require PIN setup during onboarding before kid mode can
 lazy setup but exit to `/` instead of the builder; or gate first-time setup behind something a child
 won't complete. Independently, ship the Guided Access documentation (B5/M9) — on iPadOS that is the
 only real containment, and the PIN is a speed bump.
+
+**Fixed (#353).** Took the first option, enforced at the router rather than at the buttons: the
+`'kid'` variant of `wrap()` now renders a `RequireKidPin` guard, so no PIN means no kid mode —
+`/settings?pin=required` instead. That placement matters because there are three ways in and only one
+is a button (the sidebar `KID`; `BoardBuilder`'s hardcoded launch; `ParentHomeRoute`'s auto-launch),
+and a fourth added later inherits the guard for free. The gate itself lost its setup flow entirely and
+can no longer write a PIN; creating one moved to Settings → *Set a PIN*, which did not exist before —
+the old copy there just told parents they would be prompted on first exit. Details in
+[kid-mode.md](./kid-mode.md).
+
+Two related holes stayed open and are filed separately: the kid-route crash fallback still offers an
+ungated "Tap to go back" link into parent home (#371), and the PIN pad has no attempt throttling, so
+brute force is now the only remaining path in (#372).
 
 ### B2. Sync status is invisible on the screen where parents actually work
 

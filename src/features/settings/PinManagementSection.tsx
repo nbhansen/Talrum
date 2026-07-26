@@ -6,11 +6,26 @@ import { PinPad } from '@/widgets/KidModeGate/PinPad';
 
 import styles from './PinManagementSection.module.css';
 
-type ChangeStage = 'verify' | 'enter-new' | 'confirm-new';
+/**
+ * Both flows share these steps. Setting a first PIN starts at 'enter-new'
+ * (there is no current PIN to verify); changing one starts at 'verify'.
+ */
+type PinStage = 'verify' | 'enter-new' | 'confirm-new';
 
-type ModalState = { kind: 'closed' } | { kind: 'change'; stage: ChangeStage };
+type ModalState = { kind: 'closed' } | { kind: 'pin'; stage: PinStage };
 
-export const PinManagementSection = (): JSX.Element => {
+interface PinManagementSectionProps {
+  /**
+   * Set when the parent landed here because a kid route bounced them for
+   * having no PIN (`/settings?pin=required`) — explains the redirect instead
+   * of dropping them on Settings with no idea why (#353).
+   */
+  pinRequiredForKidMode?: boolean;
+}
+
+export const PinManagementSection = ({
+  pinRequiredForKidMode = false,
+}: PinManagementSectionProps): JSX.Element => {
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -30,21 +45,22 @@ export const PinManagementSection = (): JSX.Element => {
 
   const handleVerify = async (pin: string): Promise<boolean> => {
     const ok = await verifyPin(pin);
-    if (ok) setModal({ kind: 'change', stage: 'enter-new' });
+    if (ok) setModal({ kind: 'pin', stage: 'enter-new' });
     return ok;
   };
 
   const handleEnterNew = async (pin: string): Promise<boolean> => {
     newPinRef.current = pin;
-    setModal({ kind: 'change', stage: 'confirm-new' });
+    setModal({ kind: 'pin', stage: 'confirm-new' });
     return true;
   };
 
   const handleConfirmNew = async (pin: string): Promise<boolean> => {
     if (pin !== newPinRef.current) return false;
+    const wasFirstPin = !hasPinNow;
     await setPin(pin);
     close();
-    setFlash('PIN updated');
+    setFlash(wasFirstPin ? 'PIN set — kid mode is ready' : 'PIN updated');
     return true;
   };
 
@@ -68,23 +84,38 @@ export const PinManagementSection = (): JSX.Element => {
   return (
     <section>
       <h2>Parent PIN</h2>
+      {pinRequiredForKidMode && !hasPinNow && (
+        <p className={styles.notice} role="status">
+          Kid mode needs a parent PIN. Set one below, then try again.
+        </p>
+      )}
       {!hasPinNow && (
         <p className={styles.muted}>
-          No PIN set. You'll be prompted to choose one the first time you exit kid mode.
+          No PIN set, so kid mode is unavailable. The PIN is the only way back out of a kid screen —
+          without it a child could tap straight into parent mode.
         </p>
       )}
       {hasPinNow && (
         <p className={styles.muted}>
-          Your 4-digit PIN unlocks parent mode. Forgot it? Clear it and set a new one next time you
-          leave kid mode.
+          Your 4-digit PIN unlocks parent mode from a kid screen. Forgot it? Clear it and set a new
+          one here.
         </p>
       )}
       <div className={styles.actions}>
+        {!hasPinNow && (
+          <button
+            type="button"
+            className={styles.button}
+            onClick={() => setModal({ kind: 'pin', stage: 'enter-new' })}
+          >
+            Set a PIN
+          </button>
+        )}
         {hasPinNow && (
           <button
             type="button"
             className={styles.button}
-            onClick={() => setModal({ kind: 'change', stage: 'verify' })}
+            onClick={() => setModal({ kind: 'pin', stage: 'verify' })}
           >
             Change PIN
           </button>
@@ -96,7 +127,7 @@ export const PinManagementSection = (): JSX.Element => {
         )}
         {hasPinNow && confirmingClear && (
           <span className={styles.confirm}>
-            Clear the PIN?
+            Clear the PIN? Kid mode stays locked until you set a new one.
             <button type="button" className={styles.danger} onClick={handleClear}>
               Yes, clear
             </button>
@@ -115,7 +146,7 @@ export const PinManagementSection = (): JSX.Element => {
           {flash}
         </p>
       )}
-      {modal.kind === 'change' && (
+      {modal.kind === 'pin' && (
         <Modal onClose={close}>
           {modal.stage === 'verify' && (
             <PinPad
@@ -127,15 +158,19 @@ export const PinManagementSection = (): JSX.Element => {
           )}
           {modal.stage === 'enter-new' && (
             <PinPad
-              title="Enter new PIN"
-              subtitle="Choose a new 4-digit PIN."
+              title={hasPinNow ? 'Enter new PIN' : 'Set a parent PIN'}
+              subtitle={
+                hasPinNow
+                  ? 'Choose a new 4-digit PIN.'
+                  : "Choose a 4-digit PIN. You'll need it to leave kid mode."
+              }
               onSubmit={handleEnterNew}
               onCancel={close}
             />
           )}
           {modal.stage === 'confirm-new' && (
             <PinPad
-              title="Confirm new PIN"
+              title={hasPinNow ? 'Confirm new PIN' : 'Confirm your PIN'}
               subtitle="Enter the same 4 digits again."
               onSubmit={handleConfirmNew}
               onCancel={close}

@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { AccountSection } from '@/features/settings/AccountSection';
 import { AppVersionSection } from '@/features/settings/AppVersionSection';
@@ -13,6 +14,10 @@ import { useParentNav } from '@/layouts/useParentNav';
 export const SettingsRoute = (): JSX.Element => {
   const onNav = useParentNav();
   const onKidMode = useKidModeNav();
+  // The kid routes redirect here with ?pin=required when no PIN exists (#353),
+  // so the section can say why the parent was sent back.
+  const [searchParams] = useSearchParams();
+  const pinRequiredForKidMode = searchParams.get('pin') === 'required';
   return (
     <ParentShell
       active="settings"
@@ -21,7 +26,7 @@ export const SettingsRoute = (): JSX.Element => {
       title="Settings"
     >
       <AccountSection />
-      <PinManagementSection />
+      <PinManagementSection pinRequiredForKidMode={pinRequiredForKidMode} />
       <LanguageSection />
       <SpeechPrefsSection />
       <AppVersionSection />

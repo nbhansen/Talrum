@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
+import { setPin } from '@/lib/pin';
 import type { Board, Kid, Pictogram } from '@/types/domain';
 
 const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
@@ -119,18 +120,32 @@ describe('ParentHomeRoute auto-launch', () => {
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
 
-  it('redirects into the last sequence board on first visit per session', () => {
+  it('redirects into the last sequence board on first visit per session', async () => {
+    await setPin('1234');
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
     expect(screen.getByTestId('kid-sequence-route')).toBeInTheDocument();
   });
 
-  it('redirects into the last choice board on first visit per session', () => {
+  it('redirects into the last choice board on first visit per session', async () => {
+    await setPin('1234');
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-cho', kind: 'choice' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
     expect(screen.getByTestId('kid-choice-route')).toBeInTheDocument();
+  });
+
+  // Auto-launch is the one entry into kid mode with no user gesture at all, so
+  // it must respect the PIN precondition too — otherwise a device with no PIN
+  // boots into a kid screen that the route guard immediately bounces to
+  // Settings, which is a worse first impression than just landing home (#353).
+  it('does not auto-launch into kid mode when no PIN is set (#353)', () => {
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
+    const Wrap = makeWrap('/');
+    render(<Wrap />);
+    expect(screen.queryByTestId('kid-sequence-route')).not.toBeInTheDocument();
+    expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
 
   it('does not redirect when the session has already auto-launched', () => {
