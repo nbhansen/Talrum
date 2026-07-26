@@ -76,16 +76,28 @@ export const ParentShell = ({
         </div>
       </aside>
       <main className={styles.main}>
+        {/*
+          Sync status is not the header's business. It used to sit in the
+          header's right-hand slot, which quietly made it conditional on
+          `title`: a screen that passes none renders no header and so showed
+          no "Offline", no pending count, and no "N sync changes failed" row —
+          the only place Retry and Discard exist. That screen was the board
+          builder, where nearly every write in the app is made (#354).
+
+          Mounted here it cannot depend on what a page chooses to pass. The
+          indicator renders nothing when the world is boring, and `:empty`
+          collapses the wrapper so it costs no layout in that case.
+        */}
+        <div className={styles.status}>
+          <OfflineIndicator />
+        </div>
         {title && (
           <header className={styles.header}>
             <div>
               <h1 className={styles.title}>{title}</h1>
               {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
             </div>
-            <div className={styles.headerRight}>
-              <OfflineIndicator />
-              {right}
-            </div>
+            <div className={styles.headerRight}>{right}</div>
           </header>
         )}
         <div className={`${styles.body} tal-scroll`}>{children}</div>

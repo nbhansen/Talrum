@@ -5,7 +5,7 @@ Supabase directly. The goal: a parent on a flaky tablet connection can rename
 a pictogram, lose Wi-Fi, close the lid, and the write still lands — without
 the UI ever blocking on the network. This page is the narrative; the inline
 doc comments in `src/lib/outbox/*` carry the per-decision detail. For the
-*read* side — the persisted React Query cache and its auth-boundary scrub —
+_read_ side — the persisted React Query cache and its auth-boundary scrub —
 see `docs/offline-cache.md`.
 
 ## The shape
@@ -43,8 +43,8 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
    restores the pre-mutation snapshot; `onSettled`/`onSuccess` invalidate so
    the next refetch reconciles with the server.
 2. **Fast path (online, empty queue).** `enqueueAndDrain` runs the handler
-   immediately — no IndexedDB detour. The fast path requires an *empty
-   pending queue*: jumping ahead of older queued entries would let their
+   immediately — no IndexedDB detour. The fast path requires an _empty
+   pending queue_: jumping ahead of older queued entries would let their
    replay overwrite this newer write with stale data (#279).
 3. **Slow path.** Offline, or online with a backlog: the entry is persisted
    to IndexedDB and `drain()` (or the next `online` event) replays it.
@@ -53,7 +53,7 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
    Online with a backlog, it resolves only after the queue flush attempt
    (`drain()` never rejects), so the write may already have landed.
 4. **Drain.** `drain()` walks pending entries oldest-first. It stops at the
-   first *transient* failure to preserve ordering, but marks *permanent*
+   first _transient_ failure to preserve ordering, but marks _permanent_
    failures as `failed` and moves on, so one bad entry can't dam the queue.
    Drains — and the Retry/Discard queue rewrites (#289) — serialize across
    tabs on a `navigator.locks` web lock, so a PWA window plus a browser tab
@@ -75,6 +75,13 @@ themselves are happy-path only.
   user sees the error. On the slow path the entry is marked `failed`; the
   OfflineIndicator surfaces it with **Retry** (resets failed entries to
   pending with a fresh attempt budget, #277) and **Discard**.
+
+  Those two buttons exist nowhere else, so where the indicator is mounted is
+  part of the recovery path, not decoration. `ParentShell` mounts it once,
+  above the page header rather than inside it — inside, it only rendered on
+  screens that passed a `title`, which excluded the board builder, the screen
+  where nearly every write in the app is made (#354).
+
 - **Conflict** (boards only, #281): `updateBoard` entries carry the server
   `updated_at` they were computed against and update conditionally; zero
   rows back means another device wrote the board since, and the entry fails
@@ -100,7 +107,7 @@ New entry kind? Add the interface in `types.ts`, the handler in
   against someone else's rows should fail (or no-op) at the database, never
   by client-side checks.
 - **Order-aware.** Within one entry, put the steps whose failure should
-  *retry the whole entry* first (e.g. Storage cleanup before the row
+  _retry the whole entry_ first (e.g. Storage cleanup before the row
   delete). Best-effort cleanup that must never fail the write uses
   `.catch(reportCleanupFailure)`, which logs to telemetry instead of
   throwing.
