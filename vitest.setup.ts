@@ -73,7 +73,14 @@ Object.defineProperty(window, 'sessionStorage', {
  * throw — opt out for free by spying: `vi.spyOn(console, 'error')` replaces
  * this wrapper for the test's duration, so nothing is recorded. The caveat is
  * a spy that is never restored, which silently disables the check for the rest
- * of that worker.
+ * of that *file* — vitest's default `isolate: true` re-executes this module per
+ * test file, so the leak stops there rather than reaching the whole worker.
+ *
+ * The buffer below is per-file for the same reason, but it is shared by every
+ * test in the file. That is fine while tests run one at a time, which they all
+ * do today; under `it.concurrent` a log from one test would fail whichever
+ * sibling happened to finish next, so this needs per-test context before any
+ * concurrency is adopted.
  *
  * console.warn is deliberately not covered: `useSetStepIds` logs there on
  * purpose behind an `import.meta.env.DEV` guard.
