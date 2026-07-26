@@ -45,8 +45,7 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector:
-            "ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]",
+          selector: 'ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]',
           message:
             'Side-effect import of a .module.css file. CSS Modules must be imported as `import styles from ...`. For global CSS, rename to plain .css.',
         },
@@ -131,8 +130,7 @@ export default tseslint.config(
             },
             {
               group: ['@/features', '@/features/*'],
-              message:
-                'Reverse import: ui/ MUST NOT import from features/.',
+              message: 'Reverse import: ui/ MUST NOT import from features/.',
             },
             {
               group: ['@/widgets', '@/widgets/*'],
@@ -229,20 +227,17 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector:
-            "MemberExpression[object.name='supabase'][property.name='storage']",
+          selector: "MemberExpression[object.name='supabase'][property.name='storage']",
           message:
             'Storage access goes through src/lib/storage; features and ui must not call supabase.storage directly.',
         },
         {
-          selector:
-            "MemberExpression[object.name='supabase'][property.name='auth']",
+          selector: "MemberExpression[object.name='supabase'][property.name='auth']",
           message:
             'supabase.auth.* is centralized — use hooks/helpers from @/lib/auth/ (useEmailOtp, performSignOut). AuthGate (src/app/) is the sole legitimate subscriber.',
         },
         {
-          selector:
-            "ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]",
+          selector: 'ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]',
           message:
             'Side-effect import of a .module.css file. CSS Modules must be imported as `import styles from ...`. For global CSS, rename to plain .css.',
         },
@@ -250,4 +245,3 @@ export default tseslint.config(
     },
   },
 );
-

@@ -12,6 +12,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:css": "stylelint \"src/**/*.module.css\"",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
@@ -30,7 +31,7 @@
     "src/**/*.module.css": [
       "stylelint --fix"
     ],
-    "*.{ts,tsx,json,css}": [
+    "**/*.{ts,tsx,js,mjs,json,css,yml,yaml}": [
       "prettier --write"
     ]
   },

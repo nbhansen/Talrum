@@ -3,6 +3,12 @@ node_modules
 coverage
 src/types/supabase.ts
 
+# Local-only artifacts. Not in the repo, but `npm run format:check` runs over
+# the working tree, so without these a dev with a linked Supabase project or a
+# graphify run gets a red check for files they never wrote.
+supabase/.temp
+graphify-out
+
 # Prose is not prettier's job (#382). Every doc in the repo was normalised
 # once, in the commit that added this line — after that, formatting markdown
 # only ever produced diff noise: `npm run format` runs `prettier --write .`,

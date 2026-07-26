@@ -139,12 +139,10 @@ describe('outbox drain', () => {
   });
 
   it('stops on a transient failure so order is preserved across the queue', async () => {
-    unguardedSelectMock
-      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      .mockResolvedValue({
-        data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
-        error: null,
-      });
+    unguardedSelectMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+      error: null,
+    });
     await putEntry(baseEntry({ id: '01HZZA' }));
     await putEntry(baseEntry({ id: '01HZZB' }));
     await drain();

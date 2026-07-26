@@ -3,7 +3,7 @@ name: OpenWiki Update
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: '0 8 * * *'
 
 permissions:
   contents: write
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
       - name: Install OpenWiki
         run: npm install --global openwiki
@@ -39,8 +39,8 @@ jobs:
             AGENTS.md
             CLAUDE.md
           branch: openwiki/update
-          commit-message: "docs: update OpenWiki"
-          title: "docs: update OpenWiki"
+          commit-message: 'docs: update OpenWiki'
+          title: 'docs: update OpenWiki'
           body: |
             Automated OpenWiki documentation update.
 

@@ -44,6 +44,10 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:css
+      # Nothing enforced prettier before (#382): lint-staged's glob was
+      # root-only, so anything under src/ or .github/ drifted unnoticed and
+      # then surfaced as unrelated churn in whichever PR next touched the file.
+      - run: npm run format:check
       # Coverage thresholds (vite.config.ts) gate here — they are ratchet
       # floors: raise them as coverage rises, never lower them to pass.
       - run: npm run test:coverage
