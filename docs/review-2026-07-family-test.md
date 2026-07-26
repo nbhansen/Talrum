@@ -137,7 +137,7 @@ exactly the class of bug a build-output check could pin, like `verify-build-css.
 | M2 | **Recorded-voice failure is silent to everyone**: `catch { /* fall through to TTS */ }` with no `captureException`. A systematically broken parent recording degrades to TTS forever with no signal to Sentry and none to the parent. For a first family test this is the difference between "it worked" and never finding out it didn't. | `src/lib/voiceOut.ts:20` |
 | M3 | **Broken copy on the main upload path**: `Real photos of {fileName ?? 'cereal, shoes, or bed'} work best` renders as "Real photos of 3-lunch.png work best." once a file is chosen. Verified in the browser. | `src/widgets/PictogramUpload/PictogramUpload.tsx:124` |
 | M4 | **Active-kid persistence swallows errors with no telemetry** — the only best-effort `catch {}` pair in `lib/` holding real app state rather than preferences, and the only ones that don't report. | `src/lib/queries/kids.ts:91,107` |
-| M5 | **`docs/auth.md` still documents the replaced sign-in flow** (paste a 6-digit code, `verifyOtp`). `verifyOtp` appears nowhere in `src/`; #219 switched to magic links. The README half of this is fixed in this branch; the doc is not. | `docs/auth.md:10-17` |
+| M5 | **`docs/auth.md` still documents the replaced sign-in flow** (paste a 6-digit code, `verifyOtp`). `verifyOtp` appears nowhere in `src/`; #219 switched to magic links. The README half was fixed in #368; the doc is not. | `docs/auth.md:10-17` |
 
 ---
 
@@ -249,19 +249,26 @@ Worth stating plainly, because these are the load-bearing claims and they hold:
   "Couldn't load this screen / Your work is saved" with Retry and Go home, not a white screen.
 - Migration state is clean; `supabase db reset` applies all 22 migrations; the full gate is green.
 
-## Fixed in this branch
+## Already fixed — #368
 
-Local dev sign-in was broken for anyone following the README, which is also how I hit it:
-`supabase/config.toml:160` interpolates `SUPABASE_AUTH_SITE_URL` / `SUPABASE_AUTH_REDIRECT_URL`, the
-README never mentioned them, and `supabase start` warns they are unset — leaving `site_url` empty and
-the emailed sign-in link dead. The Supabase CLI auto-loads `.env` and never `.env.local`, while the
-README said to create `.env.local`; Vite reads `.env` too, so one file serves both.
+Local dev sign-in was broken for anyone following the README, which is how I hit it in the first
+place: `config.toml` interpolated `SUPABASE_AUTH_SITE_URL` / `SUPABASE_AUTH_REDIRECT_URL`, the README
+never mentioned them, and `supabase start` warned they were unset — leaving `site_url` empty and the
+emailed link dead.
 
-- `.env.example` — added both variables with the correct local values and a note on which tool reads them
-- `README.md` — `cp .env.example .env`, plus the magic-link (not 6-digit-OTP) instruction
-- `supabase/config.toml` — corrected the example values in the comment (they said port 3000 and `https` for a local http server)
+Chasing it surfaced the underlying design problem, fixed in #368: `config.toml` described **both**
+local and production through env interpolation, which made a chain of trivia load-bearing (the
+Supabase CLI reads `.env` but never `.env.local`; Vite prefers `.env.local` over `.env`; shell beats
+both) and left `supabase config push` next to production as an all-or-nothing write. That is the same
+mechanism behind #215, where a push meant to change `site_url` silently weakened prod auth.
 
-Verified by inspecting the actual email: the link now carries `redirect_to=http://localhost:5173`.
+Each concern now has one source of truth per environment: `config.toml` is a local-only fixture with
+hardcoded localhost values, production auth is dashboard-managed, `npm run dev` is always local, and
+Cloud access is an explicit `npm run dev:cloud`. A CI step pins the invariant so it cannot rot back.
+
+Two findings in this report were fixed there rather than filed: the README's stale 6-digit-OTP
+instruction, and its claim that Cloudflare Pages build env vars matter (Pages never builds — CI does,
+then uploads `dist`).
 
 ## Suggested order
 
