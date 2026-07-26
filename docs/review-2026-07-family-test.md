@@ -40,7 +40,7 @@ screen. Screenshots: `02-kid-can-set-own-pin.png`, `03-kid-escaped-to-board-buil
 This contradicts the README's central promise that a kid "can never land in parent UI." It is a soft
 gate by design, and that is fine — but a gate that hands the key to whoever asks first is not a gate.
 
-Options, cheapest first: require PIN setup during onboarding before kid mode can be *entered*; or keep
+Options, cheapest first: require PIN setup during onboarding before kid mode can be _entered_; or keep
 lazy setup but exit to `/` instead of the builder; or gate first-time setup behind something a child
 won't complete. Independently, ship the Guided Access documentation (B5/M9) — on iPadOS that is the
 only real containment, and the PIN is a speed bump.
@@ -50,7 +50,7 @@ only real containment, and the PIN is a speed bump.
 `/settings?pin=required` instead. That placement matters because there are three ways in and only one
 is a button (the sidebar `KID`; `BoardBuilder`'s hardcoded launch; `ParentHomeRoute`'s auto-launch),
 and a fourth added later inherits the guard for free. The gate itself lost its setup flow entirely and
-can no longer write a PIN; creating one moved to Settings → *Set a PIN*, which did not exist before —
+can no longer write a PIN; creating one moved to Settings → _Set a PIN_, which did not exist before —
 the old copy there just told parents they would be prompted on first exit. Details in
 [kid-mode.md](./kid-mode.md).
 
@@ -76,7 +76,7 @@ offline on `/boards/:id/edit` there is no `<header>` element and no `[role="stat
 while an edit queues silently. Screenshot: `05-prod-offline-boardbuilder-no-pill.png`.
 
 This is a good example of what the jsdom suite cannot catch: `OfflineIndicator.test.tsx` correctly
-tests the component in isolation, and it passes. The defect is in the *coupling* — status visibility
+tests the component in isolation, and it passes. The defect is in the _coupling_ — status visibility
 accidentally depends on whether a screen passes a `title`.
 
 Fix: move `<OfflineIndicator />` out of the `title &&` block so it renders for every parent screen.
@@ -135,7 +135,7 @@ computes.
 The `CacheFirst` runtime rule is registered as
 `registerRoute(/\/storage\/v1\/object\/.*/i, new CacheFirst({cacheName:"talrum-storage-v1", …}))`.
 Workbox only applies a **RegExp** route to a **cross-origin** request when the pattern matches from the
-*start* of the URL. Supabase Storage is a different origin from the app, and this pattern matches
+_start_ of the URL. Supabase Storage is a different origin from the app, and this pattern matches
 mid-URL only, so the route never fires for storage requests.
 
 Verified: after uploading a photo and viewing it, `caches.keys()` contains only
@@ -160,13 +160,13 @@ exactly the class of bug a build-output check could pin, like `verify-build-css.
 
 ## Medium
 
-| # | Finding | Location |
-|---|---|---|
-| M1 | **Library empty state advertises a feature that does not exist**: "Pictograms you upload, **generate**, or pick from the library will show up here." `PictoPicker` has exactly two tabs, `library` and `upload`; nothing in `src/` generates images. | `src/features/library/Library.tsx` |
-| M2 | **Recorded-voice failure is silent to everyone**: `catch { /* fall through to TTS */ }` with no `captureException`. A systematically broken parent recording degrades to TTS forever with no signal to Sentry and none to the parent. For a first family test this is the difference between "it worked" and never finding out it didn't. | `src/lib/voiceOut.ts:20` |
-| M3 | **Broken copy on the main upload path**: `Real photos of {fileName ?? 'cereal, shoes, or bed'} work best` renders as "Real photos of 3-lunch.png work best." once a file is chosen. Verified in the browser. | `src/widgets/PictogramUpload/PictogramUpload.tsx:124` |
-| M4 | **Active-kid persistence swallows errors with no telemetry** — the only best-effort `catch {}` pair in `lib/` holding real app state rather than preferences, and the only ones that don't report. | `src/lib/queries/kids.ts:91,107` |
-| M5 | **`docs/auth.md` still documents the replaced sign-in flow** (paste a 6-digit code, `verifyOtp`). `verifyOtp` appears nowhere in `src/`; #219 switched to magic links. The README half was fixed in #368; the doc is not. | `docs/auth.md:10-17` |
+| #   | Finding                                                                                                                                                                                                                                                                                                                                   | Location                                              |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| M1  | **Library empty state advertises a feature that does not exist**: "Pictograms you upload, **generate**, or pick from the library will show up here." `PictoPicker` has exactly two tabs, `library` and `upload`; nothing in `src/` generates images.                                                                                      | `src/features/library/Library.tsx`                    |
+| M2  | **Recorded-voice failure is silent to everyone**: `catch { /* fall through to TTS */ }` with no `captureException`. A systematically broken parent recording degrades to TTS forever with no signal to Sentry and none to the parent. For a first family test this is the difference between "it worked" and never finding out it didn't. | `src/lib/voiceOut.ts:20`                              |
+| M3  | **Broken copy on the main upload path**: `Real photos of {fileName ?? 'cereal, shoes, or bed'} work best` renders as "Real photos of 3-lunch.png work best." once a file is chosen. Verified in the browser.                                                                                                                              | `src/widgets/PictogramUpload/PictogramUpload.tsx:124` |
+| M4  | **Active-kid persistence swallows errors with no telemetry** — the only best-effort `catch {}` pair in `lib/` holding real app state rather than preferences, and the only ones that don't report.                                                                                                                                        | `src/lib/queries/kids.ts:91,107`                      |
+| M5  | **`docs/auth.md` still documents the replaced sign-in flow** (paste a 6-digit code, `verifyOtp`). `verifyOtp` appears nowhere in `src/`; #219 switched to magic links. The README half was fixed in #368; the doc is not.                                                                                                                 | `docs/auth.md:10-17`                                  |
 
 ---
 
@@ -189,7 +189,7 @@ exactly the class of bug a build-output check could pin, like `verify-build-css.
 - **#326's trigger condition has already fired.** It defers a shared create-entity modal until "a third
   'create X' modal appears"; there are three: `NewKidModal`, `NewBoardModal`, `NewPictogramModal`.
   Either do it or restate the trigger.
-- **`VITE_DISABLE_PIN=1` is an undocumented total bypass**: it skips the gate *and* makes `hasPin()`
+- **`VITE_DISABLE_PIN=1` is an undocumented total bypass**: it skips the gate _and_ makes `hasPin()`
   return `true`, so Settings reports a PIN that does not exist. Low likelihood, high impact if it ever
   reaches a production build. (`src/lib/pin.ts:13,29`)
 - **The stored PIN is recoverable.** SHA-256 of a 4-digit PIN, unsalted, is a 10,000-entry rainbow
@@ -239,7 +239,7 @@ in a real browser.
 
 1. **No documented iPad setup.** Epic 13 lists "Document the recommended iPad setup (Add to Home
    Screen + Guided Access) for parents" as an unfiled candidate. For a single-device family test this
-   *is* the deployment procedure, and Guided Access is the actual containment mechanism that B1's PIN
+   _is_ the deployment procedure, and Guided Access is the actual containment mechanism that B1's PIN
    gate only approximates. Write it before handover.
 2. **Nothing records that the test happened.** Epic 17: no kid taps are logged. After the test there
    will be no data on which boards were used or which options were chosen — only what the parent

@@ -119,12 +119,14 @@ For every task:
 ## 8. When to ask, when to proceed
 
 **Ask before proceeding when:**
+
 - The request has two plausible interpretations and the choice materially affects the output.
 - The change touches something you've been told is load-bearing, versioned, or has a migration path.
 - You need a credential, a secret, or a production resource you don't have access to.
 - The user's stated goal and the literal request appear to conflict.
 
 **Proceed without asking when:**
+
 - The task is trivial and reversible (typo, rename a local variable, add a log line).
 - The ambiguity can be resolved by reading the code or running a command.
 - The user has already answered the question once in this session.
@@ -147,11 +149,13 @@ After every session where the agent did something wrong:
 ## 10. Project context
 
 ### Stack
+
 - TypeScript (strict), React 19, Vite. State: TanStack React Query v5 (+ IDB persistence). Routing: react-router-dom 7. Styling: CSS Modules + theme tokens. DnD: dnd-kit.
 - Backend: Supabase (Postgres + Auth + Storage); edge functions in Deno.
 - Package manager: npm. Runtime targets: Cloudflare Pages (SPA), Supabase Cloud (DB), full-screen iPad landscape 1194×834 as the design surface.
 
 ### Commands
+
 - Install: `npm install`
 - Run locally: `supabase start && supabase db reset && npm run dev` (OTPs land in Mailpit at http://127.0.0.1:54324)
 - Build: `npm run build`
@@ -165,11 +169,13 @@ After every session where the agent did something wrong:
 Prefer single-file or single-test runs during iteration. Full suites are for the final verification pass.
 
 ### Layout
+
 - Source lives in: `src/` — layered `app → routes → features → widgets → lib/ui/layouts → theme/types`; ESLint forbids upward imports. See the README architecture section.
 - Tests live in: colocated `*.test.ts(x)` next to source; pgTAP SQL tests in `supabase/tests/`.
 - Do not modify: `src/types/supabase.ts` (generated — regenerate with `npm run types:db`).
 
 ### Conventions specific to this repo
+
 - DB reads go through `src/lib/queries/*` react-query hooks; writes go through the `src/lib/outbox` queue (`enqueueAndDrain`) — see `docs/outbox.md`; storage URL minting through `src/lib/storage`. All ESLint-enforced (`@/lib/supabase` is import-restricted outside `lib/`; AuthGate is the sole exception). Documented exception to "writes via outbox": creates (`useCreateBoard`, `useCreateKid`, board members) write directly — create-then-navigate needs the row to exist and RLS should fail loudly at call time; pictogram creates still go through the outbox because file uploads must survive going offline. Decision rule in `docs/queries.md`.
 - `features/` never import each other — compose at the route layer.
 - Widget vs feature placement is decided by capability, not consumer count: a self-contained, query-aware component that would make sense on another screen (dialogs, sheets, tiles) goes in `src/widgets/`, even with one consumer today. Feature folders keep only what is meaningless without that screen (e.g. `KindSwitchConfirm` belongs to board-builder). Rationale: features can't cross-import, so a feature-local dialog that gains a second consumer must move anyway — place it in `widgets/` from day one.
@@ -178,6 +184,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 - Migrations: `supabase migration new <snake_case_name>`; SQL functions pin `set search_path = public`; follow the grant pattern in `20260427000000_tighten_grants.sql` (revoke anon/PUBLIC, grant authenticated/service_role).
 
 ### Forbidden
+
 - Hand-editing `src/types/supabase.ts`.
 - SECURITY DEFINER functions in the `public` schema (pinned by `supabase/tests/rest_surface_contract_test.sql`).
 - Stacked PRs — branch every PR off `main`; squash-merge with `--delete-branch`.

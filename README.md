@@ -109,7 +109,7 @@ Top layer to bottom:
 
 | Directory          | Role                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`             | Composition root: router, AuthGate, SessionProvider. `app/routes/` holds one file per route, composed from features.                                                                     |
+| `app/`             | Composition root: router, AuthGate, SessionProvider. `app/routes/` holds one file per route, composed from features.                                                                    |
 | `features/`        | One folder per screen (parent-home, board-builder, kid-mode, …). Never import each other — composed at the route layer. Kid-mode PIN soft-gate: [docs/kid-mode.md](./docs/kid-mode.md). |
 | `widgets/`         | Shared, query-aware, feature-agnostic components (PictogramSheet, KidSheet, NewKidModal, OfflineIndicator).                                                                             |
 | `layouts/`         | ParentShell, KidModeLayout, TalrumLogo. Same tier as `widgets/` and may render them.                                                                                                    |

@@ -2,7 +2,7 @@
 
 Every DB read in Talrum goes through a react-query hook in `src/lib/queries/*`
 — features and routes never call `supabase.from()` directly.
-Every write *starts* here too: the mutation hooks own the optimistic cache
+Every write _starts_ here too: the mutation hooks own the optimistic cache
 patch, then hand the actual network work to the outbox (see `docs/outbox.md`)
 or, for a small set of creates, to Supabase directly. This page is the
 template to copy when adding new data access.
@@ -44,12 +44,12 @@ Mutation hooks pair with the outbox in a fixed choreography, and
    cache value, write the expected result in, return `{ previous }`.
 2. **`mutationFn`**: `enqueueAndDrain({ kind: ..., ...payload })`. It resolves
    once the write lands (online fast path) or is durably queued (offline);
-   it rejects only on *permanent* failures — RLS, validation (#279 covers
+   it rejects only on _permanent_ failures — RLS, validation (#279 covers
    the fast-path rules).
 3. **`onError`**: restore the snapshot from context. Transient network errors
    never reach here — the outbox absorbs them and the optimistic patch stands.
 4. **`onSettled`** (or `onSuccess`): invalidate every key the write touched —
-   per-id *and* list — so the next refetch reconciles with the server.
+   per-id _and_ list — so the next refetch reconciles with the server.
 
 Every public board mutation (`useRenameBoard`, `useSetVoiceMode`, …) is a
 three-line wrapper over `useBoardPatch`, which also threads the board's
@@ -72,8 +72,8 @@ write mutates existing state, it goes here: new entry kind in
 **Direct Supabase writes for creates.** `useCreateBoard`, `useCreateKid`,
 `useAddBoardMember` / `useRemoveBoardMember` insert directly, no outbox, no
 optimistic patch — just `onSuccess` invalidation. The rationale, from the
-comments at those sites: create-then-navigate needs the row to *actually
-exist on the server* before routing into it (a board must exist before the
+comments at those sites: create-then-navigate needs the row to _actually
+exist on the server_ before routing into it (a board must exist before the
 BoardBuilder opens on it; a kid must exist before a board's `kid_id` can
 point at it), and RLS denials should surface at call time, not at drain time
 when the user has long since moved on. Board sharing adds its own reason:
@@ -88,7 +88,7 @@ client-side, plants a local `blob:` URL for instant render, and lets the
 drain replace it with the real signed path (`useSetPictogramAudio` and
 `useReplacePictogramImage` follow the same blob-URL dance).
 
-The test: does the caller need the server's answer *right now* (navigation,
+The test: does the caller need the server's answer _right now_ (navigation,
 a returned row, an RLS verdict)? Direct write. Otherwise outbox — and if
 there's a file attached, outbox even for creates.
 

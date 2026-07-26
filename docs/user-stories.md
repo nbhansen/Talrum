@@ -13,8 +13,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 ## Personas
 
 - **Parent** — the account owner. Builds boards, manages kids and the
-  pictogram library, controls settings. Works in *parent mode*.
-- **Kid** — a non-verbal autistic child. Uses *kid mode* only: taps
+  pictogram library, controls settings. Works in _parent mode_.
+- **Kid** — a non-verbal autistic child. Uses _kid mode_ only: taps
   pictograms to choose or to follow a sequence. Must never land in parent UI
   or be read confusing text aloud.
 - **Co-caregiver** — grandparent, teacher, or second parent with their own
@@ -117,7 +117,7 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   → confirm new).
 - ✅ As a parent who forgot the PIN, I clear it from Settings (with inline
   confirmation) and set a fresh one next time I leave kid mode.
-- ✅ The PIN is a *soft* gate against kids, stored per device — it is not a
+- ✅ The PIN is a _soft_ gate against kids, stored per device — it is not a
   security boundary and is documented as such.
 
 ## Epic 8 — Speech
@@ -211,7 +211,7 @@ Settings overrides it, and kid-mode copy ships in Danish and English.
 
 ### Epic 15 — Kid-initiated communication 💭
 
-> As a kid I can *ask* for things, not just answer the questions a grown-up
+> As a kid I can _ask_ for things, not just answer the questions a grown-up
 > stages for me.
 
 Requesting is the core of PECS; today every flow is parent-initiated. No

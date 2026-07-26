@@ -17,35 +17,37 @@ flow isn't usable.
    on a different address than the one the account is registered to.
 
 2. **Look up the account** in the Supabase dashboard SQL editor:
+
    ```sql
    SELECT id, email, created_at FROM auth.users WHERE email = '<user-email>';
    ```
 
 3. **Pick a path:**
-
    - **(a) The user can sign in.** Ask them to use Settings → Delete my
      account in the app. This is always preferred — it goes through the
      same edge function CI exercises and leaves no operator footprint.
 
    - **(b) The user can't sign in** (lost password, broken account,
      etc.). Execute the deletion server-side. Two methods:
-
      - **Method b1 (preferred): invoke the edge function as the user.**
        Generate a magic-link access token for the user from the Supabase
        dashboard (Authentication → Users → row → Generate link), sign
        into a session with it to obtain the access JWT, then:
+
        ```sh
        curl -X POST "$API_URL/functions/v1/delete-account" \
          -H "Authorization: Bearer $USER_JWT" \
          -H "Content-Type: application/json" \
          -d '{}'
        ```
+
        Expect HTTP 200 with `{ "ok": true }`. This is the same code path
        the in-app button uses, so it benefits from all of its
        guarantees (storage cleanup, FK cascades, idempotency).
 
      - **Method b2 (fallback): direct SQL plus storage delete.** Use
        only if b1 is unavailable. Run in a single SQL editor session:
+
        ```sql
        -- 1. List storage objects scoped to this user.
        SELECT name FROM storage.objects
@@ -104,6 +106,7 @@ manually.
 
 2. **Dump tabular data via SQL.** Run each in the SQL editor and save
    the results as CSV:
+
    ```sql
    COPY (SELECT * FROM public.kids WHERE owner_id = '<uid>') TO STDOUT WITH CSV HEADER;
    COPY (SELECT * FROM public.pictograms WHERE owner_id = '<uid>') TO STDOUT WITH CSV HEADER;
@@ -114,6 +117,7 @@ manually.
 3. **Download storage objects** with the Supabase CLI (`supabase login`
    first, and `supabase link --project-ref <ref>` against the right
    project):
+
    ```sh
    mkdir -p export-<uid>/audio export-<uid>/images
    supabase storage download --recursive \
@@ -121,14 +125,17 @@ manually.
    supabase storage download --recursive \
      "ss:///pictogram-images/<uid>" "./export-<uid>/images/"
    ```
+
    (Verify the exact `supabase storage download` syntax against your
    installed CLI version with `supabase storage download --help` —
    flag names occasionally shift between releases.)
 
 4. **Bundle and send.**
+
    ```sh
    zip -r export-<uid>.zip export-<uid>/
    ```
+
    Email the archive to the address on the account, with a short note
    explaining that this is the response to their Article 20 request and
    describing the file layout (one CSV per table, plus `audio/` and
