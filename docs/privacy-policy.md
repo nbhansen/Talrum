@@ -1,19 +1,16 @@
 # Privacy Policy
 
-> **ENGINEERING DRAFT — NOT FOR PRODUCTION USE**
->
-> This is a working draft authored by engineering during the implementation
-> of issue #100. It must be reviewed and approved by counsel before being
-> linked from production builds. The `[TBD]` placeholders below must be
-> filled in by the operator before launch.
+> Written by the operator, not reviewed by a lawyer. It describes what the
+> service actually does today; it is not a warranty. If you need a
+> commitment beyond what is written here, ask before you use the service.
 
-**Effective date:** [TBD before launch]
+**Effective date:** 1 August 2026
 
 ## 1. Who we are
 
-This service is operated by [TBD: operator name]. For privacy questions or
-to exercise any of the rights described below, contact us at
-[TBD: contact email].
+This service is operated by Nicolai Brodersen Hansen, as an individual. For
+privacy questions or to exercise any of the rights described below, contact
+<nbhansen@gmail.com>.
 
 ## 2. What we collect
 
@@ -34,8 +31,12 @@ to exercise any of the rights described below, contact us at
 ### Technical data
 
 - Sign-in timestamps.
-- Error reports once issue #45 lands (a bounded, non-PII error reporter).
-- We do not run analytics tracking.
+- Crash and error reports. These carry the error, the code location, and a
+  short trail of the actions that led to it. Your email address is stripped
+  before the report is sent, and we record no session replay and no
+  performance traces.
+- We do not run analytics tracking. Nothing records which pictograms a child
+  taps.
 
 ## 3. What we don't collect
 
@@ -46,9 +47,15 @@ to exercise any of the rights described below, contact us at
 
 ## 4. Where it lives
 
-Your data is processed and stored by Supabase, acting as our data processor,
-in the [TBD — based on actual Supabase project region] region. Supabase's
-infrastructure is GDPR-compliant.
+Your account data, the boards you build, and the images and recordings you
+upload are processed and stored by Supabase, acting as our data processor, in
+its **West EU (Ireland)** region — inside the EU.
+
+The web app itself is served as static files by Cloudflare Pages, which sees
+request metadata (IP address, user agent) but none of your account content.
+
+Crash reports go to Sentry, acting as our data processor. Sentry receives the
+technical data described in section 2 and no account content.
 
 ## 5. Who has access
 
@@ -57,8 +64,9 @@ infrastructure is GDPR-compliant.
   your rows.
 - **Co-caregivers** you explicitly invite to a specific board, via the
   in-app sharing flow. Their access is scoped to the boards you share.
-- **The operator**, only when you ask for support or when investigating a
-  specific incident. Such access is logged.
+- **The operator**, who administers the database and can therefore read any
+  row in it. In practice this happens only to answer a support request or to
+  investigate a specific fault, and it is not needed for the service to run.
 
 ## 6. Retention
 
@@ -71,20 +79,23 @@ deletion.
 
 You can delete your account at any time:
 
-- **In-app:** Settings → Delete my account. The deletion is effective
-  immediately and irreversibly from your perspective.
-- **Email:** [TBD: contact email]. The operator commits to a 30-day
-  response window for email deletion requests.
+- **In-app:** Settings → Delete my account. The deletion is immediate and
+  cannot be undone (section 8).
+- **Email:** <nbhansen@gmail.com>. The operator commits to a 30-day response
+  window for email deletion requests.
 
-## 8. Operator-side restore
+## 8. There is no restore
 
-Supabase retains daily backups for [TBD days — based on plan]. If you email
-us within that window, restore is *possible at our discretion* but not
-promised. After the backup window expires, deletion is final.
+Deletion is final and immediate. The service runs on Supabase's free plan,
+which does not provide restorable backups, so a deleted account cannot be
+recovered — not by you and not by us. Delete only when you mean it.
+
+If you want to keep your boards, screenshot or re-photograph them before
+deleting. There is no export yet (section 9).
 
 ## 9. Data export (GDPR Article 20)
 
-To request a copy of your data, email [TBD: contact email]; we will respond
+To request a copy of your data, email <nbhansen@gmail.com>; we will respond
 within 30 days. This process is manual until an in-app export ships.
 
 ## 10. Children's data
@@ -97,9 +108,9 @@ directly.
 We treat content describing children with heightened sensitivity: it is
 stored under the same RLS isolation as all other caregiver data, never
 shared with third parties, and never used for analytics or advertising.
-The applicability of specific children's-privacy regimes (such as COPPA in
-the United States or equivalent rules in other jurisdictions) depends on
-the launch markets — counsel will refine this section before launch.
+The service is operated from and for Denmark/the EU. It is not offered in the
+United States, so US-specific children's-privacy rules (COPPA) are not
+addressed here.
 
 ## 11. Changes to this policy
 
@@ -109,4 +120,4 @@ take effect.
 
 ## 12. Effective date
 
-[TBD before launch].
+1 August 2026.

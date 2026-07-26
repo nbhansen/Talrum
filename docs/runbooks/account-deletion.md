@@ -65,32 +65,35 @@ flow isn't usable.
 4. **Confirm to the user** by email that the account and associated data
    have been deleted.
 
-5. **Log the request** so we have a paper trail for audits and disputes:
-   append a row to [TBD: the operator's preferred ops log — Linear
-   ticket, CSV in private storage, etc. Decision deferred].
+5. **Keep the paper trail.** The trail is the email thread itself: the
+   inbound request and the step-4 confirmation, archived under a
+   `talrum-deletion` label in the operator's mailbox. That is a real record
+   and it needs no tooling that doesn't already exist. Never delete the
+   thread — it is the only evidence the request was honoured.
+
+   Revisit this if deletion requests stop being rare enough to find by
+   searching a mailbox; a spreadsheet in private storage is the next step up.
 
 ## Scenario 2: "I deleted my account by mistake, please restore"
 
-1. Check the **Supabase backup retention window** in the dashboard
-   (Project settings → Database → Backups). The default plan retains
-   daily backups for 7 days.
+**The answer is no.** There is nothing to restore from.
 
-2. **Within the retention window:** discuss feasibility with the user.
-   Restoring a Supabase backup is **project-level** — it rolls back ALL
-   users' data to the snapshot, not just the requesting user. Decision
-   factors:
-   - How recent is the deletion? (Older = more lost work for everyone
-     else.)
-   - How many other active users would lose data?
-   - Is the cost (data loss for others, operator effort) acceptable?
+The project runs on the **free plan**, which does not give the dashboard any
+restorable backups — Supabase takes daily backups only for Pro, Team, and
+Enterprise projects ([docs](https://supabase.com/docs/guides/platform/backups)).
+`docs/privacy-policy.md` §8 says this plainly, and the in-app delete flow
+warns the user before they confirm.
 
-3. **Outside the retention window:** respond apologetically. Deletion is
-   final per the privacy policy.
+Respond apologetically and do not improvise a partial rebuild from
+screenshots or logs — a half-restored account is worse than an empty one.
 
-4. Document the factors that drove the decision in the ops log. We do
-   **not** publish a SLA for restores. The standard answer is "no,
-   deletion is final per the privacy policy" — the in-app flow warns
-   the user about this before they confirm.
+If restores ever need to be possible, that is a plan change, not a runbook
+change: either upgrade to Pro (7 days of daily backups) or schedule
+`supabase db dump` to off-site storage, which is what Supabase recommends
+for free-plan projects. Storage objects are **not** covered by database
+backups either way. Update §8 of the privacy policy in the same commit —
+a policy promising no restore while backups exist is as wrong as the
+reverse.
 
 ## Scenario 3: "please export my data" (GDPR Article 20)
 

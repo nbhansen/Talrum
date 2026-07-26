@@ -68,17 +68,33 @@ accidentally depends on whether a screen passes a `title`.
 
 Fix: move `<OfflineIndicator />` out of the `title &&` block so it renders for every parent screen.
 
-### B3. The live privacy policy is a draft with unfilled blanks
+### B3. The live privacy policy is a draft with unfilled blanks — ~~blocker~~ fixed
 
 `docs/privacy-policy.md`, rendered at `/privacy-policy` (`src/app/routes.tsx:118`), reachable while
 signed out (`src/app/publicPaths.ts`), linked from `src/features/settings/DeleteAccountSection.tsx:26`.
 
-The file opens with "ENGINEERING DRAFT — NOT FOR PRODUCTION USE … must be reviewed and approved by
-counsel before being linked from production builds," and still contains `[TBD]` for effective date,
+The file opened with "ENGINEERING DRAFT — NOT FOR PRODUCTION USE … must be reviewed and approved by
+counsel before being linked from production builds," and contained `[TBD]` for effective date,
 operator name, contact email (three places), Supabase region, and backup retention.
 
-Even for one known family this is the wrong thing to ship — the contact email is how they'd exercise
-deletion or ask what is stored. **Needs Nicolai:** these are real-world values I cannot invent.
+Even for one known family this was the wrong thing to ship — the contact email is how they'd exercise
+deletion or ask what is stored.
+
+**Fixed (#357).** Operator, contact email and effective date supplied by Nicolai. Two of the blanks
+turned out to be false premises rather than missing values, and filling them in changed what the
+policy says:
+
+- **Region** is West EU (Ireland) — verified via `supabase projects list`, so the EU claim is real.
+- **Backup retention** does not exist. Supabase takes daily backups only on Pro and above; the free
+  plan (see `project_supabase_free_tier`, #93) has none. The old §8 promised a discretionary restore
+  "within the backup window" and `docs/runbooks/account-deletion.md` told the operator to check a
+  7-day window in the dashboard. Both described a paid plan. §8 is now "There is no restore" and the
+  runbook's Scenario 2 answer is a flat no, with the plan change spelled out for whoever wants to
+  change it.
+
+Two adjacent claims were false for the same reason and were corrected in the same pass: §2 described
+error reporting as future work ("once issue #45 lands" — it landed), and §5 promised that operator
+access to user rows "is logged", which nothing in the stack does.
 
 ### B4. The persisted-cache escape hatch is welded shut
 
