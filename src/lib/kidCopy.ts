@@ -12,6 +12,8 @@ import { type AppLanguage, getAppLanguage } from './language';
 
 export interface KidCopy {
   exitButton: string;
+  /** The only action on the kid-route crash screen a child is meant to take. */
+  crashRetry: string;
   emptyBoard: {
     title: string;
     body: string;
@@ -35,6 +37,7 @@ export interface KidCopy {
 const copy: Record<AppLanguage, KidCopy> = {
   en: {
     exitButton: 'Exit kid mode',
+    crashRetry: 'Tap to try again',
     emptyBoard: {
       title: 'This board is empty',
       body: 'Ask a grown-up to add some pictograms.',
@@ -53,6 +56,7 @@ const copy: Record<AppLanguage, KidCopy> = {
   },
   da: {
     exitButton: 'Afslut børnetilstand',
+    crashRetry: 'Tryk for at prøve igen',
     emptyBoard: {
       title: 'Denne tavle er tom',
       body: 'Bed en voksen om at tilføje nogle piktogrammer.',

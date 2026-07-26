@@ -6,6 +6,7 @@ import { queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Spinner } from '@/ui/Spinner/Spinner';
+import { KidRouteFallback } from '@/widgets/KidModeGate/KidRouteFallback';
 
 // This is the router manifest, not a fast-refresh component module: it
 // deliberately exports the lazy route components alongside non-component
@@ -73,15 +74,10 @@ export const parentRouteFallback = (reset: () => void): ReactNode => (
   </div>
 );
 
-// Standalone JSX — intentionally NOT wrapped in KidModeLayout. If the original
-// crash came from KidModeLayout itself, re-rendering it would re-throw.
-export const kidRouteFallback = (): ReactNode => (
-  <div role="alert" className={styles.kidFallback}>
-    <Link to="/" className={styles.kidFallbackBtn}>
-      Tap to go back
-    </Link>
-  </div>
-);
+// Standalone — intentionally NOT wrapped in KidModeLayout. If the original
+// crash came from KidModeLayout itself, re-rendering it would re-throw. The
+// screen itself is PIN-gated; see KidRouteFallback for why (#371).
+export const kidRouteFallback = (): ReactNode => <KidRouteFallback />;
 
 const parentSuspenseFallback = (
   <div className={styles.parentSuspense}>

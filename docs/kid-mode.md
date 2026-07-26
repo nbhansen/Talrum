@@ -48,7 +48,7 @@ but it means "set the PIN" belongs in the hand-over checklist for a new
 device.
 
 So **the PIN is only ever created in parent UI**: Settings → Parent PIN →
-*Set a PIN* (`src/features/settings/PinManagementSection.tsx`), which also
+_Set a PIN_ (`src/features/settings/PinManagementSection.tsx`), which also
 handles Change and Clear via the same `src/lib/pin.ts` helpers (`hasPin`,
 `setPin`, `verifyPin`, `clearPin`). Clearing the PIN makes kid mode
 unavailable again, and the confirm prompt says so.
@@ -76,3 +76,31 @@ English-only, alongside the rest of Settings.
 A real server-side check would require per-account auth round-trips and
 break offline kid mode; the soft gate is the deliberate trade-off
 (user-stories Epic 7).
+
+## When a kid route crashes
+
+The gate only guards screens that render. A kid route that _throws_ falls
+through to `kidRouteFallback` in `src/app/routes.tsx`, which is rendered by
+the `ErrorBoundary` outside `KidModeLayout` — if the crash came from the
+layout, re-rendering it would re-throw.
+
+That fallback used to be a single full-screen `<Link to="/">` labelled "Tap
+to go back", which made a crash the last ungated route from kid mode into
+parent UI. A crash is exactly when a child taps repeatedly, so it was
+reliably the fastest way into the board builder (#371).
+
+`KidRouteFallback` (`src/widgets/KidModeGate/`) now offers two things:
+
+- **The big one reloads the current URL.** It does not navigate, so the child
+  stays on a kid route — which `RequireKidPin` guards. A full reload rather
+  than the boundary's `reset()` is also what actually recovers the common
+  cause, a lazy chunk that failed to load: `React.lazy` caches the rejected
+  promise and re-throws it on every later render, so resetting in place
+  would just redraw the same crash.
+- **The quiet one is the ordinary exit**, same label and same `PinPad` as
+  `KidModeGate`, including the no-PIN exception above — a pad no entry can
+  satisfy would strand the parent on a screen that is already broken.
+
+If the crash is deterministic, reloading loops back to this screen. That is
+the intended failure mode: the child stays contained and the parent leaves
+through the PIN, rather than the app resolving a crash by opening the door.
