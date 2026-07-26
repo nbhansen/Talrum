@@ -119,7 +119,12 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
   });
 
-  it('kid fallback shows only "Tap to go back" — no Retry, no body copy', () => {
+  // This assertion used to pin the opposite behaviour — a full-screen
+  // <Link to="/"> labelled "Tap to go back" — which made a crash the last
+  // ungated route from kid mode into parent UI (#371). Assert on the absence
+  // of any link, so relabelling the button cannot reopen the hole quietly.
+  // What the buttons then do is covered by KidRouteFallback.test.tsx.
+  it('a crashing kid route contains the child instead of linking to parent home (#371)', () => {
     render(
       <MemoryRouter>
         <div data-testid="shell">
@@ -130,8 +135,10 @@ describe('routes — error boundary wiring', () => {
       </MemoryRouter>,
     );
     expect(screen.getByTestId('shell')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Tap to go back' })).toHaveAttribute('href', '/');
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tap to try again' })).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    // Parent-facing wording stays out of kid mode.
+    expect(screen.queryByText(/Couldn.?t load this screen/i)).not.toBeInTheDocument();
   });
 });
 
