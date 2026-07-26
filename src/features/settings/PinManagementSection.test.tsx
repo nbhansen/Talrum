@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hasPin, setPin } from '@/lib/pin';
 
@@ -17,29 +17,13 @@ beforeEach(() => {
 });
 
 describe('PinManagementSection', () => {
-  // Must run first: React deduplicates the "Cannot update a component while
-  // rendering a different component" warning per-process, so once any other
-  // enter-new→confirm-new test trips it, this regression test would silently
-  // pass. PinPad.tap() used to call submit() from inside a setDigits updater;
-  // on that transition it synchronously schedules a setState on this section,
-  // which React flags via console.error. Moved here from KidModeGate.test.tsx
-  // when #353 removed the gate's own two-step setup flow — this is now the only
-  // place a PinPad advances to a second step.
-  it('does not emit React state-update warnings on the enter-new→confirm-new transition', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const user = userEvent.setup();
-    render(<PinManagementSection />);
-
-    await user.click(screen.getByRole('button', { name: /set a pin/i }));
-    await enterPin(user, '1234');
-    expect(await screen.findByText(/Confirm your PIN/i)).toBeInTheDocument();
-    await enterPin(user, '1234');
-    // The flash, not the "No PIN set" copy — that also contains "PIN set".
-    expect(await screen.findByText(/PIN set — kid mode is ready/i)).toBeInTheDocument();
-
-    expect(errorSpy).not.toHaveBeenCalled();
-  });
-
+  // A test here used to walk this whole flow just to assert console.error was
+  // never called on the enter-new→confirm-new transition: PinPad.tap() once
+  // called submit() from inside a setDigits updater, which schedules a setState
+  // on this section mid-render and makes React log. That is now enforced for
+  // every test by the console.error guard in vitest.setup.ts (#387) — the walk
+  // below trips the same transition, so the regression is still covered, just
+  // without a five-second test to time out.
   it('shows the no-PIN message when no PIN is set', () => {
     render(<PinManagementSection />);
     expect(screen.getByText(/No PIN set, so kid mode is unavailable/i)).toBeInTheDocument();

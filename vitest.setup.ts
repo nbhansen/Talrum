@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 // touches the persistence layer.
 import 'fake-indexeddb/auto';
 
+import { format } from 'node:util';
+
 import { clear } from 'idb-keyval';
 import { afterEach, vi } from 'vitest';
 
@@ -51,15 +53,76 @@ Object.defineProperty(window, 'sessionStorage', {
   configurable: true,
 });
 
+/**
+ * Fail any test that logs to console.error (#387).
+ *
+ * React reports its correctness warnings this way — "Cannot update a component
+ * while rendering a different component", "not wrapped in act(...)" — and they
+ * are bugs wherever they appear, not just where someone thought to look. This
+ * replaces a single test that walked the whole set-a-PIN flow purely to assert
+ * `console.error` was never called during one transition: slow enough to time
+ * out under coverage instrumentation about one run in four, and it pinned the
+ * invariant for exactly one component.
+ *
+ * React deduplicates each warning per process, which is what made the old test
+ * order-dependent — anything that tripped the warning first left it passing
+ * silently. Checking globally makes that irrelevant: the first occurrence
+ * anywhere fails the test it happened in, which is the one worth looking at.
+ *
+ * Tests that expect React to log — an ErrorBoundary catching a deliberate
+ * throw — opt out for free by spying: `vi.spyOn(console, 'error')` replaces
+ * this wrapper for the test's duration, so nothing is recorded. The caveat is
+ * a spy that is never restored, which silently disables the check for the rest
+ * of that *file* — vitest's default `isolate: true` re-executes this module per
+ * test file, so the leak stops there rather than reaching the whole worker.
+ *
+ * The buffer below is per-file for the same reason, but it is shared by every
+ * test in the file. That is fine while tests run one at a time, which they all
+ * do today; under `it.concurrent` a log from one test would fail whichever
+ * sibling happened to finish next, so this needs per-test context before any
+ * concurrency is adopted.
+ *
+ * console.warn is deliberately not covered: `useSetStepIds` logs there on
+ * purpose behind an `import.meta.env.DEV` guard.
+ */
+const originalConsoleError = console.error;
+const consoleErrorCalls: unknown[][] = [];
+console.error = (...args: unknown[]): void => {
+  consoleErrorCalls.push(args);
+  originalConsoleError(...args);
+};
+
 // #144 / #168: module-level caches in storage, outbox/drain, and speech persist
 // across `it()` blocks within the same worker — a flake class whose failure
 // mode depends on test order. Reset all three globally; pairs with idb-keyval's
 // `clear()`. drain state lives in `./drain-state.ts` (no Supabase deps) for
 // the same tsconfig.node.json reason as `storage-cache.ts`.
+//
+// One hook, not two, and the console check goes last inside it. A separate
+// hook is not equivalent: vitest's default `sequence.hooks: 'stack'` runs
+// afterEach in reverse registration order, and a hook that throws skips the
+// remaining ones — so the console guard as its own hook ran *first* and, on a
+// failure, the resets below never ran at all. That leaves IndexedDB and these
+// module caches dirty for the next test in the file, which is the #144/#168
+// cascade this hook exists to prevent. Sequencing it in the function body
+// instead of relying on hook order makes the config setting irrelevant.
 afterEach(async () => {
   await clear();
   __resetSignedUrlCache();
   __resetSpeechForTests();
   __resetDrainForTests();
   __resetBoardClockForTests();
+
+  const calls = consoleErrorCalls.splice(0);
+  if (calls.length === 0) return;
+  throw new Error(
+    `console.error was called ${calls.length} time(s) during this test.\n` +
+      'React reports correctness warnings this way, so treat it as the bug it is. ' +
+      'If the log is expected (an ErrorBoundary catching a deliberate throw), ' +
+      "silence it in the test with vi.spyOn(console, 'error').\n\n" +
+      // format() so React's `%s` placeholders are filled in — the raw args are
+      // the format string followed by the component names, which reads as
+      // gibberish at exactly the moment someone needs to understand it.
+      calls.map((args) => format(...args)).join('\n'),
+  );
 });
