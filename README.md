@@ -109,7 +109,7 @@ Top layer to bottom:
 
 | Directory          | Role                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`             | Composition root: router, AuthGate, SessionProvider, SW update prompt. `app/routes/` holds one file per route, composed from features.                                                  |
+| `app/`             | Composition root: router, AuthGate, SessionProvider. `app/routes/` holds one file per route, composed from features.                                                                     |
 | `features/`        | One folder per screen (parent-home, board-builder, kid-mode, …). Never import each other — composed at the route layer. Kid-mode PIN soft-gate: [docs/kid-mode.md](./docs/kid-mode.md). |
 | `widgets/`         | Shared, query-aware, feature-agnostic components (PictogramSheet, KidSheet, NewKidModal, OfflineIndicator).                                                                             |
 | `layouts/`         | ParentShell, KidModeLayout, TalrumLogo. Same tier as `widgets/` and may render them.                                                                                                    |
@@ -133,6 +133,12 @@ in `eslint.config.js`:
   ([docs/storage.md](./docs/storage.md)).
 - Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
   live in `src/lib/auth/`.
+- The service worker is registered by `src/lib/serviceWorker.ts`, not by
+  vite-plugin-pwa's injected snippet (`injectRegister: false`) — that snippet
+  had no `.catch()`, so a browser that blocks service workers raised an
+  unhandled rejection (#375). A failed registration means no offline mode, so
+  it is reported to Sentry as a warning rather than swallowed. Updates still
+  apply automatically, via `skipWaiting` + `clientsClaim` in the worker.
 
 Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
 hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint). The same

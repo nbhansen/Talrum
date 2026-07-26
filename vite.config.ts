@@ -79,6 +79,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register the worker ourselves (src/lib/serviceWorker.ts). The
+      // script this plugin injects by default was a bare register() call with
+      // no .catch(), so a browser that blocks service workers raised an
+      // unhandled rejection that Sentry reported as a crash (#375).
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Talrum',
