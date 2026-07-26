@@ -13,11 +13,25 @@ import pkg from './package.json' with { type: 'json' };
 // token. Any path that emits maps must upload-and-delete them — otherwise
 // CF Pages publishes the unminified bundles as `.map` siblings.
 // package.json's version is never bumped (the app deploys continuously from
-// main), so the Settings "About" readout identifies builds by commit instead.
+// main), so the Settings "About" readout identifies builds by commit instead —
+// and since #356, so does the persisted-cache buster.
+//
+// That makes the fallback load-bearing rather than cosmetic: a deployed build
+// where this is the constant 'dev' has the constant buster #356 was about, just
+// spelled differently, and nothing downstream could tell. Local builds without
+// git are fine; a CI build without git is a broken checkout, so say so loudly
+// instead of shipping a cache that never invalidates.
 const commitSha = ((): string => {
   try {
     return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
-  } catch {
+  } catch (err) {
+    if (process.env.CI) {
+      throw new Error(
+        'Cannot read the commit sha, which is the persisted-cache buster (#356). ' +
+          'A CI build without git history would ship a cache that never invalidates.',
+        { cause: err },
+      );
+    }
     return 'dev';
   }
 })();

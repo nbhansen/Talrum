@@ -51,6 +51,10 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
  * new buster by having just downloaded the build that carries it — and the
  * cache is re-persisted within the second. The opposite error is silent and
  * unrecoverable by the user, so the asymmetry decides it.
+ *
+ * This only holds while the value really changes per build. `vite.config.ts`
+ * reads it from git and falls back to the constant `'dev'`, which would be
+ * this same bug in a different costume, so that fallback fails the build in CI.
  */
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,
