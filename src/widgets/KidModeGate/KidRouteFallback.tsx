@@ -31,6 +31,11 @@ import { usePinExit } from './usePinExit';
 export const KidRouteFallback = (): JSX.Element => {
   const kidCopy = getKidCopy();
   const navigate = useNavigate();
+  // Parent home, not `/boards/:boardId/edit` where the normal exit lands. The
+  // board is a plausible cause of the crash, and the builder renders the same
+  // rows — a crash that repeats on the way out of a crash is worse than
+  // landing somewhere neutral. Parent home is also where the parent-route
+  // fallback sends people, for the same reason.
   const { verifying, requestExit, cancel, verify } = usePinExit(() => {
     void navigate('/', { replace: true });
   });
