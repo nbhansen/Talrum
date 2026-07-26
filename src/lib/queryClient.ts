@@ -35,14 +35,27 @@ const persister = createAsyncStoragePersister({
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Pinned to package.json `version` (Vite-replaced at build). Bumping the
- * version invalidates the persisted cache — the right call when domain types
- * change.
+ * Pinned to the build's commit sha, so every deploy discards whatever the
+ * device had persisted.
+ *
+ * It used to be `__APP_VERSION__`, i.e. package.json's version — which this
+ * repo never bumps, because it deploys continuously from main. So the escape
+ * hatch for domain-type changes was a constant, and could not fire (#356). A
+ * week-old cache (`maxAge`) would hydrate into new code and be treated as a
+ * successful query result, because `shouldDehydrateQuery` only ever persisted
+ * successes: a renamed field reads `undefined` and the screen renders wrong or
+ * crashes, with no reload that clears it.
+ *
+ * Invalidating on every deploy over-invalidates on purpose. The cost is one
+ * refetch, paid while the device is necessarily online — a client only sees a
+ * new buster by having just downloaded the build that carries it — and the
+ * cache is re-persisted within the second. The opposite error is silent and
+ * unrecoverable by the user, so the asymmetry decides it.
  */
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,
   maxAge: ONE_WEEK_MS,
-  buster: __APP_VERSION__,
+  buster: __APP_COMMIT__,
   dehydrateOptions: {
     // Skip queries that are still pending / errored / disabled. Dehydrating a
     // pending query would replay it as `success` with `undefined` data on the

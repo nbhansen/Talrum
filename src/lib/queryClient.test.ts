@@ -1,6 +1,8 @@
 import type { Query } from '@tanstack/react-query';
-import { get, keys, set } from 'idb-keyval';
-import { describe, expect, it } from 'vitest';
+import type { PersistedClient } from '@tanstack/react-query-persist-client';
+import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
+import { del, get, keys, set } from 'idb-keyval';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { getLastBoard, setLastBoard } from './lastBoard';
 import { hasPin, setPin } from './pin';
@@ -15,6 +17,62 @@ describe('queryClient defaults', () => {
     expect(queries?.staleTime).toBe(30_000);
     expect(queries?.refetchOnWindowFocus).toBe(false);
     expect(queries?.retry).toBe(1);
+  });
+});
+
+describe('persistOptions.buster (#356)', () => {
+  const dehydrated = (buster: string): PersistedClient => ({
+    buster,
+    timestamp: Date.now(),
+    clientState: {
+      mutations: [],
+      queries: [
+        {
+          queryKey: ['boards'],
+          queryHash: '["boards"]',
+          state: { status: 'success', data: [{ id: 'b1' }], dataUpdatedAt: Date.now() },
+        } as unknown as PersistedClient['clientState']['queries'][number],
+      ],
+    },
+  });
+
+  // Written straight to the persister's key rather than through
+  // `persistClient`, which is wrapped in the 1s `throttleTime` and can resolve
+  // before the IndexedDB write lands — the restore below would then race it.
+  const persistDirectly = (client: PersistedClient): Promise<void> =>
+    set('talrum-react-query', JSON.stringify(client));
+
+  const restore = (): Promise<void> =>
+    persistQueryClientRestore({ queryClient, ...persistOptions });
+
+  afterEach(async () => {
+    queryClient.clear();
+    await del('talrum-react-query');
+  });
+
+  // The bug: this was __APP_VERSION__, i.e. package.json's version, which a
+  // continuously-deployed repo never bumps. Assert the value changes per
+  // build rather than asserting a literal, which would just restate it.
+  it('is the build commit, not the package version', () => {
+    expect(persistOptions.buster).toBe(__APP_COMMIT__);
+    expect(persistOptions.buster).not.toBe(__APP_VERSION__);
+  });
+
+  it('discards a cache written by a different build', async () => {
+    await persistDirectly(dehydrated('some-older-build'));
+
+    await restore();
+
+    expect(queryClient.getQueryData(['boards'])).toBeUndefined();
+    expect(await get('talrum-react-query')).toBeUndefined();
+  });
+
+  it('restores a cache written by this build', async () => {
+    await persistDirectly(dehydrated(__APP_COMMIT__));
+
+    await restore();
+
+    expect(queryClient.getQueryData(['boards'])).toEqual([{ id: 'b1' }]);
   });
 });
 

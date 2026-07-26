@@ -3,15 +3,17 @@
 
 /**
  * Vite `define` replaces `__APP_VERSION__` at build time with the package.json
- * version string. The value busts the persisted React Query cache when domain
- * types change — bump package.json and the next cold boot starts fresh.
+ * version string. It is the Sentry release name, and nothing else — the repo
+ * deploys continuously from main and never bumps the version, so it is a
+ * constant and cannot express "this build is different from that one".
  */
 declare const __APP_VERSION__: string;
 
 /**
  * Vite `define` replaces `__APP_COMMIT__` at build time with the short commit
- * sha (`dev` when git is unavailable). Display-only — identifies the deployed
- * build in Settings. Deliberately not part of the Sentry release name or the
- * cache buster: those stay pinned to the package.json version.
+ * sha (`dev` when git is unavailable). It identifies the deployed build in
+ * Settings, and busts the persisted React Query cache: it is the only value
+ * here that actually changes per deploy, which is what a cache buster has to
+ * do (#356).
  */
 declare const __APP_COMMIT__: string;
