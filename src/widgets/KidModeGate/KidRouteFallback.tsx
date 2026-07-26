@@ -1,12 +1,12 @@
-import { type JSX, useState } from 'react';
+import type { JSX } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { getKidCopy } from '@/lib/kidCopy';
-import { hasPin, pinGateDisabled, verifyPin } from '@/lib/pin';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Modal } from '@/ui/Modal/Modal';
 
 import { PinPad } from './PinPad';
+import { usePinExit } from './usePinExit';
 
 /**
  * What a kid route shows when it throws. Deliberately rendered *outside*
@@ -25,44 +25,25 @@ import { PinPad } from './PinPad';
  * `React.lazy` caches and re-throws on every subsequent render.
  *
  * The parent's way out is the same one they already know from KidModeGate —
- * same label, same pad, same rules — because trapping a parent in a broken
- * screen is the failure mode that makes people give up on the whole app.
+ * same label, same pad, same `usePinExit` rules — because trapping a parent in
+ * a broken screen is the failure mode that makes people give up on the app.
  */
 export const KidRouteFallback = (): JSX.Element => {
   const kidCopy = getKidCopy();
   const navigate = useNavigate();
-  const [verifying, setVerifying] = useState(false);
-
-  const leaveKidMode = (): void => {
+  const { verifying, requestExit, cancel, verify } = usePinExit(() => {
     void navigate('/', { replace: true });
-  };
-
-  const requestExit = (): void => {
-    // Mirrors KidModeGate: with no PIN stored there is nothing to verify
-    // against, so a pad would trap the parent rather than gate anything. No
-    // PIN means no kid mode, which is the same answer the route guard gives.
-    if (pinGateDisabled() || !hasPin()) {
-      leaveKidMode();
-      return;
-    }
-    setVerifying(true);
-  };
-
-  const handleVerify = async (pin: string): Promise<boolean> => {
-    const ok = await verifyPin(pin);
-    if (ok) leaveKidMode();
-    return ok;
-  };
+  });
 
   return (
     <div role="alert" className={styles.kidFallback}>
       {verifying ? (
-        <Modal onClose={() => setVerifying(false)}>
+        <Modal onClose={cancel}>
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}
-            onSubmit={handleVerify}
-            onCancel={() => setVerifying(false)}
+            onSubmit={verify}
+            onCancel={cancel}
             errorMessage={kidCopy.pin.wrongPin}
           />
         </Modal>

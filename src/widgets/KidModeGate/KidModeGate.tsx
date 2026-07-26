@@ -1,10 +1,10 @@
-import { type JSX, type ReactNode, useState } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { getKidCopy } from '@/lib/kidCopy';
-import { hasPin, pinGateDisabled, verifyPin } from '@/lib/pin';
 import { Modal } from '@/ui/Modal/Modal';
 
 import { PinPad } from './PinPad';
+import { usePinExit } from './usePinExit';
 
 interface KidModeGateProps {
   onExitConfirmed: () => void;
@@ -22,45 +22,24 @@ interface KidModeGateProps {
  * whoever asks first is not a gate. PINs are now set only in parent UI
  * (Settings → Parent PIN), and the kid routes refuse to render without one, so
  * verification is the only flow left here.
+ *
+ * When to ask, and when to let someone straight out, lives in `usePinExit` —
+ * shared with the crash-screen fallback, which needs the identical rule (#371).
  */
 export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JSX.Element => {
   const kidCopy = getKidCopy();
-  const [verifying, setVerifying] = useState(false);
-
-  const requestExit = (): void => {
-    // With no PIN there is nothing to verify against. The kid routes stop kid
-    // mode being entered in that state, but it is still reachable by clearing
-    // the PIN in another tab while this one sits in kid mode. Opening a PIN pad
-    // that no entry can satisfy would trap the parent, so let them out — the
-    // same answer the route guard gives: no PIN means no kid mode.
-    if (pinGateDisabled() || !hasPin()) {
-      onExitConfirmed();
-      return;
-    }
-    setVerifying(true);
-  };
-
-  const close = (): void => setVerifying(false);
-
-  const handleVerify = async (pin: string): Promise<boolean> => {
-    const ok = await verifyPin(pin);
-    if (ok) {
-      close();
-      onExitConfirmed();
-    }
-    return ok;
-  };
+  const { verifying, requestExit, cancel, verify } = usePinExit(onExitConfirmed);
 
   return (
     <>
       {children(requestExit)}
       {verifying && (
-        <Modal onClose={close}>
+        <Modal onClose={cancel}>
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}
-            onSubmit={handleVerify}
-            onCancel={close}
+            onSubmit={verify}
+            onCancel={cancel}
             errorMessage={kidCopy.pin.wrongPin}
           />
         </Modal>
