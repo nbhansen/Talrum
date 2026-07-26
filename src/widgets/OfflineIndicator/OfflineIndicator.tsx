@@ -10,7 +10,8 @@ const discardAllFailed = async (): Promise<void> => {
 };
 
 /**
- * Small status pill in the parent sidebar. Renders nothing when the world is
+ * Small status pill, mounted once by `ParentShell` above the page header so it
+ * shows on every parent screen (#354). Renders nothing when the world is
  * boring — online and the outbox is clean. When there's something to say it
  * shows the offline state, the pending count, or a "X sync failed" actionable
  * row with Retry + Discard.
