@@ -147,20 +147,23 @@ max_indexes = 5
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
+## THIS FILE CONFIGURES LOCAL DEV ONLY. Production auth is managed in the
+## Supabase dashboard (Authentication → URL Configuration / Providers) and is the
+## source of truth there — see docs/runbooks/deploy.md.
+##
+## Do NOT run `supabase config push`. It writes every value below to the linked
+## project at once, so a push meant to change one field silently rewrites prod's
+## OTP length, confirmations and MFA settings (#215), and would set prod's
+## site_url to localhost. Nothing in CI runs it.
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-# Env-interpolated so local dev and prod can diverge cleanly. Set in shell or
-# via `--env-file` when running `supabase config push`:
-#   local:  SUPABASE_AUTH_SITE_URL=http://127.0.0.1:3000
-#           SUPABASE_AUTH_REDIRECT_URL=https://127.0.0.1:3000
-#   prod:   SUPABASE_AUTH_SITE_URL=https://talrum.pages.dev
-#           SUPABASE_AUTH_REDIRECT_URL=https://talrum.pages.dev/**
-site_url = "env(SUPABASE_AUTH_SITE_URL)"
+# in emails. Hardcoded to the Vite dev origin: this file is a local fixture, so
+# every contributor gets a working sign-in link with no extra setup.
+site_url = "http://localhost:5173"
 # A list of URLs that auth providers are permitted to redirect to post authentication.
 # Supports glob wildcards (e.g. `https://app.example.com/**`); see Supabase docs.
-additional_redirect_urls = ["env(SUPABASE_AUTH_REDIRECT_URL)"]
+additional_redirect_urls = ["http://localhost:5173/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).

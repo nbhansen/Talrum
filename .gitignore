@@ -5,9 +5,10 @@ coverage
 *.local
 .vite
 .DS_Store
-.env
-.env.local
-.env.*.local
+# Every env file is local-only; the *.example templates are the committed ones.
+.env*
+!.env.example
+!.env.cloud.example
 *.log
 *.tsbuildinfo
 

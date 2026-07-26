@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
@@ -34,8 +35,30 @@ const sentryPlugins = sentryEnabled
     ]
   : [];
 
+/**
+ * Announce which Supabase project the dev server is pointed at. Env files are
+ * invisible once written, and Vite prefers `.env.local` over `.env`, so a
+ * forgotten file is all it takes for a "local" session to write to production.
+ * Printing the target on every boot is the cheap structural guard; `npm run dev`
+ * is local by construction and only `dev:cloud` loads Cloud credentials.
+ */
+const supabaseTargetBanner = (): Plugin => ({
+  name: 'talrum-supabase-target-banner',
+  apply: 'serve',
+  configResolved(config) {
+    const url = String(config.env.VITE_SUPABASE_URL ?? '(unset)');
+    const isLocal = url.includes('127.0.0.1') || url.includes('localhost');
+    config.logger.info(
+      isLocal
+        ? `\n  Supabase → ${url}  (local)\n`
+        : `\n  ⚠  Supabase → ${url}\n  ⚠  NOT LOCAL. Writes hit a real project with real data.\n`,
+    );
+  },
+});
+
 export default defineConfig({
   plugins: [
+    supabaseTargetBanner(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -105,6 +128,12 @@ export default defineConfig({
     }),
     ...sentryPlugins,
   ],
+  // Both pinned to 5173 because supabase/config.toml hardcodes that origin in the
+  // auth redirect allow-list. Without strictPort, Vite silently moves to 5174 when
+  // 5173 is busy and every sign-in link then fails the allow-list check. Failing to
+  // boot is the better error.
+  server: { port: 5173, strictPort: true },
+  preview: { port: 5173, strictPort: true },
   build: {
     sourcemap: sentryEnabled,
   },

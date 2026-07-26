@@ -3,6 +3,44 @@
 How CI deploys Postgres migrations and edge functions, what secrets it
 needs, and how to do it by hand if the workflows are broken.
 
+## Configuration: what is local, what is production
+
+Each concern has exactly one source of truth per environment, and they do not overlap.
+
+| What it controls | Local | Production |
+| --- | --- | --- |
+| Which Supabase the **browser** talks to | `.env` (from `.env.example`) | `deploy.yml` build step, from GitHub secrets |
+| The Supabase project's **auth settings** (redirect URLs, OTP, MFA…) | `supabase/config.toml`, applied by `supabase start` | **Supabase dashboard**, and only there |
+| Database **schema** | `supabase db reset` | `deploy.yml` → `supabase db push --linked` |
+| Build-time secrets (`SENTRY_*`) | unset; the SDK no-ops | GitHub secrets, gated on `SENTRY_AUTH_TOKEN` |
+
+Two rules keep it that way:
+
+**`supabase/config.toml` is a local dev fixture. Never run `supabase config push`.**
+It writes every value in the file to the linked project at once, so a push meant to
+change one field silently rewrites prod's OTP length, email confirmations and MFA
+settings — that is #215, and it took a manual audit to undo. Production auth lives in
+the dashboard under Authentication → URL Configuration and Providers. Nothing in CI
+pushes config, and no workflow should start.
+
+**Production is never configured by a file in this repo.** The SPA's Supabase URL and
+key are injected by `deploy.yml` from GitHub secrets at build time. If you need to
+change what production talks to, change the secret, not a file.
+
+### Pointing local dev at Supabase Cloud
+
+`npm run dev` always talks to local Supabase. To hit Cloud, copy
+`.env.cloud.example` to `.env.cloud` and use the separate command:
+
+```sh
+npm run dev:cloud
+```
+
+Only that command loads `.env.cloud`, so you cannot end up writing to a real project
+without asking for it in this session. Either way the dev server prints the target on
+boot and shouts if it is not local. Remember there is no staging project (#98), so
+`dev:cloud` writes are real user data.
+
 ## Required GitHub secrets
 
 Set on the repo with `gh secret set <NAME> --repo nbhansen/Talrum`. CI

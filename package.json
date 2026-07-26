@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:cloud": "vite --mode cloud",
     "build": "tsc -b && vite build && node scripts/verify-build-css.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
