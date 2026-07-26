@@ -1,6 +1,7 @@
 import { lazy, type ReactNode, Suspense } from 'react';
 import { createBrowserRouter, Link, Navigate } from 'react-router-dom';
 
+import { kidModeNeedsPinSetup } from '@/lib/pin';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
@@ -93,6 +94,19 @@ const parentSuspenseFallback = (
 // static screen during the brief async wait while the route chunk loads.
 const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="true" />;
 
+/**
+ * Kid mode is a one-way door only while a device PIN exists to close it, so a
+ * device without one must not enter kid mode at all (#353). Sitting in `wrap`'s
+ * kid branch rather than inside each kid route makes that structural: the
+ * `'kid'` variant *is* the guard, so a third kid route cannot be added without
+ * it, and the guard runs before the route's own hooks fetch a board.
+ *
+ * Every way in lands here — the sidebar KID button, BoardBuilder's own
+ * hardcoded launch, and ParentHomeRoute's session auto-launch.
+ */
+const RequireKidPin = ({ children }: { children: ReactNode }): ReactNode =>
+  kidModeNeedsPinSetup() ? <Navigate to="/settings?pin=required" replace /> : children;
+
 // ErrorBoundary wraps Suspense (not the other way around) so that a
 // chunk-load failure during the dynamic import lands in the route's own
 // error fallback (with Retry) instead of bubbling to the app-root fallback.
@@ -101,7 +115,7 @@ const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="tru
 export const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   <ErrorBoundary fallback={variant === 'kid' ? kidRouteFallback : parentRouteFallback}>
     <Suspense fallback={variant === 'kid' ? kidSuspenseFallback : parentSuspenseFallback}>
-      {el}
+      {variant === 'kid' ? <RequireKidPin>{el}</RequireKidPin> : el}
     </Suspense>
   </ErrorBoundary>
 );

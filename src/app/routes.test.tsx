@@ -5,11 +5,13 @@ import {
   MemoryRouter,
   type RouteObject,
   RouterProvider,
+  useSearchParams,
 } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AccountDeletedRoute } from '@/app/routes/AccountDeletedRoute';
 import { PrivacyPolicyRoute } from '@/app/routes/PrivacyPolicyRoute';
+import { clearPin, setPin } from '@/lib/pin';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 
 import { PUBLIC_PATHS } from './publicPaths';
@@ -17,6 +19,13 @@ import { kidRouteFallback, parentRouteFallback, router, wrap } from './routes';
 
 const Boom = (): JSX.Element => {
   throw new Error('boom');
+};
+
+// Stands in for SettingsRoute so the kid-route guard's destination *and* the
+// reason it passes along are both observable without the real settings tree.
+const SettingsProbe = (): JSX.Element => {
+  const [params] = useSearchParams();
+  return <div data-testid="settings">{params.get('pin')}</div>;
 };
 
 // Pins PUBLIC_PATHS (consumed by AuthGate) to the router so a typo or a
@@ -123,5 +132,83 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByTestId('shell')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Tap to go back' })).toHaveAttribute('href', '/');
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The containment invariant the review found broken (#353): before this, kid
+ * mode could be entered with no PIN, and the exit gate then offered to *create*
+ * one — so a child could pick 1111, confirm it, and land in the board builder.
+ *
+ * These assert at the router level, which is where the invariant now lives.
+ * `KidModeGate.test.tsx` covers the gate widget and passed throughout the bug's
+ * lifetime; that is exactly why this layer needs its own tests.
+ */
+describe('kid routes require a device PIN (#353)', () => {
+  const KidScreen = (): JSX.Element => <div data-testid="kid-screen" />;
+
+  const mountKidRoute = (): void => {
+    const memRouter = createMemoryRouter(
+      [
+        { path: '/kid/sequence/:boardId', element: wrap(<KidScreen />, 'kid') },
+        { path: '/settings', element: <SettingsProbe /> },
+        { path: '/boards/:boardId/edit', element: <div data-testid="board-builder" /> },
+      ],
+      { initialEntries: ['/kid/sequence/b1'] },
+    );
+    render(<RouterProvider router={memRouter} />);
+  };
+
+  beforeEach(() => {
+    clearPin();
+  });
+  afterEach(() => {
+    clearPin();
+  });
+
+  it('redirects to Settings with a reason instead of opening a kid screen', async () => {
+    mountKidRoute();
+
+    await waitFor(() => expect(screen.getByTestId('settings')).toBeInTheDocument());
+    expect(screen.getByTestId('settings')).toHaveTextContent('required');
+    expect(screen.queryByTestId('kid-screen')).not.toBeInTheDocument();
+    // Never the board builder — the destructive surface the escape landed on.
+    expect(screen.queryByTestId('board-builder')).not.toBeInTheDocument();
+  });
+
+  it('opens the kid screen once a PIN exists', async () => {
+    await setPin('1234');
+    mountKidRoute();
+
+    await waitFor(() => expect(screen.getByTestId('kid-screen')).toBeInTheDocument());
+    expect(screen.queryByTestId('settings')).not.toBeInTheDocument();
+  });
+
+  // Structural guard, same spirit as the ErrorBoundary one above: a third kid
+  // route added to the manifest inherits the PIN precondition automatically,
+  // because it is the 'kid' variant of wrap() that applies it. This fails if
+  // someone gives a kid route the 'parent' variant to dodge the gate.
+  it('every /kid/* route in the real manifest is PIN-guarded', async () => {
+    const kidPaths = (router.routes as RouteObject[])
+      .map((r) => r.path)
+      .filter((p): p is string => typeof p === 'string' && p.startsWith('/kid/'));
+    expect(kidPaths.length).toBeGreaterThan(0);
+
+    for (const path of kidPaths) {
+      clearPin();
+      const concrete = path.replace(':boardId', 'b1');
+      const entry = (router.routes as RouteObject[]).find((r) => r.path === path);
+      const memRouter = createMemoryRouter(
+        [
+          { path, element: entry?.element },
+          { path: '/settings', element: <SettingsProbe /> },
+        ],
+        { initialEntries: [concrete] },
+      );
+      const view = render(<RouterProvider router={memRouter} />);
+      await waitFor(() => expect(screen.getByTestId('settings')).toBeInTheDocument());
+      expect(screen.getByTestId('settings')).toHaveTextContent('required');
+      view.unmount();
+    }
   });
 });

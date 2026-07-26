@@ -22,14 +22,12 @@ export interface KidCopy {
     letsGoTo: (label: string) => string;
     hearAgain: (label: string) => string;
   };
+  // Verification only. Choosing a PIN is a parent-UI job (Settings → Parent
+  // PIN) and its copy lives there, in English — a kid must never be shown a
+  // way to create the PIN that contains them (#353).
   pin: {
     verifyTitle: string;
     verifySubtitle: string;
-    setupNewTitle: string;
-    setupNewSubtitle: string;
-    setupConfirmTitle: string;
-    setupConfirmSubtitle: string;
-    mismatchError: string;
     wrongPin: string;
   };
 }
@@ -50,11 +48,6 @@ const copy: Record<AppLanguage, KidCopy> = {
     pin: {
       verifyTitle: 'Enter PIN to exit',
       verifySubtitle: 'Enter your 4-digit parent PIN.',
-      setupNewTitle: 'Set a parent PIN',
-      setupNewSubtitle: 'Choose a 4-digit PIN for exiting kid mode.',
-      setupConfirmTitle: 'Confirm your PIN',
-      setupConfirmSubtitle: 'Enter the same 4 digits again.',
-      mismatchError: "PINs don't match",
       wrongPin: 'Wrong PIN',
     },
   },
@@ -73,11 +66,6 @@ const copy: Record<AppLanguage, KidCopy> = {
     pin: {
       verifyTitle: 'Indtast PIN for at afslutte',
       verifySubtitle: 'Indtast din 4-cifrede forældre-PIN.',
-      setupNewTitle: 'Vælg en forældre-PIN',
-      setupNewSubtitle: 'Vælg en 4-cifret PIN til at afslutte børnetilstand.',
-      setupConfirmTitle: 'Bekræft din PIN',
-      setupConfirmSubtitle: 'Indtast de samme 4 cifre igen.',
-      mismatchError: 'PIN-koderne er ikke ens',
       wrongPin: 'Forkert PIN',
     },
   },

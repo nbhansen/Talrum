@@ -5,6 +5,7 @@ import { ParentHome } from '@/features/parent-home/ParentHome';
 import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
+import { kidModeNeedsPinSetup } from '@/lib/pin';
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
 import { useActiveKid } from '@/lib/queries/kids';
 import { accentForIndex } from '@/theme/tokens';
@@ -25,6 +26,10 @@ export const ParentHomeRoute = (): JSX.Element => {
   // back to home) render ParentHome normally so the user is never trapped.
   const [redirect] = useState(() => {
     if (hasAutoLaunched()) return null;
+    // Kid mode needs a device PIN (#353). Without one the kid route bounces
+    // straight to Settings, so auto-launching would yank the parent there on
+    // boot; land on parent home instead and let them set it when they choose.
+    if (kidModeNeedsPinSetup()) return null;
     const last = getLastBoard();
     return last ? kidPathFor(last) : null;
   });

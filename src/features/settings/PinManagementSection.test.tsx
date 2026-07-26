@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { hasPin, setPin } from '@/lib/pin';
 
@@ -17,11 +17,78 @@ beforeEach(() => {
 });
 
 describe('PinManagementSection', () => {
+  // Must run first: React deduplicates the "Cannot update a component while
+  // rendering a different component" warning per-process, so once any other
+  // enter-new→confirm-new test trips it, this regression test would silently
+  // pass. PinPad.tap() used to call submit() from inside a setDigits updater;
+  // on that transition it synchronously schedules a setState on this section,
+  // which React flags via console.error. Moved here from KidModeGate.test.tsx
+  // when #353 removed the gate's own two-step setup flow — this is now the only
+  // place a PinPad advances to a second step.
+  it('does not emit React state-update warnings on the enter-new→confirm-new transition', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    render(<PinManagementSection />);
+
+    await user.click(screen.getByRole('button', { name: /set a pin/i }));
+    await enterPin(user, '1234');
+    expect(await screen.findByText(/Confirm your PIN/i)).toBeInTheDocument();
+    await enterPin(user, '1234');
+    // The flash, not the "No PIN set" copy — that also contains "PIN set".
+    expect(await screen.findByText(/PIN set — kid mode is ready/i)).toBeInTheDocument();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it('shows the no-PIN message when no PIN is set', () => {
     render(<PinManagementSection />);
-    expect(screen.getByText(/No PIN set\./i)).toBeInTheDocument();
+    expect(screen.getByText(/No PIN set, so kid mode is unavailable/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /change pin/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /clear pin/i })).not.toBeInTheDocument();
+  });
+
+  // #353 removed PIN setup from the kid-mode exit gate, which was the only way
+  // to create one. Without this button there is no way to set a PIN at all, and
+  // therefore no way to use kid mode.
+  it('offers Set a PIN when none is set, and setting one enables kid mode (#353)', async () => {
+    const user = userEvent.setup();
+    render(<PinManagementSection />);
+
+    await user.click(screen.getByRole('button', { name: /set a pin/i }));
+    expect(await screen.findByText(/Set a parent PIN/i)).toBeInTheDocument();
+
+    await enterPin(user, '4321');
+    expect(await screen.findByText(/Confirm your PIN/i)).toBeInTheDocument();
+
+    await enterPin(user, '4321');
+    expect(await screen.findByText(/PIN set — kid mode is ready/i)).toBeInTheDocument();
+
+    expect(hasPin()).toBe(true);
+    const { verifyPin } = await import('@/lib/pin');
+    expect(await verifyPin('4321')).toBe(true);
+  });
+
+  it('first-time setup rejects a mismatched confirmation and stores nothing', async () => {
+    const user = userEvent.setup();
+    render(<PinManagementSection />);
+
+    await user.click(screen.getByRole('button', { name: /set a pin/i }));
+    await enterPin(user, '4321');
+    await enterPin(user, '9999');
+
+    expect(await screen.findByText(/PINs don't match/i)).toBeInTheDocument();
+    expect(hasPin()).toBe(false);
+  });
+
+  it('explains the redirect when a kid route bounced the parent here (#353)', () => {
+    render(<PinManagementSection pinRequiredForKidMode />);
+    expect(screen.getByRole('status')).toHaveTextContent(/Kid mode needs a parent PIN/i);
+  });
+
+  it('does not show the kid-mode notice once a PIN exists', async () => {
+    await setPin('1234');
+    render(<PinManagementSection pinRequiredForKidMode />);
+    expect(screen.queryByText(/Kid mode needs a parent PIN/i)).not.toBeInTheDocument();
   });
 
   it('shows Change PIN and Clear PIN when a PIN is set', async () => {

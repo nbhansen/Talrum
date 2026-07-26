@@ -4,6 +4,17 @@
   color: var(--tal-ink-soft);
 }
 
+.notice {
+  margin: 0 0 var(--tal-space-3);
+  padding: var(--tal-space-3) var(--tal-space-4);
+  border-radius: var(--tal-r-md);
+  border: 1px solid var(--tal-line);
+  background: var(--tal-surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tal-ink);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
