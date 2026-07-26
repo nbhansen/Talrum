@@ -54,7 +54,14 @@ if (!match || match.index !== 0) {
 
 // Opaque responses (status 0) are unreadable and quota-padded; caching them is
 // the bug this route had before it ever fired.
-const options = sw.slice(nameAt, nameAt + 600);
+//
+// Bound the search to this route's own registration — up to wherever the next
+// route starts — rather than a fixed number of characters. A second runtime
+// cache would otherwise be able to satisfy this check on the first one's
+// behalf, and reordering the options object would push `statuses` out of a
+// fixed window.
+const nextRoute = sw.indexOf('registerRoute(', nameAt);
+const options = sw.slice(nameAt, nextRoute === -1 ? sw.length : nextRoute);
 const statuses = /statuses:\s*\[([^\]]*)\]/.exec(options);
 if (!statuses) fail(`no cacheableResponse statuses found for ${CACHE_NAME}`);
 if (

@@ -126,4 +126,5 @@ sign-in's hydration, which is fine because every operation is idempotent.
 - The SW `talrum-storage-v1` cache is _not_ wiped at auth boundaries: it
   holds bytes keyed by storage URL, and reaching them requires a path from
   the (wiped) data and signed-URL caches. Expiry (30 days / 200 entries)
-  eventually evicts them.
+  eventually evicts them. This was dormant until #355 made the cache
+  actually populate; #380 tracks adding it to the scrub.
