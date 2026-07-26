@@ -23,6 +23,24 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      # supabase/config.toml configures local dev only; production auth lives in
+      # the Supabase dashboard. #215 showed a documented rule is not enough on
+      # its own, so pin both halves of the invariant:
+      #   1. no automation may push config to the linked project — one push
+      #      rewrites every [auth] value at once.
+      #   2. site_url must stay a localhost URL, so the file can never again
+      #      hold prod-shaped values that a stray push would silently apply.
+      # The patterns use [ ] so this step cannot match its own source.
+      - name: config.toml stays local-only
+        run: |
+          if grep -rEn 'supabase config[ ]+push' .github scripts package.json; then
+            echo '::error::Pushing config.toml to the linked project is forbidden - production auth is dashboard-managed (#215, #367).'
+            exit 1
+          fi
+          if ! grep -qE '^site_url = "http://localhost:' supabase/config.toml; then
+            echo '::error::supabase/config.toml site_url must be a localhost URL - it is a local-dev fixture (#367).'
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:css
