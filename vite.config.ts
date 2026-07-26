@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
@@ -34,8 +35,47 @@ const sentryPlugins = sentryEnabled
     ]
   : [];
 
+/**
+ * Announce which Supabase project the dev server is pointed at. Env files are
+ * invisible once written, and Vite prefers `.env.local` over `.env`, so a
+ * forgotten file is all it takes for a "local" session to write to production.
+ * Printing the target on every boot is the cheap structural guard; `npm run dev`
+ * is local by construction and only `dev:cloud` loads Cloud credentials.
+ */
+/**
+ * Compare the parsed hostname, not a substring: `notlocalhost.example.com`
+ * contains "localhost" and must not read as safe. Anything unparseable counts
+ * as not-local, so a malformed URL warns rather than reassures.
+ */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+const isLocalSupabase = (raw: string): boolean => {
+  try {
+    return LOCAL_HOSTS.has(new URL(raw).hostname);
+  } catch {
+    return false;
+  }
+};
+
+const supabaseTargetBanner = (): Plugin => ({
+  name: 'talrum-supabase-target-banner',
+  apply: 'serve',
+  configResolved(config) {
+    const url = String(config.env.VITE_SUPABASE_URL ?? '(unset)');
+    // warn, not info, for the non-local case: it routes through Vite's warning
+    // channel so it is coloured and survives log filtering.
+    if (isLocalSupabase(url)) {
+      config.logger.info(`\n  Supabase → ${url}  (local)\n`);
+    } else {
+      config.logger.warn(
+        `\n  ⚠  Supabase → ${url}\n  ⚠  NOT LOCAL. Writes hit a real project with real data.\n`,
+      );
+    }
+  },
+});
+
 export default defineConfig({
   plugins: [
+    supabaseTargetBanner(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -105,6 +145,12 @@ export default defineConfig({
     }),
     ...sentryPlugins,
   ],
+  // Both pinned to 5173 because supabase/config.toml hardcodes that origin in the
+  // auth redirect allow-list. Without strictPort, Vite silently moves to 5174 when
+  // 5173 is busy and every sign-in link then fails the allow-list check. Failing to
+  // boot is the better error.
+  server: { port: 5173, strictPort: true },
+  preview: { port: 5173, strictPort: true },
   build: {
     sourcemap: sentryEnabled,
   },

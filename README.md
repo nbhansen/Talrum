@@ -52,14 +52,23 @@ You need Node 22+, Docker, and the [Supabase CLI](https://github.com/supabase/cl
 ```sh
 git clone <repo> && cd Talrum
 npm install
-cp .env.example .env.local           # paste keys from `supabase start`
+cp .env.example .env                  # paste the key from `supabase status`
 supabase start                        # Postgres + Auth + Studio in Docker
 supabase db reset                     # migrations + 4 demo boards
 npm run dev
 ```
 
-Open the URL Vite prints. Sign in with any email; grab the 6-digit OTP from
-Mailpit at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all;
+`npm run dev` always talks to local Supabase, and prints which project it is
+pointed at on boot. To work against Supabase Cloud instead, copy
+`.env.cloud.example` to `.env.cloud` and run `npm run dev:cloud` — a separate
+command, so you can't drift onto real user data by forgetting a file. The full
+local-vs-production picture is in
+[docs/runbooks/deploy.md](./docs/runbooks/deploy.md#configuration-what-is-local-what-is-production);
+the one rule worth memorising is **never run `supabase config push`** (it
+rewrites prod's auth settings wholesale — see #215).
+
+Open the URL Vite prints. Sign in with any email, then open the sign-in link
+from Mailpit at <http://127.0.0.1:54324> (Supabase's local SMTP catch-all;
 the config.toml section is still named `[inbucket]` for historical reasons).
 Supabase Studio is at <http://127.0.0.1:54323>.
 
@@ -156,17 +165,27 @@ self-hosted Supabase on a VPS is in [docs/self-hosting.md](./docs/self-hosting.m
    ```
 3. In GitHub _Settings → Secrets and variables → Actions_ add:
    - `SUPABASE_ACCESS_TOKEN` (the PAT)
-   - `SUPABASE_PROJECT_REF` (the ref)
+   - `SUPABASE_PROJECT_REF` (the ref; the build derives the project URL from it)
    - `SUPABASE_DB_PASSWORD` (Postgres password from the dashboard)
+   - `VITE_SUPABASE_ANON_KEY` (anon / publishable key)
+   - `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` (for the Pages upload)
    - `VITE_SENTRY_DSN` (Sentry project DSN; build embeds it in the prod bundle)
    - `SENTRY_AUTH_TOKEN` (Sentry org auth token with `project:releases` scope)
    - `SENTRY_ORG` / `SENTRY_PROJECT` (org slug + project slug for source-map upload)
-4. In Cloudflare Pages, connect the repo with build command `npm run build`,
-   output directory `dist`, production branch `main`. Add build env vars
-   `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see
-   `.env.production.example`).
+
+   These are the **only** place production's Supabase URL and key are
+   configured. No env file in this repo feeds production.
+
+4. Create the Cloudflare Pages project (`talrum`). Leave its build settings
+   empty — Pages is used purely as static hosting. CI runs `npm run build`
+   itself, with the `VITE_*` values above injected from the secrets, then
+   uploads `dist` with `wrangler pages deploy`. Build env vars set in the
+   Pages dashboard are never read.
 5. In Supabase _Auth → URL Configuration_ set the Site URL to the Cloudflare
    Pages URL and add the mobile app deep-link to Additional Redirect URLs.
+   The dashboard is the source of truth for production auth —
+   `supabase/config.toml` configures local dev only, and must not be pushed
+   (see [docs/runbooks/deploy.md](./docs/runbooks/deploy.md#configuration-what-is-local-what-is-production)).
 
 **Per release**
 
