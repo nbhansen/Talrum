@@ -81,16 +81,32 @@ the next boot, and components would render against a value that never
 existed. Disabled queries fall out the same way. So the persisted snapshot
 is exactly "the last thing the server actually said", nothing speculative.
 
-## The buster: version-pinned invalidation
+## The buster: one cache per build
 
-`persistOptions.buster` is `__APP_VERSION__` — Vite replaces it at build
-time with the `package.json` version (see `vite.config.ts` `define` and
-`src/types/globals.d.ts`). If the persisted cache was written by a
-different app version, hydration discards it wholesale. This is the escape
-hatch for domain-type changes: rename a column, reshape a query result,
-bump the version, and no stale-shaped data can leak into the new code.
-`maxAge` (one week) is the belt to that suspender — a tablet left in a
-drawer doesn't resurrect month-old data.
+`persistOptions.buster` is `__APP_COMMIT__` — Vite replaces it at build
+time with the short commit sha (see `vite.config.ts` `define` and
+`src/types/globals.d.ts`). A persisted cache written by any other build is
+discarded on hydration rather than restored. So every deploy starts each
+device from the server, and no stale-shaped data can leak into new code:
+rename a column or reshape a query result and the old snapshot is simply
+gone.
+
+It was `__APP_VERSION__` — package.json's version — until #356. That reads
+like the more disciplined choice, and it was the wrong one: this repo
+deploys continuously from main and never bumps the version, so the buster
+was the constant `0.1.0` and the escape hatch could not fire. `#302` added
+the commit readout in Settings for exactly that reason.
+
+Invalidating per deploy over-invalidates, deliberately. A device only ever
+sees a new buster by having just downloaded the build that carries it, so
+it is online at that moment: the cost is one refetch, re-persisted within
+the second (`throttleTime`). The opposite error costs a screen rendering
+against data of a shape it no longer understands, on a device you are not
+holding, with no reload that clears it. That asymmetry is the whole
+argument.
+
+`maxAge` (one week) is now the belt rather than the mechanism — it only
+matters for a tablet that sat in a drawer across no deploys at all.
 
 ## Auth boundaries: the scrub
 
