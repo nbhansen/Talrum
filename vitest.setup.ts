@@ -97,16 +97,22 @@ console.error = (...args: unknown[]): void => {
 // mode depends on test order. Reset all three globally; pairs with idb-keyval's
 // `clear()`. drain state lives in `./drain-state.ts` (no Supabase deps) for
 // the same tsconfig.node.json reason as `storage-cache.ts`.
+//
+// One hook, not two, and the console check goes last inside it. A separate
+// hook is not equivalent: vitest's default `sequence.hooks: 'stack'` runs
+// afterEach in reverse registration order, and a hook that throws skips the
+// remaining ones — so the console guard as its own hook ran *first* and, on a
+// failure, the resets below never ran at all. That leaves IndexedDB and these
+// module caches dirty for the next test in the file, which is the #144/#168
+// cascade this hook exists to prevent. Sequencing it in the function body
+// instead of relying on hook order makes the config setting irrelevant.
 afterEach(async () => {
   await clear();
   __resetSignedUrlCache();
   __resetSpeechForTests();
   __resetDrainForTests();
   __resetBoardClockForTests();
-});
 
-// Registered last so the resets above always run, even on the throw.
-afterEach(() => {
   const calls = consoleErrorCalls.splice(0);
   if (calls.length === 0) return;
   throw new Error(
