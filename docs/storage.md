@@ -61,8 +61,8 @@ CacheFirst with `ignoreSearch: true`, so the `?token=...` query is stripped
 from the cache key and every rotation of a signed URL for the same object
 resolves to the same cached bytes. A stale URL never reaches Supabase; the
 SW answers from `talrum-storage-v1` (200 entries, 30-day expiry). The two
-caches are complementary: the URL cache keeps the *request* stable so the SW
-cache can keep serving the *bytes*. Only a photo never viewed on this device
+caches are complementary: the URL cache keeps the _request_ stable so the SW
+cache can keep serving the _bytes_. Only a photo never viewed on this device
 is genuinely unreachable offline.
 
 ## The `stock:` sentinel

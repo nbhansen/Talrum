@@ -7,12 +7,12 @@ needs, and how to do it by hand if the workflows are broken.
 
 Each concern has exactly one source of truth per environment, and they do not overlap.
 
-| What it controls | Local | Production |
-| --- | --- | --- |
-| Which Supabase the **browser** talks to | `.env` (from `.env.example`) | `deploy.yml` build step, from GitHub secrets |
-| The Supabase project's **auth settings** (redirect URLs, OTP, MFA…) | `supabase/config.toml`, applied by `supabase start` | **Supabase dashboard**, and only there |
-| Database **schema** | `supabase db reset` | `deploy.yml` → `supabase db push --linked` |
-| Build-time secrets (`SENTRY_*`) | unset; the SDK no-ops | GitHub secrets, gated on `SENTRY_AUTH_TOKEN` |
+| What it controls                                                    | Local                                               | Production                                   |
+| ------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------- |
+| Which Supabase the **browser** talks to                             | `.env` (from `.env.example`)                        | `deploy.yml` build step, from GitHub secrets |
+| The Supabase project's **auth settings** (redirect URLs, OTP, MFA…) | `supabase/config.toml`, applied by `supabase start` | **Supabase dashboard**, and only there       |
+| Database **schema**                                                 | `supabase db reset`                                 | `deploy.yml` → `supabase db push --linked`   |
+| Build-time secrets (`SENTRY_*`)                                     | unset; the SDK no-ops                               | GitHub secrets, gated on `SENTRY_AUTH_TOKEN` |
 
 Two rules keep it that way:
 
@@ -47,11 +47,11 @@ Set on the repo with `gh secret set <NAME> --repo nbhansen/Talrum`. CI
 reads them in `.github/workflows/deploy.yml` (migrations + SPA) and
 `.github/workflows/deploy-functions.yml`.
 
-| Secret | Used by | Source |
-| --- | --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`, `deploy-functions.yml` | dashboard → Account → Access Tokens |
-| `SUPABASE_DB_PASSWORD` | `deploy.yml` | dashboard → Project settings → Database |
-| `SUPABASE_PROJECT_REF` | `deploy.yml`, `deploy-functions.yml` | dashboard → Project settings → General |
+| Secret                  | Used by                              | Source                                  |
+| ----------------------- | ------------------------------------ | --------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`, `deploy-functions.yml` | dashboard → Account → Access Tokens     |
+| `SUPABASE_DB_PASSWORD`  | `deploy.yml`                         | dashboard → Project settings → Database |
+| `SUPABASE_PROJECT_REF`  | `deploy.yml`, `deploy-functions.yml` | dashboard → Project settings → General  |
 
 ## Edge function default secrets — no manual bootstrap
 

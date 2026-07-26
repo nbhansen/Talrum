@@ -1,6 +1,6 @@
 # Speech: how a pictogram tap becomes sound
 
-Talrum is an AAC app — for a non-verbal kid, the audio *is* the interface. A
+Talrum is an AAC app — for a non-verbal kid, the audio _is_ the interface. A
 tap that stays silent is a broken promise, so the subsystem is built around
 one rule: if a pictogram can make sound, it does, falling back rather than
 failing. This page is the narrative; the doc comments in `src/lib/speech.ts`,
@@ -36,7 +36,7 @@ The heart of the subsystem is a split in `src/lib/language.ts` (#304):
 
 - **`getAppLanguage()`** — the language of Talrum's own kid-visible copy.
   Clamped to `APP_LANGUAGES` (`'en' | 'da'`): explicit pref, else the device
-  locale *when we have copy for it*, else English. We can't show Swedish
+  locale _when we have copy for it_, else English. We can't show Swedish
   strings we never wrote, so the clamp is what keeps a Swedish iPad from
   rendering blank UI.
 - **`getVoiceLanguage()`** — the target language for TTS voice matching.
@@ -58,7 +58,7 @@ Language (`talrum:language`) and speech prefs (`talrum:speech-prefs`, via
 localStorage — per device, not per account. That's deliberate twice over:
 nothing in the app is per-account yet (the PIN lives the same way), and the
 values are inherently device-shaped — a `voiceURI` names a voice installed on
-*this* iPad and means nothing on another. All reads are try/catch'd and fall
+_this_ iPad and means nothing on another. All reads are try/catch'd and fall
 back to defaults; a privacy-mode browser just gets the heuristic. If settings
 ever move to the DB, migrate these together (see the comment atop
 `language.ts`).
@@ -87,7 +87,7 @@ arrives, and tests reset module state with `__resetSpeechForTests`.
 Every string a kid can see lives in `src/lib/kidCopy.ts` — one `KidCopy`
 table per language, `getKidCopy()` resolves via `getAppLanguage()` (#241,
 #304). For an AAC app this is an invariant, not a tidiness preference: kid
-mode is used *by* the kid, often read aloud, and a stray English string
+mode is used _by_ the kid, often read aloud, and a stray English string
 hard-coded in a component would leak past both translation and any future
 tone/reading-level review. One file means one place to audit what the kid is
 exposed to. Generic parent-mode chrome (Cancel, Delete) stays out; the PIN
@@ -95,7 +95,7 @@ flow that gates kid-mode exit is in, because the kid sees it.
 
 ## When you extend this
 
-- **New kid-visible string:** add it to the `KidCopy` interface and to *both*
+- **New kid-visible string:** add it to the `KidCopy` interface and to _both_
   language tables in `kidCopy.ts` before referencing it from a component —
   the `Record<AppLanguage, KidCopy>` type makes a missing translation a
   compile error.
