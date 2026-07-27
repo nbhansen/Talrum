@@ -1,6 +1,8 @@
 # AGENTS.md
 
-Drop-in operating instructions for coding agents. Read this file before every task.
+Write all output in ASD-STE100 Simplified Technical English (STE). This applies to chat replies, plans, documentation, commit messages, and pull request text. Use short sentences. Use the active voice. Give one instruction in each sentence. Use the same word for the same thing each time.
+
+Read this file before every task.
 
 **Working code only. Finish the job. Plausibility is not correctness.**
 
@@ -113,6 +115,7 @@ For every task:
 - When a question has a clear answer, give it. When it does not, say so and give your best read on the tradeoffs.
 - Celebrate only what matters: shipping, solving genuinely hard problems, metrics that moved. Not feature ideas, not scope creep, not "wouldn't it be cool if".
 - No excessive bullet points, no unprompted headers, no emoji. Prose is usually clearer than structure for short answers.
+- Write chat replies in STE, the same as plans and documentation. See the top of this file.
 
 ---
 
