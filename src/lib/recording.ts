@@ -25,6 +25,13 @@ const pickMimeType = (): string | undefined => {
  */
 export const MAX_RECORDING_MS = 10_000;
 
+/**
+ * The recorder stops itself at `MAX_RECORDING_MS`; `stop()` after that
+ * resolves with the capped clip. A consumer that drives UI from its own
+ * recording state must arm its own timer on the same constant — or it shows
+ * a live "recording" UI over a recorder that already stopped (see
+ * `VoiceRecorderDialog`).
+ */
 export interface Recording {
   stop: () => Promise<Blob>;
   cancel: () => void;
