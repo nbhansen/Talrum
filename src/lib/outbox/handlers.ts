@@ -35,7 +35,7 @@ export class UnretryableOutboxError extends Error {
   readonly failureKind: OutboxFailureKind;
 
   constructor(message: string, options?: { cause?: unknown; failureKind?: OutboxFailureKind }) {
-    super(message, { cause: options?.cause });
+    super(message, options);
     this.name = 'UnretryableOutboxError';
     this.failureKind = options?.failureKind ?? 'permanent';
   }
