@@ -9,6 +9,7 @@ import {
   useOptimisticListMutation,
 } from '@/lib/queries/optimistic';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
+import { mintStoragePath } from '@/lib/storage';
 import type { Board, Pictogram } from '@/types/domain';
 
 const patchPictogramInList = (
@@ -106,9 +107,11 @@ export const useSetPictogramAudio = (): UseMutationResult<
       enqueueAndDrain({
         kind: 'setPictoAudio',
         pictogramId,
-        ownerId,
         blob,
-        extension,
+        // Minted here, once per entry (#415): replays reuse the path, and no
+        // two entries ever share one, so an abandoned run's late IO cannot
+        // touch a newer recording.
+        path: mintStoragePath(ownerId, pictogramId, extension),
         ...(previousPath ? { previousPath } : {}),
       }),
     // Revoke while the blob URL is still in the cache — the sweep walks
@@ -156,17 +159,18 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       ),
     ],
     mutationFn: async ({ id, label, blob, extension }) => {
+      const path = mintStoragePath(ownerId, id, extension);
       await enqueueAndDrain({
         kind: 'createPhotoPicto',
         pictogramId: id,
         ownerId,
         label: label.trim(),
         blob,
-        extension,
+        path,
       });
       // Real path the server will end up serving; the settle invalidation
       // refetches and replaces the blob URL with the signed path.
-      return { id, imagePath: `${ownerId}/${id}.${extension}` };
+      return { id, imagePath: path };
     },
     beforeRollback: () => revokePictogramBlobs(qc),
     settle: revokeThenInvalidate(qc),
@@ -234,9 +238,8 @@ export const useReplacePictogramImage = (): UseMutationResult<
       enqueueAndDrain({
         kind: 'replacePictoImage',
         pictogramId,
-        ownerId,
         blob,
-        extension,
+        path: mintStoragePath(ownerId, pictogramId, extension),
         ...(previousPath ? { previousPath } : {}),
       }),
     // Revoke while the blob URL is still in the cache (revoke walks current

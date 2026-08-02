@@ -168,11 +168,24 @@ const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
   noteBoardUpdatedAt(entry.boardId, row.updated_at);
 };
 
+/**
+ * Blob entries persisted before #415 carried an `extension` and derived a
+ * deterministic path at run time; new writes no longer own those paths, so
+ * replaying such an entry would reopen the late-IO clobber the versioned
+ * paths close. Fail it permanently with an instruction instead. The
+ * parameter is typed optional because the persisted object may predate the
+ * required field.
+ */
+const entryPath = (entry: { path?: string }): string => {
+  if (typeof entry.path === 'string') return entry.path;
+  throw new UnretryableOutboxError('entry predates versioned storage paths — discard and redo');
+};
+
 const handleCreatePhotoPictogram = async (
   entry: CreatePhotoPictogramEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
+  const path = entryPath(entry);
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
@@ -207,7 +220,7 @@ const handleSetPictogramAudio = async (
   entry: SetPictogramAudioEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
+  const path = entryPath(entry);
   await uploadBlob(AUDIO_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(AUDIO_BUCKET, path);
@@ -252,7 +265,7 @@ const handleReplacePictogramImage = async (
   entry: ReplacePictogramImageEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
+  const path = entryPath(entry);
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
@@ -381,9 +394,10 @@ const handlerTimeoutMs = (entry: OutboxEntry): number =>
  * Residual, documented in docs/outbox.md "Known limits": a request already
  * in flight when the timer fires can still land arbitrarily late. For row
  * writes that is the last-write-wins class the app already accepts for
- * cross-device replays (boards stay safe via the conflict guard, #281); for
- * storage objects on these deterministic paths it can clobber a newer
- * object (#415 tracks versioned paths, the fix by construction).
+ * cross-device replays (boards stay safe via the conflict guard, #281). For
+ * storage objects, versioned paths (#415, `mintStoragePath`) make the late
+ * request land on a path no newer write owns — at worst one orphaned
+ * object, never a newer upload.
  *
  * A late rejection from the losing run is not an unhandled rejection: the
  * race subscribed to it when it started.

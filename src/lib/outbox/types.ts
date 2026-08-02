@@ -67,15 +67,23 @@ export interface CreatePhotoPictogramEntry extends OutboxEntryBase {
   label: string;
   /** Stored as Blob inside IDB so the upload survives a page refresh. */
   blob: Blob;
-  extension: string;
+  /**
+   * Versioned Storage path minted at enqueue time (#415, `mintStoragePath`).
+   * Minted once so replays reuse it; unique so IO landing late from an
+   * abandoned run cannot touch a newer entry's object. Entries persisted
+   * before #415 carried `extension` instead — the handler fails those
+   * permanently (discard and redo) rather than replaying the old
+   * deterministic-path race.
+   */
+  path: string;
 }
 
 export interface SetPictogramAudioEntry extends OutboxEntryBase {
   kind: 'setPictoAudio';
   pictogramId: string;
-  ownerId: string;
   blob: Blob;
-  extension: string;
+  /** Versioned Storage path minted at enqueue time (#415) — see {@link CreatePhotoPictogramEntry.path}. */
+  path: string;
   /** Path of an older recording to clean up after the new one lands. */
   previousPath?: string;
 }
@@ -95,9 +103,9 @@ export interface RenamePictogramEntry extends OutboxEntryBase {
 export interface ReplacePictogramImageEntry extends OutboxEntryBase {
   kind: 'replacePictoImage';
   pictogramId: string;
-  ownerId: string;
   blob: Blob;
-  extension: string;
+  /** Versioned Storage path minted at enqueue time (#415) — see {@link CreatePhotoPictogramEntry.path}. */
+  path: string;
   /**
    * Path of the prior image to delete after the new one lands. Stock-prefixed
    * paths (`stock:<slug>`) and missing values are ignored — only real Storage

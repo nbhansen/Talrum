@@ -1,4 +1,5 @@
 import { del, get, set } from 'idb-keyval';
+import { ulid } from 'ulid';
 
 import { type SignedUrlEntry, signedUrlMemCache as memCache } from './storage-cache';
 import { supabase } from './supabase';
@@ -18,6 +19,21 @@ export const STOCK_PATH_PREFIX = 'stock:';
 /** True for real Storage paths (not stock sentinels, not empty). */
 export const isUploadedStoragePath = (path: string | undefined): path is string =>
   !!path && !path.startsWith(STOCK_PATH_PREFIX);
+
+/**
+ * Mint a unique Storage path for one upload (#415). The ULID makes every
+ * upload land on its own object; the row's `image_path`/`audio_path` is the
+ * single source of truth for which object is current. Deterministic paths
+ * (`owner/picto.ext`) let IO that lands late — an outbox run abandoned by
+ * the handler timeout (#413) whose request is still in flight — delete or
+ * overwrite an object a newer entry re-created at the same path. With
+ * versioned paths that late IO acts on a path no newer write owns: at worst
+ * it leaks one orphaned object, never a user's newer upload. Minted once
+ * per outbox entry (at enqueue), so replays of the same entry stay
+ * idempotent.
+ */
+export const mintStoragePath = (ownerId: string, pictogramId: string, extension: string): string =>
+  `${ownerId}/${pictogramId}-${ulid()}.${extension}`;
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const IDB_PREFIX = 'signed-url:';

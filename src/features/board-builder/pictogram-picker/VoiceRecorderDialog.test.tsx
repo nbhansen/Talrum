@@ -149,7 +149,7 @@ describe('VoiceRecorderDialog', () => {
       expect(uploadMock).toHaveBeenCalledTimes(1);
     });
     const [path, blob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
-    expect(path).toMatch(/\/p1\.webm$/);
+    expect(path).toMatch(/\/p1-[0-9A-HJKMNP-TV-Z]{26}\.webm$/);
     expect(blob.type).toBe('audio/webm');
     expect(storageBucketsUsed).toContain('pictogram-audio');
     await waitFor(() => {

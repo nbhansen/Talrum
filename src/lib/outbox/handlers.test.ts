@@ -325,11 +325,11 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob,
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.jpg',
+      'o-1/p-1-01HV1JPG.jpg',
       blob,
       expect.objectContaining({ upsert: true }),
     );
@@ -341,7 +341,7 @@ describe('runHandler · createPhotoPicto', () => {
         id: 'p-1',
         owner_id: 'o-1',
         style: 'photo',
-        image_path: 'o-1/p-1.jpg',
+        image_path: 'o-1/p-1-01HV1JPG.jpg',
       }),
       { ignoreDuplicates: true },
     );
@@ -370,7 +370,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     // First attempt lands the row; the tab crashes before the entry is
     // marked done. The replay re-uploads (storage upsert) and the row
@@ -392,7 +392,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     let caught: unknown;
     try {
@@ -425,7 +425,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
     // No rollback delete (#414 review): a run abandoned by the handler
@@ -436,6 +436,27 @@ describe('runHandler · createPhotoPicto', () => {
   });
 });
 
+describe('runHandler · legacy blob entries (#415)', () => {
+  it('fails an entry persisted before versioned paths permanently, with an instruction', async () => {
+    // Pre-#415 persisted shape: extension, no path. Replaying it would
+    // re-derive the deterministic path new writes no longer own.
+    const legacy = {
+      ...baseProps,
+      kind: 'createPhotoPicto',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      label: 'Park',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+    } as unknown as CreatePhotoPictogramEntry;
+    await expect(runHandler(legacy)).rejects.toMatchObject({
+      name: 'UnretryableOutboxError',
+      message: expect.stringContaining('discard and redo') as unknown,
+    });
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('runHandler · setPictoAudio', () => {
   it('uploads, updates the row, and removes the previous recording', async () => {
     const blob = new Blob(['x'], { type: 'audio/webm' });
@@ -443,18 +464,17 @@ describe('runHandler · setPictoAudio', () => {
       ...baseProps,
       kind: 'setPictoAudio',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob,
-      extension: 'webm',
+      path: 'o-1/p-1-01HV1WEBM.webm',
       previousPath: 'o-1/p-1.m4a',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.webm',
+      'o-1/p-1-01HV1WEBM.webm',
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1.webm' });
+    expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1-01HV1WEBM.webm' });
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.m4a']);
   });
 });
@@ -513,18 +533,17 @@ describe('runHandler · replacePictoImage', () => {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob,
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
       previousPath: 'o-1/p-1.webp',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.jpg',
+      'o-1/p-1-01HV1JPG.jpg',
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1.jpg' });
+    expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1-01HV1JPG.jpg' });
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webp']);
   });
 
@@ -533,9 +552,8 @@ describe('runHandler · replacePictoImage', () => {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
       previousPath: 'stock:park',
     };
     await runHandler(entry);
@@ -548,13 +566,14 @@ describe('runHandler · replacePictoImage', () => {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
-      previousPath: 'o-1/p-1.jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
+      previousPath: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
     // Same key — upsert overwrote the bytes; deleting it would lose the new image.
+    // Versioned paths (#415) make this shape unreachable for new entries, but
+    // the guard stays: a row snapshot could still hand back the same path.
     expect(removeMock).not.toHaveBeenCalled();
   });
 });
@@ -673,7 +692,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
     ownerId: 'o-1',
     label: 'Park',
     blob: new Blob(['x'], { type: 'image/jpeg' }),
-    extension: 'jpg',
+    path: 'o-1/p-1-01HV1JPG.jpg',
   });
 
   it('a hung row write rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
@@ -775,9 +794,8 @@ describe('runHandler · handler IO timeout (#413)', () => {
       ...baseProps,
       kind: 'setPictoAudio',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'audio/webm' }),
-      extension: 'webm',
+      path: 'o-1/p-1-01HV1WEBM.webm',
       previousPath: 'o-1/p-1.m4a',
     };
     const outcome = runHandler(entry).then(

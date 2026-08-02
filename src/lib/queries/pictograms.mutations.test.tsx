@@ -325,7 +325,7 @@ describe('useSetPictogramAudio', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const [path, uploadedBlob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
-    expect(path).toMatch(/\/p2\.webm$/);
+    expect(path).toMatch(/\/p2-[0-9A-HJKMNP-TV-Z]{26}\.webm$/);
     expect(uploadedBlob).toBe(blob);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: path });
     expect(eqMock).toHaveBeenCalledWith('id', 'p2');
@@ -450,7 +450,10 @@ describe('useCreatePhotoPictogram', () => {
     await waitFor(() => expect(created).toBeDefined());
 
     // The resolved path is the real server path the refetch will serve.
-    expect(created?.imagePath.endsWith(`/${created?.id ?? ''}.jpg`)).toBe(true);
+    // Versioned path (#415): owner/<id>-<ulid>.jpg, unique per upload.
+    expect(created?.imagePath).toMatch(
+      new RegExp(`/${created?.id ?? ''}-[0-9A-HJKMNP-TV-Z]{26}\\.jpg$`),
+    );
     expect(upsertMock).toHaveBeenCalledWith(
       {
         id: created?.id,
@@ -559,7 +562,7 @@ describe('useReplacePictogramImage', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const [path] = uploadMock.mock.calls[0] as [string, Blob, unknown];
-    expect(path).toMatch(/\/ph1\.png$/);
+    expect(path).toMatch(/\/ph1-[0-9A-HJKMNP-TV-Z]{26}\.png$/);
     expect(updateMock).toHaveBeenCalledWith({ image_path: path });
     expect(removeMock).toHaveBeenCalledWith(['owner-uuid/ph1.jpg']);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-replace');

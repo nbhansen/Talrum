@@ -142,13 +142,12 @@ New entry kind? Add the interface in `types.ts`, the handler in
   in flight, and that request can land after later entries ran. For row
   writes this is the same last-write-wins class as cross-device replays
   (boards stay safe via the conflict guard); the between-step cancellation
-  checks stop the zombie from starting anything new. What remains open: the
-  in-flight request itself acts on a deterministic storage path that a
-  later entry may have re-created — a late `remove` or upload can destroy
-  or overwrite a newer object. Rare (it needs a request that stalls past
-  the timeout, then still gets delivered, interleaved with a re-record or
-  re-upload of the same pictogram) and recoverable by redoing the action;
-  #415 tracks versioned paths, which close it by construction.
+  checks stop the zombie from starting anything new. Storage objects are
+  safe by construction: every upload gets a unique versioned path
+  (`mintStoragePath`, #415), minted once per entry, so a late upload or
+  `remove` lands on a path no newer write owns — at worst it leaks one
+  orphaned object. The row's `image_path`/`audio_path` is the single
+  source of truth for which object is current.
 - The handler timeout is wall-clock and a retry restarts the transfer from
   byte zero, so the blob bound is also a ceiling on what can sync:
   recordings have no duration cap (#416), and a clip whose transfer needs
