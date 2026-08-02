@@ -10,7 +10,13 @@ import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
-const MAX_ATTEMPTS_BEFORE_FAILED = 3;
+/**
+ * Sized against the retry schedule (#391): a 2 s base doubling to a 30 s cap
+ * puts the sixth attempt ~60 s after the first, so a short network blip
+ * cannot exhaust the budget while a real outage still surfaces as `failed`
+ * within about a minute. Change either number only together with the other.
+ */
+const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
@@ -203,16 +209,22 @@ export const drain = async (): Promise<void> => {
       }
     });
   } finally {
+    // Decide the retry while `draining` is still true. Deciding after the
+    // release opens a window (the emit() await) where a fresh drain can
+    // start, clear an empty timer slot, and then get a stray timer armed
+    // under it by this pass. A drain that starts after the release clears
+    // the timer armed here — it is about to do the timer's work.
+    if (sawTransient && !drainState.pendingDrain) {
+      scheduleRetry();
+    } else if (!sawTransient) {
+      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+    }
     drainState.draining = false;
     await emit();
     if (drainState.pendingDrain) {
       // The immediate follow-up drain owns the retry decision.
       drainState.pendingDrain = false;
       void drain();
-    } else if (sawTransient) {
-      scheduleRetry();
-    } else {
-      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
   }
 };

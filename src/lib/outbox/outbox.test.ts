@@ -116,13 +116,11 @@ describe('outbox drain', () => {
   it('marks an entry as failed after MAX_ATTEMPTS transient failures', async () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA' }));
-    await drain();
-    await drain();
-    await drain();
+    for (let i = 0; i < 6; i += 1) await drain();
     const entries = await listEntries();
     expect(entries).toHaveLength(1);
     expect(entries[0]?.status).toBe('failed');
-    expect(entries[0]?.attemptCount).toBeGreaterThanOrEqual(3);
+    expect(entries[0]?.attemptCount).toBeGreaterThanOrEqual(6);
     expect(entries[0]?.failureKind).toBe('permanent');
   });
 
@@ -215,7 +213,7 @@ describe('transient retry timer (#391)', () => {
     // First attempt failed transiently: entry pending, re-drain scheduled.
     expect(eqMock).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(1);
-    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(2_000);
     await waitReal(async () => expect(await listEntries()).toEqual([]));
     // Queue emptied — no timer may remain.
     expect(vi.getTimerCount()).toBe(0);
@@ -224,16 +222,26 @@ describe('transient retry timer (#391)', () => {
   it('backs off exponentially and leaves no timer once nothing is pending', async () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA' }));
-    await drain(); // attempt 1 → transient, next drain in 1s
-    await vi.advanceTimersByTimeAsync(1_000);
+    await drain(); // attempt 1 → transient, next drain in 2 s
+    await vi.advanceTimersByTimeAsync(2_000);
     await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
-    // The second backoff is 2s: after only 1s more, nothing runs.
-    await vi.advanceTimersByTimeAsync(1_000);
+    // The second backoff is 4 s: after only 2 s more, nothing runs.
+    await vi.advanceTimersByTimeAsync(2_000);
     await flushReal();
     expect((await listEntries())[0]?.attemptCount).toBe(2);
-    await vi.advanceTimersByTimeAsync(1_000);
-    // Attempt 3 hits MAX_ATTEMPTS → failed. Failed entries don't reschedule.
-    await waitReal(async () => expect((await listEntries())[0]?.status).toBe('failed'));
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(3));
+    // Remaining schedule: 8 s, 16 s, then capped at 30 s (16 × 2 = 32).
+    for (const [delay, attempt] of [
+      [8_000, 4],
+      [16_000, 5],
+      [30_000, 6],
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(delay);
+      await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(attempt));
+    }
+    // Attempt 6 hits MAX_ATTEMPTS → failed. Failed entries don't reschedule.
+    expect((await listEntries())[0]?.status).toBe('failed');
     expect(vi.getTimerCount()).toBe(0);
   });
 

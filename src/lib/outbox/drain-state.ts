@@ -27,7 +27,7 @@ interface DrainState {
 }
 
 /** First re-drain delay after a transient failure (#391). */
-export const RETRY_BASE_DELAY_MS = 1_000;
+export const RETRY_BASE_DELAY_MS = 2_000;
 /** Backoff ceiling for the scheduled re-drain (#391). */
 export const RETRY_MAX_DELAY_MS = 30_000;
 
