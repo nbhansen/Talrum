@@ -18,15 +18,15 @@ interface MockResult {
 
 // Boundary mock: useCreatePhotoPictogram runs for real through the outbox
 // (enqueueAndDrain → createPhotoPicto handler → storage upload, then row
-// insert). usePictograms' queryFn finds no `select` here, rejects, and the
+// upsert). usePictograms' queryFn finds no `select` here, rejects, and the
 // seeded cache survives — same floor-mock philosophy as vitest.setup.ts.
 const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
-const insertMock = vi.fn<(row: Record<string, unknown>) => Promise<MockResult>>();
+const upsertMock = vi.fn<(row: Record<string, unknown>, opts?: unknown) => Promise<MockResult>>();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ insert: insertMock }),
+    from: () => ({ upsert: upsertMock }),
     storage: {
       from: () => ({ upload: uploadMock, remove: removeMock }),
     },
@@ -80,7 +80,7 @@ const pickPhoto = async (
 beforeEach(() => {
   uploadMock.mockReset().mockResolvedValue({ error: null });
   removeMock.mockReset().mockResolvedValue({ error: null });
-  insertMock.mockReset().mockResolvedValue({ error: null });
+  upsertMock.mockReset().mockResolvedValue({ error: null });
   cropped = {
     blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     extension: 'jpg',
@@ -120,18 +120,21 @@ describe('PictogramUpload · upload flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add to library' }));
 
     await waitFor(() => {
-      expect(insertMock).toHaveBeenCalledTimes(1);
+      expect(upsertMock).toHaveBeenCalledTimes(1);
     });
     const [path, blob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
     expect(path).toMatch(/\.jpg$/);
     expect(blob).toBe(cropped.blob);
-    expect(insertMock).toHaveBeenCalledWith({
-      id: expect.any(String) as unknown,
-      owner_id: expect.any(String) as unknown,
-      label: 'Cereal bowl',
-      style: 'photo',
-      image_path: path,
-    });
+    expect(upsertMock).toHaveBeenCalledWith(
+      {
+        id: expect.any(String) as unknown,
+        owner_id: expect.any(String) as unknown,
+        label: 'Cereal bowl',
+        style: 'photo',
+        image_path: path,
+      },
+      { ignoreDuplicates: true },
+    );
     // Success returns to the dropzone for the next photo, and the optimistic
     // row from the create mutation shows up under "Your uploads".
     expect(await screen.findByText('Tap to choose a photo')).toBeInTheDocument();
@@ -142,7 +145,7 @@ describe('PictogramUpload · upload flow', () => {
 
   it('keeps the preview and shows the error when the insert is rejected', async () => {
     const user = userEvent.setup();
-    insertMock.mockResolvedValue({ error: { code: '42501', message: 'row-level-security' } });
+    upsertMock.mockResolvedValue({ error: { code: '42501', message: 'row-level-security' } });
     const { container } = renderUpload();
 
     await pickPhoto(user, container);
