@@ -26,9 +26,11 @@ const useBoardPatch = <Input extends { boardId: string }>(
   return useMutation({
     mutationFn: (input) => {
       // Conflict-guard baseline (#281): the server updated_at of the board
-      // this edit was computed against. Cache misses and boards rehydrated
-      // from a pre-#281 persisted cache have none — those writes stay
-      // unguarded last-write-wins.
+      // this edit was computed against. This read happens AFTER onMutate
+      // patched the cache — safe only because onMutate reasserts the
+      // pre-patch serverUpdatedAt on the optimistic value. Cache misses and
+      // boards rehydrated from a pre-#281 persisted cache have none — those
+      // writes stay unguarded last-write-wins.
       const baseline = qc.getQueryData<Board>(boardQueryKey(input.boardId))?.serverUpdatedAt;
       return enqueueAndDrain({
         kind: 'updateBoard',
@@ -42,7 +44,15 @@ const useBoardPatch = <Input extends { boardId: string }>(
       await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });
       const previous = qc.getQueryData<Board>(boardQueryKey(boardId));
       if (previous) {
-        qc.setQueryData<Board>(boardQueryKey(boardId), patch(input, previous));
+        // Reassert the pre-patch serverUpdatedAt: mutationFn reads the
+        // conflict-guard baseline from this cache slot after the patch, so
+        // no patch function may clobber it, whatever else it rewrites.
+        qc.setQueryData<Board>(boardQueryKey(boardId), {
+          ...patch(input, previous),
+          ...(previous.serverUpdatedAt === undefined
+            ? {}
+            : { serverUpdatedAt: previous.serverUpdatedAt }),
+        });
       }
       return { previous };
     },

@@ -118,13 +118,22 @@ const handleCreatePhotoPictogram = async (entry: CreatePhotoPictogramEntry): Pro
   const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   invalidateSignedUrl(IMAGES_BUCKET, path);
-  const { error } = await supabase.from('pictograms').insert({
-    id: entry.pictogramId,
-    owner_id: entry.ownerId,
-    label: entry.label,
-    style: 'photo',
-    image_path: path,
-  });
+  // `ignoreDuplicates` maps to ON CONFLICT DO NOTHING on the primary key.
+  // A same-tab replay after a crash mid-entry can find the row already
+  // inserted (the id is client-minted, so a duplicate can only be our own
+  // earlier attempt); a plain insert would raise 23505, which
+  // `classifyAndThrow` marks permanent, and flip a succeeded create to
+  // failed (#393). DO NOTHING also leaves any later edits to the row alone.
+  const { error } = await supabase.from('pictograms').upsert(
+    {
+      id: entry.pictogramId,
+      owner_id: entry.ownerId,
+      label: entry.label,
+      style: 'photo',
+      image_path: path,
+    },
+    { ignoreDuplicates: true },
+  );
   if (error) {
     // Insert failed after upload — clean up the blob so we don't leak.
     await removeFromBucket(IMAGES_BUCKET, [path]).catch(reportCleanupFailure);
