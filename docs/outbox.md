@@ -57,11 +57,16 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
 All classification lives in `classifyAndThrow` in `handlers.ts` — handlers
 themselves are happy-path only.
 
-- **Transient** (network `TypeError`, 5xx): the entry stays `pending` and
-  retries on a bounded attempt budget, after which it flips to `failed` so
-  it can't retry forever.
-- **Permanent** (`UnretryableOutboxError`: coded Postgres errors such as RLS
-  denials, 4xx storage errors): no retry. On the fast path the mutation
+- **Transient** (network `TypeError`, 5xx, and an allowlist of retryable
+  Postgres codes — serialization, deadlock, connection, pooler capacity,
+  statement timeout; the list lives on `handlers.ts`, #394): the entry stays
+  `pending` and retries on a bounded attempt budget, after which it flips to
+  `failed` so it can't retry forever. On the fast path the same
+  classification queues the write instead of failing it: the mutation
+  promise resolves, the optimistic patch stands, and the retries run in the
+  background.
+- **Permanent** (`UnretryableOutboxError`: other coded Postgres errors such
+  as RLS denials, 4xx storage errors): no retry. On the fast path the mutation
   promise rejects, so React Query rolls back the optimistic patch and the
   user sees the error. On the slow path the entry is marked `failed`; the
   OfflineIndicator surfaces it with **Retry** (fresh attempt budget, #277)

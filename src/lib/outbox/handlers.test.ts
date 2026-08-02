@@ -153,7 +153,13 @@ describe('runHandler · updateBoard', () => {
       boardId: 'b-1',
       patch: { name: 'X' },
     };
+    // The instanceof check is what the drain branches on; the message is
+    // user-visible via `lastError`, including extraction from a plain
+    // (non-Error) PostgREST object. Pin both.
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(entry)).rejects.toMatchObject({
+      message: 'db 42501: permission denied',
+    });
   });
 });
 
@@ -261,6 +267,45 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
     await expect(runHandler(guarded(T0))).rejects.toBeInstanceOf(UnretryableOutboxError);
+  });
+});
+
+describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
+  const entry: RenamePictogramEntry = {
+    ...baseProps,
+    kind: 'renamePicto',
+    pictogramId: 'p-1',
+    label: 'Apple',
+  };
+
+  it.each(['40001', '40P01', '08000', '08006', '53300', '57P03', '57014'])(
+    'throws %s as a plain Error so the drain keeps the entry pending',
+    async (code) => {
+      // A plain object, not an Error instance — the shape supabase-js can
+      // hand back. The drain persists `err.message` as `lastError`, so the
+      // wrapper must be a real Error and must carry the SQLSTATE.
+      const dbError = { code, message: 'try again', details: '', hint: '' };
+      eqMock.mockResolvedValue({ error: dbError });
+      let caught: unknown;
+      try {
+        await runHandler(entry);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toBe(`db ${code}: try again`);
+      expect((caught as Error).cause).toBe(dbError);
+    },
+  );
+
+  it.each(['23514', '08P01'])('keeps the blanket permanent rule for %s', async (code) => {
+    // 08P01 (protocol_violation) shares the 08 class prefix but is a
+    // malformed request — retrying it cannot succeed.
+    eqMock.mockResolvedValue({
+      error: { code, message: 'nope', details: '', hint: '' },
+    });
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
