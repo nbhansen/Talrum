@@ -1,6 +1,11 @@
 name: deploy
 on:
-  push:
+  # Gate on CI (#398): run when the ci workflow completes for a push to
+  # main, deploy only when it is green. The old bare `push` trigger
+  # deployed migrations and the site even when CI was red on that commit.
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
   workflow_dispatch: # manual re-run for failed deploys older than GitHub's 30-day rerun window (#337)
 concurrency:
@@ -10,9 +15,15 @@ jobs:
   # Schema first, SPA second — `needs:` makes it impossible to ship
   # frontend code against a database that missed its migration (#337).
   # Push is idempotent and a no-op when nothing is pending, so this job
-  # runs on every push and doubles as a local-ahead drift check (CI's
-  # migration-drift job only catches the remote-orphan direction).
+  # runs on every green push and doubles as a local-ahead drift check
+  # (CI's migration-drift job only catches the remote-orphan direction).
   migrations:
+    # Deploy only what CI verified: a green run for a push to main, or a
+    # manual dispatch. PR-triggered ci runs never deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,8 +33,14 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       DO_NOT_TRACK: '1'
+      # The exact commit the gating ci run verified. Under workflow_run,
+      # github.sha is the branch tip at event time, which can already be
+      # newer than the tested commit.
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: supabase/setup-cli@v2
         with:
           # Same pin as ci.yml; the sync check below greps CLI output, so
@@ -65,7 +82,7 @@ jobs:
             echo "The migration deploy failed, so the SPA deploy for this commit was skipped and production keeps serving the previous release (see #337 for the failure mode this prevents)."
             echo
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "Commit: ${GITHUB_SHA}"
+            echo "Commit: ${DEPLOY_SHA}"
             echo
             echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
           } > /tmp/issue-body.md
@@ -79,8 +96,13 @@ jobs:
     permissions:
       contents: read
       deployments: write
+    env:
+      # Same commit the gating ci run verified — see the migrations job.
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -98,4 +120,33 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=talrum --branch=main --commit-hash=${{ github.sha }}
+          command: pages deploy dist --project-name=talrum --branch=main --commit-hash=${{ env.DEPLOY_SHA }}
+  # With the gate above, a red ci run on main means no deploy at all —
+  # silently. That is the same "nobody noticed for five weeks" failure
+  # mode as #337, so file an issue when the gate blocks a deploy.
+  ci-failed:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: File issue on red CI on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          {
+            echo "CI failed for a push to main, so the deploy was skipped and production keeps serving the previous release."
+            echo
+            echo "CI run: ${CI_RUN_URL}"
+            echo "Commit: ${CI_SHA}"
+            echo
+            echo "Fix the cause and push, or re-run the ci workflow. A green ci run on main starts the deploy automatically. Close this issue when the deploy is green."
+          } > /tmp/issue-body.md
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "CI failed on main, deploy skipped ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/issue-body.md

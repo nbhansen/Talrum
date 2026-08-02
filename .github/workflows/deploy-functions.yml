@@ -1,22 +1,52 @@
 name: deploy-functions
 on:
-  push:
+  # Gate on CI (#398): run when the ci workflow completes for a push to
+  # main, deploy only when it is green. CI already runs
+  # `npm run test:functions` on the same commit, so the gate covers the
+  # "no tests before deploy" gap too — no need to run them again here.
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
-    paths:
-      - 'supabase/functions/**'
-      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch: # manual re-run for failed deploys older than GitHub's 30-day rerun window (#337)
 concurrency:
   group: deploy-functions
   cancel-in-progress: false
 jobs:
   push:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # The exact commit the gating ci run verified — same as deploy.yml.
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
-      - uses: supabase/setup-cli@v2
         with:
-          version: latest
-      - run: supabase functions deploy delete-account --project-ref "$PROJECT_REF"
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 2
+      # workflow_run has no `paths` filter, so re-create the old one:
+      # deploy only when the push touched the function or this workflow.
+      # main only receives squash-merge commits (single-commit pushes), so
+      # HEAD^..HEAD covers the whole push. A manual dispatch always deploys.
+      - name: Check whether function files changed
+        id: changed
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] ||
+             git diff --name-only HEAD^ HEAD | grep -qE '^supabase/functions/|^\.github/workflows/deploy-functions\.yml$'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v2
+        if: steps.changed.outputs.deploy == 'true'
+        with:
+          # Same pin as ci.yml and deploy.yml — bump deliberately, not via
+          # `latest`.
+          version: 2.105.0
+      - if: steps.changed.outputs.deploy == 'true'
+        run: supabase functions deploy delete-account --project-ref "$PROJECT_REF"
