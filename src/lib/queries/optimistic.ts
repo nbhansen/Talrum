@@ -35,19 +35,25 @@ export interface OptimisticListContext {
  * cancel → snapshot → patch → rollback → invalidate triad for whole-list
  * caches, over one or more caches per mutation.
  */
-export const useOptimisticListMutation = <Input>(options: {
+export const useOptimisticListMutation = <Input, Result = void>(options: {
   caches: readonly ListCache<Input>[];
-  mutationFn: (input: Input) => Promise<void>;
+  mutationFn: (input: Input) => Promise<Result>;
   /** Runs after the cache patches in onMutate; NOT rolled back on error. */
   onMutateSideEffect?: (input: Input) => void;
+  /**
+   * Runs at the top of onError, BEFORE the snapshots are restored. For
+   * cleanup that must observe the still-patched cache — e.g. revoking
+   * planted `blob:` URLs, which are unreachable once the rollback lands.
+   */
+  beforeRollback?: () => void;
   /**
    * REPLACES the default settle (invalidate every cache key) — it does not
    * run in addition. A custom settle must invalidate every cache itself.
    */
   settle?: () => void;
-}): UseMutationResult<void, Error, Input, OptimisticListContext> => {
+}): UseMutationResult<Result, Error, Input, OptimisticListContext> => {
   const qc = useQueryClient();
-  const { caches, mutationFn, onMutateSideEffect, settle } = options;
+  const { caches, mutationFn, onMutateSideEffect, beforeRollback, settle } = options;
   return useMutation({
     mutationFn,
     onMutate: async (input) => {
@@ -58,6 +64,7 @@ export const useOptimisticListMutation = <Input>(options: {
       return { snapshots };
     },
     onError: (_err, _input, ctx) => {
+      beforeRollback?.();
       if (!ctx) return;
       caches.forEach((c, i) => {
         const snapshot = ctx.snapshots[i];

@@ -248,6 +248,39 @@ describe('useOptimisticListMutation', () => {
     expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
   });
 
+  it('runs beforeRollback before the snapshots are restored', async () => {
+    const qc = makeClient();
+    qc.setQueryData(itemsKey, seed());
+    const seenDuringRollbackHook: (string | undefined)[] = [];
+    const beforeRollback = vi.fn(() => {
+      seenDuringRollbackHook.push(
+        qc.getQueryData<Item[]>(itemsKey)?.find((i) => i.id === 'a')?.name,
+      );
+    });
+    const { mutationFn, reject } = deferredMutation();
+
+    const { result } = renderHook(
+      () =>
+        useOptimisticListMutation({
+          caches: [renameCache(itemsKey)],
+          mutationFn,
+          beforeRollback,
+        }),
+      { wrapper: makeWrapper(qc) },
+    );
+
+    act(() => {
+      result.current.mutate({ id: 'a', name: 'Renamed' });
+    });
+    reject(new Error('server said no'));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    // The hook observed the still-patched cache; the rollback then landed.
+    expect(beforeRollback).toHaveBeenCalledTimes(1);
+    expect(seenDuringRollbackHook).toEqual(['Renamed']);
+    expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
+  });
+
   it('a custom settle replaces the default invalidation entirely', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
