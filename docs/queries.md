@@ -37,8 +37,11 @@ of comment is the price of an override.
 
 ## Mutations: the optimistic lifecycle
 
-Mutation hooks pair with the outbox in a fixed choreography, and
-`useBoardPatch` in `boards.mutations.ts` is the model to copy:
+Mutation hooks pair with the outbox in a fixed choreography. Two shared
+wrappers own it — `useBoardPatch` (`boards.mutations.ts`) for per-board
+writes, `useOptimisticListMutation` (`optimistic.ts`) for whole-list caches.
+Every outbox hook goes through one of them; no hook hand-rolls the
+lifecycle. The steps:
 
 1. **`onMutate`**: cancel in-flight queries for the key, snapshot the current
    cache value, write the expected result in, return `{ previous }`.
@@ -56,6 +59,12 @@ three-line wrapper over `useBoardPatch`, which also threads the board's
 `serverUpdatedAt` into the entry as the conflict-guard baseline (#281).
 Mutations that touch two caches (`useDeletePictogram`, `useDeleteKid`)
 snapshot, patch, roll back, and invalidate both.
+
+Blob-planting hooks (`useSetPictogramAudio`, `useCreatePhotoPictogram`,
+`useReplacePictogramImage`) use two extra wrapper options: `beforeRollback`
+revokes the planted `blob:` URL while it is still in the cache — after the
+rollback the URL is unreachable and would leak — and `settle` sweeps stale
+blob URLs before invalidating.
 
 ## Choosing a write path
 
@@ -100,9 +109,10 @@ there's a file attached, outbox even for creates.
    `if (error) throw error` and a `rowToX` mapper.
 3. Keep the hook thin; inherit the global defaults unless you can write the
    comment justifying an override (see `useBoard`).
-4. For writes: choose the pattern above. Outbox writes follow the
-   `useBoardPatch` lifecycle (snapshot → patch → rollback → invalidate) and
-   need a `types.ts` entry kind plus an idempotent handler.
+4. For writes: choose the pattern above. Outbox writes go through
+   `useBoardPatch` or `useOptimisticListMutation` (snapshot → patch →
+   rollback → invalidate) and need a `types.ts` entry kind plus an
+   idempotent handler.
 5. Invalidate every cache the write touched, including lists.
 6. Colocate a `*.test.tsx` asserting what the user sees — optimistic state,
    rollback on error — not internal cache mechanics.
