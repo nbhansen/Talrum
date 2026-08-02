@@ -19,4 +19,22 @@ To prevent accidental exits into the configuration screens, Kid Mode is protecte
 
 When a card is tapped, the application plays auditory feedback. Caregivers can record custom audio prompts, which take precedence. If no custom recording is provided, the application falls back to the browser's native text-to-speech engine.
 
+```mermaid
+flowchart TD
+    Tap["Child taps card"]
+    CheckAudio{"Has custom audio?"}
+    PlayAudio["Play custom recording"]
+    TTS{"Has cached TTS voice?"}
+    ResolveVoice["Resolve OS voice based on language"]
+    PlayTTS["Speak via text-to-speech"]
+
+    Tap --> CheckAudio
+    CheckAudio -->|"Yes"| PlayAudio
+    CheckAudio -->|"No"| TTS
+    TTS -->|"Yes"| PlayTTS
+    TTS -->|"No"| ResolveVoice
+    ResolveVoice --> PlayTTS
+```
+*Audio playback resolution flow prioritizing custom recordings over text-to-speech.*
+
 Because fetching available system voices can be asynchronous, the application caches its preferred voice selection. A heuristic is used to pick an appropriate voice based on the chosen language, falling back to English if necessary. It explicitly favors high-quality system voices typical of the target tablet operating system to ensure clear and consistent speech playback. Caregivers can also override the heuristic by manually selecting a preferred voice in the settings.

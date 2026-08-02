@@ -13,6 +13,23 @@ Talrum is designed for environments where network connectivity may be spotty or 
 
 When a mutation occurs (like updating a board or adding a new pictogram), the change is immediately applied to the local optimistic cache. This ensures the user interface never blocks on a network request. 
 
+```mermaid
+flowchart TD
+    UI["User Interface"]
+    Cache["Optimistic Cache"]
+    Outbox[("IndexedDB Outbox")]
+    Backend[("Supabase Backend")]
+    Drain["Drain Loop (FIFO)"]
+
+    UI -->|"1. Mutation triggered"| Cache
+    Cache -->|"2. UI updates instantly"| UI
+    UI -->|"3. Fast path (if online)"| Backend
+    UI -->|"4. Fallback (if offline/failed)"| Outbox
+    Outbox -->|"5. Queued mutation"| Drain
+    Drain -->|"6. Flush on reconnect"| Backend
+```
+*Data flow of a mutation through the optimistic cache and offline outbox queue.*
+
 Concurrently, the application attempts a fast path: if the network is available, it pushes the change directly to the backend. If the application is offline or the network request fails, the mutation payload is serialized and placed into an outbox queue backed by IndexedDB. 
 
 ## The Drain Loop and Replay

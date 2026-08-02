@@ -13,6 +13,25 @@ Talrum is a single-page React application that relies on Supabase for its backen
 
 The frontend codebase enforces a strict six-layer architecture to prevent circular dependencies and maintain clean boundaries. A given layer may import from any layer beneath it, but never from a layer above it. The boundaries are enforced by static analysis tools configured in the repository root, as part of the broader [Operations & Quality Verification](operations-testing.md) strategy.
 
+```mermaid
+flowchart TD
+    App["1. App (Routing & Entry)"]
+    Features["2. Features (Domain Modules)"]
+    Shared["3. Shared (Layouts & Blocks)"]
+    UI["4. UI (Core Components)"]
+    Library["5. Library & Glyphs (Utilities & API)"]
+    Tokens["6. Tokens (Design & Types)"]
+
+    App --> Features
+    App --> Shared
+    Features --> Shared
+    Features --> UI
+    Shared --> UI
+    UI --> Library
+    Library --> Tokens
+```
+*Unidirectional dependency flow enforced across the six frontend layers.*
+
 From top to bottom, the layers are:
 
 1. **App**: The entrypoint and routing layer. It defines top-level routes and brings features together.
