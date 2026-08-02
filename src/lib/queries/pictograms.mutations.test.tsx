@@ -24,8 +24,8 @@ interface MockResult {
 // — the eq call is the awaited terminal.
 const eqMock = vi.fn<(col: string, val: string) => Promise<MockResult>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
-// Photo creation inserts the row after the storage upload.
-const insertMock = vi.fn<(row: Record<string, unknown>) => Promise<MockResult>>();
+// Photo creation upserts the row after the storage upload (#393).
+const upsertMock = vi.fn<(row: Record<string, unknown>, opts?: unknown) => Promise<MockResult>>();
 // Delete runs server-side through the `delete_pictogram` RPC.
 const rpcMock = vi.fn<(fn: string, args: Record<string, unknown>) => Promise<MockResult>>();
 // Blob-planting mutations upload through the outbox before touching the row.
@@ -35,7 +35,7 @@ const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ update: updateMock, insert: insertMock }),
+    from: () => ({ update: updateMock, upsert: upsertMock }),
     rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args),
     storage: { from: () => ({ remove: removeMock, upload: uploadMock }) },
   },
@@ -132,7 +132,7 @@ const rlsError: MockPostgrestError = {
 beforeEach(() => {
   eqMock.mockReset();
   updateMock.mockClear();
-  insertMock.mockReset();
+  upsertMock.mockReset();
   rpcMock.mockReset();
   uploadMock.mockReset();
   removeMock.mockReset();
@@ -425,7 +425,7 @@ describe('useCreatePhotoPictogram', () => {
       throw new Error('resolver not assigned');
     };
     uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
-    insertMock.mockResolvedValue({ error: null });
+    upsertMock.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useCreatePhotoPictogram(), {
       wrapper: makeSessionWrapper(qc),
@@ -451,13 +451,16 @@ describe('useCreatePhotoPictogram', () => {
 
     // The resolved path is the real server path the refetch will serve.
     expect(created?.imagePath.endsWith(`/${created?.id ?? ''}.jpg`)).toBe(true);
-    expect(insertMock).toHaveBeenCalledWith({
-      id: created?.id,
-      owner_id: expect.any(String) as unknown,
-      label: 'Cereal bowl',
-      style: 'photo',
-      image_path: created?.imagePath,
-    });
+    expect(upsertMock).toHaveBeenCalledWith(
+      {
+        id: created?.id,
+        owner_id: expect.any(String) as unknown,
+        label: 'Cereal bowl',
+        style: 'photo',
+        image_path: created?.imagePath,
+      },
+      { ignoreDuplicates: true },
+    );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
@@ -466,7 +469,7 @@ describe('useCreatePhotoPictogram', () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     uploadMock.mockResolvedValue({ error: null });
-    insertMock.mockResolvedValue({ error: rlsError });
+    upsertMock.mockResolvedValue({ error: rlsError });
     removeMock.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useCreatePhotoPictogram(), {
