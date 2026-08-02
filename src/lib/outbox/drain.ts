@@ -1,10 +1,28 @@
 import { resolveExpectedUpdatedAt } from './board-clock';
-import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
+import {
+  drainState,
+  drainSubscribers,
+  type OutboxStatus,
+  RETRY_BASE_DELAY_MS,
+  RETRY_MAX_DELAY_MS,
+} from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
-const MAX_ATTEMPTS_BEFORE_FAILED = 3;
+/**
+ * Sized against the retry schedule (#391): a 2 s base doubling to a 30 s cap
+ * puts the queue head's sixth attempt ~60 s after its first, so a short
+ * network blip cannot exhaust the budget while a real outage still surfaces
+ * as `failed` within about a minute. Change either number only together
+ * with the other. The derivation assumes a quiescent single tab: any other
+ * trigger (an enqueue with a backlog, `online`, another tab's drain) also
+ * burns a head attempt and spends the budget faster — as every trigger did
+ * before the timer existed, on half the budget. Entries behind a failed
+ * head start from the walked-up delay and take longer — the network is
+ * known-bad by then. Retry recovers a `failed` entry either way.
+ */
+const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
@@ -125,6 +143,48 @@ export const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> =
 };
 
 /**
+ * Cancel the scheduled re-drain (#391). Called when a drain actually starts
+ * (it is about to do the timer's work), when the queue outcome no longer
+ * needs one, and when the device goes offline (`online` will trigger the
+ * next drain instead).
+ */
+const clearRetryTimer = (): void => {
+  clearTimeout(drainState.retryTimer);
+  drainState.retryTimer = undefined;
+};
+
+/**
+ * Schedule an automatic re-drain after a transient failure (#391). Without
+ * it, an entry that fails while the device stays online waits for the next
+ * external trigger (online event, new enqueue, manual retry) — a stuck
+ * pending count. Exponential backoff, capped; the delay resets once a pass
+ * completes without a transient failure or the device goes offline.
+ */
+const scheduleRetry = (): void => {
+  clearRetryTimer();
+  drainState.retryTimer = setTimeout(() => {
+    drainState.retryTimer = undefined;
+    void drain();
+  }, drainState.retryDelayMs);
+  drainState.retryDelayMs = Math.min(drainState.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
+};
+
+/** Offline path for the timer: cancel it and start the backoff over. */
+const cancelRetryOnOffline = (): void => {
+  clearRetryTimer();
+  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+};
+
+/**
+ * A user Retry means a fresh attempt budget *and* a fresh backoff — after a
+ * long outage the delay sits at the cap, and 30 s of silence right after the
+ * user pressed the button is the worst possible moment for it (#391 review).
+ */
+export const resetRetryDelay = (): void => {
+  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+};
+
+/**
  * Drains every pending entry in FIFO order. Stops at the first transient
  * failure to preserve ordering. Permanent failures (RLS, validation) are
  * marked and skipped so a single bad entry can't dam the queue.
@@ -135,11 +195,15 @@ export const drain = async (): Promise<void> => {
     return;
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    cancelRetryOnOffline();
     await emit();
     return;
   }
   drainState.draining = true;
+  clearRetryTimer();
   await emit();
+  let sawTransient = false;
+  let sawProgress = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain online check can be seconds stale by the time another
@@ -152,7 +216,9 @@ export const drain = async (): Promise<void> => {
         if (entries.length === 0) break;
         for (const entry of entries) {
           const outcome = await runOne(entry);
+          if (outcome === 'ok') sawProgress = true;
           if (outcome === 'transient') {
+            sawTransient = true;
             stop = true;
             break;
           }
@@ -160,9 +226,27 @@ export const drain = async (): Promise<void> => {
       }
     });
   } finally {
+    // Decide the retry while `draining` is still true. Deciding after the
+    // release opens a window (the emit() await) where a fresh drain can
+    // start, clear an empty timer slot, and then get a stray timer armed
+    // under it by this pass. A drain that starts after the release clears
+    // the timer armed here — it is about to do the timer's work.
+    // Progress resets the backoff: a queue that lands entries each pass is
+    // not the sustained-failure case the doubling exists for (#391 review).
+    if (sawProgress || !sawTransient) {
+      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+    }
+    // No timer when the device dropped mid-pass: it would only wake once,
+    // hit the offline branch, and cancel itself. The `online` event is the
+    // next trigger.
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (sawTransient && !drainState.pendingDrain && online) {
+      scheduleRetry();
+    }
     drainState.draining = false;
     await emit();
     if (drainState.pendingDrain) {
+      // The immediate follow-up drain owns the retry decision.
       drainState.pendingDrain = false;
       void drain();
     }
@@ -183,6 +267,9 @@ export const startOutbox = (): void => {
       void drain();
     });
     window.addEventListener('offline', () => {
+      // No point waiting out a backoff on a dead network — the `online`
+      // event above is the next trigger (#391).
+      cancelRetryOnOffline();
       void emit();
     });
   }

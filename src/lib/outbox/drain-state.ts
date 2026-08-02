@@ -20,7 +20,16 @@ interface DrainState {
   pendingDrain: boolean;
   listenersAttached: boolean;
   lastStatus: OutboxStatus;
+  /** Scheduled re-drain after a transient failure (#391). */
+  retryTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Delay for the next scheduled re-drain; doubles per transient pass. */
+  retryDelayMs: number;
 }
+
+/** First re-drain delay after a transient failure (#391). */
+export const RETRY_BASE_DELAY_MS = 2_000;
+/** Backoff ceiling for the scheduled re-drain (#391). */
+export const RETRY_MAX_DELAY_MS = 30_000;
 
 const initialStatus = (): OutboxStatus => ({
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
@@ -35,14 +44,19 @@ export const drainState: DrainState = {
   pendingDrain: false,
   listenersAttached: false,
   lastStatus: initialStatus(),
+  retryTimer: undefined,
+  retryDelayMs: RETRY_BASE_DELAY_MS,
 };
 
 export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
 
 export const __resetDrainForTests = (): void => {
+  clearTimeout(drainState.retryTimer);
   drainState.draining = false;
   drainState.pendingDrain = false;
   drainState.listenersAttached = false;
   drainState.lastStatus = initialStatus();
+  drainState.retryTimer = undefined;
+  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
   drainSubscribers.clear();
 };

@@ -30,6 +30,7 @@ const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE } = await import('./handlers');
+const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -116,13 +117,11 @@ describe('outbox drain', () => {
   it('marks an entry as failed after MAX_ATTEMPTS transient failures', async () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA' }));
-    await drain();
-    await drain();
-    await drain();
+    for (let i = 0; i < 6; i += 1) await drain();
     const entries = await listEntries();
     expect(entries).toHaveLength(1);
     expect(entries[0]?.status).toBe('failed');
-    expect(entries[0]?.attemptCount).toBeGreaterThanOrEqual(3);
+    expect(entries[0]?.attemptCount).toBeGreaterThanOrEqual(6);
     expect(entries[0]?.failureKind).toBe('permanent');
   });
 
@@ -152,6 +151,158 @@ describe('outbox drain', () => {
     expect(eqMock).toHaveBeenCalledTimes(1);
     const remaining = await listEntries();
     expect(remaining.map((e) => e.id)).toEqual(['01HZZA', '01HZZB']);
+  });
+});
+
+describe('transient retry timer (#391)', () => {
+  beforeEach(() => {
+    // Only fake the timer pair the retry scheduler uses. fake-indexeddb
+    // resolves through real setImmediate rounds; faking those would deadlock
+    // every IDB await behind the timer clock.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * One real macrotask round. MessageChannel, not setTimeout: setTimeout is
+   * faked above, and fake-indexeddb settles its work on real macrotasks that
+   * a fake clock would never reach.
+   */
+  const realTick = (): Promise<void> =>
+    new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        channel.port1.close();
+        resolve();
+      };
+      channel.port2.postMessage(null);
+    });
+
+  /**
+   * `advanceTimersByTimeAsync` fires the timer callback (`void drain()`) but
+   * can't await it — the drain settles over real macrotask rounds (IDB).
+   * Poll the assertion across those rounds; bounded so a genuine failure
+   * still surfaces as the assertion error.
+   */
+  const waitReal = async (check: () => Promise<void>): Promise<void> => {
+    for (let i = 0; ; i++) {
+      try {
+        await check();
+        return;
+      } catch (err) {
+        if (i >= 1000) throw err;
+        await realTick();
+      }
+    }
+  };
+
+  /** Fixed flush for negative assertions ("nothing ran"). */
+  const flushReal = async (): Promise<void> => {
+    for (let i = 0; i < 50; i++) await realTick();
+  };
+
+  it('re-drains automatically after a transient failure while online', async () => {
+    unguardedSelectMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+      error: null,
+    });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    // First attempt failed transiently: entry pending, re-drain scheduled.
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect(await listEntries()).toEqual([]));
+    // Queue emptied — no timer may remain.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('backs off exponentially and leaves no timer once nothing is pending', async () => {
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain(); // attempt 1 → transient, next drain in 2 s
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
+    // The second backoff is 4 s: after only 2 s more, nothing runs.
+    await vi.advanceTimersByTimeAsync(2_000);
+    await flushReal();
+    expect((await listEntries())[0]?.attemptCount).toBe(2);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(3));
+    // Remaining schedule: 8 s, 16 s, then capped at 30 s (16 × 2 = 32).
+    for (const [delay, attempt] of [
+      [8_000, 4],
+      [16_000, 5],
+      [30_000, 6],
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(delay);
+      await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(attempt));
+    }
+    // Attempt 6 hits MAX_ATTEMPTS → failed. Failed entries don't reschedule.
+    expect((await listEntries())[0]?.status).toBe('failed');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('resets the backoff when a pass lands an entry', async () => {
+    drainState.retryDelayMs = 16_000; // as if earlier passes walked it up
+    unguardedSelectMock
+      .mockResolvedValueOnce({
+        data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+        error: null,
+      })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue({
+        data: [{ updated_at: '2026-06-11T09:00:02.000001+00:00' }],
+        error: null,
+      });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await putEntry(baseEntry({ id: '01HZZB' }));
+    await drain(); // A lands, B fails transiently → the re-drain comes at 2 s, not 16 s
+    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZB']);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect(await listEntries()).toEqual([]));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('starts the backoff over on a user Retry', async () => {
+    drainState.retryDelayMs = 30_000; // as after a long outage
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(
+      baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 6, failureKind: 'permanent' }),
+    );
+    await retryFailed(); // attempt 1 → transient; the re-drain must come at 2 s
+    expect((await listEntries())[0]?.attemptCount).toBe(1);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
+  });
+
+  it('arms no timer when the device drops mid-pass', async () => {
+    // The offline listener can't help here: it fires while `draining` is
+    // still true and there is no timer to clear yet. The finally block must
+    // skip the arm itself.
+    unguardedSelectMock.mockImplementation(() => {
+      setOnline(false);
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    expect((await listEntries())[0]?.status).toBe('pending');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the timer when the device goes offline', async () => {
+    startOutbox(); // attaches the offline listener
+    await flushReal(); // let the boot drain settle (empty queue)
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    expect(vi.getTimerCount()).toBe(1);
+    setOnline(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
