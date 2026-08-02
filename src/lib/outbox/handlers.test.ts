@@ -737,6 +737,61 @@ describe('runHandler · handler IO timeout (#413)', () => {
     await vi.advanceTimersByTimeAsync(0);
   });
 
+  it('an abandoned clearPictoAudio starts no further steps when its remove settles', async () => {
+    let settleRemove: () => void = () => undefined;
+    removeMock.mockReturnValue(
+      new Promise<{ error: Error | null }>((resolve) => {
+        settleRemove = () => resolve({ error: null });
+      }),
+    );
+    const entry: ClearPictogramAudioEntry = {
+      ...baseProps,
+      kind: 'clearPictoAudio',
+      pictogramId: 'p-1',
+      path: 'o-1/p-1.webm',
+    };
+    const outcome = runHandler(entry).then(
+      () => 'resolved',
+      (err: unknown) => (err as Error).message,
+    );
+    await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+    expect(await outcome).toMatch(/timed out/);
+    // The hung remove finally lands. Without the between-step gate the
+    // zombie would continue into its row update and null an audio_path a
+    // later setPictoAudio entry may have set since (#414 review).
+    settleRemove();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('an abandoned setPictoAudio neither updates the row nor removes the old recording', async () => {
+    let settleUpload: () => void = () => undefined;
+    uploadMock.mockReturnValue(
+      new Promise<{ error: Error | null }>((resolve) => {
+        settleUpload = () => resolve({ error: null });
+      }),
+    );
+    const entry: SetPictogramAudioEntry = {
+      ...baseProps,
+      kind: 'setPictoAudio',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      blob: new Blob(['x'], { type: 'audio/webm' }),
+      extension: 'webm',
+      previousPath: 'o-1/p-1.m4a',
+    };
+    const outcome = runHandler(entry).then(
+      () => 'resolved',
+      (err: unknown) => (err as Error).message,
+    );
+    await vi.advanceTimersByTimeAsync(BLOB_HANDLER_TIMEOUT_MS);
+    expect(await outcome).toMatch(/timed out/);
+    settleUpload();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
   it('a handler that settles in time clears its timeout timer', async () => {
     const entry: RenameKidEntry = {
       ...baseProps,

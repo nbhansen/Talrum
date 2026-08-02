@@ -119,6 +119,12 @@ New entry kind? Add the interface in `types.ts`, the handler in
   throwing.
 - **Happy-path only.** Throw raw Supabase/Storage errors; `runHandler` owns
   classification. Never catch-and-swallow.
+- **Cancellation-aware when multi-step.** A run abandoned by the handler
+  timeout (#413) keeps executing as a zombie. A handler with more than one
+  side-effecting step must take the `AbortSignal` from `dispatch` and call
+  `throwIfCancelled` between steps, so the zombie starts nothing new after
+  the timeout — its later steps could undo work a causally later entry has
+  done since (see `handleClearPictogramAudio`).
 
 ## Known limits
 
@@ -132,3 +138,14 @@ New entry kind? Add the interface in `types.ts`, the handler in
 - Queued entries are not deduped or coalesced, and the queue has no size
   bound or TTL — acceptable at this app's write volume, revisit if that
   changes.
+- A run abandoned by the handler timeout (#413) can have a request already
+  in flight, and that request can land after later entries ran. For row
+  writes this is the same last-write-wins class as cross-device replays
+  (boards stay safe via the conflict guard); the between-step cancellation
+  checks stop the zombie from starting anything new. What remains open: the
+  in-flight request itself acts on a deterministic storage path that a
+  later entry may have re-created — a late `remove` or upload can destroy
+  or overwrite a newer object. Rare (it needs a request that stalls past
+  the timeout, then still gets delivered, interleaved with a re-record or
+  re-upload of the same pictogram) and recoverable by redoing the action;
+  #415 tracks versioned paths, which close it by construction.

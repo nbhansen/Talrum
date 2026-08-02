@@ -196,6 +196,12 @@ export const resetRetryDelay = (): void => {
  * Drains every pending entry in FIFO order. Stops at the first transient
  * failure to preserve ordering. Permanent failures (RLS, validation) are
  * marked and skipped so a single bad entry can't dam the queue.
+ *
+ * FIFO is per attempt *start*: a run abandoned by the handler timeout
+ * (#413) can still have a request in flight while later entries proceed,
+ * and that write can land last. Accepted — it is the same last-write-wins
+ * class as a cross-device replay (docs/outbox.md, "Known limits"), and
+ * boards stay safe via the conflict guard (#281).
  */
 export const drain = async (): Promise<void> => {
   if (drainState.draining) {
