@@ -509,6 +509,27 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  it('an offline enqueue also appends under the lock (#395)', async () => {
+    // online/offline events are per-window: this tab can be offline while
+    // another tab is still online and mid-fast-path. An unlocked offline
+    // append could race that fast path and land behind a younger write.
+    const request = installFakeLocks();
+    setOnline(false);
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await listEntries()).toHaveLength(0);
+    release();
+    await done;
+    expect(await listEntries()).toHaveLength(1);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
   it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
     const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));

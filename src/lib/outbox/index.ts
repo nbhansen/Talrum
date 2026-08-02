@@ -46,22 +46,25 @@ type EntryInput = DistributiveOmit<
  * FIFO order. Failed entries don't count — drain() skips them, so they'd
  * block the fast path forever for nothing.
  *
- * The empty-queue check and its outcome — the handler run on the fast path,
- * the queue append on the slow path — happen under the cross-tab lock (#395):
- * unlocked, two tabs can both observe an empty queue and run handlers
+ * Every enqueue holds the cross-tab lock from the queue observation through
+ * its outcome — the handler run on the fast path, the queue append otherwise
+ * (#395). Unlocked, two tabs can both observe an empty queue and run handlers
  * concurrently — the exact double-replay the lock exists to prevent (#278).
- * The append stays under the lock too: released between the backlog
- * observation and the put, another tab could drain the queue and fast-path a
- * younger write past this one (#279's shape, cross-tab). The lock is
+ * The appends stay under the lock for the same reason, the offline one
+ * included: `online`/`offline` events are per-window, so an offline tab's
+ * unlocked append could race an online tab's fast path, which would land a
+ * younger write ahead of it (#279's shape, cross-tab). The lock is
  * non-reentrant, so the follow-up `drain()` calls stay outside the callback;
  * the callback reports which follow-up is needed instead.
  *
  * Cost: the lock is held across the handler's IO, blob uploads included, so
  * online writes serialize within a tab and across tabs — a slow photo upload
  * in one tab stalls the other tab's drain and fast path until it settles or
- * its tab dies. Accepted: each landed write leaves the queue empty, so the
- * next waiter still fast-paths, and correctness beats burst latency at this
- * app's write volume.
+ * its tab dies. A hung request is the unbounded case: `fetch` has no default
+ * timeout, so a socket stuck open holds the lock for as long as the tab
+ * lives (#413 tracks a handler IO timeout). Accepted: each landed write
+ * leaves the queue empty, so the next waiter still fast-paths, and
+ * correctness beats burst latency at this app's write volume.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   const newEntry = (): OutboxEntry => ({
@@ -71,24 +74,15 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
-  const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
-  if (!isOnline) {
-    await putEntry(newEntry());
-    // The offline path doesn't call drain() (which is what normally emits),
-    // so the indicator wouldn't update its pending count until the next
-    // online/offline event. Push the new status now.
-    await refreshStatus();
-    return;
-  }
   const outcome = await withCrossTabLock(
     async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
-      // The pre-lock online check can be seconds stale by the time another
-      // tab releases the lock (same hazard as drain's in-lock re-check);
-      // attempting on a dead network burns a retry attempt for nothing.
-      // Persist unattempted instead — the drain() below no-ops offline and
-      // emits the new pending count.
-      const wentOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (wentOffline || (await listEntries()).some((e) => e.status === 'pending')) {
+      // Read `onLine` inside the lock: an offline pre-check would sit outside
+      // and go seconds stale during the lock wait (same hazard as drain's
+      // in-lock re-check); attempting on a dead network burns a retry attempt
+      // for nothing. Persist unattempted instead — the drain() below no-ops
+      // offline and emits the new pending count.
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (offline || (await listEntries()).some((e) => e.status === 'pending')) {
         await putEntry(newEntry());
         return 'queued-unattempted';
       }
@@ -117,9 +111,10 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     return;
   }
   if (outcome === 'queued-unattempted') {
-    // Flush the queue (oldest first, this entry last). When the network
-    // dropped during the lock wait, drain()'s own offline branch skips the
-    // handlers and emits the new pending count.
+    // Flush the queue (oldest first, this entry last). Offline, drain()'s
+    // own branch skips the handlers and emits the new pending count instead,
+    // so the indicator updates without waiting for the next online/offline
+    // event.
     await drain();
   }
 };

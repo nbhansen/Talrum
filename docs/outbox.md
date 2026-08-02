@@ -43,16 +43,18 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
-- **Drains, queue rewrites, and the fast path serialize across tabs** on a
+- **Drains, queue rewrites, and enqueues serialize across tabs** on a
   `navigator.locks` web lock (#278, #289, #395), so a PWA window plus a
-  browser tab can't replay the same entry twice. An online write holds the
-  lock from the empty-queue check through its outcome — the handler run on
-  the fast path, the queue append on the slow path — so check and outcome are
-  atomic and another tab can't slip a write in between either way. The cost:
-  the lock is held across handler IO, blob uploads included, so online writes
+  browser tab can't replay the same entry twice. Every enqueue holds the
+  lock from the queue observation through its outcome — the handler run on
+  the fast path, the queue append otherwise — so check and outcome are
+  atomic and another tab can't slip a write in between. The cost: the lock
+  is held across handler IO, blob uploads included, so online writes
   serialize within a tab and across tabs — a slow upload in one tab stalls
-  the other tab's drain and fast path until it settles or its tab dies.
-  Accepted at this app's write volume.
+  the other tab's drain and fast path until it settles or its tab dies, and
+  a hung request (`fetch` has no default timeout) has no upper bound while
+  the tab lives (#413 tracks a handler IO timeout). Accepted at this app's
+  write volume.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never
   waits for an external trigger. The schedule, its reset rules, and the
