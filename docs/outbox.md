@@ -63,7 +63,9 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
    A drain that stops on a transient failure also schedules its own re-drain
    on a timer — 2 s at first, doubling per transient pass up to 30 s (#391).
    The `offline` event cancels the timer; the `online` event is the next
-   trigger. A pass with no transient failure resets the delay.
+   trigger. The delay resets when a pass lands any entry, when a pass ends
+   with no transient failure, and on a user Retry. The schedule is per tab:
+   each open tab arms its own timer against the shared queue.
 
 ## Error classification: transient vs permanent
 
@@ -73,8 +75,9 @@ themselves are happy-path only.
 - **Transient** (network `TypeError`, 5xx): the entry stays `pending` and is
   retried on the next drain, up to 6 attempts, after which it flips to
   `failed` so it can't retry forever. The attempt budget is sized against
-  the retry-timer backoff schedule (#391): the sixth attempt runs about a
-  minute after the first, so a short blip can't exhaust it.
+  the retry-timer backoff schedule (#391): in a single tab the sixth attempt
+  runs about a minute after the first, so a short blip can't exhaust it.
+  More open tabs spend the shared budget faster; Retry recovers the entry.
 - **Permanent** (`UnretryableOutboxError`: coded Postgres errors such as RLS
   denials, 4xx storage errors): no retry. On the fast path the mutation
   promise rejects, so React Query rolls back the optimistic patch and the

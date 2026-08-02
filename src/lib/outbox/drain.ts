@@ -15,6 +15,9 @@ import type { OutboxEntry } from './types';
  * puts the sixth attempt ~60 s after the first, so a short network blip
  * cannot exhaust the budget while a real outage still surfaces as `failed`
  * within about a minute. Change either number only together with the other.
+ * The sizing is per tab: each tab arms its own timer against the shared
+ * queue, so several open tabs spend the budget faster — pre-existing, the
+ * `online` event fires in every tab too, and Retry recovers the entry.
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
@@ -170,6 +173,15 @@ const cancelRetryOnOffline = (): void => {
 };
 
 /**
+ * A user Retry means a fresh attempt budget *and* a fresh backoff — after a
+ * long outage the delay sits at the cap, and 30 s of silence right after the
+ * user pressed the button is the worst possible moment for it (#391 review).
+ */
+export const resetRetryDelay = (): void => {
+  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+};
+
+/**
  * Drains every pending entry in FIFO order. Stops at the first transient
  * failure to preserve ordering. Permanent failures (RLS, validation) are
  * marked and skipped so a single bad entry can't dam the queue.
@@ -188,6 +200,7 @@ export const drain = async (): Promise<void> => {
   clearRetryTimer();
   await emit();
   let sawTransient = false;
+  let sawProgress = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain online check can be seconds stale by the time another
@@ -200,6 +213,7 @@ export const drain = async (): Promise<void> => {
         if (entries.length === 0) break;
         for (const entry of entries) {
           const outcome = await runOne(entry);
+          if (outcome === 'ok') sawProgress = true;
           if (outcome === 'transient') {
             sawTransient = true;
             stop = true;
@@ -214,10 +228,13 @@ export const drain = async (): Promise<void> => {
     // start, clear an empty timer slot, and then get a stray timer armed
     // under it by this pass. A drain that starts after the release clears
     // the timer armed here — it is about to do the timer's work.
+    // Progress resets the backoff: a queue that lands entries each pass is
+    // not the sustained-failure case the doubling exists for (#391 review).
+    if (sawProgress || !sawTransient) {
+      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+    }
     if (sawTransient && !drainState.pendingDrain) {
       scheduleRetry();
-    } else if (!sawTransient) {
-      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
     drainState.draining = false;
     await emit();

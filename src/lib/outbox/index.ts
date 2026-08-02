@@ -6,6 +6,7 @@ import {
   getStatus,
   type OutboxStatus,
   refreshStatus,
+  resetRetryDelay,
   startOutbox,
   subscribeStatus,
   withCrossTabLock,
@@ -94,9 +95,10 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
 };
 
 /**
- * Reset every failed entry to pending (fresh retry budget, stale lastError
- * dropped) and drain. The indicator's "Retry" — a plain `drain()` skips
- * failed entries, so without the reset the button is a no-op (#277).
+ * Reset every failed entry to pending (fresh retry budget, fresh retry-timer
+ * backoff, stale lastError dropped) and drain. The indicator's "Retry" — a
+ * plain `drain()` skips failed entries, so without the reset the button is a
+ * no-op (#277).
  *
  * The list-then-put loop runs under the cross-tab lock so a Discard in
  * another tab can't land between the list and the put and get resurrected as
@@ -120,6 +122,7 @@ export const retryFailed = async (): Promise<void> => {
       await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
     }
   });
+  resetRetryDelay();
   await drain();
 };
 

@@ -30,6 +30,7 @@ const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE } = await import('./handlers');
+const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
@@ -243,6 +244,39 @@ describe('transient retry timer (#391)', () => {
     // Attempt 6 hits MAX_ATTEMPTS → failed. Failed entries don't reschedule.
     expect((await listEntries())[0]?.status).toBe('failed');
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('resets the backoff when a pass lands an entry', async () => {
+    drainState.retryDelayMs = 16_000; // as if earlier passes walked it up
+    unguardedSelectMock
+      .mockResolvedValueOnce({
+        data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+        error: null,
+      })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue({
+        data: [{ updated_at: '2026-06-11T09:00:02.000001+00:00' }],
+        error: null,
+      });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await putEntry(baseEntry({ id: '01HZZB' }));
+    await drain(); // A lands, B fails transiently → the re-drain comes at 2 s, not 16 s
+    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZB']);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect(await listEntries()).toEqual([]));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('starts the backoff over on a user Retry', async () => {
+    drainState.retryDelayMs = 30_000; // as after a long outage
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(
+      baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 6, failureKind: 'permanent' }),
+    );
+    await retryFailed(); // attempt 1 → transient; the re-drain must come at 2 s
+    expect((await listEntries())[0]?.attemptCount).toBe(1);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
   });
 
   it('clears the timer when the device goes offline', async () => {
