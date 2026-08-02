@@ -182,10 +182,11 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
     expect(eqMock).not.toHaveBeenCalled();
   });
 
-  it('rejects with the conflict message when zero rows match the baseline', async () => {
+  it('rejects with the conflict kind when zero rows match the baseline', async () => {
     guardSelectMock.mockResolvedValue({ data: [], error: null });
     await expect(runHandler(guarded(T0))).rejects.toMatchObject({
       name: 'UnretryableOutboxError',
+      failureKind: 'conflict',
       message: BOARD_CONFLICT_MESSAGE,
     });
   });

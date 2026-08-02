@@ -16,6 +16,7 @@ import type {
   DeleteKidEntry,
   DeletePictogramEntry,
   OutboxEntry,
+  OutboxFailureKind,
   RenameKidEntry,
   RenamePictogramEntry,
   ReplacePictogramImageEntry,
@@ -30,9 +31,13 @@ import type {
  * 5xx) and the entry stays pending for the next drain.
  */
 export class UnretryableOutboxError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  /** Persisted onto the failed entry by the drain loop (#392). */
+  readonly failureKind: OutboxFailureKind;
+
+  constructor(message: string, options?: { cause?: unknown; failureKind?: OutboxFailureKind }) {
     super(message, options);
     this.name = 'UnretryableOutboxError';
+    this.failureKind = options?.failureKind ?? 'permanent';
   }
 }
 
@@ -72,9 +77,9 @@ const reportCleanupFailure = (err: unknown): void => {
 };
 
 /**
- * `lastError` of an entry that failed the optimistic-concurrency check below.
- * `retryFailed` matches on it to strip the guard, turning Retry into an
- * explicit "apply my version anyway" — #281 only forbids *silent* overwrites.
+ * `lastError` copy for an entry that failed the optimistic-concurrency check
+ * below. Display only — conflict *behavior* (`conflictCount`, the Retry
+ * guard-strip) keys off `failureKind: 'conflict'`, never this string (#392).
  */
 export const BOARD_CONFLICT_MESSAGE = "couldn't sync — board changed on another device";
 
@@ -110,7 +115,9 @@ const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
     .select('updated_at');
   if (error) throw error;
   const row = data?.[0];
-  if (row === undefined) throw new UnretryableOutboxError(BOARD_CONFLICT_MESSAGE);
+  if (row === undefined) {
+    throw new UnretryableOutboxError(BOARD_CONFLICT_MESSAGE, { failureKind: 'conflict' });
+  }
   noteBoardUpdatedAt(entry.boardId, row.updated_at);
 };
 

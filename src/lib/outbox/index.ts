@@ -10,7 +10,7 @@ import {
   subscribeStatus,
   withCrossTabLock,
 } from './drain';
-import { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } from './handlers';
+import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -26,7 +26,7 @@ export { startOutbox, UnretryableOutboxError };
 type DistributiveOmit<T, K extends keyof OutboxEntry> = T extends OutboxEntry ? Omit<T, K> : never;
 type EntryInput = DistributiveOmit<
   OutboxEntry,
-  'id' | 'enqueuedAt' | 'attemptCount' | 'status' | 'lastError'
+  'id' | 'enqueuedAt' | 'attemptCount' | 'status' | 'lastError' | 'failureKind'
 >;
 
 /**
@@ -103,17 +103,18 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
  * pending (#289). `drain()` takes the same (non-reentrant) lock, so it must
  * stay outside the callback.
  *
- * Entries that failed the board conflict guard lose their guard here: their
- * baseline is permanently behind the other device's write, so a guarded
- * retry can only re-conflict. Stripping it turns Retry into "apply my
- * version anyway" — the overwrite #281 forbids is the *silent* one, and the
- * user is choosing it explicitly now. Other failures keep their guard.
+ * Entries that failed the board conflict guard (`failureKind: 'conflict'`)
+ * lose their guard here: their baseline is permanently behind the other
+ * device's write, so a guarded retry can only re-conflict. Stripping it turns
+ * Retry into "apply my version anyway" — the overwrite #281 forbids is the
+ * *silent* one, and the user is choosing it explicitly now. Other failures
+ * keep their guard.
  */
 export const retryFailed = async (): Promise<void> => {
   await withCrossTabLock(async () => {
     const failed = (await listEntries()).filter((e) => e.status === 'failed');
-    for (const { lastError, ...entry } of failed) {
-      if (entry.kind === 'updateBoard' && lastError === BOARD_CONFLICT_MESSAGE) {
+    for (const { lastError: _lastError, failureKind, ...entry } of failed) {
+      if (entry.kind === 'updateBoard' && failureKind === 'conflict') {
         delete entry.expectedUpdatedAt;
       }
       await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
