@@ -75,9 +75,11 @@ themselves are happy-path only.
 - **Transient** (network `TypeError`, 5xx): the entry stays `pending` and is
   retried on the next drain, up to 6 attempts, after which it flips to
   `failed` so it can't retry forever. The attempt budget is sized against
-  the retry-timer backoff schedule (#391): in a single tab the sixth attempt
-  runs about a minute after the first, so a short blip can't exhaust it.
-  More open tabs spend the shared budget faster; Retry recovers the entry.
+  the retry-timer backoff schedule (#391): in a single tab the queue head's
+  sixth attempt runs about a minute after its first, so a short blip can't
+  exhaust it. Entries behind a failed head retry at the walked-up delay and
+  take longer. More open tabs spend the shared budget faster; Retry recovers
+  the entry.
 - **Permanent** (`UnretryableOutboxError`: coded Postgres errors such as RLS
   denials, 4xx storage errors): no retry. On the fast path the mutation
   promise rejects, so React Query rolls back the optimistic patch and the

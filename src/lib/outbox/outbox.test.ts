@@ -279,6 +279,20 @@ describe('transient retry timer (#391)', () => {
     await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
   });
 
+  it('arms no timer when the device drops mid-pass', async () => {
+    // The offline listener can't help here: it fires while `draining` is
+    // still true and there is no timer to clear yet. The finally block must
+    // skip the arm itself.
+    unguardedSelectMock.mockImplementation(() => {
+      setOnline(false);
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    expect((await listEntries())[0]?.status).toBe('pending');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('clears the timer when the device goes offline', async () => {
     startOutbox(); // attaches the offline listener
     await flushReal(); // let the boot drain settle (empty queue)

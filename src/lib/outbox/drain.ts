@@ -12,9 +12,11 @@ import type { OutboxEntry } from './types';
 
 /**
  * Sized against the retry schedule (#391): a 2 s base doubling to a 30 s cap
- * puts the sixth attempt ~60 s after the first, so a short network blip
- * cannot exhaust the budget while a real outage still surfaces as `failed`
- * within about a minute. Change either number only together with the other.
+ * puts the queue head's sixth attempt ~60 s after its first, so a short
+ * network blip cannot exhaust the budget while a real outage still surfaces
+ * as `failed` within about a minute. Entries behind a failed head start from
+ * the walked-up delay and take longer — the network is known-bad by then.
+ * Change either number only together with the other.
  * The sizing is per tab: each tab arms its own timer against the shared
  * queue, so several open tabs spend the budget faster — pre-existing, the
  * `online` event fires in every tab too, and Retry recovers the entry.
@@ -233,7 +235,11 @@ export const drain = async (): Promise<void> => {
     if (sawProgress || !sawTransient) {
       drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
-    if (sawTransient && !drainState.pendingDrain) {
+    // No timer when the device dropped mid-pass: it would only wake once,
+    // hit the offline branch, and cancel itself. The `online` event is the
+    // next trigger.
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (sawTransient && !drainState.pendingDrain && online) {
       scheduleRetry();
     }
     drainState.draining = false;
