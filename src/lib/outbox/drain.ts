@@ -1,5 +1,11 @@
 import { resolveExpectedUpdatedAt } from './board-clock';
-import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
+import {
+  drainState,
+  drainSubscribers,
+  type OutboxStatus,
+  RETRY_BASE_DELAY_MS,
+  RETRY_MAX_DELAY_MS,
+} from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
@@ -125,6 +131,39 @@ export const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> =
 };
 
 /**
+ * Cancel the scheduled re-drain (#391). Called when a drain actually starts
+ * (it is about to do the timer's work), when the queue outcome no longer
+ * needs one, and when the device goes offline (`online` will trigger the
+ * next drain instead).
+ */
+const clearRetryTimer = (): void => {
+  clearTimeout(drainState.retryTimer);
+  drainState.retryTimer = undefined;
+};
+
+/**
+ * Schedule an automatic re-drain after a transient failure (#391). Without
+ * it, an entry that fails while the device stays online waits for the next
+ * external trigger (online event, new enqueue, manual retry) — a stuck
+ * pending count. Exponential backoff, capped; the delay resets once a pass
+ * completes without a transient failure or the device goes offline.
+ */
+const scheduleRetry = (): void => {
+  clearRetryTimer();
+  drainState.retryTimer = setTimeout(() => {
+    drainState.retryTimer = undefined;
+    void drain();
+  }, drainState.retryDelayMs);
+  drainState.retryDelayMs = Math.min(drainState.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
+};
+
+/** Offline path for the timer: cancel it and start the backoff over. */
+const cancelRetryOnOffline = (): void => {
+  clearRetryTimer();
+  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+};
+
+/**
  * Drains every pending entry in FIFO order. Stops at the first transient
  * failure to preserve ordering. Permanent failures (RLS, validation) are
  * marked and skipped so a single bad entry can't dam the queue.
@@ -135,11 +174,14 @@ export const drain = async (): Promise<void> => {
     return;
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    cancelRetryOnOffline();
     await emit();
     return;
   }
   drainState.draining = true;
+  clearRetryTimer();
   await emit();
+  let sawTransient = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain online check can be seconds stale by the time another
@@ -153,6 +195,7 @@ export const drain = async (): Promise<void> => {
         for (const entry of entries) {
           const outcome = await runOne(entry);
           if (outcome === 'transient') {
+            sawTransient = true;
             stop = true;
             break;
           }
@@ -163,8 +206,13 @@ export const drain = async (): Promise<void> => {
     drainState.draining = false;
     await emit();
     if (drainState.pendingDrain) {
+      // The immediate follow-up drain owns the retry decision.
       drainState.pendingDrain = false;
       void drain();
+    } else if (sawTransient) {
+      scheduleRetry();
+    } else {
+      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
   }
 };
@@ -183,6 +231,9 @@ export const startOutbox = (): void => {
       void drain();
     });
     window.addEventListener('offline', () => {
+      // No point waiting out a backoff on a dead network — the `online`
+      // event above is the next trigger (#391).
+      cancelRetryOnOffline();
       void emit();
     });
   }

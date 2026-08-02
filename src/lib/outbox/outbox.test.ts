@@ -155,6 +155,101 @@ describe('outbox drain', () => {
   });
 });
 
+describe('transient retry timer (#391)', () => {
+  beforeEach(() => {
+    // Only fake the timer pair the retry scheduler uses. fake-indexeddb
+    // resolves through real setImmediate rounds; faking those would deadlock
+    // every IDB await behind the timer clock.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * One real macrotask round. MessageChannel, not setTimeout: setTimeout is
+   * faked above, and fake-indexeddb settles its work on real macrotasks that
+   * a fake clock would never reach.
+   */
+  const realTick = (): Promise<void> =>
+    new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        channel.port1.close();
+        resolve();
+      };
+      channel.port2.postMessage(null);
+    });
+
+  /**
+   * `advanceTimersByTimeAsync` fires the timer callback (`void drain()`) but
+   * can't await it — the drain settles over real macrotask rounds (IDB).
+   * Poll the assertion across those rounds; bounded so a genuine failure
+   * still surfaces as the assertion error.
+   */
+  const waitReal = async (check: () => Promise<void>): Promise<void> => {
+    for (let i = 0; ; i++) {
+      try {
+        await check();
+        return;
+      } catch (err) {
+        if (i >= 1000) throw err;
+        await realTick();
+      }
+    }
+  };
+
+  /** Fixed flush for negative assertions ("nothing ran"). */
+  const flushReal = async (): Promise<void> => {
+    for (let i = 0; i < 50; i++) await realTick();
+  };
+
+  it('re-drains automatically after a transient failure while online', async () => {
+    unguardedSelectMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue({
+      data: [{ updated_at: '2026-06-11T09:00:01.000001+00:00' }],
+      error: null,
+    });
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    // First attempt failed transiently: entry pending, re-drain scheduled.
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await waitReal(async () => expect(await listEntries()).toEqual([]));
+    // Queue emptied — no timer may remain.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('backs off exponentially and leaves no timer once nothing is pending', async () => {
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain(); // attempt 1 → transient, next drain in 1s
+    await vi.advanceTimersByTimeAsync(1_000);
+    await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
+    // The second backoff is 2s: after only 1s more, nothing runs.
+    await vi.advanceTimersByTimeAsync(1_000);
+    await flushReal();
+    expect((await listEntries())[0]?.attemptCount).toBe(2);
+    await vi.advanceTimersByTimeAsync(1_000);
+    // Attempt 3 hits MAX_ATTEMPTS → failed. Failed entries don't reschedule.
+    await waitReal(async () => expect((await listEntries())[0]?.status).toBe('failed'));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the timer when the device goes offline', async () => {
+    startOutbox(); // attaches the offline listener
+    await flushReal(); // let the boot drain settle (empty queue)
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    await drain();
+    expect(vi.getTimerCount()).toBe(1);
+    setOnline(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
 describe('cross-tab coordination (#278, #289)', () => {
   /**
    * Minimal Web Locks fake: serializes callbacks per lock name via a promise
