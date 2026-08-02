@@ -10,7 +10,7 @@ per-decision detail.
 
 ## Why cache signed URLs at all
 
-A signed URL is a network round-trip to mint and expires after an hour
+A signed URL is a network round-trip to mint and expires
 (`SIGNED_URL_TTL_SECONDS` in `src/lib/storage.ts`). A kid-mode board shows a
 dozen photos at once and must keep working in the car with no signal. Minting
 on every render is too slow online and impossible offline — so URLs are
@@ -40,14 +40,13 @@ Audio takes the same path minus the hook: `playPictogramAudio` in
 
 ## The three tiers
 
-1. **Memory** — a plain `Map` (`signedUrlMemCache`). Hit when the entry has
-   more than 30 seconds of validity left; the margin keeps a URL that
+1. **Memory** — a plain `Map` (`signedUrlMemCache`). Hit only when the
+   entry has a safety margin of validity left; the margin keeps a URL that
    expires mid-image-load from being handed out.
 2. **IndexedDB** — the same `{url, expiresAt}` entries under
    `signed-url:`-prefixed keys, so a reload (or the PWA relaunching) doesn't
    re-mint every URL on screen. A valid IDB hit also re-hydrates memory.
-3. **Mint** — `createSignedUrl` with the one-hour TTL, persisted to both
-   tiers on the way out.
+3. **Mint** — `createSignedUrl`, persisted to both tiers on the way out.
 
 `blob:` paths short-circuit before any of this: a photo created offline
 renders from `URL.createObjectURL` until the outbox uploads the real blob.
@@ -60,8 +59,8 @@ but the service worker makes it safe: workbox caches storage responses
 CacheFirst with `ignoreSearch: true`, so the `?token=...` query is stripped
 from the cache key and every rotation of a signed URL for the same object
 resolves to the same cached bytes. A stale URL never reaches Supabase; the
-SW answers from `talrum-storage-v1` (200 entries, 30-day expiry). The two
-caches are complementary: the URL cache keeps the _request_ stable so the SW
+SW answers from `talrum-storage-v1`. The two caches are complementary: the
+URL cache keeps the _request_ stable so the SW
 cache can keep serving the _bytes_. Only a photo never viewed on this device
 is genuinely unreachable offline.
 

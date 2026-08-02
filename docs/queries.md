@@ -27,8 +27,8 @@ re-exporting both so existing import sites don't churn. Smaller domains
   on the init migration's CHECK constraints.
 - **A thin `useX` hook**: `useQuery({ queryKey, queryFn })` and nothing else.
 
-Global defaults live in `src/lib/queryClient.ts`: `staleTime: 30_000`,
-`retry: 1`, no refetch-on-focus — AAC use is calm, an iPad tap away shouldn't
+Global defaults live in `src/lib/queryClient.ts`: a long stale time, minimal
+retries, no refetch-on-focus — AAC use is calm, an iPad tap away shouldn't
 churn. Rely on them. Override per-query only with a written reason: `useBoard`
 in `boards.read.ts` supplies a custom `retry` because PGRST116 (the `.single()`
 not-found/RLS-hidden error) is terminal — retrying the same UUID gives the
@@ -68,7 +68,7 @@ blob URLs before invalidating.
 
 ## Choosing a write path
 
-The most important decision when adding a mutation. Three legitimate
+The most important decision when adding a mutation. Four legitimate
 patterns:
 
 **Outbox (the default).** Field edits, renames, reorders, deletes — anything
@@ -97,9 +97,17 @@ client-side, plants a local `blob:` URL for instant render, and lets the
 drain replace it with the real signed path (`useSetPictogramAudio` and
 `useReplacePictogramImage` follow the same blob-URL dance).
 
+**Direct edge-function invoke, for privileged operations.**
+`useDeleteMyAccount` (`account.ts`) calls the `delete-account` edge function
+directly: deleting an auth user needs the service role, which only the
+function has, and the caller needs the verdict right now — the hook signs
+the user out and navigates on success. Queueing an account deletion for a
+silent later replay would be wrong even if it were possible.
+
 The test: does the caller need the server's answer _right now_ (navigation,
-a returned row, an RLS verdict)? Direct write. Otherwise outbox — and if
-there's a file attached, outbox even for creates.
+a returned row, an RLS verdict, a privileged operation's outcome)? Direct
+write. Otherwise outbox — and if there's a file attached, outbox even for
+creates.
 
 ## Adding a new query or mutation
 

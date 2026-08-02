@@ -22,9 +22,9 @@ Talrum keeps three distinct offline stores. Newcomers conflate them; don't.
    returns. The read cache shows what the server said; the outbox holds what
    the server hasn't heard yet.
 3. **The service-worker asset cache** (`vite.config.ts`) — the app shell
-   precache plus a `CacheFirst` runtime cache (`talrum-storage-v1`) for
-   Supabase Storage photo bytes, capped at 200 entries / 30 days. It stores
-   _bytes by URL_; the data cache stores _rows by query key_.
+   precache plus a capped `CacheFirst` runtime cache (`talrum-storage-v1`)
+   for Supabase Storage photo bytes. It stores _bytes by URL_; the data
+   cache stores _rows by query key_.
 
 A fourth, smaller stripe rides alongside: `src/lib/storage.ts` persists
 minted signed URLs to IndexedDB under `signed-url:` keys, so a reload
@@ -48,11 +48,11 @@ test (#355), so both are asserted at build time by
   begins at index 0, and Supabase Storage is always cross-origin. An
   unanchored pattern doesn't warn — the cache simply never gets created.
 - It must not cache opaque responses (`statuses: [0, …]`). A no-cors
-  `<img>` load produces one, and the browser charges it ~6 MB of storage
-  quota no matter how small the photo is. At 200 entries that is over a
-  gigabyte, and blowing the origin quota evicts _everything_ here,
+  `<img>` load produces one, and the browser charges it several megabytes
+  of storage quota no matter how small the photo is — a cache full of them
+  blows the origin quota, and blowing the quota evicts _everything_ here,
   including the outbox. `PictogramMedia` sets `crossOrigin="anonymous"` so
-  these are real, readable, 24-KB-sized CORS responses.
+  these are real, readable, actual-size CORS responses.
 
 Parent voice recordings are **not** in this cache. Media elements always
 request audio with a `Range` header, Supabase answers `206 Partial
@@ -61,16 +61,12 @@ network, and `speakPictogram` falls back to TTS when that fails (#378).
 
 ## The persister
 
-`src/lib/queryClient.ts` builds the whole thing:
-
-- `queryClient` sets the global defaults: `staleTime: 30_000` (a mutation
-  followed by an immediate re-read hits cache), `refetchOnWindowFocus:
-false` (AAC use is calm — an iPad tap away shouldn't churn), `retry: 1`.
-- `createAsyncStoragePersister` wraps `idb-keyval` (`get`/`set`/`del`) as
-  the async string store, with `throttleTime: 1_000` to coalesce rapid
-  mutations into one IDB write.
-- `persistOptions` feeds `PersistQueryClientProvider` in `src/app/App.tsx`,
-  which hydrates the cache from IDB before the app renders queries.
+`src/lib/queryClient.ts` builds the whole thing: the `queryClient` with its
+calm global defaults (see [queries.md](./queries.md)), an
+`createAsyncStoragePersister` wrapping `idb-keyval` with a short throttle
+so rapid mutations coalesce into one IDB write, and the `persistOptions`
+that feed `PersistQueryClientProvider` in `src/app/App.tsx`, which hydrates
+the cache from IDB before the app renders queries.
 
 ## What gets dehydrated — and what deliberately isn't
 
@@ -99,14 +95,13 @@ the commit readout in Settings for exactly that reason.
 
 Invalidating per deploy over-invalidates, deliberately. A device only ever
 sees a new buster by having just downloaded the build that carries it, so
-it is online at that moment: the cost is one refetch, re-persisted within
-the second (`throttleTime`). The opposite error costs a screen rendering
-against data of a shape it no longer understands, on a device you are not
-holding, with no reload that clears it. That asymmetry is the whole
-argument.
+it is online at that moment: the cost is one refetch, re-persisted almost
+immediately. The opposite error costs a screen rendering against data of a
+shape it no longer understands, on a device you are not holding, with no
+reload that clears it. That asymmetry is the whole argument.
 
-`maxAge` (one week) is now the belt rather than the mechanism — it only
-matters for a tablet that sat in a drawer across no deploys at all.
+`maxAge` is now the belt rather than the mechanism — it only matters for a
+tablet that sat in a drawer across no deploys at all.
 
 ## Auth boundaries: the scrub
 
@@ -141,6 +136,6 @@ sign-in's hydration, which is fine because every operation is idempotent.
   auth broadcasts the sign-out across tabs anyway).
 - The SW `talrum-storage-v1` cache is _not_ wiped at auth boundaries: it
   holds bytes keyed by storage URL, and reaching them requires a path from
-  the (wiped) data and signed-URL caches. Expiry (30 days / 200 entries)
-  eventually evicts them. This was dormant until #355 made the cache
-  actually populate; #380 tracks adding it to the scrub.
+  the (wiped) data and signed-URL caches. The cache's own expiry eventually
+  evicts them. This was dormant until #355 made the cache actually
+  populate; #380 tracks adding it to the scrub.

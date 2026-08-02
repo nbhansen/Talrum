@@ -25,7 +25,7 @@ http://127.0.0.1:54324
 ```
 
 Sign in in the app, switch to that tab, grab the 6-digit code, paste it.
-Tokens have an hour TTL (see `supabase/config.toml::auth.email.otp_expiry`).
+The token TTL is set in `supabase/config.toml::auth.email.otp_expiry`.
 
 ## Starter library on signup
 
@@ -58,19 +58,14 @@ mutate them.
    either fails or produces a URL that 403s on fetch. Bucket RLS keys off
    the first path segment matching `auth.uid()::text`.
 
-## Schema notes
+## Why slugs survive alongside uuids
 
-- `kids.id`, `pictograms.id`, `boards.id` are all `uuid primary key default
-gen_random_uuid()`.
-- Text slugs ('apple', 'morning', 'liam') are preserved as an optional
-  `slug text` column (with a `unique (owner_id, slug)` constraint on
-  pictograms and boards). They're used by a handful of client-side lookup
-  sites — `ParentHome.RECENT_STRIP_SLUGS`, `BoardBuilder.QUICK_ADD_SLUGS` —
-  via `usePictogramsBySlug`.
-- `boards.kid_id uuid references kids(id) on delete cascade` — real FK.
-- `boards.step_ids uuid[]` — the trigger rewrites template `step_slugs
-text[]` into per-user uuids at signup.
-- `board_members.board_id uuid references boards(id)` — unchanged in shape.
+Ids are uuid-native, but text slugs ('apple', 'morning') are preserved as
+an optional `slug` column (unique per owner). They exist for the handful of
+client-side lookup sites that need to name a template pictogram without
+knowing its per-user uuid — `ParentHome`'s recent strip, `BoardBuilder`'s
+quick-add — via `usePictogramsBySlug`. Column shapes and constraints live
+in the migrations and the generated `src/types/supabase.ts`.
 
 ## Storage cleanup caveat
 
