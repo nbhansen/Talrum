@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
-import { extensionForMime, isRecordingSupported, startRecording } from './recording';
+import {
+  extensionForMime,
+  isRecordingSupported,
+  MAX_RECORDING_MS,
+  startRecording,
+} from './recording';
 
 describe('extensionForMime', () => {
   it('returns webm for Chromium mime types', () => {
@@ -106,11 +111,14 @@ describe('startRecording', () => {
     // that also happens to be supported further down the candidate list.
     FakeMediaRecorder.supportedTypes = ['audio/mp4', 'audio/ogg;codecs=opus'];
 
-    await startRecording();
+    const recording = await startRecording();
 
     expect(getUserMediaMock).toHaveBeenCalledWith({ audio: true });
     expect(lastRecorder().mimeType).toBe('audio/mp4');
     expect(lastRecorder().state).toBe('recording');
+    // Not part of the assertion — clears the real cap timer (#416) so it
+    // cannot fire into a later test.
+    recording.cancel();
   });
 
   it('falls back to the browser default when no candidate mime type is supported', async () => {
@@ -156,6 +164,44 @@ describe('startRecording', () => {
     expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
     expect(lastRecorder().state).toBe('inactive');
     expect(track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops itself at MAX_RECORDING_MS (#416)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
+      const recording = await startRecording();
+      lastRecorder().pendingChunks = [new Blob(['capped'])];
+
+      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
+      expect(lastRecorder().state).toBe('inactive');
+
+      // A later stop() (the dialog's Stop press, or its auto-save timer)
+      // must resolve with the capped clip, not stop an inactive recorder.
+      const blob = await recording.stop();
+      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
+      expect(await blob.text()).toBe('capped');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stop() before the cap clears the cap timer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
+      const recording = await startRecording();
+      await recording.stop();
+
+      // A leaked cap timer would call stop() on an inactive recorder —
+      // an InvalidStateError in real browsers.
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('cancel() after stop() still releases tracks without stopping an inactive recorder again', async () => {

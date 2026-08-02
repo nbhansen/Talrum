@@ -1,10 +1,11 @@
-import { type JSX, useEffect, useState } from 'react';
+import { type JSX, useCallback, useEffect, useState } from 'react';
 
 import { playPictogramAudio } from '@/lib/audio';
 import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import {
   extensionForMime,
   isRecordingSupported,
+  MAX_RECORDING_MS,
   type Recording,
   startRecording,
 } from '@/lib/recording';
@@ -32,6 +33,9 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const saveMut = useSetPictogramAudio();
   const clearMut = useClearPictogramAudio();
+  // mutateAsync is referentially stable; depending on `saveMut` itself would
+  // recreate `stop` every render and reset the cap timer below.
+  const { mutateAsync: saveAudio } = saveMut;
   const supported = isRecordingSupported();
   const hasAudio = Boolean(picto.audioPath);
 
@@ -54,13 +58,13 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     }
   };
 
-  const stop = async (): Promise<void> => {
+  const stop = useCallback(async (): Promise<void> => {
     if (!rec) return;
     setMode('uploading');
     try {
       const blob = await rec.stop();
       setRec(null);
-      await saveMut.mutateAsync({
+      await saveAudio({
         pictogramId: picto.id,
         blob,
         extension: extensionForMime(blob.type),
@@ -71,7 +75,22 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
       setMode('idle');
       setError('Upload failed. Check your connection and try again.');
     }
-  };
+  }, [rec, saveAudio, picto.id, picto.audioPath]);
+
+  // Save automatically when the duration cap fires (#416). The recorder
+  // stops itself at MAX_RECORDING_MS either way; without this timer the
+  // dialog would keep showing "Recording…" over a recorder that already
+  // stopped, and a later Stop press would save a clip the user thinks is
+  // longer than it is.
+  useEffect(() => {
+    if (mode !== 'recording') return undefined;
+    const timer = setTimeout(() => {
+      void stop();
+    }, MAX_RECORDING_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [mode, stop]);
 
   const play = async (): Promise<void> => {
     if (!picto.audioPath) return;
@@ -121,7 +140,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
         <div className={styles.status}>
           {mode === 'recording' ? (
             <span className={styles.recDot} aria-live="polite">
-              Recording…
+              Recording… Stops after {MAX_RECORDING_MS / 1000} seconds.
             </span>
           ) : hasAudio ? (
             <span className={styles.ok}>Recording saved ✓</span>

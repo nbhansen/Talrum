@@ -15,6 +15,23 @@ const pickMimeType = (): string | undefined => {
   return CANDIDATE_TYPES.find((t) => MediaRecorder.isTypeSupported(t));
 };
 
+/**
+ * Hard cap on one recording (#416). Pictogram audio is a spoken label, so
+ * ten seconds is generous. The cap also keeps every clip far inside the
+ * outbox blob timeout (`BLOB_HANDLER_TIMEOUT_MS`, `src/lib/outbox/
+ * handlers.ts`) on any usable uplink: that bound is wall-clock and a retry
+ * restarts from byte zero, so an uncapped clip could grow past what the
+ * bound lets sync. Change the two together.
+ */
+export const MAX_RECORDING_MS = 10_000;
+
+/**
+ * The recorder stops itself at `MAX_RECORDING_MS`; `stop()` after that
+ * resolves with the capped clip. A consumer that drives UI from its own
+ * recording state must arm its own timer on the same constant — or it shows
+ * a live "recording" UI over a recorder that already stopped (see
+ * `VoiceRecorderDialog`).
+ */
 export interface Recording {
   stop: () => Promise<Blob>;
   cancel: () => void;
@@ -33,24 +50,38 @@ export const startRecording = async (): Promise<Recording> => {
   rec.addEventListener('dataavailable', (e) => {
     if (e.data.size > 0) chunks.push(e.data);
   });
-  rec.start();
+  let tornDown = false;
   const teardown = (): void => {
+    if (tornDown) return;
+    tornDown = true;
     stream.getTracks().forEach((t) => t.stop());
   };
+  // Registered before start so the blob is captured whichever path stops
+  // the recorder — the caller's stop(), the duration cap, or cancel().
+  const blobReady = new Promise<Blob>((resolve) => {
+    rec.addEventListener(
+      'stop',
+      () => {
+        teardown();
+        resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+      },
+      { once: true },
+    );
+  });
+  rec.start();
+  // Enforced here, not only in the dialog UI, so no consumer of this
+  // wrapper can produce a clip the outbox blob timeout cannot sync.
+  const capTimer = setTimeout(() => {
+    if (rec.state !== 'inactive') rec.stop();
+  }, MAX_RECORDING_MS);
   return {
-    stop: (): Promise<Blob> =>
-      new Promise((resolve) => {
-        rec.addEventListener(
-          'stop',
-          () => {
-            teardown();
-            resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
-          },
-          { once: true },
-        );
-        rec.stop();
-      }),
+    stop: (): Promise<Blob> => {
+      clearTimeout(capTimer);
+      if (rec.state !== 'inactive') rec.stop();
+      return blobReady;
+    },
     cancel: (): void => {
+      clearTimeout(capTimer);
       if (rec.state !== 'inactive') rec.stop();
       teardown();
     },

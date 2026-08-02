@@ -150,11 +150,11 @@ New entry kind? Add the interface in `types.ts`, the handler in
   re-upload of the same pictogram) and recoverable by redoing the action;
   #415 tracks versioned paths, which close it by construction.
 - The handler timeout is wall-clock and a retry restarts the transfer from
-  byte zero, so the blob bound is also a ceiling on what can sync:
-  recordings have no duration cap (#416), and a clip whose transfer needs
-  more than the bound on the current uplink (roughly beyond a minute of
-  speech at ~100 kbps) exhausts its attempts and lands as `failed` — Retry
-  hits the same wall.
+  byte zero, so the blob bound is a ceiling on what can sync. Every blob is
+  bounded by construction — photos are re-encoded to 512px JPEG and
+  recordings are capped at `MAX_RECORDING_MS` (#416) — so the ceiling only
+  binds on an uplink too slow to move a few hundred KB inside the bound.
+  The cap and the bound reference each other; change them together.
 - A hung request that was delivered but whose response never came commits
   server-side without the client learning it. For a guarded `updateBoard`
   the retry then trips its own conflict guard (the board clock never noted
