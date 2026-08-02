@@ -441,6 +441,27 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  it('fast path re-checks onLine after the lock wait so a dead network burns no attempt (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    // The network drops while the fast path is parked on the other tab's
+    // lock. Running the handler now would spend one of the six retry
+    // attempts on a guaranteed failure.
+    setOnline(false);
+    release();
+    await done;
+    expect(eqMock).not.toHaveBeenCalled();
+    const entries = await listEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.attemptCount).toBe(0);
+  });
+
   it('re-checks the backlog after the lock wait so a queued write is not jumped (#395)', async () => {
     const request = installFakeLocks();
     let release = (): void => undefined;

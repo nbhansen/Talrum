@@ -47,7 +47,9 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   `navigator.locks` web lock (#278, #289, #395), so a PWA window plus a
   browser tab can't replay the same entry twice. The fast path holds the lock
   from the empty-queue check through the handler run, so the check and the
-  run are atomic — another tab can't slip a write in between.
+  run are atomic — another tab can't slip a write in between. The cost: a
+  burst of mutations in one tab serializes its round trips too — accepted at
+  this app's write volume.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never
   waits for an external trigger. The schedule, its reset rules, and the

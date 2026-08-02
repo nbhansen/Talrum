@@ -51,14 +51,24 @@ type EntryInput = DistributiveOmit<
  * concurrently — the exact double-replay the lock exists to prevent (#278).
  * The lock is non-reentrant, so the follow-up `drain()` calls stay outside
  * the callback; the callback reports which follow-up is needed instead.
+ * The lock also serializes concurrent fast-path writes within one tab, so a
+ * burst of mutations costs sequential round trips. Accepted: each landed
+ * write leaves the queue empty, so the next waiter still fast-paths, and
+ * correctness beats burst latency at this app's write volume.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
   if (isOnline) {
     const outcome = await withCrossTabLock(
-      async (): Promise<'landed' | 'queued-transient' | 'backlog'> => {
+      async (): Promise<'landed' | 'queued-transient' | 'slow-path'> => {
+        // The pre-lock online check can be seconds stale by the time another
+        // tab releases the lock (same hazard as drain's in-lock re-check);
+        // attempting on a dead network burns a retry attempt for nothing.
+        // Persist unattempted instead — the drain() below no-ops offline and
+        // emits the new pending count.
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return 'slow-path';
         const hasPendingBacklog = (await listEntries()).some((e) => e.status === 'pending');
-        if (hasPendingBacklog) return 'backlog';
+        if (hasPendingBacklog) return 'slow-path';
         const entry: OutboxEntry = {
           ...input,
           id: ulid(),
@@ -99,7 +109,9 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     status: 'pending',
   });
   if (isOnline) {
-    // Online with a backlog: flush the queue (oldest first, this entry last).
+    // Slow path: flush the queue (oldest first, this entry last). When the
+    // network dropped during the lock wait, drain()'s own offline branch
+    // skips the handlers and emits the new pending count.
     await drain();
     return;
   }
