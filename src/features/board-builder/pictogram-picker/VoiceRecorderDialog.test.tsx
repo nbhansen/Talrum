@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
@@ -61,7 +61,7 @@ vi.mock('@/lib/recording', async (importOriginal) => {
 });
 
 const { playPictogramAudio } = await import('@/lib/audio');
-const { isRecordingSupported, startRecording } = await import('@/lib/recording');
+const { isRecordingSupported, MAX_RECORDING_MS, startRecording } = await import('@/lib/recording');
 const { VoiceRecorderDialog } = await import('./VoiceRecorderDialog');
 
 const playMock = vi.mocked(playPictogramAudio);
@@ -141,7 +141,7 @@ describe('VoiceRecorderDialog', () => {
     renderDialog(pictoWithoutAudio);
 
     await user.click(screen.getByRole('button', { name: /record/i }));
-    expect(await screen.findByText('Recording…')).toBeInTheDocument();
+    expect(await screen.findByText(/Recording…/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /stop/i }));
 
@@ -161,6 +161,56 @@ describe('VoiceRecorderDialog', () => {
     expect(screen.queryByText(/failed|could not/i)).not.toBeInTheDocument();
     // hasAudio is prop-driven (the parent re-renders with the fresh picto);
     // within this dialog instance the idle button returns as plain "Record".
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
+    });
+  });
+
+  /**
+   * One real macrotask round for the fake-timer test below. MessageChannel,
+   * not setTimeout: setTimeout is faked there, and the outbox settles its
+   * IDB work on real macrotasks a fake clock never reaches (same pattern as
+   * outbox.test.ts).
+   */
+  const realTick = (): Promise<void> =>
+    new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        channel.port1.close();
+        resolve();
+      };
+      channel.port2.postMessage(null);
+    });
+
+  it('stops and saves automatically at the duration cap (#416)', async () => {
+    // RTL's waitFor does not advance vitest's fake clock, so this test
+    // drives the clock and the real macrotask queue by hand.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      startMock.mockResolvedValue(fakeRecording());
+      renderDialog(pictoWithoutAudio);
+
+      fireEvent.click(screen.getByRole('button', { name: /record/i }));
+      await act(async () => {
+        for (let i = 0; !screen.queryByText(/Stops after 10 seconds/) && i < 1000; i++) {
+          await realTick();
+        }
+      });
+      // The status line names the cap so the parent is not surprised.
+      expect(screen.getByText(/Stops after 10 seconds/)).toBeInTheDocument();
+      expect(uploadMock).not.toHaveBeenCalled();
+
+      // Nobody presses Stop. At the cap the dialog saves what was captured.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+        for (let i = 0; uploadMock.mock.calls.length === 0 && i < 1000; i++) {
+          await realTick();
+        }
+      });
+      expect(uploadMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
     });
@@ -245,7 +295,7 @@ describe('VoiceRecorderDialog', () => {
     const { unmount } = renderDialog(pictoWithoutAudio);
 
     await user.click(screen.getByRole('button', { name: /record/i }));
-    await screen.findByText('Recording…');
+    await screen.findByText(/Recording…/);
     unmount();
 
     expect(rec.cancel).toHaveBeenCalled();
