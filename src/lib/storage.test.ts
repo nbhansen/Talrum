@@ -25,13 +25,28 @@ vi.mock('@/lib/telemetry', () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 
-const { signedUrlFor } = await import('./storage');
+const { mintStoragePath, signedUrlFor } = await import('./storage');
 
 // idb-keyval and the in-process memCache are wiped by the global afterEach in
 // vitest.setup.ts (#144) — only the per-test mock counter needs resetting here.
 beforeEach(() => {
   createSignedUrlMock.mockReset();
   captureExceptionMock.mockReset();
+});
+
+describe('mintStoragePath (#415)', () => {
+  it('scopes the path to the owner and pictogram and keeps the extension', () => {
+    const path = mintStoragePath('owner-1', 'picto-1', 'webm');
+    expect(path).toMatch(/^owner-1\/picto-1-[0-9A-HJKMNP-TV-Z]{26}\.webm$/);
+  });
+
+  it('never mints the same path twice', () => {
+    // The uniqueness is the point: a late remove or upload from an abandoned
+    // outbox run must land on a path no newer write owns.
+    const a = mintStoragePath('o', 'p', 'jpg');
+    const b = mintStoragePath('o', 'p', 'jpg');
+    expect(a).not.toBe(b);
+  });
 });
 
 describe('signedUrlFor', () => {

@@ -30,9 +30,23 @@ const updateMock = vi.fn((patch: Record<string, unknown>) => ({
 }));
 const updatePatches: Record<string, unknown>[] = [];
 
+// Row-path reads (#418): handlers derive storage cleanup from the row, so
+// set/clear audio issue select(...).eq(...).maybeSingle() first. The default
+// mirrors `pictoWithAudio` — tests using `pictoWithoutAudio` get no cleanup
+// either way because the read, not the picto prop, decides.
+const maybeSingleMock = vi.fn<
+  () => Promise<{
+    data: { image_path: string | null; audio_path: string | null } | null;
+    error: MockError | null;
+  }>
+>();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ update: updateMock }),
+    from: () => ({
+      update: updateMock,
+      select: () => ({ eq: () => ({ maybeSingle: maybeSingleMock }) }),
+    }),
     storage: {
       from: (bucket: string) => {
         storageBucketsUsed.push(bucket);
@@ -108,6 +122,7 @@ beforeEach(() => {
   updateMock.mockClear();
   updatePatches.length = 0;
   storageBucketsUsed.length = 0;
+  maybeSingleMock.mockReset().mockResolvedValue({ data: null, error: null });
   playMock.mockReset().mockResolvedValue(undefined);
   supportedMock.mockReset().mockReturnValue(true);
   startMock.mockReset();
@@ -149,7 +164,7 @@ describe('VoiceRecorderDialog', () => {
       expect(uploadMock).toHaveBeenCalledTimes(1);
     });
     const [path, blob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
-    expect(path).toMatch(/\/p1\.webm$/);
+    expect(path).toMatch(/\/p1-[0-9A-HJKMNP-TV-Z]{26}\.webm$/);
     expect(blob.type).toBe('audio/webm');
     expect(storageBucketsUsed).toContain('pictogram-audio');
     await waitFor(() => {
@@ -216,9 +231,13 @@ describe('VoiceRecorderDialog', () => {
     });
   });
 
-  it('removes the old recording from storage when re-recording changes the extension', async () => {
+  it('removes the recording the row pointed at when re-recording', async () => {
     const user = userEvent.setup();
     startMock.mockResolvedValue(fakeRecording(new Blob(['voice'], { type: 'audio/webm' })));
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'owner-uuid/p1.m4a' },
+      error: null,
+    });
     renderDialog(pictoWithAudio);
 
     await user.click(screen.getByRole('button', { name: /re-record/i }));
@@ -248,6 +267,10 @@ describe('VoiceRecorderDialog', () => {
 
   it('deletes the recording from storage and clears the row path', async () => {
     const user = userEvent.setup();
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'owner-uuid/p1.m4a' },
+      error: null,
+    });
     renderDialog(pictoWithAudio);
 
     await user.click(screen.getByRole('button', { name: /delete/i }));

@@ -119,6 +119,13 @@ New entry kind? Add the interface in `types.ts`, the handler in
   throwing.
 - **Happy-path only.** Throw raw Supabase/Storage errors; `runHandler` owns
   classification. Never catch-and-swallow.
+- **Storage cleanup reads the row, never a client snapshot.** Which object
+  a write supersedes is decided by the row's `image_path`/`audio_path`,
+  read by the handler at replay time (`readRowPaths`, #418 review). Cache
+  snapshots hold `blob:` URLs between an enqueue and the settle refetch,
+  so a snapshot-based `previousPath` misses the cleanup and orphans the
+  superseded versioned object. FIFO replay makes the row read exact for
+  offline chains: each entry sees the path its predecessor landed.
 - **Cancellation-aware when multi-step.** A run abandoned by the handler
   timeout (#413) keeps executing as a zombie. A handler with more than one
   side-effecting step must take the `AbortSignal` from `dispatch` and call
@@ -142,13 +149,21 @@ New entry kind? Add the interface in `types.ts`, the handler in
   in flight, and that request can land after later entries ran. For row
   writes this is the same last-write-wins class as cross-device replays
   (boards stay safe via the conflict guard); the between-step cancellation
-  checks stop the zombie from starting anything new. What remains open: the
-  in-flight request itself acts on a deterministic storage path that a
-  later entry may have re-created — a late `remove` or upload can destroy
-  or overwrite a newer object. Rare (it needs a request that stalls past
-  the timeout, then still gets delivered, interleaved with a re-record or
-  re-upload of the same pictogram) and recoverable by redoing the action;
-  #415 tracks versioned paths, which close it by construction.
+  checks stop the zombie from starting anything new. Storage objects are
+  safe by construction: every upload gets a unique versioned path
+  (`mintStoragePath`, #415), minted once per entry, so a late upload or
+  `remove` lands on a path no newer write owns — at worst it leaks one
+  orphaned object. The row's `image_path`/`audio_path` is the single
+  source of truth for which object is current, and handlers derive their
+  cleanup from it (#418 review). Residual orphans are rare, small, and
+  unreferenced — accepted on the free tier's quota until real usage says
+  otherwise. The sources: a failed create's upload; an abandoned run's
+  late upload; cross-device writes interleaving a read with an update; and
+  a crash (or timeout) between the row update landing and the cleanup
+  remove — the replay reads its own path back (or `null`, after a clear)
+  and skips the remove, so the superseded object stays. That last one is
+  the cost of reading the row instead of trusting a snapshot: the replay
+  can no longer tell the superseded object apart from its own.
 - The handler timeout is wall-clock and a retry restarts the transfer from
   byte zero, so the blob bound is a ceiling on what can sync. Every blob is
   bounded by construction — photos are re-encoded to 512px JPEG and

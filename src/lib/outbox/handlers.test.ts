@@ -45,7 +45,15 @@ const inMock = vi.fn<
     error: MockPostgrestError | null;
   }>
 >();
-const selectMock = vi.fn((_cols: string) => ({ in: inMock }));
+// Row-path reads (#418): select('image_path, audio_path').eq(...).maybeSingle().
+const maybeSingleMock = vi.fn<
+  () => Promise<{
+    data: { image_path: string | null; audio_path: string | null } | null;
+    error: MockPostgrestError | null;
+  }>
+>();
+const selectEqMock = vi.fn((_c: string, _v: string) => ({ maybeSingle: maybeSingleMock }));
+const selectMock = vi.fn((_cols: string) => ({ in: inMock, eq: selectEqMock }));
 const deleteEqMock =
   vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
 const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
@@ -124,6 +132,8 @@ beforeEach(() => {
   });
   upsertMock.mockResolvedValue({ error: null });
   inMock.mockResolvedValue({ data: [], error: null });
+  maybeSingleMock.mockReset();
+  maybeSingleMock.mockResolvedValue({ data: null, error: null });
   deleteEqMock.mockResolvedValue({ error: null });
   rpcMock.mockReset();
   rpcMock.mockResolvedValue({ error: null });
@@ -325,11 +335,11 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob,
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.jpg',
+      'o-1/p-1-01HV1JPG.jpg',
       blob,
       expect.objectContaining({ upsert: true }),
     );
@@ -341,7 +351,7 @@ describe('runHandler · createPhotoPicto', () => {
         id: 'p-1',
         owner_id: 'o-1',
         style: 'photo',
-        image_path: 'o-1/p-1.jpg',
+        image_path: 'o-1/p-1-01HV1JPG.jpg',
       }),
       { ignoreDuplicates: true },
     );
@@ -370,7 +380,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     // First attempt lands the row; the tab crashes before the entry is
     // marked done. The replay re-uploads (storage upsert) and the row
@@ -392,7 +402,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     let caught: unknown;
     try {
@@ -425,7 +435,7 @@ describe('runHandler · createPhotoPicto', () => {
       ownerId: 'o-1',
       label: 'Park',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
     // No rollback delete (#414 review): a run abandoned by the handler
@@ -436,49 +446,97 @@ describe('runHandler · createPhotoPicto', () => {
   });
 });
 
+describe('runHandler · legacy blob entries (#415)', () => {
+  it('fails an entry persisted before versioned paths permanently, with an instruction', async () => {
+    // Pre-#415 persisted shape: extension, no path. Replaying it would
+    // re-derive the deterministic path new writes no longer own.
+    const legacy = {
+      ...baseProps,
+      kind: 'createPhotoPicto',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      label: 'Park',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+    } as unknown as CreatePhotoPictogramEntry;
+    await expect(runHandler(legacy)).rejects.toMatchObject({
+      name: 'UnretryableOutboxError',
+      message: expect.stringContaining('discard and redo') as unknown,
+    });
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('runHandler · setPictoAudio', () => {
-  it('uploads, updates the row, and removes the previous recording', async () => {
+  it('uploads, updates the row, and removes the recording the row pointed at', async () => {
+    // The superseded path comes from the row read, not a client snapshot
+    // (#418 review) — the cache can hold a stale blob: URL.
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'o-1/p-1-01HV0OLD.m4a' },
+      error: null,
+    });
     const blob = new Blob(['x'], { type: 'audio/webm' });
     const entry: SetPictogramAudioEntry = {
       ...baseProps,
       kind: 'setPictoAudio',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob,
-      extension: 'webm',
-      previousPath: 'o-1/p-1.m4a',
+      path: 'o-1/p-1-01HV1WEBM.webm',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.webm',
+      'o-1/p-1-01HV1WEBM.webm',
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1.webm' });
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.m4a']);
+    expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1-01HV1WEBM.webm' });
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV0OLD.m4a']);
+  });
+
+  it("skips the remove when the row already points at this entry's path (replay)", async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
+      error: null,
+    });
+    const entry: SetPictogramAudioEntry = {
+      ...baseProps,
+      kind: 'setPictoAudio',
+      pictogramId: 'p-1',
+      blob: new Blob(['x'], { type: 'audio/webm' }),
+      path: 'o-1/p-1-01HV1WEBM.webm',
+    };
+    await runHandler(entry);
+    // A replay whose update already landed must not delete its own object.
+    expect(removeMock).not.toHaveBeenCalled();
   });
 });
 
 describe('runHandler · clearPictoAudio', () => {
-  it('removes the file and nulls audio_path', async () => {
+  it('nulls audio_path and removes the recording the row pointed at', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
+      error: null,
+    });
     const entry: ClearPictogramAudioEntry = {
       ...baseProps,
       kind: 'clearPictoAudio',
       pictogramId: 'p-1',
-      path: 'o-1/p-1.webm',
     };
     await runHandler(entry);
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1WEBM.webm']);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
   });
 
   it('reports a failed file removal to telemetry but still nulls audio_path', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
+      error: null,
+    });
     removeMock.mockResolvedValue({ error: new Error('storage offline') });
     const entry: ClearPictogramAudioEntry = {
       ...baseProps,
       kind: 'clearPictoAudio',
       pictogramId: 'p-1',
-      path: 'o-1/p-1.webm',
     };
     await runHandler(entry);
     // Cleanup failure is swallowed — the row is still updated.
@@ -507,84 +565,101 @@ describe('runHandler · renamePicto', () => {
 });
 
 describe('runHandler · replacePictoImage', () => {
-  it('uploads the new blob, points the row at it, and removes the prior upload', async () => {
+  it('uploads the new blob, points the row at it, and removes the image the row pointed at', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'o-1/p-1-01HV0OLD.webp', audio_path: null },
+      error: null,
+    });
     const blob = new Blob(['x'], { type: 'image/jpeg' });
     const entry: ReplacePictogramImageEntry = {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob,
-      extension: 'jpg',
-      previousPath: 'o-1/p-1.webp',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalledWith(
-      'o-1/p-1.jpg',
+      'o-1/p-1-01HV1JPG.jpg',
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1.jpg' });
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webp']);
+    expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1-01HV1JPG.jpg' });
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV0OLD.webp']);
   });
 
-  it('skips removeFromBucket when the previous path is a stock sentinel', async () => {
+  it('skips removeFromBucket when the row points at a stock sentinel', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'stock:park', audio_path: null },
+      error: null,
+    });
     const entry: ReplacePictogramImageEntry = {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
-      previousPath: 'stock:park',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
     expect(uploadMock).toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
   });
 
-  it('skips removeFromBucket when the new path matches the previous path', async () => {
+  it("skips removeFromBucket when the row already points at this entry's path (replay)", async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'o-1/p-1-01HV1JPG.jpg', audio_path: null },
+      error: null,
+    });
     const entry: ReplacePictogramImageEntry = {
       ...baseProps,
       kind: 'replacePictoImage',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
-      previousPath: 'o-1/p-1.jpg',
+      path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await runHandler(entry);
-    // Same key — upsert overwrote the bytes; deleting it would lose the new image.
+    // A replay whose update already landed — deleting would lose the image.
     expect(removeMock).not.toHaveBeenCalled();
   });
 });
 
 describe('runHandler · deletePicto', () => {
-  it('cleans up uploads then deletes via the delete_pictogram RPC', async () => {
+  it("cleans up the row's uploads then deletes via the delete_pictogram RPC", async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'o-1/p-1-01HV1JPG.jpg', audio_path: 'o-1/p-1-01HV1WEBM.webm' },
+      error: null,
+    });
     const entry: DeletePictogramEntry = {
       ...baseProps,
       kind: 'deletePicto',
       pictogramId: 'p-1',
-      previousImagePath: 'o-1/p-1.jpg',
-      previousAudioPath: 'o-1/p-1.webm',
     };
     await runHandler(entry);
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.jpg']);
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.webm']);
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1JPG.jpg']);
+    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1WEBM.webm']);
     expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p-1' });
-    // The boards scrub + row delete happen inside the RPC — no table traffic.
-    expect(fromMock).not.toHaveBeenCalled();
+    // The boards scrub + row delete happen inside the RPC — the only table
+    // traffic is the row-path read (#418).
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 
-  it('skips storage cleanup for stock-prefixed previous paths', async () => {
+  it('skips storage cleanup for stock-prefixed paths and a row already gone', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'stock:park', audio_path: null },
+      error: null,
+    });
     const entry: DeletePictogramEntry = {
       ...baseProps,
       kind: 'deletePicto',
       pictogramId: 'p-1',
-      previousImagePath: 'stock:park',
     };
     await runHandler(entry);
     expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p-1' });
+    expect(removeMock).not.toHaveBeenCalled();
+    // Replay after the RPC landed: the read yields null, nothing to remove.
+    maybeSingleMock.mockResolvedValue({ data: null, error: null });
+    await runHandler(entry);
     expect(removeMock).not.toHaveBeenCalled();
   });
 
@@ -673,7 +748,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
     ownerId: 'o-1',
     label: 'Park',
     blob: new Blob(['x'], { type: 'image/jpeg' }),
-    extension: 'jpg',
+    path: 'o-1/p-1-01HV1JPG.jpg',
   });
 
   it('a hung row write rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
@@ -737,18 +812,21 @@ describe('runHandler · handler IO timeout (#413)', () => {
     await vi.advanceTimersByTimeAsync(0);
   });
 
-  it('an abandoned clearPictoAudio starts no further steps when its remove settles', async () => {
-    let settleRemove: () => void = () => undefined;
-    removeMock.mockReturnValue(
-      new Promise<{ error: Error | null }>((resolve) => {
-        settleRemove = () => resolve({ error: null });
+  it('an abandoned clearPictoAudio starts no further steps when its read settles', async () => {
+    let settleRead: () => void = () => undefined;
+    maybeSingleMock.mockReturnValue(
+      new Promise((resolve) => {
+        settleRead = () =>
+          resolve({
+            data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
+            error: null,
+          });
       }),
     );
     const entry: ClearPictogramAudioEntry = {
       ...baseProps,
       kind: 'clearPictoAudio',
       pictogramId: 'p-1',
-      path: 'o-1/p-1.webm',
     };
     const outcome = runHandler(entry).then(
       () => 'resolved',
@@ -756,12 +834,14 @@ describe('runHandler · handler IO timeout (#413)', () => {
     );
     await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
     expect(await outcome).toMatch(/timed out/);
-    // The hung remove finally lands. Without the between-step gate the
+    // The hung row read finally lands. Without the between-step gate the
     // zombie would continue into its row update and null an audio_path a
-    // later setPictoAudio entry may have set since (#414 review).
-    settleRemove();
+    // later setPictoAudio entry may have set since (#414 review) — and then
+    // remove that entry's recording.
+    settleRead();
     await vi.advanceTimersByTimeAsync(0);
     expect(updateMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
   });
 
   it('an abandoned setPictoAudio neither updates the row nor removes the old recording', async () => {
@@ -775,10 +855,8 @@ describe('runHandler · handler IO timeout (#413)', () => {
       ...baseProps,
       kind: 'setPictoAudio',
       pictogramId: 'p-1',
-      ownerId: 'o-1',
       blob: new Blob(['x'], { type: 'audio/webm' }),
-      extension: 'webm',
-      previousPath: 'o-1/p-1.m4a',
+      path: 'o-1/p-1-01HV1WEBM.webm',
     };
     const outcome = runHandler(entry).then(
       () => 'resolved',

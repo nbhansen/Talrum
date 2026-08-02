@@ -68,14 +68,13 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
         pictogramId: picto.id,
         blob,
         extension: extensionForMime(blob.type),
-        previousPath: picto.audioPath ?? null,
       });
       setMode('idle');
     } catch {
       setMode('idle');
       setError('Upload failed. Check your connection and try again.');
     }
-  }, [rec, saveAudio, picto.id, picto.audioPath]);
+  }, [rec, saveAudio, picto.id]);
 
   // Save automatically when the duration cap fires (#416). The recorder
   // stops itself at MAX_RECORDING_MS either way; without this timer the
@@ -109,7 +108,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     if (!picto.audioPath) return;
     setError(null);
     try {
-      await clearMut.mutateAsync({ pictogramId: picto.id, path: picto.audioPath });
+      await clearMut.mutateAsync({ pictogramId: picto.id });
     } catch {
       setError('Could not remove recording.');
     }

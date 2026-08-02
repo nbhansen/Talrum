@@ -72,7 +72,6 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
         pictogramId: picto.id,
         blob: processed.blob,
         extension: processed.extension,
-        ...(picto.imagePath ? { previousPath: picto.imagePath } : {}),
       });
       onClose();
     } catch (err) {
@@ -83,13 +82,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   const onDelete = async (): Promise<void> => {
     setError(null);
     try {
-      await deleteMut.mutateAsync({
-        pictogramId: picto.id,
-        ...(picto.style === 'photo' && picto.imagePath
-          ? { previousImagePath: picto.imagePath }
-          : {}),
-        ...(picto.audioPath ? { previousAudioPath: picto.audioPath } : {}),
-      });
+      await deleteMut.mutateAsync({ pictogramId: picto.id });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed.');
