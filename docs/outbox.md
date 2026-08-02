@@ -155,10 +155,15 @@ New entry kind? Add the interface in `types.ts`, the handler in
   `remove` lands on a path no newer write owns — at worst it leaks one
   orphaned object. The row's `image_path`/`audio_path` is the single
   source of truth for which object is current, and handlers derive their
-  cleanup from it (#418 review). Residual orphans (a failed create's
-  upload, an abandoned run's late upload, cross-device writes interleaving
-  a read with an update) are rare, small, and unreferenced — accepted on
-  the free tier's quota until real usage says otherwise.
+  cleanup from it (#418 review). Residual orphans are rare, small, and
+  unreferenced — accepted on the free tier's quota until real usage says
+  otherwise. The sources: a failed create's upload; an abandoned run's
+  late upload; cross-device writes interleaving a read with an update; and
+  a crash (or timeout) between the row update landing and the cleanup
+  remove — the replay reads its own path back (or `null`, after a clear)
+  and skips the remove, so the superseded object stays. That last one is
+  the cost of reading the row instead of trusting a snapshot: the replay
+  can no longer tell the superseded object apart from its own.
 - The handler timeout is wall-clock and a retry restarts the transfer from
   byte zero, so the blob bound is a ceiling on what can sync. Every blob is
   bounded by construction — photos are re-encoded to 512px JPEG and

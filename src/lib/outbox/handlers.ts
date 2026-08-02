@@ -257,6 +257,10 @@ const handleSetPictogramAudio = async (
   if (error) throw error;
   throwIfCancelled(signal);
   // `previous === path` on a replay of an entry whose update already landed.
+  // That guard also means the remove is not replay-idempotent: a crash
+  // between the update and this remove skips it on replay (the read hands
+  // back our own path, the superseded one is gone from the row) and the old
+  // object stays as an orphan — a named residual in docs/outbox.md.
   if (isUploadedStoragePath(previous) && previous !== path) {
     await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
     invalidateSignedUrl(AUDIO_BUCKET, previous);
