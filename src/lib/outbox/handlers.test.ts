@@ -264,6 +264,40 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
   });
 });
 
+describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
+  const entry: RenamePictogramEntry = {
+    ...baseProps,
+    kind: 'renamePicto',
+    pictogramId: 'p-1',
+    label: 'Apple',
+  };
+
+  it.each(['40001', '40P01', '08000', '08006'])(
+    're-throws %s raw so the drain keeps the entry pending',
+    async (code) => {
+      const dbError = { code, message: 'try again', details: '', hint: '' };
+      eqMock.mockResolvedValue({ error: dbError });
+      let caught: unknown;
+      try {
+        await runHandler(entry);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
+      // The original error must reach drain.ts intact — the transient path
+      // keys off "not Unretryable", and telemetry wants the real code.
+      expect(caught).toBe(dbError);
+    },
+  );
+
+  it('keeps the blanket permanent rule for other coded errors', async () => {
+    eqMock.mockResolvedValue({
+      error: { code: '23514', message: 'check violation', details: '', hint: '' },
+    });
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+  });
+});
+
 describe('runHandler · createPhotoPicto', () => {
   it('uploads then inserts the row, ignoring a duplicate (#393)', async () => {
     const blob = new Blob(['x'], { type: 'image/jpeg' });

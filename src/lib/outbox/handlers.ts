@@ -42,9 +42,22 @@ export class UnretryableOutboxError extends Error {
 }
 
 /**
+ * Postgres codes that signal a retryable coordination failure, not a bad
+ * request: serialization failure (40001), deadlock detected (40P01), and the
+ * connection-exception class (08xxx). Postgres documents "retry the
+ * transaction" as the remedy for all of them, so they must stay transient
+ * instead of falling through to the blanket coded-error-is-permanent rule
+ * below (#394).
+ */
+const TRANSIENT_DB_CODES = new Set(['40001', '40P01']);
+const isTransientDbCode = (code: string): boolean =>
+  TRANSIENT_DB_CODES.has(code) || code.startsWith('08');
+
+/**
  * Classify an error from a handler call: re-throw the same value if it's
  * already an Unretryable, treat coded Postgres errors and 4xx storage errors
- * as permanent, treat TypeErrors and 5xx as transient.
+ * as permanent, treat TypeErrors, retryable Postgres codes, and 5xx as
+ * transient.
  */
 const classifyAndThrow = (err: unknown): never => {
   if (err instanceof UnretryableOutboxError) throw err;
@@ -53,6 +66,7 @@ const classifyAndThrow = (err: unknown): never => {
   if (typeof err === 'object' && err !== null) {
     const code = (err as { code?: unknown }).code;
     if (typeof code === 'string') {
+      if (isTransientDbCode(code)) throw err; // retryable — the entry stays pending
       throw new UnretryableOutboxError(`db ${code}: ${message}`, { cause: err });
     }
     const status = (err as { statusCode?: unknown }).statusCode;
