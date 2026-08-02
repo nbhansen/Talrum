@@ -46,8 +46,11 @@ export class UnretryableOutboxError extends Error {
  * request: serialization failure (40001), deadlock detected (40P01), the
  * connection-exception codes (08xxx, minus 08P01 protocol_violation — that
  * one is a malformed request and retrying it cannot succeed), plus the two
- * capacity codes a shared pooler emits under load: too_many_connections
- * (53300) and cannot_connect_now (57P03). Postgres documents "retry the
+ * capacity codes a shared pooler emits under load — too_many_connections
+ * (53300) and cannot_connect_now (57P03) — and query_canceled (57014,
+ * what PostgREST surfaces when statement_timeout fires; every handler here
+ * is a single-row update or RPC, so a timeout means contention, and the
+ * cancel rolled the statement back). Postgres documents "retry the
  * transaction" as the remedy for the listed codes, so they must stay
  * transient instead of falling through to the blanket
  * coded-error-is-permanent rule below (#394).
@@ -70,6 +73,7 @@ const TRANSIENT_DB_CODES = new Set([
   '08007',
   '53300',
   '57P03',
+  '57014',
 ]);
 const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code);
 

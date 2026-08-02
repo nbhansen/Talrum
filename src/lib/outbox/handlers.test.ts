@@ -153,11 +153,11 @@ describe('runHandler · updateBoard', () => {
       boardId: 'b-1',
       patch: { name: 'X' },
     };
-    // The message is user-visible: the drain persists it as `lastError` and
-    // the OfflineIndicator shows it. Pin the format, including message
-    // extraction from a plain (non-Error) PostgREST object.
+    // The instanceof check is what the drain branches on; the message is
+    // user-visible via `lastError`, including extraction from a plain
+    // (non-Error) PostgREST object. Pin both.
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
     await expect(runHandler(entry)).rejects.toMatchObject({
-      name: 'UnretryableOutboxError',
       message: 'db 42501: permission denied',
     });
   });
@@ -278,7 +278,7 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
     label: 'Apple',
   };
 
-  it.each(['40001', '40P01', '08000', '08006', '53300', '57P03'])(
+  it.each(['40001', '40P01', '08000', '08006', '53300', '57P03', '57014'])(
     'throws %s as a plain Error so the drain keeps the entry pending',
     async (code) => {
       // A plain object, not an Error instance — the shape supabase-js can
