@@ -35,6 +35,13 @@ const patchPictogramInList = (
  *     mid-load can stop playback. Recordings are small (KBs), uploads are
  *     normally faster than the user can hit play immediately after recording,
  *     so this rarely surfaces in practice.
+ *   - Error-path double sweep: `beforeRollback` sweeps before the snapshot
+ *     restore (the failed mutation's own planted URL must be revoked while
+ *     the cache still references it), then `settle` sweeps again after. The
+ *     second pass can revoke a URL the restore resurrected — one planted by
+ *     an earlier, not-yet-reconciled mutation. Error paths only run on the
+ *     online fast path, so the settle invalidation refetches real paths
+ *     immediately; the cost is the same brief flash as above.
  *
  * Both are accepted tradeoffs in exchange for the simpler "scan all blobs"
  * implementation; the alternative (per-mutation id tracking through
