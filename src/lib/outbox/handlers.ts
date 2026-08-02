@@ -407,12 +407,13 @@ export const HANDLER_TIMEOUT_MS = 30_000;
  * Blob-carrying kinds get a longer bound: the timeout is wall-clock and the
  * retry restarts the transfer from byte zero, so a bound below the largest
  * legitimate transfer converts "slow" into six doomed attempts and a
- * permanent `failed` (#414 review). Photos are re-encoded to 512px JPEG
- * (~100 KB, `src/lib/image.ts`), but voice clips have no duration cap or
- * bitrate setting (`src/lib/recording.ts`): a minute of speech at the UA
- * default Opus bitrate is around 1 MB, which needs ~80 s on the ~100 kbps
- * uplink the outbox exists for. 120 s clears that with margin while still
- * bounding a genuine hang.
+ * permanent `failed` (#414 review). The payloads are bounded by
+ * construction: photos are re-encoded to 512px JPEG (~100 KB,
+ * `src/lib/image.ts`) and recordings are capped at `MAX_RECORDING_MS`
+ * (#416, `src/lib/recording.ts` — change the cap and this bound together),
+ * so the worst clip is a few hundred KB, well inside 120 s on any usable
+ * uplink. The headroom is for the slowest real uplinks; the bound's job is
+ * hang detection.
  */
 export const BLOB_HANDLER_TIMEOUT_MS = 120_000;
 
