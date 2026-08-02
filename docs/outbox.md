@@ -64,8 +64,9 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
    on a timer — 2 s at first, doubling per transient pass up to 30 s (#391).
    The `offline` event cancels the timer; the `online` event is the next
    trigger. The delay resets when a pass lands any entry, when a pass ends
-   with no transient failure, and on a user Retry. The schedule is per tab:
-   each open tab arms its own timer against the shared queue.
+   with no transient failure, on a user Retry, and when the device goes
+   offline. The schedule is per tab: each open tab arms its own timer
+   against the shared queue.
 
 ## Error classification: transient vs permanent
 
