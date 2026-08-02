@@ -1,9 +1,4 @@
-import {
-  type QueryClient,
-  useMutation,
-  type UseMutationResult,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { type QueryClient, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
@@ -30,8 +25,8 @@ const patchPictogramInList = (
  * its memory reference unless we explicitly revoke. Sweep before invalidation
  * so the next refetch resolves the real URL into the cache slot we just freed.
  *
- * Called by onSuccess and onError of every pictogram mutation that plants a
- * blob URL. Known accepted races:
+ * Called via `beforeRollback` and `settle` by every pictogram mutation that
+ * plants a blob URL. Known accepted races:
  *
  *   - Two concurrent uploads: the earlier one's sweep also revokes the later
  *     one's still-pending blob → brief broken-image flash on the second tile
@@ -40,6 +35,13 @@ const patchPictogramInList = (
  *     mid-load can stop playback. Recordings are small (KBs), uploads are
  *     normally faster than the user can hit play immediately after recording,
  *     so this rarely surfaces in practice.
+ *   - Error-path double sweep: `beforeRollback` sweeps before the snapshot
+ *     restore (the failed mutation's own planted URL must be revoked while
+ *     the cache still references it), then `settle` sweeps again after. The
+ *     second pass can revoke a URL the restore resurrected — one planted by
+ *     an earlier, not-yet-reconciled mutation. Error paths only run on the
+ *     online fast path, so the settle invalidation refetches real paths
+ *     immediately; the cost is the same brief flash as above.
  *
  * Both are accepted tradeoffs in exchange for the simpler "scan all blobs"
  * implementation; the alternative (per-mutation id tracking through
@@ -84,16 +86,22 @@ interface SetAudioInput {
  * upload through the outbox. Drain replaces the blob URL with the real
  * server path on success; offline writes wait for `online` and replay.
  */
-export const useSetPictogramAudio = (): UseMutationResult<void, Error, SetAudioInput> => {
+export const useSetPictogramAudio = (): UseMutationResult<
+  void,
+  Error,
+  SetAudioInput,
+  OptimisticListContext
+> => {
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
-  return useMutation({
-    onMutate: ({ pictogramId, blob }) => {
-      const blobUrl = URL.createObjectURL(blob);
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
-        patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl })),
-      );
-    },
+  return useOptimisticListMutation({
+    caches: [
+      listCache<Pictogram, SetAudioInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
+        if (!list) return list;
+        const blobUrl = URL.createObjectURL(blob);
+        return patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl }));
+      }),
+    ],
     mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
       enqueueAndDrain({
         kind: 'setPictoAudio',
@@ -103,7 +111,10 @@ export const useSetPictogramAudio = (): UseMutationResult<void, Error, SetAudioI
         extension,
         ...(previousPath ? { previousPath } : {}),
       }),
-    onSettled: revokeThenInvalidate(qc),
+    // Revoke while the blob URL is still in the cache — the sweep walks
+    // current cache state, and the rollback below removes the URL from it.
+    beforeRollback: () => revokePictogramBlobs(qc),
+    settle: revokeThenInvalidate(qc),
   });
 };
 
@@ -123,24 +134,28 @@ interface CreatedPhotoPictogram {
   imagePath: string;
 }
 
+/** `CreatePhotoInput` plus the id minted at the mutate boundary. */
+type CreatePhotoQueuedInput = CreatePhotoInput & { id: string };
+
 export const useCreatePhotoPictogram = (): UseMutationResult<
   CreatedPhotoPictogram,
   Error,
-  CreatePhotoInput
+  CreatePhotoInput,
+  OptimisticListContext
 > => {
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
-  return useMutation({
-    mutationFn: async ({ label, blob, extension }) => {
-      const id = crypto.randomUUID();
-      const blobUrl = URL.createObjectURL(blob);
-      const optimistic: Pictogram = {
-        id,
-        label: label.trim(),
-        style: 'photo',
-        imagePath: blobUrl,
-      };
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) => [...(list ?? []), optimistic]);
+  const inner = useOptimisticListMutation<CreatePhotoQueuedInput, CreatedPhotoPictogram>({
+    caches: [
+      listCache<Pictogram, CreatePhotoQueuedInput>(
+        pictogramsQueryKey,
+        (list, { id, label, blob }) => [
+          ...(list ?? []),
+          { id, label: label.trim(), style: 'photo', imagePath: URL.createObjectURL(blob) },
+        ],
+      ),
+    ],
+    mutationFn: async ({ id, label, blob, extension }) => {
       await enqueueAndDrain({
         kind: 'createPhotoPicto',
         pictogramId: id,
@@ -149,12 +164,23 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
         blob,
         extension,
       });
-      // Real path the server will end up serving; the cache invalidation in
-      // onSuccess refetches and replaces the blob URL with the signed path.
+      // Real path the server will end up serving; the settle invalidation
+      // refetches and replaces the blob URL with the signed path.
       return { id, imagePath: `${ownerId}/${id}.${extension}` };
     },
-    onSettled: revokeThenInvalidate(qc),
+    beforeRollback: () => revokePictogramBlobs(qc),
+    settle: revokeThenInvalidate(qc),
   });
+  // The optimistic patch in onMutate needs the new row's id, so the id is
+  // minted here — before the inner mutation runs — not inside mutationFn.
+  return {
+    ...inner,
+    mutate: (input, options) => {
+      inner.mutate({ ...input, id: crypto.randomUUID() }, options);
+    },
+    mutateAsync: (input, options) =>
+      inner.mutateAsync({ ...input, id: crypto.randomUUID() }, options),
+  };
 };
 
 interface RenameInput {
@@ -190,22 +216,20 @@ export const useReplacePictogramImage = (): UseMutationResult<
   void,
   Error,
   ReplaceImageInput,
-  { previous: Pictogram[] | undefined }
+  OptimisticListContext
 > => {
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
-  return useMutation({
-    onMutate: async ({ pictogramId, blob }) => {
-      await qc.cancelQueries({ queryKey: pictogramsQueryKey });
-      const previous = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
-      const blobUrl = URL.createObjectURL(blob);
-      qc.setQueryData<Pictogram[]>(pictogramsQueryKey, (list) =>
-        patchPictogramInList(list, pictogramId, (p) =>
+  return useOptimisticListMutation({
+    caches: [
+      listCache<Pictogram, ReplaceImageInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
+        if (!list) return list;
+        const blobUrl = URL.createObjectURL(blob);
+        return patchPictogramInList(list, pictogramId, (p) =>
           p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
-        ),
-      );
-      return { previous };
-    },
+        );
+      }),
+    ],
     mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
       enqueueAndDrain({
         kind: 'replacePictoImage',
@@ -215,16 +239,11 @@ export const useReplacePictogramImage = (): UseMutationResult<
         extension,
         ...(previousPath ? { previousPath } : {}),
       }),
-    onSuccess: revokeThenInvalidate(qc),
-    onError: (_err, _input, ctx) => {
-      // Revoke first while the blob URL is still in the cache (revoke walks
-      // current cache state), then restore the pre-mutation snapshot so the
-      // tile shows its prior imagePath. Restoring first would orphan the
-      // blob URL — it'd be unreachable from the cache and never revoked.
-      revokePictogramBlobs(qc);
-      if (ctx?.previous) qc.setQueryData(pictogramsQueryKey, ctx.previous);
-      qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-    },
+    // Revoke while the blob URL is still in the cache (revoke walks current
+    // cache state); restoring the snapshot first would orphan the URL — it'd
+    // be unreachable from the cache and never revoked.
+    beforeRollback: () => revokePictogramBlobs(qc),
+    settle: revokeThenInvalidate(qc),
   });
 };
 
