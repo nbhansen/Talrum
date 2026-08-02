@@ -296,6 +296,21 @@ describe('runHandler · createPhotoPicto', () => {
   });
 
   it('converges when the same entry replays after the create landed (#393)', async () => {
+    // Stateful mock with real duplicate-key semantics: a second write of the
+    // same id raises 23505 unless `ignoreDuplicates` is passed (ON CONFLICT
+    // DO NOTHING). A revert to a plain `.insert` — or dropping the option —
+    // fails this test the way it would fail against Postgres.
+    const inserted = new Set<string>();
+    upsertMock.mockImplementation((row, opts) => {
+      const { id } = row as { id: string };
+      if (inserted.has(id) && !(opts as { ignoreDuplicates?: boolean })?.ignoreDuplicates) {
+        return Promise.resolve({
+          error: { code: '23505', message: 'duplicate key', details: '', hint: '' },
+        });
+      }
+      inserted.add(id);
+      return Promise.resolve({ error: null });
+    });
     const entry: CreatePhotoPictogramEntry = {
       ...baseProps,
       kind: 'createPhotoPicto',
