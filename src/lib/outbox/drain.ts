@@ -14,12 +14,13 @@ import type { OutboxEntry } from './types';
  * Sized against the retry schedule (#391): a 2 s base doubling to a 30 s cap
  * puts the queue head's sixth attempt ~60 s after its first, so a short
  * network blip cannot exhaust the budget while a real outage still surfaces
- * as `failed` within about a minute. Entries behind a failed head start from
- * the walked-up delay and take longer — the network is known-bad by then.
- * Change either number only together with the other.
- * The sizing is per tab: each tab arms its own timer against the shared
- * queue, so several open tabs spend the budget faster — pre-existing, the
- * `online` event fires in every tab too, and Retry recovers the entry.
+ * as `failed` within about a minute. Change either number only together
+ * with the other. The derivation assumes a quiescent single tab: any other
+ * trigger (an enqueue with a backlog, `online`, another tab's drain) also
+ * burns a head attempt and spends the budget faster — as every trigger did
+ * before the timer existed, on half the budget. Entries behind a failed
+ * head start from the walked-up delay and take longer — the network is
+ * known-bad by then. Retry recovers a `failed` entry either way.
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
