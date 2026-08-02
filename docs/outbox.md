@@ -149,3 +149,17 @@ New entry kind? Add the interface in `types.ts`, the handler in
   the timeout, then still gets delivered, interleaved with a re-record or
   re-upload of the same pictogram) and recoverable by redoing the action;
   #415 tracks versioned paths, which close it by construction.
+- The handler timeout is wall-clock and a retry restarts the transfer from
+  byte zero, so the blob bound is also a ceiling on what can sync:
+  recordings have no duration cap (#416), and a clip whose transfer needs
+  more than the bound on the current uplink (roughly beyond a minute of
+  speech at ~100 kbps) exhausts its attempts and lands as `failed` — Retry
+  hits the same wall.
+- A hung request that was delivered but whose response never came commits
+  server-side without the client learning it. For a guarded `updateBoard`
+  the retry then trips its own conflict guard (the board clock never noted
+  the commit's `updated_at`) and the entry fails with the conflict pill for
+  the device's own write. Recoverable — Retry strips the guard — and the
+  same class the `TRANSIENT_DB_CODES` note accepts for connection errors,
+  but a socket stuck open is the shape where the commit most likely did
+  land.
