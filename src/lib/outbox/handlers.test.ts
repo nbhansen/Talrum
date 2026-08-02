@@ -34,7 +34,8 @@ const updateMock = vi.fn(() => ({
   eq: (c: string, v: string) => Object.assign(eqMock(c, v), { select: unguardedSelectMock }),
   match: matchMock,
 }));
-const insertMock = vi.fn<(row: unknown) => Promise<{ error: MockPostgrestError | null }>>();
+const upsertMock =
+  vi.fn<(row: unknown, opts?: unknown) => Promise<{ error: MockPostgrestError | null }>>();
 const inMock = vi.fn<
   (
     c: string,
@@ -50,7 +51,7 @@ const deleteEqMock =
 const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
 const fromMock = vi.fn((_table: string) => ({
   update: updateMock,
-  insert: insertMock,
+  upsert: upsertMock,
   select: selectMock,
   delete: deleteMock,
 }));
@@ -99,7 +100,7 @@ beforeEach(() => {
   unguardedSelectMock.mockReset();
   matchMock.mockClear();
   updateMock.mockClear();
-  insertMock.mockReset();
+  upsertMock.mockReset();
   inMock.mockReset();
   selectMock.mockClear();
   deleteEqMock.mockReset();
@@ -115,7 +116,7 @@ beforeEach(() => {
     data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
     error: null,
   });
-  insertMock.mockResolvedValue({ error: null });
+  upsertMock.mockResolvedValue({ error: null });
   inMock.mockResolvedValue({ data: [], error: null });
   deleteEqMock.mockResolvedValue({ error: null });
   rpcMock.mockReset();
@@ -263,7 +264,7 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
 });
 
 describe('runHandler · createPhotoPicto', () => {
-  it('uploads then inserts the row', async () => {
+  it('uploads then inserts the row, ignoring a duplicate (#393)', async () => {
     const blob = new Blob(['x'], { type: 'image/jpeg' });
     const entry: CreatePhotoPictogramEntry = {
       ...baseProps,
@@ -280,14 +281,38 @@ describe('runHandler · createPhotoPicto', () => {
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    expect(insertMock).toHaveBeenCalledWith(
+    // `ignoreDuplicates: true` is the idempotency contract: a replay of a
+    // landed create hits ON CONFLICT DO NOTHING instead of a 23505, which
+    // classifyAndThrow would mark permanent and flip the entry to failed.
+    expect(upsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'p-1',
         owner_id: 'o-1',
         style: 'photo',
         image_path: 'o-1/p-1.jpg',
       }),
+      { ignoreDuplicates: true },
     );
+  });
+
+  it('converges when the same entry replays after the create landed (#393)', async () => {
+    const entry: CreatePhotoPictogramEntry = {
+      ...baseProps,
+      kind: 'createPhotoPicto',
+      pictogramId: 'p-1',
+      ownerId: 'o-1',
+      label: 'Park',
+      blob: new Blob(['x'], { type: 'image/jpeg' }),
+      extension: 'jpg',
+    };
+    // First attempt lands the row; the tab crashes before the entry is
+    // marked done. The replay re-uploads (storage upsert) and the row
+    // upsert resolves without error under ON CONFLICT DO NOTHING.
+    await runHandler(entry);
+    await expect(runHandler(entry)).resolves.toBeUndefined();
+    expect(upsertMock).toHaveBeenCalledTimes(2);
+    // No cleanup: the blob belongs to the row that already exists.
+    expect(removeMock).not.toHaveBeenCalled();
   });
 
   it('treats a 5xx storage error as transient — not Unretryable (#32)', async () => {
@@ -318,13 +343,13 @@ describe('runHandler · createPhotoPicto', () => {
     expect((caught as { statusCode?: number }).statusCode).toBe(500);
     // Insert never ran because upload threw first; the bucket cleanup path
     // only fires when insert fails after a successful upload.
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(upsertMock).not.toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
   });
 
   it('cleans up the uploaded blob if insert fails', async () => {
-    insertMock.mockResolvedValue({
-      error: { code: '23505', message: 'unique violation', details: '', hint: '' },
+    upsertMock.mockResolvedValue({
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
     const entry: CreatePhotoPictogramEntry = {
       ...baseProps,
