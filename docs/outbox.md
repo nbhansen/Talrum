@@ -51,10 +51,12 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   atomic and another tab can't slip a write in between. The cost: the lock
   is held across handler IO, blob uploads included, so online writes
   serialize within a tab and across tabs — a slow upload in one tab stalls
-  the other tab's drain and fast path until it settles or its tab dies, and
-  a hung request (`fetch` has no default timeout) has no upper bound while
-  the tab lives (#413 tracks a handler IO timeout). Accepted at this app's
-  write volume.
+  the other tab's drain and fast path until it settles or its tab dies.
+  `fetch` has no default timeout, so `runHandler` bounds each run itself
+  (#413, longer bound for blob-carrying kinds whose transfers are
+  legitimately slow): a run that outlives its handler timeout rejects as
+  transient, releases the lock, and retries on the backoff schedule. Accepted at this
+  app's write volume.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never
   waits for an external trigger. The schedule, its reset rules, and the
@@ -117,6 +119,12 @@ New entry kind? Add the interface in `types.ts`, the handler in
   throwing.
 - **Happy-path only.** Throw raw Supabase/Storage errors; `runHandler` owns
   classification. Never catch-and-swallow.
+- **Cancellation-aware when multi-step.** A run abandoned by the handler
+  timeout (#413) keeps executing as a zombie. A handler with more than one
+  side-effecting step must take the `AbortSignal` from `dispatch` and call
+  `throwIfCancelled` between steps, so the zombie starts nothing new after
+  the timeout — its later steps could undo work a causally later entry has
+  done since (see `handleClearPictogramAudio`).
 
 ## Known limits
 
@@ -130,3 +138,28 @@ New entry kind? Add the interface in `types.ts`, the handler in
 - Queued entries are not deduped or coalesced, and the queue has no size
   bound or TTL — acceptable at this app's write volume, revisit if that
   changes.
+- A run abandoned by the handler timeout (#413) can have a request already
+  in flight, and that request can land after later entries ran. For row
+  writes this is the same last-write-wins class as cross-device replays
+  (boards stay safe via the conflict guard); the between-step cancellation
+  checks stop the zombie from starting anything new. What remains open: the
+  in-flight request itself acts on a deterministic storage path that a
+  later entry may have re-created — a late `remove` or upload can destroy
+  or overwrite a newer object. Rare (it needs a request that stalls past
+  the timeout, then still gets delivered, interleaved with a re-record or
+  re-upload of the same pictogram) and recoverable by redoing the action;
+  #415 tracks versioned paths, which close it by construction.
+- The handler timeout is wall-clock and a retry restarts the transfer from
+  byte zero, so the blob bound is also a ceiling on what can sync:
+  recordings have no duration cap (#416), and a clip whose transfer needs
+  more than the bound on the current uplink (roughly beyond a minute of
+  speech at ~100 kbps) exhausts its attempts and lands as `failed` — Retry
+  hits the same wall.
+- A hung request that was delivered but whose response never came commits
+  server-side without the client learning it. For a guarded `updateBoard`
+  the retry then trips its own conflict guard (the board clock never noted
+  the commit's `updated_at`) and the entry fails with the conflict pill for
+  the device's own write. Recoverable — Retry strips the guard — and the
+  same class the `TRANSIENT_DB_CODES` note accepts for connection errors,
+  but a socket stuck open is the shape where the commit most likely did
+  land.

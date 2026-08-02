@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
 const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
-const { BOARD_CONFLICT_MESSAGE } = await import('./handlers');
+const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS } = await import('./handlers');
 const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
 
@@ -154,6 +154,21 @@ describe('outbox drain', () => {
   });
 });
 
+/**
+ * One real macrotask round, for tests that fake setTimeout. MessageChannel,
+ * not setTimeout: fake-indexeddb settles its work on real macrotasks that a
+ * fake clock would never reach.
+ */
+const realTick = (): Promise<void> =>
+  new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+
 describe('transient retry timer (#391)', () => {
   beforeEach(() => {
     // Only fake the timer pair the retry scheduler uses. fake-indexeddb
@@ -165,21 +180,6 @@ describe('transient retry timer (#391)', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
-
-  /**
-   * One real macrotask round. MessageChannel, not setTimeout: setTimeout is
-   * faked above, and fake-indexeddb settles its work on real macrotasks that
-   * a fake clock would never reach.
-   */
-  const realTick = (): Promise<void> =>
-    new Promise((resolve) => {
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => {
-        channel.port1.close();
-        resolve();
-      };
-      channel.port2.postMessage(null);
-    });
 
   /**
    * `advanceTimersByTimeAsync` fires the timer callback (`void drain()`) but
@@ -528,6 +528,50 @@ describe('cross-tab coordination (#278, #289)', () => {
     await done;
     expect(await listEntries()).toHaveLength(1);
     expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  describe('handler IO timeout (#413)', () => {
+    beforeEach(() => {
+      // Same constraint as the retry-timer block: fake only the pair the
+      // timeout uses, or fake-indexeddb deadlocks behind the timer clock.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('a hung handler times out transient and releases the lock', async () => {
+      installFakeLocks();
+      await putEntry(baseEntry({ id: '01HZZA' }));
+      // A socket stuck open with no bytes: the request never settles, and
+      // navigator.onLine still reads true.
+      unguardedSelectMock.mockReturnValue(
+        new Promise<never>(() => undefined) as ReturnType<typeof unguardedSelectMock>,
+      );
+      const drainDone = drain();
+      // The drain reaches the handler over real IDB macrotasks; the timeout
+      // timer is not armed until then, so advancing the fake clock earlier
+      // would fire nothing. Bounded so a genuine failure still surfaces.
+      for (let i = 0; unguardedSelectMock.mock.calls.length === 0; i++) {
+        if (i >= 1000) throw new Error('handler never started');
+        await realTick();
+      }
+      await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+      await drainDone;
+      // Classified transient: pending with one burned attempt, not failed.
+      const entries = await listEntries();
+      expect(entries[0]?.status).toBe('pending');
+      expect(entries[0]?.attemptCount).toBe(1);
+      expect(entries[0]?.lastError).toMatch(/timed out/);
+      // The lock is free again — without the timeout this request would park
+      // behind the hung drain until the tab died.
+      let ran = false;
+      await navigator.locks.request('talrum-outbox', () => {
+        ran = true;
+      });
+      expect(ran).toBe(true);
+    });
   });
 
   it('discardEntry waits for the talrum-outbox lock (#289)', async () => {

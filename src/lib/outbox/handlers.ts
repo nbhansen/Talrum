@@ -168,9 +168,13 @@ const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
   noteBoardUpdatedAt(entry.boardId, row.updated_at);
 };
 
-const handleCreatePhotoPictogram = async (entry: CreatePhotoPictogramEntry): Promise<void> => {
+const handleCreatePhotoPictogram = async (
+  entry: CreatePhotoPictogramEntry,
+  signal: AbortSignal,
+): Promise<void> => {
   const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
+  throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
   // `ignoreDuplicates` maps to ON CONFLICT DO NOTHING on the primary key.
   // A same-tab replay after a crash mid-entry can find the row already
@@ -188,30 +192,46 @@ const handleCreatePhotoPictogram = async (entry: CreatePhotoPictogramEntry): Pro
     },
     { ignoreDuplicates: true },
   );
-  if (error) {
-    // Insert failed after upload — clean up the blob so we don't leak.
-    await removeFromBucket(IMAGES_BUCKET, [path]).catch(reportCleanupFailure);
-    throw error;
-  }
+  // Insert failed after upload: leave the blob in place — never delete it
+  // (#414 review). A rollback here is the one step that undoes another run's
+  // work, and a run abandoned by the handler timeout (#413) can execute it
+  // concurrently with its own retry: the zombie's delete lands after the
+  // retry re-uploaded and inserted, leaving a pictogram row whose image_path
+  // points at nothing, permanently. A transient failure re-uploads on retry
+  // anyway (storage upsert), and a permanent one leaks at most one orphaned
+  // object per failed create — strictly cheaper than a dangling image.
+  if (error) throw error;
 };
 
-const handleSetPictogramAudio = async (entry: SetPictogramAudioEntry): Promise<void> => {
+const handleSetPictogramAudio = async (
+  entry: SetPictogramAudioEntry,
+  signal: AbortSignal,
+): Promise<void> => {
   const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
   await uploadBlob(AUDIO_BUCKET, path, entry.blob);
+  throwIfCancelled(signal);
   invalidateSignedUrl(AUDIO_BUCKET, path);
   const { error } = await supabase
     .from('pictograms')
     .update({ audio_path: path })
     .eq('id', entry.pictogramId);
   if (error) throw error;
+  throwIfCancelled(signal);
   if (entry.previousPath && entry.previousPath !== path) {
     await removeFromBucket(AUDIO_BUCKET, [entry.previousPath]).catch(reportCleanupFailure);
     invalidateSignedUrl(AUDIO_BUCKET, entry.previousPath);
   }
 };
 
-const handleClearPictogramAudio = async (entry: ClearPictogramAudioEntry): Promise<void> => {
+const handleClearPictogramAudio = async (
+  entry: ClearPictogramAudioEntry,
+  signal: AbortSignal,
+): Promise<void> => {
   await removeFromBucket(AUDIO_BUCKET, [entry.path]).catch(reportCleanupFailure);
+  // The gate that motivated throwIfCancelled: if the remove above hung past
+  // the timeout, the row update below would land after a later setPictoAudio
+  // and null out the audio_path it just set.
+  throwIfCancelled(signal);
   invalidateSignedUrl(AUDIO_BUCKET, entry.path);
   const { error } = await supabase
     .from('pictograms')
@@ -228,22 +248,30 @@ const handleRenamePictogram = async (entry: RenamePictogramEntry): Promise<void>
   if (error) throw error;
 };
 
-const handleReplacePictogramImage = async (entry: ReplacePictogramImageEntry): Promise<void> => {
+const handleReplacePictogramImage = async (
+  entry: ReplacePictogramImageEntry,
+  signal: AbortSignal,
+): Promise<void> => {
   const path = `${entry.ownerId}/${entry.pictogramId}.${entry.extension}`;
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
+  throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
   const { error } = await supabase
     .from('pictograms')
     .update({ image_path: path })
     .eq('id', entry.pictogramId);
   if (error) throw error;
+  throwIfCancelled(signal);
   if (isUploadedStoragePath(entry.previousPath) && entry.previousPath !== path) {
     await removeFromBucket(IMAGES_BUCKET, [entry.previousPath]).catch(reportCleanupFailure);
     invalidateSignedUrl(IMAGES_BUCKET, entry.previousPath);
   }
 };
 
-const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void> => {
+const handleDeletePictogram = async (
+  entry: DeletePictogramEntry,
+  signal: AbortSignal,
+): Promise<void> => {
   // The boards scrub + row delete run server-side in the `delete_pictogram`
   // RPC, one transaction, with the referencing boards recomputed at execution
   // time (#280) — no stale client-cache scrub list. Storage cleanup runs
@@ -253,10 +281,12 @@ const handleDeletePictogram = async (entry: DeletePictogramEntry): Promise<void>
   // row is gone.
   if (isUploadedStoragePath(entry.previousImagePath)) {
     await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]);
+    throwIfCancelled(signal);
     invalidateSignedUrl(IMAGES_BUCKET, entry.previousImagePath);
   }
   if (isUploadedStoragePath(entry.previousAudioPath)) {
     await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]);
+    throwIfCancelled(signal);
     invalidateSignedUrl(AUDIO_BUCKET, entry.previousAudioPath);
   }
   const { error } = await supabase.rpc('delete_pictogram', {
@@ -283,22 +313,22 @@ const handleDeleteKid = async (entry: DeleteKidEntry): Promise<void> => {
  * error classification is owned by `runHandler` so a new handler can't forget
  * the wrapper and silently let raw errors through as retry-forever transients.
  */
-const dispatch = (entry: OutboxEntry): Promise<void> => {
+const dispatch = (entry: OutboxEntry, signal: AbortSignal): Promise<void> => {
   switch (entry.kind) {
     case 'updateBoard':
       return handleUpdateBoard(entry);
     case 'createPhotoPicto':
-      return handleCreatePhotoPictogram(entry);
+      return handleCreatePhotoPictogram(entry, signal);
     case 'setPictoAudio':
-      return handleSetPictogramAudio(entry);
+      return handleSetPictogramAudio(entry, signal);
     case 'clearPictoAudio':
-      return handleClearPictogramAudio(entry);
+      return handleClearPictogramAudio(entry, signal);
     case 'renamePicto':
       return handleRenamePictogram(entry);
     case 'replacePictoImage':
-      return handleReplacePictogramImage(entry);
+      return handleReplacePictogramImage(entry, signal);
     case 'deletePicto':
-      return handleDeletePictogram(entry);
+      return handleDeletePictogram(entry, signal);
     case 'renameKid':
       return handleRenameKid(entry);
     case 'deleteKid':
@@ -306,9 +336,93 @@ const dispatch = (entry: OutboxEntry): Promise<void> => {
   }
 };
 
+/**
+ * Upper bound on one handler run (#413). `fetch` has no default timeout, so
+ * a socket stuck open with no bytes (mobile radio in limbo, `navigator.onLine`
+ * still true) would otherwise pend forever — and the fast path and drain run
+ * handlers under the cross-tab web lock (#395), which only auto-releases when
+ * the tab dies, so one hung request would freeze every tab's writes. A
+ * single-row write that hasn't settled in 30 s is hung, not slow.
+ */
+export const HANDLER_TIMEOUT_MS = 30_000;
+
+/**
+ * Blob-carrying kinds get a longer bound: the timeout is wall-clock and the
+ * retry restarts the transfer from byte zero, so a bound below the largest
+ * legitimate transfer converts "slow" into six doomed attempts and a
+ * permanent `failed` (#414 review). Photos are re-encoded to 512px JPEG
+ * (~100 KB, `src/lib/image.ts`), but voice clips have no duration cap or
+ * bitrate setting (`src/lib/recording.ts`): a minute of speech at the UA
+ * default Opus bitrate is around 1 MB, which needs ~80 s on the ~100 kbps
+ * uplink the outbox exists for. 120 s clears that with margin while still
+ * bounding a genuine hang.
+ */
+export const BLOB_HANDLER_TIMEOUT_MS = 120_000;
+
+const handlerTimeoutMs = (entry: OutboxEntry): number =>
+  'blob' in entry ? BLOB_HANDLER_TIMEOUT_MS : HANDLER_TIMEOUT_MS;
+
+/**
+ * A race, not an abort: PostgREST builders accept `abortSignal`, but
+ * storage-js `upload`/`remove` (v2.106) do not, and the blob upload is the
+ * longest-running IO here — an abort-based bound would miss it. The losing
+ * run keeps going after the timeout and can land concurrently with its own
+ * retry, so two rules keep that safe:
+ *
+ * 1. Every handler converges under replay (docs/outbox.md, "Rules for
+ *    writing a handler"), and no handler rolls back storage side effects on
+ *    failure (see `handleCreatePhotoPictogram`).
+ * 2. An abandoned run starts no further side-effecting steps: the timeout
+ *    aborts the signal handed to `dispatch`, and multi-step handlers check
+ *    it between steps. Without the check, a zombie `clearPictoAudio` whose
+ *    hung storage remove finally settles would continue into its row update
+ *    and null out an `audio_path` a later entry just set.
+ *
+ * Residual, documented in docs/outbox.md "Known limits": a request already
+ * in flight when the timer fires can still land arbitrarily late. For row
+ * writes that is the last-write-wins class the app already accepts for
+ * cross-device replays (boards stay safe via the conflict guard, #281); for
+ * storage objects on these deterministic paths it can clobber a newer
+ * object (#415 tracks versioned paths, the fix by construction).
+ *
+ * A late rejection from the losing run is not an unhandled rejection: the
+ * race subscribed to it when it started.
+ */
+const withHandlerTimeout = async (
+  start: (signal: AbortSignal) => Promise<void>,
+  ms: number,
+): Promise<void> => {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`handler timed out after ${ms / 1000}s`));
+    }, ms);
+  });
+  try {
+    await Promise.race([start(controller.signal), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/**
+ * Between-step guard for multi-step handlers: after the timeout has
+ * abandoned this run, starting the next step could undo work a causally
+ * later entry has done since. The throw lands in the zombie run, which
+ * nobody observes — that is the point.
+ */
+const throwIfCancelled = (signal: AbortSignal): void => {
+  if (signal.aborted) throw new Error('handler run abandoned by its timeout');
+};
+
 export const runHandler = async (entry: OutboxEntry): Promise<void> => {
   try {
-    await dispatch(entry);
+    // The timeout error is a plain Error: no code, no statusCode, not a
+    // TypeError — classifyAndThrow rethrows it as-is, so the drain treats it
+    // as transient and the retry schedule (#391) takes over.
+    await withHandlerTimeout((signal) => dispatch(entry, signal), handlerTimeoutMs(entry));
   } catch (err) {
     classifyAndThrow(err);
   }
