@@ -153,7 +153,13 @@ describe('runHandler · updateBoard', () => {
       boardId: 'b-1',
       patch: { name: 'X' },
     };
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    // The message is user-visible: the drain persists it as `lastError` and
+    // the OfflineIndicator shows it. Pin the format, including message
+    // extraction from a plain (non-Error) PostgREST object.
+    await expect(runHandler(entry)).rejects.toMatchObject({
+      name: 'UnretryableOutboxError',
+      message: 'db 42501: permission denied',
+    });
   });
 });
 
