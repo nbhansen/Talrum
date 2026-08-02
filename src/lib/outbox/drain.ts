@@ -21,6 +21,12 @@ import type { OutboxEntry } from './types';
  * before the timer existed, on half the budget. Entries behind a failed
  * head start from the walked-up delay and take longer — the network is
  * known-bad by then. Retry recovers a `failed` entry either way.
+ *
+ * The ~60 s figure assumes attempts that fail fast (an immediate TypeError).
+ * A hung request now costs up to its handler timeout per attempt (#413), so
+ * a fully hung head reaches `failed` after budget × bound plus backoff —
+ * minutes, not one — which is the intended shape: hangs are the slow,
+ * rare case, and before #413 they never resolved at all.
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 

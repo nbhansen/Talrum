@@ -53,8 +53,9 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   serialize within a tab and across tabs — a slow upload in one tab stalls
   the other tab's drain and fast path until it settles or its tab dies.
   `fetch` has no default timeout, so `runHandler` bounds each run itself
-  (#413): a run that outlives the handler timeout rejects as transient,
-  releases the lock, and retries on the backoff schedule. Accepted at this
+  (#413, longer bound for blob-carrying kinds whose transfers are
+  legitimately slow): a run that outlives its handler timeout rejects as
+  transient, releases the lock, and retries on the backoff schedule. Accepted at this
   app's write volume.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never

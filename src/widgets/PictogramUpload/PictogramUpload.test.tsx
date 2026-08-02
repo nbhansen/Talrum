@@ -153,10 +153,10 @@ describe('PictogramUpload · upload flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add to library' }));
 
     expect(await screen.findByText(/42501/)).toBeInTheDocument();
-    // The failed-insert cleanup removes the just-uploaded orphan blob.
-    await waitFor(() => {
-      expect(removeMock).toHaveBeenCalledTimes(1);
-    });
+    // The orphan blob stays: the failed-insert rollback was removed (#414
+    // review) because a timed-out run could fire it concurrently with its
+    // own retry and delete the blob the retry just re-uploaded.
+    expect(removeMock).not.toHaveBeenCalled();
     // The preview stays so the user can retry without re-picking.
     expect(container.querySelector('img[src="blob:preview"]')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add to library' })).toBeEnabled();

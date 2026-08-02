@@ -84,8 +84,13 @@ vi.mock('@/lib/telemetry', () => ({
   captureException: (err: unknown, ctx?: unknown) => captureExceptionMock(err, ctx),
 }));
 
-const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS, runHandler, UnretryableOutboxError } =
-  await import('./handlers');
+const {
+  BLOB_HANDLER_TIMEOUT_MS,
+  BOARD_CONFLICT_MESSAGE,
+  HANDLER_TIMEOUT_MS,
+  runHandler,
+  UnretryableOutboxError,
+} = await import('./handlers');
 const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseProps = {
@@ -409,7 +414,7 @@ describe('runHandler · createPhotoPicto', () => {
     expect(removeMock).not.toHaveBeenCalled();
   });
 
-  it('cleans up the uploaded blob if insert fails', async () => {
+  it('leaves the uploaded blob in place when insert fails', async () => {
     upsertMock.mockResolvedValue({
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
@@ -423,7 +428,11 @@ describe('runHandler · createPhotoPicto', () => {
       extension: 'jpg',
     };
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
-    expect(removeMock).toHaveBeenCalledWith(['o-1/p-1.jpg']);
+    // No rollback delete (#414 review): a run abandoned by the handler
+    // timeout could execute it concurrently with its own retry and delete
+    // the blob the retry just re-uploaded — a permanently dangling
+    // image_path. The orphaned object is the cheaper failure.
+    expect(removeMock).not.toHaveBeenCalled();
   });
 });
 
@@ -667,11 +676,10 @@ describe('runHandler · handler IO timeout (#413)', () => {
     extension: 'jpg',
   });
 
-  it('a hung upload rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
-    // The upload is the IO an abort-based bound could not cover: storage-js
-    // upload() takes no AbortSignal. A socket stuck open pends forever.
-    uploadMock.mockReturnValue(new Promise<{ error: Error | null }>(() => undefined));
-    const outcome = runHandler(photoEntry()).then(
+  it('a hung row write rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
+    eqMock.mockReturnValue(new Promise<{ error: MockPostgrestError | null }>(() => undefined));
+    const entry: RenameKidEntry = { ...baseProps, kind: 'renameKid', kidId: 'k-1', name: 'Mia' };
+    const outcome = runHandler(entry).then(
       () => 'resolved',
       (err: unknown) => err,
     );
@@ -683,7 +691,31 @@ describe('runHandler · handler IO timeout (#413)', () => {
     expect((err as Error).message).toMatch(/timed out after 30s/);
   });
 
-  it('swallows the losing run’s late rejection after a timeout', async () => {
+  it('a hung upload gets the longer blob bound, not the row-write bound', async () => {
+    // The upload is the IO an abort-based bound could not cover: storage-js
+    // upload() takes no AbortSignal. It is also the one transfer that can be
+    // legitimately slow (uncapped voice clips on a slow uplink), so cutting
+    // it at 30 s would turn "slow" into six doomed attempts and a permanent
+    // `failed` (#414 review).
+    uploadMock.mockReturnValue(new Promise<{ error: Error | null }>(() => undefined));
+    let settled = false;
+    const outcome = runHandler(photoEntry()).then(
+      () => 'resolved',
+      (err: unknown) => err,
+    );
+    void outcome.finally(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+    // Still running: a slow transfer must survive the row-write bound.
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(BLOB_HANDLER_TIMEOUT_MS - HANDLER_TIMEOUT_MS);
+    const err = await outcome;
+    expect(err).not.toBeInstanceOf(UnretryableOutboxError);
+    expect((err as Error).message).toMatch(/timed out after 120s/);
+  });
+
+  it('the losing run’s late rejection never surfaces as unhandled', async () => {
     let rejectLate: (err: Error) => void = () => undefined;
     uploadMock.mockReturnValue(
       new Promise<{ error: Error | null }>((_, reject) => {
@@ -694,11 +726,13 @@ describe('runHandler · handler IO timeout (#413)', () => {
       () => 'resolved',
       (err: unknown) => (err as Error).message,
     );
-    await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(BLOB_HANDLER_TIMEOUT_MS);
     expect(await outcome).toMatch(/timed out/);
-    // The zombie request fails long after the entry was re-queued. Vitest
-    // fails the run on unhandled rejections, so this test passing clean is
-    // the assertion.
+    // The zombie request fails long after the entry was re-queued. Today the
+    // Promise.race inside runHandler subscribes to the run when it starts,
+    // which is what keeps this from being an unhandled rejection; this test
+    // pins that guarantee across refactors. Vitest fails the run on
+    // unhandled rejections, so this test passing clean is the assertion.
     rejectLate(new TypeError('Failed to fetch'));
     await vi.advanceTimersByTimeAsync(0);
   });

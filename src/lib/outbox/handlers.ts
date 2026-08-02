@@ -188,11 +188,15 @@ const handleCreatePhotoPictogram = async (entry: CreatePhotoPictogramEntry): Pro
     },
     { ignoreDuplicates: true },
   );
-  if (error) {
-    // Insert failed after upload — clean up the blob so we don't leak.
-    await removeFromBucket(IMAGES_BUCKET, [path]).catch(reportCleanupFailure);
-    throw error;
-  }
+  // Insert failed after upload: leave the blob in place — never delete it
+  // (#414 review). A rollback here is the one step that undoes another run's
+  // work, and a run abandoned by the handler timeout (#413) can execute it
+  // concurrently with its own retry: the zombie's delete lands after the
+  // retry re-uploaded and inserted, leaving a pictogram row whose image_path
+  // points at nothing, permanently. A transient failure re-uploads on retry
+  // anyway (storage upsert), and a permanent one leaks at most one orphaned
+  // object per failed create — strictly cheaper than a dangling image.
+  if (error) throw error;
 };
 
 const handleSetPictogramAudio = async (entry: SetPictogramAudioEntry): Promise<void> => {
@@ -311,36 +315,50 @@ const dispatch = (entry: OutboxEntry): Promise<void> => {
  * a socket stuck open with no bytes (mobile radio in limbo, `navigator.onLine`
  * still true) would otherwise pend forever — and the fast path and drain run
  * handlers under the cross-tab web lock (#395), which only auto-releases when
- * the tab dies, so one hung request would freeze every tab's writes. Sized
- * against the payloads: everything here is a single-row write, a 512px JPEG,
- * or a short voice clip, so a request that hasn't settled in 30 s is hung,
- * not slow.
+ * the tab dies, so one hung request would freeze every tab's writes. A
+ * single-row write that hasn't settled in 30 s is hung, not slow.
  */
 export const HANDLER_TIMEOUT_MS = 30_000;
+
+/**
+ * Blob-carrying kinds get a longer bound: the timeout is wall-clock and the
+ * retry restarts the transfer from byte zero, so a bound below the largest
+ * legitimate transfer converts "slow" into six doomed attempts and a
+ * permanent `failed` (#414 review). Photos are re-encoded to 512px JPEG
+ * (~100 KB, `src/lib/image.ts`), but voice clips have no duration cap or
+ * bitrate setting (`src/lib/recording.ts`): a minute of speech at the UA
+ * default Opus bitrate is around 1 MB, which needs ~80 s on the ~100 kbps
+ * uplink the outbox exists for. 120 s clears that with margin while still
+ * bounding a genuine hang.
+ */
+export const BLOB_HANDLER_TIMEOUT_MS = 120_000;
+
+const handlerTimeoutMs = (entry: OutboxEntry): number =>
+  'blob' in entry ? BLOB_HANDLER_TIMEOUT_MS : HANDLER_TIMEOUT_MS;
 
 /**
  * A race, not an abort: PostgREST builders accept `abortSignal`, but
  * storage-js `upload`/`remove` (v2.106) do not, and the blob upload is the
  * longest-running IO here — an abort-based bound would miss it. The losing
- * run keeps going after the timeout; that is safe because every handler is
- * idempotent by contract (docs/outbox.md, "Rules for writing a handler") and
- * `uploadBlob` upserts, so a late landing converges with the retry. Same
- * commit-after-error replay tradeoff already accepted on TRANSIENT_DB_CODES.
+ * run keeps going after the timeout and can land concurrently with its own
+ * retry; that is safe because every handler converges under replay
+ * (docs/outbox.md, "Rules for writing a handler") and no handler undoes
+ * another run's work — which is why handlers must not roll back storage
+ * side effects on failure (see `handleCreatePhotoPictogram`). A late
+ * rejection from the losing run is not an unhandled rejection: the race
+ * subscribed to it when it started.
  */
-const withHandlerTimeout = async (run: Promise<void>): Promise<void> => {
+const withHandlerTimeout = async (run: Promise<void>, ms: number): Promise<void> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`handler timed out after ${HANDLER_TIMEOUT_MS / 1000}s`));
-    }, HANDLER_TIMEOUT_MS);
+      reject(new Error(`handler timed out after ${ms / 1000}s`));
+    }, ms);
   });
   try {
     await Promise.race([run, timedOut]);
   } finally {
     clearTimeout(timer);
-    // The losing run may still reject later; without a handler that surfaces
-    // as an unhandled rejection long after the entry was re-queued.
-    run.catch(() => undefined);
   }
 };
 
@@ -349,7 +367,7 @@ export const runHandler = async (entry: OutboxEntry): Promise<void> => {
     // The timeout error is a plain Error: no code, no statusCode, not a
     // TypeError — classifyAndThrow rethrows it as-is, so the drain treats it
     // as transient and the retry schedule (#391) takes over.
-    await withHandlerTimeout(dispatch(entry));
+    await withHandlerTimeout(dispatch(entry), handlerTimeoutMs(entry));
   } catch (err) {
     classifyAndThrow(err);
   }

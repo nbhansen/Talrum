@@ -465,7 +465,7 @@ describe('useCreatePhotoPictogram', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
-  it('removes the uploaded blob from storage when the row insert fails', async () => {
+  it('leaves the uploaded blob in storage when the row insert fails', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     uploadMock.mockResolvedValue({ error: null });
@@ -485,8 +485,10 @@ describe('useCreatePhotoPictogram', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const [uploadedPath] = uploadMock.mock.calls[0] as [string, Blob, unknown];
-    expect(removeMock).toHaveBeenCalledWith([uploadedPath]);
+    // No rollback delete (#414 review): a run abandoned by the handler
+    // timeout could delete the blob its own retry just re-uploaded. The
+    // orphaned object is the accepted, cheaper failure.
+    expect(removeMock).not.toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
     // Rollback removes the optimistic row — the failed create leaves no tile.
     expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(pictogramSeed());

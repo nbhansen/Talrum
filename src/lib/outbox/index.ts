@@ -60,10 +60,9 @@ type EntryInput = DistributiveOmit<
  * Cost: the lock is held across the handler's IO, blob uploads included, so
  * online writes serialize within a tab and across tabs — a slow photo upload
  * in one tab stalls the other tab's drain and fast path until it settles or
- * its tab dies. A hung request cannot stretch that past the per-run handler
- * timeout (#413, `HANDLER_TIMEOUT_MS` in handlers.ts): the run rejects as
- * transient, the entry joins the queue, and the retry schedule (#391) takes
- * over. Accepted: each landed write leaves the queue empty, so the next
+ * its tab dies. A hung request cannot stretch that past the per-kind
+ * handler timeout (#413, handlers.ts): the run rejects as transient, the
+ * entry joins the queue, and the retry schedule (#391) takes over. Accepted: each landed write leaves the queue empty, so the next
  * waiter still fast-paths, and correctness beats burst latency at this
  * app's write volume.
  */
