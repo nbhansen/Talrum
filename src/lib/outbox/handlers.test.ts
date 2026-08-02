@@ -272,9 +272,12 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
     label: 'Apple',
   };
 
-  it.each(['40001', '40P01', '08000', '08006'])(
-    're-throws %s raw so the drain keeps the entry pending',
+  it.each(['40001', '40P01', '08000', '08006', '53300', '57P03'])(
+    'throws %s as a plain Error so the drain keeps the entry pending',
     async (code) => {
+      // A plain object, not an Error instance — the shape supabase-js can
+      // hand back. The drain persists `err.message` as `lastError`, so the
+      // wrapper must be a real Error and must carry the SQLSTATE.
       const dbError = { code, message: 'try again', details: '', hint: '' };
       eqMock.mockResolvedValue({ error: dbError });
       let caught: unknown;
@@ -284,9 +287,9 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
         caught = err;
       }
       expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
-      // The original error must reach drain.ts intact — the transient path
-      // keys off "not Unretryable", and telemetry wants the real code.
-      expect(caught).toBe(dbError);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toBe(`db ${code}: try again`);
+      expect((caught as Error).cause).toBe(dbError);
     },
   );
 

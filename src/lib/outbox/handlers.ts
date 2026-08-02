@@ -43,11 +43,13 @@ export class UnretryableOutboxError extends Error {
 
 /**
  * Postgres codes that signal a retryable coordination failure, not a bad
- * request: serialization failure (40001), deadlock detected (40P01), and the
+ * request: serialization failure (40001), deadlock detected (40P01), the
  * connection-exception codes (08xxx, minus 08P01 protocol_violation — that
- * one is a malformed request and retrying it cannot succeed). Postgres
- * documents "retry the transaction" as the remedy for the listed codes, so
- * they must stay transient instead of falling through to the blanket
+ * one is a malformed request and retrying it cannot succeed), plus the two
+ * capacity codes a shared pooler emits under load: too_many_connections
+ * (53300) and cannot_connect_now (57P03). Postgres documents "retry the
+ * transaction" as the remedy for the listed codes, so they must stay
+ * transient instead of falling through to the blanket
  * coded-error-is-permanent rule below (#394).
  *
  * Accepted tradeoff: a connection error can arrive after the server already
@@ -66,6 +68,8 @@ const TRANSIENT_DB_CODES = new Set([
   '08004',
   '08006',
   '08007',
+  '53300',
+  '57P03',
 ]);
 const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code);
 
@@ -78,11 +82,20 @@ const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code
 const classifyAndThrow = (err: unknown): never => {
   if (err instanceof UnretryableOutboxError) throw err;
   if (err instanceof TypeError) throw err; // network failure, retry later
-  const message = err instanceof Error ? err.message : String(err);
+  // Covers Error instances and plain `{code, message}` objects alike —
+  // supabase-js can hand back either shape.
+  const rawMessage = (err as { message?: unknown } | null)?.message;
+  const message = typeof rawMessage === 'string' ? rawMessage : String(err);
   if (typeof err === 'object' && err !== null) {
     const code = (err as { code?: unknown }).code;
     if (typeof code === 'string') {
-      if (isTransientDbCode(code)) throw err; // retryable — the entry stays pending
+      if (isTransientDbCode(code)) {
+        // Wrap in a plain Error (not Unretryable, so the entry stays
+        // pending): the drain persists `err.message` as `lastError`, and a
+        // raw rethrow would drop the SQLSTATE — or record 'unknown error'
+        // when the value is a plain object rather than an Error.
+        throw new Error(`db ${code}: ${message}`, { cause: err });
+      }
       throw new UnretryableOutboxError(`db ${code}: ${message}`, { cause: err });
     }
     const status = (err as { statusCode?: unknown }).statusCode;
