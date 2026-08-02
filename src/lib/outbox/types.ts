@@ -24,14 +24,24 @@ export type BoardRowPatch = Pick<
 
 export type OutboxEntryStatus = 'pending' | 'failed';
 
+/**
+ * Why a `failed` entry failed. `conflict` means the board conflict guard
+ * tripped (#281); everything else that lands in `failed` is `permanent`.
+ * This is program state — `conflictCount` and the Retry guard-strip key off
+ * it. `lastError` is display copy and must never be compared against (#392).
+ */
+export type OutboxFailureKind = 'conflict' | 'permanent';
+
 interface OutboxEntryBase {
   /** ULID — monotonically sortable, stable across reloads. */
   id: string;
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;
-  /** Last error message, surfaced in the indicator's failed-pill. */
+  /** Last error message, surfaced in the indicator's failed-pill. Display only. */
   lastError?: string;
+  /** Set whenever `status` is `failed`. See {@link OutboxFailureKind}. */
+  failureKind?: OutboxFailureKind;
 }
 
 export interface UpdateBoardEntry extends OutboxEntryBase {

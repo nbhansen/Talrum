@@ -1,6 +1,6 @@
 import { resolveExpectedUpdatedAt } from './board-clock';
 import { drainState, drainSubscribers, type OutboxStatus } from './drain-state';
-import { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } from './handlers';
+import { runHandler, UnretryableOutboxError } from './handlers';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -16,7 +16,7 @@ const emit = async (): Promise<void> => {
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     pendingCount: entries.filter((e) => e.status === 'pending').length,
     failedCount: failed.length,
-    conflictCount: failed.filter((e) => e.lastError === BOARD_CONFLICT_MESSAGE).length,
+    conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
     draining: drainState.draining,
   };
   drainState.lastStatus = next;
@@ -80,12 +80,27 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
     const attemptCount = current.attemptCount + 1;
     const message = err instanceof Error ? err.message : 'unknown error';
     if (err instanceof UnretryableOutboxError) {
-      await putEntry({ ...current, attemptCount, status: 'failed', lastError: message });
+      await putEntry({
+        ...current,
+        attemptCount,
+        status: 'failed',
+        lastError: message,
+        failureKind: err.failureKind,
+      });
       return 'failed';
     }
-    const status = attemptCount >= MAX_ATTEMPTS_BEFORE_FAILED ? 'failed' : 'pending';
-    await putEntry({ ...current, attemptCount, status, lastError: message });
-    return status === 'failed' ? 'failed' : 'transient';
+    if (attemptCount >= MAX_ATTEMPTS_BEFORE_FAILED) {
+      await putEntry({
+        ...current,
+        attemptCount,
+        status: 'failed',
+        lastError: message,
+        failureKind: 'permanent',
+      });
+      return 'failed';
+    }
+    await putEntry({ ...current, attemptCount, status: 'pending', lastError: message });
+    return 'transient';
   }
 };
 

@@ -123,6 +123,7 @@ describe('outbox drain', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.status).toBe('failed');
     expect(entries[0]?.attemptCount).toBeGreaterThanOrEqual(3);
+    expect(entries[0]?.failureKind).toBe('permanent');
   });
 
   it('marks an entry as failed immediately on a coded (non-retryable) error', async () => {
@@ -136,6 +137,7 @@ describe('outbox drain', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.status).toBe('failed');
     expect(entries[0]?.attemptCount).toBe(1);
+    expect(entries[0]?.failureKind).toBe('permanent');
   });
 
   it('stops on a transient failure so order is preserved across the queue', async () => {
@@ -343,12 +345,13 @@ describe('conflict guard (#281)', () => {
   const T1 = '2026-06-11T10:00:01.000001+00:00';
   const T2 = '2026-06-11T10:00:02.000001+00:00';
 
-  it('marks a conflicted entry failed with the conflict message', async () => {
+  it('marks a conflicted entry failed with the typed kind and the display copy', async () => {
     guardSelectMock.mockResolvedValue({ data: [], error: null });
     await putEntry(baseEntry({ id: '01HZZA', expectedUpdatedAt: T0 }));
     await drain();
     const entries = await listEntries();
     expect(entries[0]?.status).toBe('failed');
+    expect(entries[0]?.failureKind).toBe('conflict');
     expect(entries[0]?.lastError).toBe(BOARD_CONFLICT_MESSAGE);
   });
 
@@ -410,7 +413,10 @@ describe('conflict guard (#281)', () => {
         status: 'failed',
         attemptCount: 1,
         expectedUpdatedAt: T0,
-        lastError: BOARD_CONFLICT_MESSAGE,
+        failureKind: 'conflict',
+        // Deliberately not BOARD_CONFLICT_MESSAGE: the strip must key off
+        // failureKind, so an edit to the display copy changes nothing (#392).
+        lastError: 'any display copy',
       }),
     );
     await retryFailed();
@@ -433,7 +439,7 @@ describe('conflict guard (#281)', () => {
         status: 'failed',
         attemptCount: 1,
         expectedUpdatedAt: T0,
-        lastError: BOARD_CONFLICT_MESSAGE,
+        failureKind: 'conflict',
       }),
     );
     await putEntry(baseEntry({ id: '01HZZB', expectedUpdatedAt: T0 }));
@@ -479,6 +485,7 @@ describe('conflict guard (#281)', () => {
         status: 'failed',
         attemptCount: 3,
         expectedUpdatedAt: T0,
+        failureKind: 'permanent',
         lastError: 'Failed to fetch',
       }),
     );
