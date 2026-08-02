@@ -43,9 +43,11 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
-- **Drains and queue rewrites serialize across tabs** on a `navigator.locks`
-  web lock (#278, #289), so a PWA window plus a browser tab can't replay the
-  same entry twice.
+- **Drains, queue rewrites, and the fast path serialize across tabs** on a
+  `navigator.locks` web lock (#278, #289, #395), so a PWA window plus a
+  browser tab can't replay the same entry twice. The fast path holds the lock
+  from the empty-queue check through the handler run, so the check and the
+  run are atomic — another tab can't slip a write in between.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never
   waits for an external trigger. The schedule, its reset rules, and the

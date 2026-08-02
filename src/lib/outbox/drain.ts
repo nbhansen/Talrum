@@ -130,16 +130,18 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * no `navigator.locks`; fall back to running unlocked — the per-tab guard
  * still covers the single-context case.
  *
- * Also wraps the queue rewrites in `retryFailed`/`discardEntry` (#289). The
- * lock is exclusive and non-reentrant: never call `drain()` (or anything else
- * that takes the lock) from inside the callback.
+ * Also wraps the queue rewrites in `retryFailed`/`discardEntry` (#289) and
+ * the fast path in `enqueueAndDrain` (#395) — without it, two tabs can both
+ * observe an empty queue and run handlers concurrently. The lock is exclusive
+ * and non-reentrant: never call `drain()` (or anything else that takes the
+ * lock) from inside the callback. Generic so the fast path can report its
+ * outcome through the lock and act on it after the release.
  */
-export const withCrossTabLock = async (fn: () => Promise<void>): Promise<void> => {
+export const withCrossTabLock = async <T>(fn: () => Promise<T>): Promise<T> => {
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
-    await navigator.locks.request('talrum-outbox', fn);
-    return;
+    return (await navigator.locks.request('talrum-outbox', fn)) as T;
   }
-  await fn();
+  return fn();
 };
 
 /**

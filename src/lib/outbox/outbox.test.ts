@@ -422,6 +422,52 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(eqMock).not.toHaveBeenCalled();
   });
 
+  it('the fast path waits for the talrum-outbox lock held by another tab (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // "Another tab" is mid-drain (or mid-fast-path) and holds the lock.
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // An unlocked fast path would already have run the handler here.
+    expect(eqMock).not.toHaveBeenCalled();
+    release();
+    await done;
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('re-checks the backlog after the lock wait so a queued write is not jumped (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({
+      kind: 'updateBoard',
+      boardId: 'board-new',
+      patch: { name: 'x' },
+    });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    // Another tab persists an entry while our fast path is parked on the
+    // lock. The pre-lock queue observation (empty) is stale now; acting on
+    // it would jump the queue — the #279 staleness bug, cross-tab edition.
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
+    release();
+    await done;
+    // The write took the slow path: old entry first, new entry last (FIFO).
+    expect(eqMock.mock.calls).toEqual([
+      ['id', 'board-old'],
+      ['id', 'board-new'],
+    ]);
+    expect(await listEntries()).toEqual([]);
+  });
+
   it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
     const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));

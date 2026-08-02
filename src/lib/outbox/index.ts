@@ -45,33 +45,48 @@ type EntryInput = DistributiveOmit<
  * In that case the write joins the queue and a drain flushes everything in
  * FIFO order. Failed entries don't count — drain() skips them, so they'd
  * block the fast path forever for nothing.
+ *
+ * The empty-queue check and the handler run happen under the cross-tab lock
+ * (#395): unlocked, two tabs can both observe an empty queue and run handlers
+ * concurrently — the exact double-replay the lock exists to prevent (#278).
+ * The lock is non-reentrant, so the follow-up `drain()` calls stay outside
+ * the callback; the callback reports which follow-up is needed instead.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
-  const hasPendingBacklog = isOnline && (await listEntries()).some((e) => e.status === 'pending');
-  if (isOnline && !hasPendingBacklog) {
-    const entry: OutboxEntry = {
-      ...input,
-      id: ulid(),
-      enqueuedAt: Date.now(),
-      attemptCount: 0,
-      status: 'pending',
-    };
-    try {
-      await runHandler(entry);
-      return;
-    } catch (err) {
-      if (err instanceof UnretryableOutboxError) {
-        throw err;
-      }
-      // Transient — fall through to the queue. We intentionally use the same
-      // entry (with attemptCount = 1 to reflect the just-failed attempt) so
-      // the drain loop respects the retry ceiling.
-      await putEntry({
-        ...entry,
-        attemptCount: 1,
-        lastError: err instanceof Error ? err.message : 'unknown error',
-      });
+  if (isOnline) {
+    const outcome = await withCrossTabLock(
+      async (): Promise<'landed' | 'queued-transient' | 'backlog'> => {
+        const hasPendingBacklog = (await listEntries()).some((e) => e.status === 'pending');
+        if (hasPendingBacklog) return 'backlog';
+        const entry: OutboxEntry = {
+          ...input,
+          id: ulid(),
+          enqueuedAt: Date.now(),
+          attemptCount: 0,
+          status: 'pending',
+        };
+        try {
+          await runHandler(entry);
+          return 'landed';
+        } catch (err) {
+          if (err instanceof UnretryableOutboxError) {
+            throw err;
+          }
+          // Transient — join the queue. We intentionally use the same entry
+          // (with attemptCount = 1 to reflect the just-failed attempt) so the
+          // drain loop respects the retry ceiling.
+          await putEntry({
+            ...entry,
+            attemptCount: 1,
+            lastError: err instanceof Error ? err.message : 'unknown error',
+          });
+          return 'queued-transient';
+        }
+      },
+    );
+    if (outcome === 'landed') return;
+    if (outcome === 'queued-transient') {
       void drain();
       return;
     }
