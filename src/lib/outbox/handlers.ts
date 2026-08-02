@@ -306,9 +306,50 @@ const dispatch = (entry: OutboxEntry): Promise<void> => {
   }
 };
 
+/**
+ * Upper bound on one handler run (#413). `fetch` has no default timeout, so
+ * a socket stuck open with no bytes (mobile radio in limbo, `navigator.onLine`
+ * still true) would otherwise pend forever — and the fast path and drain run
+ * handlers under the cross-tab web lock (#395), which only auto-releases when
+ * the tab dies, so one hung request would freeze every tab's writes. Sized
+ * against the payloads: everything here is a single-row write, a 512px JPEG,
+ * or a short voice clip, so a request that hasn't settled in 30 s is hung,
+ * not slow.
+ */
+export const HANDLER_TIMEOUT_MS = 30_000;
+
+/**
+ * A race, not an abort: PostgREST builders accept `abortSignal`, but
+ * storage-js `upload`/`remove` (v2.106) do not, and the blob upload is the
+ * longest-running IO here — an abort-based bound would miss it. The losing
+ * run keeps going after the timeout; that is safe because every handler is
+ * idempotent by contract (docs/outbox.md, "Rules for writing a handler") and
+ * `uploadBlob` upserts, so a late landing converges with the retry. Same
+ * commit-after-error replay tradeoff already accepted on TRANSIENT_DB_CODES.
+ */
+const withHandlerTimeout = async (run: Promise<void>): Promise<void> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`handler timed out after ${HANDLER_TIMEOUT_MS / 1000}s`));
+    }, HANDLER_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([run, timedOut]);
+  } finally {
+    clearTimeout(timer);
+    // The losing run may still reject later; without a handler that surfaces
+    // as an unhandled rejection long after the entry was re-queued.
+    run.catch(() => undefined);
+  }
+};
+
 export const runHandler = async (entry: OutboxEntry): Promise<void> => {
   try {
-    await dispatch(entry);
+    // The timeout error is a plain Error: no code, no statusCode, not a
+    // TypeError — classifyAndThrow rethrows it as-is, so the drain treats it
+    // as transient and the retry schedule (#391) takes over.
+    await withHandlerTimeout(dispatch(entry));
   } catch (err) {
     classifyAndThrow(err);
   }

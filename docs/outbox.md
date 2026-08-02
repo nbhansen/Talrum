@@ -51,10 +51,11 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   atomic and another tab can't slip a write in between. The cost: the lock
   is held across handler IO, blob uploads included, so online writes
   serialize within a tab and across tabs — a slow upload in one tab stalls
-  the other tab's drain and fast path until it settles or its tab dies, and
-  a hung request (`fetch` has no default timeout) has no upper bound while
-  the tab lives (#413 tracks a handler IO timeout). Accepted at this app's
-  write volume.
+  the other tab's drain and fast path until it settles or its tab dies.
+  `fetch` has no default timeout, so `runHandler` bounds each run itself
+  (#413): a run that outlives the handler timeout rejects as transient,
+  releases the lock, and retries on the backoff schedule. Accepted at this
+  app's write volume.
 - **A transient failure schedules its own re-drain** with capped exponential
   backoff (#391), so an entry that fails while the device stays online never
   waits for an external trigger. The schedule, its reset rules, and the

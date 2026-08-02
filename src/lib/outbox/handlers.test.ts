@@ -84,7 +84,8 @@ vi.mock('@/lib/telemetry', () => ({
   captureException: (err: unknown, ctx?: unknown) => captureExceptionMock(err, ctx),
 }));
 
-const { BOARD_CONFLICT_MESSAGE, runHandler, UnretryableOutboxError } = await import('./handlers');
+const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS, runHandler, UnretryableOutboxError } =
+  await import('./handlers');
 const { __resetBoardClockForTests } = await import('./board-clock');
 
 const baseProps = {
@@ -643,5 +644,75 @@ describe('runHandler · deleteKid', () => {
     expect(selectMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('runHandler · handler IO timeout (#413)', () => {
+  beforeEach(() => {
+    // Only the timer pair the timeout uses; Date and microtasks stay real.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const photoEntry = (): CreatePhotoPictogramEntry => ({
+    ...baseProps,
+    kind: 'createPhotoPicto',
+    pictogramId: 'p-1',
+    ownerId: 'o-1',
+    label: 'Park',
+    blob: new Blob(['x'], { type: 'image/jpeg' }),
+    extension: 'jpg',
+  });
+
+  it('a hung upload rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
+    // The upload is the IO an abort-based bound could not cover: storage-js
+    // upload() takes no AbortSignal. A socket stuck open pends forever.
+    uploadMock.mockReturnValue(new Promise<{ error: Error | null }>(() => undefined));
+    const outcome = runHandler(photoEntry()).then(
+      () => 'resolved',
+      (err: unknown) => err,
+    );
+    await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+    const err = await outcome;
+    expect(err).toBeInstanceOf(Error);
+    // Transient, not Unretryable: the entry must stay pending and retry.
+    expect(err).not.toBeInstanceOf(UnretryableOutboxError);
+    expect((err as Error).message).toMatch(/timed out after 30s/);
+  });
+
+  it('swallows the losing run’s late rejection after a timeout', async () => {
+    let rejectLate: (err: Error) => void = () => undefined;
+    uploadMock.mockReturnValue(
+      new Promise<{ error: Error | null }>((_, reject) => {
+        rejectLate = reject;
+      }),
+    );
+    const outcome = runHandler(photoEntry()).then(
+      () => 'resolved',
+      (err: unknown) => (err as Error).message,
+    );
+    await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
+    expect(await outcome).toMatch(/timed out/);
+    // The zombie request fails long after the entry was re-queued. Vitest
+    // fails the run on unhandled rejections, so this test passing clean is
+    // the assertion.
+    rejectLate(new TypeError('Failed to fetch'));
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  it('a handler that settles in time clears its timeout timer', async () => {
+    const entry: RenameKidEntry = {
+      ...baseProps,
+      kind: 'renameKid',
+      kidId: 'k-1',
+      name: 'Mia',
+    };
+    await runHandler(entry);
+    // A leaked timer would fire a stray rejection 30 s into some later
+    // handler run (and shows up here as a pending fake timer).
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
