@@ -422,6 +422,114 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(eqMock).not.toHaveBeenCalled();
   });
 
+  it('the fast path waits for the talrum-outbox lock held by another tab (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // "Another tab" is mid-drain (or mid-fast-path) and holds the lock.
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // An unlocked fast path would already have run the handler here.
+    expect(eqMock).not.toHaveBeenCalled();
+    release();
+    await done;
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('fast path re-checks onLine after the lock wait so a dead network burns no attempt (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    // The network drops while the fast path is parked on the other tab's
+    // lock. Running the handler now would spend one of the six retry
+    // attempts on a guaranteed failure.
+    setOnline(false);
+    release();
+    await done;
+    expect(eqMock).not.toHaveBeenCalled();
+    const entries = await listEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.attemptCount).toBe(0);
+  });
+
+  it('re-checks the backlog after the lock wait so a queued write is not jumped (#395)', async () => {
+    const request = installFakeLocks();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({
+      kind: 'updateBoard',
+      boardId: 'board-new',
+      patch: { name: 'x' },
+    });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    // Another tab persists an entry while our fast path is parked on the
+    // lock. The pre-lock queue observation (empty) is stale now; acting on
+    // it would jump the queue — the #279 staleness bug, cross-tab edition.
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
+    release();
+    await done;
+    // The write took the slow path: old entry first, new entry last (FIFO).
+    expect(eqMock.mock.calls).toEqual([
+      ['id', 'board-old'],
+      ['id', 'board-new'],
+    ]);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('appends the slow-path entry under the lock, before the next holder runs (#395)', async () => {
+    installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
+    const done = enqueueAndDrain({
+      kind: 'updateBoard',
+      boardId: 'board-new',
+      patch: { name: 'x' },
+    });
+    // "Tab B" queues for the lock right behind the slow path's request. An
+    // append outside the lock would let B observe only the old backlog,
+    // drain it, and fast-path a younger write past this one.
+    let observed: string[] = [];
+    await navigator.locks.request('talrum-outbox', async () => {
+      observed = (await listEntries()).map((e) => e.id);
+    });
+    expect(observed).toHaveLength(2);
+    await done;
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('an offline enqueue also appends under the lock (#395)', async () => {
+    // online/offline events are per-window: this tab can be offline while
+    // another tab is still online and mid-fast-path. An unlocked offline
+    // append could race that fast path and land behind a younger write.
+    const request = installFakeLocks();
+    setOnline(false);
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await listEntries()).toHaveLength(0);
+    release();
+    await done;
+    expect(await listEntries()).toHaveLength(1);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
   it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
     const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
