@@ -33,9 +33,22 @@ const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<Mo
 // Clear-audio best-effort removes the recording from storage before the row update.
 const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
 
+// Row-path reads (#418): handlers derive storage cleanup from the row, so
+// blob/clear/delete mutations issue select(...).eq(...).maybeSingle() first.
+const maybeSingleMock = vi.fn<
+  () => Promise<{
+    data: { image_path: string | null; audio_path: string | null } | null;
+    error: MockPostgrestError | null;
+  }>
+>();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({ update: updateMock, upsert: upsertMock }),
+    from: () => ({
+      update: updateMock,
+      upsert: upsertMock,
+      select: () => ({ eq: () => ({ maybeSingle: maybeSingleMock }) }),
+    }),
     rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args),
     storage: { from: () => ({ remove: removeMock, upload: uploadMock }) },
   },
@@ -136,6 +149,8 @@ beforeEach(() => {
   rpcMock.mockReset();
   uploadMock.mockReset();
   removeMock.mockReset();
+  // Default: the row exists with no prior uploads — no storage cleanup.
+  maybeSingleMock.mockReset().mockResolvedValue({ data: null, error: null });
   // Fresh per test: later describes spyOn/assert these, and a mock carried
   // across tests would leak call history into their counts.
   URL.createObjectURL = vi.fn(() => 'blob:planted');
@@ -247,6 +262,11 @@ describe('useClearPictogramAudio', () => {
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
     removeMock.mockResolvedValue({ error: null });
+    // The recording to remove comes from the row read, not the input (#418).
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'owner-uuid/p1.webm' },
+      error: null,
+    });
     let resolveEq: (v: MockResult) => void = () => {
       throw new Error('resolver not assigned');
     };
@@ -255,7 +275,7 @@ describe('useClearPictogramAudio', () => {
     const { result } = renderHook(() => useClearPictogramAudio(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ pictogramId: 'p1', path: 'owner-uuid/p1.webm' });
+      result.current.mutate({ pictogramId: 'p1' });
     });
 
     await waitFor(() => {
@@ -281,7 +301,7 @@ describe('useClearPictogramAudio', () => {
     const { result } = renderHook(() => useClearPictogramAudio(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ pictogramId: 'p1', path: 'owner-uuid/p1.webm' });
+      result.current.mutate({ pictogramId: 'p1' });
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
@@ -312,7 +332,7 @@ describe('useSetPictogramAudio', () => {
 
     const blob = new Blob(['voice'], { type: 'audio/webm' });
     act(() => {
-      result.current.mutate({ pictogramId: 'p2', blob, extension: 'webm', previousPath: null });
+      result.current.mutate({ pictogramId: 'p2', blob, extension: 'webm' });
     });
 
     // Optimistic window: tile plays the local blob before the upload lands.
@@ -336,12 +356,16 @@ describe('useSetPictogramAudio', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
-  it('cleans up the previous recording when the extension changed', async () => {
+  it('cleans up the recording the row pointed at', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     uploadMock.mockResolvedValue({ error: null });
     eqMock.mockResolvedValue({ error: null });
     removeMock.mockResolvedValue({ error: null });
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: null, audio_path: 'owner-uuid/p1.m4a' },
+      error: null,
+    });
 
     const { result } = renderHook(() => useSetPictogramAudio(), {
       wrapper: makeSessionWrapper(qc),
@@ -352,7 +376,6 @@ describe('useSetPictogramAudio', () => {
         pictogramId: 'p1',
         blob: new Blob(['voice'], { type: 'audio/webm' }),
         extension: 'webm',
-        previousPath: 'owner-uuid/p1.m4a',
       });
     });
 
@@ -375,7 +398,6 @@ describe('useSetPictogramAudio', () => {
         pictogramId: 'p2',
         blob: new Blob(['voice'], { type: 'audio/webm' }),
         extension: 'webm',
-        previousPath: null,
       });
     });
 
@@ -399,7 +421,6 @@ describe('useSetPictogramAudio', () => {
         pictogramId: 'p1',
         blob: new Blob(['voice'], { type: 'audio/webm' }),
         extension: 'webm',
-        previousPath: 'owner-uuid/p1.webm',
       });
     });
 
@@ -523,7 +544,6 @@ describe('useReplacePictogramImage', () => {
         pictogramId: 'ph1',
         blob: new Blob(['jpeg']),
         extension: 'jpg',
-        previousPath: 'owner-uuid/ph1.jpg',
       });
     });
 
@@ -546,6 +566,10 @@ describe('useReplacePictogramImage', () => {
     uploadMock.mockResolvedValue({ error: null });
     eqMock.mockResolvedValue({ error: null });
     removeMock.mockResolvedValue({ error: null });
+    maybeSingleMock.mockResolvedValue({
+      data: { image_path: 'owner-uuid/ph1.jpg', audio_path: null },
+      error: null,
+    });
 
     const { result } = renderHook(() => useReplacePictogramImage(), {
       wrapper: makeSessionWrapper(qc),
@@ -556,7 +580,6 @@ describe('useReplacePictogramImage', () => {
         pictogramId: 'ph1',
         blob: new Blob(['jpeg']),
         extension: 'png',
-        previousPath: 'owner-uuid/ph1.jpg',
       });
     });
 
@@ -584,7 +607,6 @@ describe('useReplacePictogramImage', () => {
         pictogramId: 'ph1',
         blob: new Blob(['jpeg']),
         extension: 'jpg',
-        previousPath: 'owner-uuid/ph1.jpg',
       });
     });
 

@@ -84,14 +84,11 @@ export interface SetPictogramAudioEntry extends OutboxEntryBase {
   blob: Blob;
   /** Versioned Storage path minted at enqueue time (#415) — see {@link CreatePhotoPictogramEntry.path}. */
   path: string;
-  /** Path of an older recording to clean up after the new one lands. */
-  previousPath?: string;
 }
 
 export interface ClearPictogramAudioEntry extends OutboxEntryBase {
   kind: 'clearPictoAudio';
   pictogramId: string;
-  path: string;
 }
 
 export interface RenamePictogramEntry extends OutboxEntryBase {
@@ -106,20 +103,11 @@ export interface ReplacePictogramImageEntry extends OutboxEntryBase {
   blob: Blob;
   /** Versioned Storage path minted at enqueue time (#415) — see {@link CreatePhotoPictogramEntry.path}. */
   path: string;
-  /**
-   * Path of the prior image to delete after the new one lands. Stock-prefixed
-   * paths (`stock:<slug>`) and missing values are ignored — only real Storage
-   * objects are removed.
-   */
-  previousPath?: string;
 }
 
 export interface DeletePictogramEntry extends OutboxEntryBase {
   kind: 'deletePicto';
   pictogramId: string;
-  /** Storage paths to clean up. Stock-prefixed paths are skipped by the handler. */
-  previousImagePath?: string;
-  previousAudioPath?: string;
 }
 
 export interface RenameKidEntry extends OutboxEntryBase {

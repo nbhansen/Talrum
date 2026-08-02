@@ -64,7 +64,6 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
         pictogramId: picto.id,
         blob,
         extension: extensionForMime(blob.type),
-        previousPath: picto.audioPath ?? null,
       });
       setMode('idle');
     } catch {
@@ -90,7 +89,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     if (!picto.audioPath) return;
     setError(null);
     try {
-      await clearMut.mutateAsync({ pictogramId: picto.id, path: picto.audioPath });
+      await clearMut.mutateAsync({ pictogramId: picto.id });
     } catch {
       setError('Could not remove recording.');
     }

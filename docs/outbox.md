@@ -119,6 +119,13 @@ New entry kind? Add the interface in `types.ts`, the handler in
   throwing.
 - **Happy-path only.** Throw raw Supabase/Storage errors; `runHandler` owns
   classification. Never catch-and-swallow.
+- **Storage cleanup reads the row, never a client snapshot.** Which object
+  a write supersedes is decided by the row's `image_path`/`audio_path`,
+  read by the handler at replay time (`readRowPaths`, #418 review). Cache
+  snapshots hold `blob:` URLs between an enqueue and the settle refetch,
+  so a snapshot-based `previousPath` misses the cleanup and orphans the
+  superseded versioned object. FIFO replay makes the row read exact for
+  offline chains: each entry sees the path its predecessor landed.
 - **Cancellation-aware when multi-step.** A run abandoned by the handler
   timeout (#413) keeps executing as a zombie. A handler with more than one
   side-effecting step must take the `AbortSignal` from `dispatch` and call
@@ -147,7 +154,11 @@ New entry kind? Add the interface in `types.ts`, the handler in
   (`mintStoragePath`, #415), minted once per entry, so a late upload or
   `remove` lands on a path no newer write owns — at worst it leaks one
   orphaned object. The row's `image_path`/`audio_path` is the single
-  source of truth for which object is current.
+  source of truth for which object is current, and handlers derive their
+  cleanup from it (#418 review). Residual orphans (a failed create's
+  upload, an abandoned run's late upload, cross-device writes interleaving
+  a read with an update) are rare, small, and unreferenced — accepted on
+  the free tier's quota until real usage says otherwise.
 - The handler timeout is wall-clock and a retry restarts the transfer from
   byte zero, so the blob bound is also a ceiling on what can sync:
   recordings have no duration cap (#416), and a clip whose transfer needs

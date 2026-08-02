@@ -181,6 +181,29 @@ const entryPath = (entry: { path?: string }): string => {
   throw new UnretryableOutboxError('entry predates versioned storage paths — discard and redo');
 };
 
+/**
+ * Which object does this write supersede? Read it from the row, never from a
+ * client snapshot (#418 review): `previousPath`-style snapshots came from the
+ * optimistically patched cache, which holds a `blob:` URL between an enqueue
+ * and the settle refetch — a second mutation in that window snapshots the
+ * blob URL, the cleanup matches nothing, and the superseded versioned object
+ * (#415) is orphaned permanently. The row read is also exactly right for
+ * offline chains: FIFO replay means each entry sees the path its predecessor
+ * landed. `maybeSingle`: a row deleted mid-queue yields null and the caller
+ * skips cleanup — the same silent-success semantics as the update after it.
+ */
+const readRowPaths = async (
+  pictogramId: string,
+): Promise<{ image_path: string | null; audio_path: string | null } | null> => {
+  const { data, error } = await supabase
+    .from('pictograms')
+    .select('image_path, audio_path')
+    .eq('id', pictogramId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
 const handleCreatePhotoPictogram = async (
   entry: CreatePhotoPictogramEntry,
   signal: AbortSignal,
@@ -224,15 +247,19 @@ const handleSetPictogramAudio = async (
   await uploadBlob(AUDIO_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(AUDIO_BUCKET, path);
+  // Read before the update — afterwards the row already points at `path`.
+  const previous = (await readRowPaths(entry.pictogramId))?.audio_path ?? undefined;
+  throwIfCancelled(signal);
   const { error } = await supabase
     .from('pictograms')
     .update({ audio_path: path })
     .eq('id', entry.pictogramId);
   if (error) throw error;
   throwIfCancelled(signal);
-  if (entry.previousPath && entry.previousPath !== path) {
-    await removeFromBucket(AUDIO_BUCKET, [entry.previousPath]).catch(reportCleanupFailure);
-    invalidateSignedUrl(AUDIO_BUCKET, entry.previousPath);
+  // `previous === path` on a replay of an entry whose update already landed.
+  if (isUploadedStoragePath(previous) && previous !== path) {
+    await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
+    invalidateSignedUrl(AUDIO_BUCKET, previous);
   }
 };
 
@@ -240,17 +267,24 @@ const handleClearPictogramAudio = async (
   entry: ClearPictogramAudioEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  await removeFromBucket(AUDIO_BUCKET, [entry.path]).catch(reportCleanupFailure);
-  // The gate that motivated throwIfCancelled: if the remove above hung past
+  const previous = (await readRowPaths(entry.pictogramId))?.audio_path ?? undefined;
+  // The gate that motivated throwIfCancelled: if the read above hung past
   // the timeout, the row update below would land after a later setPictoAudio
   // and null out the audio_path it just set.
   throwIfCancelled(signal);
-  invalidateSignedUrl(AUDIO_BUCKET, entry.path);
   const { error } = await supabase
     .from('pictograms')
     .update({ audio_path: null })
     .eq('id', entry.pictogramId);
   if (error) throw error;
+  throwIfCancelled(signal);
+  // Remove after the row stops referencing the object, so a failure between
+  // the two leaves a dangling object (retry converges) rather than a row
+  // pointing at nothing.
+  if (isUploadedStoragePath(previous)) {
+    await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
+    invalidateSignedUrl(AUDIO_BUCKET, previous);
+  }
 };
 
 const handleRenamePictogram = async (entry: RenamePictogramEntry): Promise<void> => {
@@ -269,15 +303,20 @@ const handleReplacePictogramImage = async (
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
+  // Read before the update — afterwards the row already points at `path`.
+  const previous = (await readRowPaths(entry.pictogramId))?.image_path ?? undefined;
+  throwIfCancelled(signal);
   const { error } = await supabase
     .from('pictograms')
     .update({ image_path: path })
     .eq('id', entry.pictogramId);
   if (error) throw error;
   throwIfCancelled(signal);
-  if (isUploadedStoragePath(entry.previousPath) && entry.previousPath !== path) {
-    await removeFromBucket(IMAGES_BUCKET, [entry.previousPath]).catch(reportCleanupFailure);
-    invalidateSignedUrl(IMAGES_BUCKET, entry.previousPath);
+  // isUploadedStoragePath skips stock-prefixed seeds; `previous === path` on
+  // a replay of an entry whose update already landed.
+  if (isUploadedStoragePath(previous) && previous !== path) {
+    await removeFromBucket(IMAGES_BUCKET, [previous]).catch(reportCleanupFailure);
+    invalidateSignedUrl(IMAGES_BUCKET, previous);
   }
 };
 
@@ -287,20 +326,25 @@ const handleDeletePictogram = async (
 ): Promise<void> => {
   // The boards scrub + row delete run server-side in the `delete_pictogram`
   // RPC, one transaction, with the referencing boards recomputed at execution
-  // time (#280) — no stale client-cache scrub list. Storage cleanup runs
-  // *before* the RPC so a transient storage failure throws and the outbox
-  // retries the whole entry. Each step is idempotent on retry: the storage
-  // removes return success on missing keys, and the RPC is a no-op once the
-  // row is gone.
-  if (isUploadedStoragePath(entry.previousImagePath)) {
-    await removeFromBucket(IMAGES_BUCKET, [entry.previousImagePath]);
+  // time (#280) — no stale client-cache scrub list. The paths come from the
+  // row for the same reason (#418 review, see readRowPaths). Storage cleanup
+  // runs *before* the RPC so a transient storage failure throws and the
+  // outbox retries the whole entry. Each step is idempotent on retry: the
+  // read yields null once the row is gone, the storage removes return
+  // success on missing keys, and the RPC is a no-op.
+  const row = await readRowPaths(entry.pictogramId);
+  throwIfCancelled(signal);
+  const imagePath = row?.image_path ?? undefined;
+  if (isUploadedStoragePath(imagePath)) {
+    await removeFromBucket(IMAGES_BUCKET, [imagePath]);
     throwIfCancelled(signal);
-    invalidateSignedUrl(IMAGES_BUCKET, entry.previousImagePath);
+    invalidateSignedUrl(IMAGES_BUCKET, imagePath);
   }
-  if (isUploadedStoragePath(entry.previousAudioPath)) {
-    await removeFromBucket(AUDIO_BUCKET, [entry.previousAudioPath]);
+  const audioPath = row?.audio_path ?? undefined;
+  if (isUploadedStoragePath(audioPath)) {
+    await removeFromBucket(AUDIO_BUCKET, [audioPath]);
     throwIfCancelled(signal);
-    invalidateSignedUrl(AUDIO_BUCKET, entry.previousAudioPath);
+    invalidateSignedUrl(AUDIO_BUCKET, audioPath);
   }
   const { error } = await supabase.rpc('delete_pictogram', {
     p_pictogram_id: entry.pictogramId,

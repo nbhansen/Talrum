@@ -78,8 +78,6 @@ interface SetAudioInput {
   pictogramId: string;
   blob: Blob;
   extension: string;
-  /** Path to remove if the upload replaces a recording with a different ext. */
-  previousPath?: string | null;
 }
 
 /**
@@ -103,7 +101,10 @@ export const useSetPictogramAudio = (): UseMutationResult<
         return patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl }));
       }),
     ],
-    mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
+    // No previous-path snapshot: the handler reads the row to find the
+    // superseded object (#418 review) — the cache here can hold a stale
+    // blob: URL between an enqueue and the settle refetch.
+    mutationFn: ({ pictogramId, blob, extension }) =>
       enqueueAndDrain({
         kind: 'setPictoAudio',
         pictogramId,
@@ -112,7 +113,6 @@ export const useSetPictogramAudio = (): UseMutationResult<
         // two entries ever share one, so an abandoned run's late IO cannot
         // touch a newer recording.
         path: mintStoragePath(ownerId, pictogramId, extension),
-        ...(previousPath ? { previousPath } : {}),
       }),
     // Revoke while the blob URL is still in the cache — the sweep walks
     // current cache state, and the rollback below removes the URL from it.
@@ -123,7 +123,6 @@ export const useSetPictogramAudio = (): UseMutationResult<
 
 interface ClearAudioInput {
   pictogramId: string;
-  path: string;
 }
 
 interface CreatePhotoInput {
@@ -212,8 +211,6 @@ interface ReplaceImageInput {
   pictogramId: string;
   blob: Blob;
   extension: string;
-  /** Path of the prior image. Stock-prefixed (`stock:<slug>`) values are skipped by the handler — only real Storage objects are removed. */
-  previousPath?: string | undefined;
 }
 
 export const useReplacePictogramImage = (): UseMutationResult<
@@ -234,13 +231,12 @@ export const useReplacePictogramImage = (): UseMutationResult<
         );
       }),
     ],
-    mutationFn: ({ pictogramId, blob, extension, previousPath }) =>
+    mutationFn: ({ pictogramId, blob, extension }) =>
       enqueueAndDrain({
         kind: 'replacePictoImage',
         pictogramId,
         blob,
         path: mintStoragePath(ownerId, pictogramId, extension),
-        ...(previousPath ? { previousPath } : {}),
       }),
     // Revoke while the blob URL is still in the cache (revoke walks current
     // cache state); restoring the snapshot first would orphan the URL — it'd
@@ -252,8 +248,6 @@ export const useReplacePictogramImage = (): UseMutationResult<
 
 export interface DeletePictogramInput {
   pictogramId: string;
-  previousImagePath?: string;
-  previousAudioPath?: string;
 }
 
 export const referencingBoardIds = (
@@ -280,13 +274,7 @@ export const useDeletePictogram = (): UseMutationResult<
         ),
       ),
     ],
-    mutationFn: ({ pictogramId, previousImagePath, previousAudioPath }) =>
-      enqueueAndDrain({
-        kind: 'deletePicto',
-        pictogramId,
-        ...(previousImagePath ? { previousImagePath } : {}),
-        ...(previousAudioPath ? { previousAudioPath } : {}),
-      }),
+    mutationFn: ({ pictogramId }) => enqueueAndDrain({ kind: 'deletePicto', pictogramId }),
   });
 
 export const useClearPictogramAudio = (): UseMutationResult<
@@ -305,8 +293,7 @@ export const useClearPictogramAudio = (): UseMutationResult<
         }),
       ),
     ],
-    mutationFn: ({ pictogramId, path }) =>
-      enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId, path }),
+    mutationFn: ({ pictogramId }) => enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId }),
     settle: revokeThenInvalidate(qc),
   });
 };
