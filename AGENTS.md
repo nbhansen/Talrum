@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Write all output in ASD-STE100 Simplified Technical English (STE). This applies to chat replies, plans, documentation, commit messages, and pull request text. Use short sentences. Use the active voice. Give one instruction in each sentence. Use the same word for the same thing each time.
+Write all output in ASD-STE100 Simplified Technical English (STE). This applies to all communication with the user (chat replies and plans), all documentation, all commit messages, and all pull request text. Use short sentences. Use the active voice. Give one instruction in each sentence. Use the same word for the same thing each time.
 
 Read this file before every task.
 
