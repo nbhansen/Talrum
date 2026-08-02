@@ -44,14 +44,30 @@ export class UnretryableOutboxError extends Error {
 /**
  * Postgres codes that signal a retryable coordination failure, not a bad
  * request: serialization failure (40001), deadlock detected (40P01), and the
- * connection-exception class (08xxx). Postgres documents "retry the
- * transaction" as the remedy for all of them, so they must stay transient
- * instead of falling through to the blanket coded-error-is-permanent rule
- * below (#394).
+ * connection-exception codes (08xxx, minus 08P01 protocol_violation — that
+ * one is a malformed request and retrying it cannot succeed). Postgres
+ * documents "retry the transaction" as the remedy for the listed codes, so
+ * they must stay transient instead of falling through to the blanket
+ * coded-error-is-permanent rule below (#394).
+ *
+ * Accepted tradeoff: a connection error can arrive after the server already
+ * committed. A replay of a guarded `updateBoard` then trips the conflict
+ * guard and shows the conflict pill for this device's own write. That is
+ * safe — Retry strips the guard and re-applies the identical patch — and
+ * rarer than the real failure this list fixes: a dropped connection flipping
+ * a good write to `failed` with no retry at all.
  */
-const TRANSIENT_DB_CODES = new Set(['40001', '40P01']);
-const isTransientDbCode = (code: string): boolean =>
-  TRANSIENT_DB_CODES.has(code) || code.startsWith('08');
+const TRANSIENT_DB_CODES = new Set([
+  '40001',
+  '40P01',
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '08007',
+]);
+const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code);
 
 /**
  * Classify an error from a handler call: re-throw the same value if it's

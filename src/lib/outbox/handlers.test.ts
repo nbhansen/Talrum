@@ -290,9 +290,11 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
     },
   );
 
-  it('keeps the blanket permanent rule for other coded errors', async () => {
+  it.each(['23514', '08P01'])('keeps the blanket permanent rule for %s', async (code) => {
+    // 08P01 (protocol_violation) shares the 08 class prefix but is a
+    // malformed request — retrying it cannot succeed.
     eqMock.mockResolvedValue({
-      error: { code: '23514', message: 'check violation', details: '', hint: '' },
+      error: { code, message: 'nope', details: '', hint: '' },
     });
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
