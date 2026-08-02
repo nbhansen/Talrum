@@ -58,10 +58,13 @@ All classification lives in `classifyAndThrow` in `handlers.ts` — handlers
 themselves are happy-path only.
 
 - **Transient** (network `TypeError`, 5xx, and an allowlist of retryable
-  Postgres codes — serialization, deadlock, connection, pooler capacity;
-  the list lives on `handlers.ts`, #394): the entry stays `pending` and
-  retries on a bounded attempt budget, after which it flips to `failed` so
-  it can't retry forever.
+  Postgres codes — serialization, deadlock, connection, pooler capacity,
+  statement timeout; the list lives on `handlers.ts`, #394): the entry stays
+  `pending` and retries on a bounded attempt budget, after which it flips to
+  `failed` so it can't retry forever. On the fast path the same
+  classification queues the write instead of failing it: the mutation
+  promise resolves, the optimistic patch stands, and the retries run in the
+  background.
 - **Permanent** (`UnretryableOutboxError`: other coded Postgres errors such
   as RLS denials, 4xx storage errors): no retry. On the fast path the mutation
   promise rejects, so React Query rolls back the optimistic patch and the
