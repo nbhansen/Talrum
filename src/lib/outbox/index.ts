@@ -46,79 +46,82 @@ type EntryInput = DistributiveOmit<
  * FIFO order. Failed entries don't count — drain() skips them, so they'd
  * block the fast path forever for nothing.
  *
- * The empty-queue check and the handler run happen under the cross-tab lock
- * (#395): unlocked, two tabs can both observe an empty queue and run handlers
+ * The empty-queue check and its outcome — the handler run on the fast path,
+ * the queue append on the slow path — happen under the cross-tab lock (#395):
+ * unlocked, two tabs can both observe an empty queue and run handlers
  * concurrently — the exact double-replay the lock exists to prevent (#278).
- * The lock is non-reentrant, so the follow-up `drain()` calls stay outside
- * the callback; the callback reports which follow-up is needed instead.
- * The lock also serializes concurrent fast-path writes within one tab, so a
- * burst of mutations costs sequential round trips. Accepted: each landed
- * write leaves the queue empty, so the next waiter still fast-paths, and
- * correctness beats burst latency at this app's write volume.
+ * The append stays under the lock too: released between the backlog
+ * observation and the put, another tab could drain the queue and fast-path a
+ * younger write past this one (#279's shape, cross-tab). The lock is
+ * non-reentrant, so the follow-up `drain()` calls stay outside the callback;
+ * the callback reports which follow-up is needed instead.
+ *
+ * Cost: the lock is held across the handler's IO, blob uploads included, so
+ * online writes serialize within a tab and across tabs — a slow photo upload
+ * in one tab stalls the other tab's drain and fast path until it settles or
+ * its tab dies. Accepted: each landed write leaves the queue empty, so the
+ * next waiter still fast-paths, and correctness beats burst latency at this
+ * app's write volume.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
-  const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
-  if (isOnline) {
-    const outcome = await withCrossTabLock(
-      async (): Promise<'landed' | 'queued-transient' | 'slow-path'> => {
-        // The pre-lock online check can be seconds stale by the time another
-        // tab releases the lock (same hazard as drain's in-lock re-check);
-        // attempting on a dead network burns a retry attempt for nothing.
-        // Persist unattempted instead — the drain() below no-ops offline and
-        // emits the new pending count.
-        if (typeof navigator !== 'undefined' && !navigator.onLine) return 'slow-path';
-        const hasPendingBacklog = (await listEntries()).some((e) => e.status === 'pending');
-        if (hasPendingBacklog) return 'slow-path';
-        const entry: OutboxEntry = {
-          ...input,
-          id: ulid(),
-          enqueuedAt: Date.now(),
-          attemptCount: 0,
-          status: 'pending',
-        };
-        try {
-          await runHandler(entry);
-          return 'landed';
-        } catch (err) {
-          if (err instanceof UnretryableOutboxError) {
-            throw err;
-          }
-          // Transient — join the queue. We intentionally use the same entry
-          // (with attemptCount = 1 to reflect the just-failed attempt) so the
-          // drain loop respects the retry ceiling.
-          await putEntry({
-            ...entry,
-            attemptCount: 1,
-            lastError: err instanceof Error ? err.message : 'unknown error',
-          });
-          return 'queued-transient';
-        }
-      },
-    );
-    if (outcome === 'landed') return;
-    if (outcome === 'queued-transient') {
-      void drain();
-      return;
-    }
-  }
-  await putEntry({
+  const newEntry = (): OutboxEntry => ({
     ...input,
     id: ulid(),
     enqueuedAt: Date.now(),
     attemptCount: 0,
     status: 'pending',
   });
-  if (isOnline) {
-    // Slow path: flush the queue (oldest first, this entry last). When the
-    // network dropped during the lock wait, drain()'s own offline branch
-    // skips the handlers and emits the new pending count.
-    await drain();
+  const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+  if (!isOnline) {
+    await putEntry(newEntry());
+    // The offline path doesn't call drain() (which is what normally emits),
+    // so the indicator wouldn't update its pending count until the next
+    // online/offline event. Push the new status now.
+    await refreshStatus();
     return;
   }
-  // The offline path doesn't call drain() (which is what normally emits),
-  // so the indicator wouldn't update its pending count until the next
-  // online/offline event. Push the new status now.
-  await refreshStatus();
+  const outcome = await withCrossTabLock(
+    async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+      // The pre-lock online check can be seconds stale by the time another
+      // tab releases the lock (same hazard as drain's in-lock re-check);
+      // attempting on a dead network burns a retry attempt for nothing.
+      // Persist unattempted instead — the drain() below no-ops offline and
+      // emits the new pending count.
+      const wentOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (wentOffline || (await listEntries()).some((e) => e.status === 'pending')) {
+        await putEntry(newEntry());
+        return 'queued-unattempted';
+      }
+      const entry = newEntry();
+      try {
+        await runHandler(entry);
+        return 'landed';
+      } catch (err) {
+        if (err instanceof UnretryableOutboxError) {
+          throw err;
+        }
+        // Transient — join the queue. We intentionally use the same entry
+        // (with attemptCount = 1 to reflect the just-failed attempt) so the
+        // drain loop respects the retry ceiling.
+        await putEntry({
+          ...entry,
+          attemptCount: 1,
+          lastError: err instanceof Error ? err.message : 'unknown error',
+        });
+        return 'queued-transient';
+      }
+    },
+  );
+  if (outcome === 'queued-transient') {
+    void drain();
+    return;
+  }
+  if (outcome === 'queued-unattempted') {
+    // Flush the queue (oldest first, this entry last). When the network
+    // dropped during the lock wait, drain()'s own offline branch skips the
+    // handlers and emits the new pending count.
+    await drain();
+  }
 };
 
 /**

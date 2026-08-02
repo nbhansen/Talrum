@@ -489,6 +489,26 @@ describe('cross-tab coordination (#278, #289)', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  it('appends the slow-path entry under the lock, before the next holder runs (#395)', async () => {
+    installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
+    const done = enqueueAndDrain({
+      kind: 'updateBoard',
+      boardId: 'board-new',
+      patch: { name: 'x' },
+    });
+    // "Tab B" queues for the lock right behind the slow path's request. An
+    // append outside the lock would let B observe only the old backlog,
+    // drain it, and fast-path a younger write past this one.
+    let observed: string[] = [];
+    await navigator.locks.request('talrum-outbox', async () => {
+      observed = (await listEntries()).map((e) => e.id);
+    });
+    expect(observed).toHaveLength(2);
+    await done;
+    expect(await listEntries()).toEqual([]);
+  });
+
   it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
     const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
