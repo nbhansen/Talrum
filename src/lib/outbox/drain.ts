@@ -42,10 +42,10 @@ const emit = async (): Promise<void> => {
 };
 
 /**
- * Recompute status from the current IDB state and notify subscribers. Called
- * after `enqueueAndDrain` paths that don't go through `drain()` (offline
- * enqueue) so the OfflineIndicator updates immediately rather than waiting
- * for the next online/offline event.
+ * Recompute status from the current IDB state and notify subscribers. Sole
+ * caller is `discardEntry` — a discard does no draining (drain() is what
+ * normally emits), so it must push the updated counts itself or the
+ * OfflineIndicator waits for the next unrelated outbox event.
  */
 export const refreshStatus = (): Promise<void> => emit();
 

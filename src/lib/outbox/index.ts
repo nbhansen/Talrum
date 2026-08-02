@@ -158,9 +158,9 @@ export const retryFailed = async (): Promise<void> => {
  *
  * Unlike Retry (which ends in `drain()`, which emits), a discard does no
  * draining, so it must push status itself — otherwise the "N failed" pill
- * keeps its stale count until the next unrelated outbox event (#290). Mirrors
- * the offline-enqueue path in `enqueueAndDrain`. refreshStatus stays outside
- * the lock: it only reads IDB and the lock is non-reentrant.
+ * keeps its stale count until the next unrelated outbox event (#290).
+ * refreshStatus stays outside the lock: it only reads IDB and the lock is
+ * non-reentrant.
  */
 export const discardEntry = async (id: string): Promise<void> => {
   await withCrossTabLock(() => deleteEntry(id));
