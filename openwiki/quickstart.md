@@ -25,7 +25,7 @@ To run the Talrum workspace locally, developers will need a modern JavaScript ru
 To understand the deeper architecture, workflows, and operational procedures of Talrum, explore the canonical sections of this OpenWiki:
 
 *   **[System Architecture](architecture.md):** The strict 6-layer frontend boundary system, static analysis import guards, and the backend data model.
-*   **[Offline Synchronization Model](offline-sync.md):** The optimistic UI caching layer, the outbox queue, first-in-first-out replay, and conflict handling.
+*   **[Offline Synchronization Model](offline-sync.md):** The optimistic UI caching layer, the outbox queue, first-in-first-out replay, conflict handling, and storage artifact safety.
 *   **[Kid Mode & Speech Subsystem](kid-mode-speech.md):** The client-side PIN gate, the distraction-free interface, and the text-to-speech voice resolution.
 *   **[Operations & Quality Verification](operations-testing.md):** The database and frontend testing layouts, build verification checks, and pointers to the operational runbooks.
 

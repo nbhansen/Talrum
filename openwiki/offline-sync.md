@@ -38,6 +38,12 @@ Mutations stored in the outbox are assigned a unique lexicographically sortable 
 
 To prevent concurrent drain loops from executing simultaneously across multiple browser tabs, the system employs cross-tab locking via the Web Locks API.
 
+## Storage Artifact Safety
+
+Because outbox operations like image or audio uploads can be delayed during flaky connections, storage objects are designed to be idempotent and immune to race conditions. Rather than uploading to deterministic paths—which could cause a delayed, older upload to overwrite a newer one—every media upload is assigned a unique, versioned path (e.g., suffixed with a ULID) at the time of queuing. 
+
+When an outbox handler executes, the database row acts as the single source of truth for the current media path. Instead of relying on client-side snapshots that might become stale, handlers read the active storage path directly from the row before performing any cleanup. This ensures that offline replays accurately reflect the chain of operations, and late-arriving network requests only write to isolated paths they exclusively own, leaving the newest state intact.
+
 ## Conflict Handling
 
 To prevent silent overwrites when multiple devices edit the same board concurrently, updates are guarded by checking the backend's last known update timestamp. If a patch attempts to modify a board that has been changed on the server since the local device last synced, the mutation will intentionally fail. 
