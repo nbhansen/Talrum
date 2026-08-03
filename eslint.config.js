@@ -143,7 +143,7 @@ export default tseslint.config(
                 'ui/ is domain-agnostic — no data access. A component that needs lib/queries or lib/outbox is a domain widget; move it to src/widgets/ (#282).',
             },
             {
-              group: ['@/lib/storage', '@/lib/useSignedUrl', '@/lib/pin'],
+              group: ['@/lib/storage', '@/lib/storage/*', '@/lib/pin'],
               message:
                 'ui/ is presentational — signed-URL minting and PIN state are domain logic. A component that needs them is a domain widget; move it to src/widgets/ (#282).',
             },

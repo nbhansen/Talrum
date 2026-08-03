@@ -7,7 +7,7 @@ vi.mock('@/lib/queries/pictograms', () => ({
   useCreatePhotoPictogram: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock('@/lib/useSignedUrl', () => ({
+vi.mock('@/lib/storage/useSignedUrl', () => ({
   useSignedUrl: () => null,
 }));
 

@@ -43,7 +43,7 @@ vi.mock('@/lib/image', () => ({
   })),
 }));
 
-vi.mock('@/lib/useSignedUrl', () => ({
+vi.mock('@/lib/storage/useSignedUrl', () => ({
   useSignedUrl: () => null,
 }));
 

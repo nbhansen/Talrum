@@ -5,13 +5,13 @@ Storage buckets — `pictogram-images` and `pictogram-audio` — readable only
 via signed URLs. Bucket RLS (first path segment must equal `auth.uid()`) is
 covered in [auth.md](./auth.md); this page is about the read path: how a
 storage path in a pictogram row becomes bytes on screen, and why that takes
-three caches. The inline doc comments in `src/lib/storage.ts` carry the
+three caches. The inline doc comments in `src/lib/storage/storage.ts` carry the
 per-decision detail.
 
 ## Why cache signed URLs at all
 
 A signed URL is a network round-trip to mint and expires
-(`SIGNED_URL_TTL_SECONDS` in `src/lib/storage.ts`). A kid-mode board shows a
+(`SIGNED_URL_TTL_SECONDS` in `src/lib/storage/storage.ts`). A kid-mode board shows a
 dozen photos at once and must keep working in the car with no signal. Minting
 on every render is too slow online and impossible offline — so URLs are
 cached, persisted, and, when all else fails, served stale.
@@ -22,11 +22,11 @@ cached, persisted, and, when all else fails, served stale.
 <PictogramMedia>                    src/ui/PictoTile/PictogramMedia.tsx
   │ stock: sentinel → bundled /seed-photos/<slug>.jpg, no Supabase at all
   ▼
-useSignedUrl(bucket, path)          src/lib/useSignedUrl.ts
+useSignedUrl(bucket, path)          src/lib/storage/useSignedUrl.ts
   │ null while resolving (placeholder), re-runs on path change
   ▼
-signedUrlFor(bucket, path)          src/lib/storage.ts
-  │ 1. memory  — signedUrlMemCache (src/lib/storage-cache.ts), per-tab
+signedUrlFor(bucket, path)          src/lib/storage/storage.ts
+  │ 1. memory  — signedUrlMemCache (src/lib/storage/storage-cache.ts), per-tab
   │ 2. IDB     — `signed-url:{bucket}/{path}` keys, survives reloads
   │ 3. mint    — supabase createSignedUrl, write back to both tiers
   │ mint failed? → return whichever stale entry exists
@@ -76,7 +76,7 @@ guard the rest of the codebase uses to tell real paths from sentinels.
 ## Writes and invalidation
 
 Uploads and deletes go through `uploadBlob` / `removeFromBucket` in
-`src/lib/storage.ts`, called only from outbox handlers (see
+`src/lib/storage/storage.ts`, called only from outbox handlers (see
 [outbox.md](./outbox.md)). Handlers call `invalidateSignedUrl` after
 replacing or deleting an object, dropping the memory and IDB entries so the
 next render can't sign a URL for bytes that changed underneath it.

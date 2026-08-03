@@ -3,7 +3,7 @@ import type { CSSProperties, JSX } from 'react';
 import { Glyph } from '@/glyphs/Glyph';
 import { PhotoPlaceholder } from '@/glyphs/PhotoPlaceholder';
 import { IMAGES_BUCKET, STOCK_PATH_PREFIX } from '@/lib/storage';
-import { useSignedUrl } from '@/lib/useSignedUrl';
+import { useSignedUrl } from '@/lib/storage/useSignedUrl';
 import type { Pictogram } from '@/types/domain';
 
 import styles from './PictogramMedia.module.css';
