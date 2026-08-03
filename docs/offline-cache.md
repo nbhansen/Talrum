@@ -54,10 +54,12 @@ test (#355), so both are asserted at build time by
   including the outbox. `PictogramMedia` sets `crossOrigin="anonymous"` so
   these are real, readable, actual-size CORS responses.
 
-Parent voice recordings are **not** in this cache. Media elements always
-request audio with a `Range` header, Supabase answers `206 Partial
-Content`, and `cache.put` rejects a 206 outright. Recordings play from the
-network, and `speakPictogram` falls back to TTS when that fails (#378).
+Parent voice recordings land in this cache too (#378). A media element
+always requests audio with a `Range` header, Supabase answers `206 Partial
+Content`, and `cache.put` rejects a 206 outright — so `playPictogramAudio`
+fetches the clip itself (a plain CORS 200 the route can store) and plays
+the bytes through a blob object URL. When the fetch fails and the cache has
+no copy, `speakPictogram` falls back to TTS.
 
 ## The persister
 
