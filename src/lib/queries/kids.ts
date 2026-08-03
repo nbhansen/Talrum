@@ -91,6 +91,7 @@ const subscribeActiveKid = (cb: () => void): (() => void) => {
 // it runs on every render. Latch the report so the signal arrives once per
 // session instead of once per render.
 let reportedReadFailure = false;
+let reportedWriteFailure = false;
 
 const getStoredActiveKidId = (): string | null => {
   try {
@@ -120,8 +121,12 @@ export const setActiveKidId = (id: string | null): void => {
     else localStorage.setItem(ACTIVE_KID_KEY, id);
   } catch (err) {
     // Quota / privacy mode: stay best-effort for the user, but report it —
-    // see the note on the read path above (#359).
-    captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'write' } });
+    // latched like the read path, because the block is persistent and every
+    // kid-switcher tap runs this write (#359).
+    if (!reportedWriteFailure) {
+      reportedWriteFailure = true;
+      captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'write' } });
+    }
   }
   for (const cb of activeKidListeners) cb();
 };

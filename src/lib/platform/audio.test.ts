@@ -120,6 +120,12 @@ describe('playPictogramAudio', () => {
       level: 'warning',
       tags: { component: 'audio', op: 'play' },
     });
+
+    // Latched: the same failure kind does not heal in-session and would
+    // otherwise report on every tap of a kid screen.
+    play.mockRejectedValueOnce(refused);
+    await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('NotAllowedError');
+    expect(captureException).toHaveBeenCalledOnce();
   });
 
   it('stops the previous clip even when the next fetch fails', async () => {

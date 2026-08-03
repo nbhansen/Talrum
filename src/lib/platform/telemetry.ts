@@ -12,6 +12,12 @@ type CaptureContext = Parameters<typeof Sentry.captureException>[1];
  *     catches accidental long user-content leaks (e.g. error.message echoing
  *     a stack frame that captured a closure value) without scrubbing real
  *     stack content.
+ *   - beforeBreadcrumb strips query strings from breadcrumb URLs. This is
+ *     load-bearing, not cosmetic: the default fetch breadcrumb carries the
+ *     full URL in data.url, and platform/audio.ts fetches signed storage
+ *     URLs whose ?token= is a one-hour bearer token for a child's voice
+ *     recording. Without the strip, every event captured after such a fetch
+ *     ships that token to Sentry (#359 review).
  */
 export const initTelemetry = (): void => {
   if (Sentry.getClient()) return;
@@ -22,6 +28,13 @@ export const initTelemetry = (): void => {
     release: __APP_VERSION__,
     sendDefaultPii: false,
     tracesSampleRate: 0,
+    beforeBreadcrumb(breadcrumb) {
+      const url: unknown = breadcrumb.data?.url;
+      if (typeof url === 'string' && url.includes('?')) {
+        return { ...breadcrumb, data: { ...breadcrumb.data, url: url.split('?')[0] } };
+      }
+      return breadcrumb;
+    },
     beforeSend(event) {
       if (event.user?.email) delete event.user.email;
       if (event.breadcrumbs) {

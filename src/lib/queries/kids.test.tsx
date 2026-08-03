@@ -338,7 +338,7 @@ describe('active-kid persistence failure reporting (#359)', () => {
     vi.mocked(telemetry.captureException).mockClear();
   });
 
-  it('reports a localStorage write failure and does not throw', () => {
+  it('reports a localStorage write failure once per session and does not throw', () => {
     const quota = new Error('quota exceeded');
     // vitest.setup.ts replaces localStorage with a plain shim, so spy on the
     // object itself, not Storage.prototype.
@@ -347,6 +347,8 @@ describe('active-kid persistence failure reporting (#359)', () => {
     });
     try {
       expect(() => setActiveKidId('k1')).not.toThrow();
+      // Latched: the block is persistent and every switcher tap writes.
+      setActiveKidId('k2');
     } finally {
       spy.mockRestore();
     }

@@ -8,6 +8,10 @@ let currentObjectUrl: string | null = null;
 // without this, two taps inside one fetch window both play, and the loser
 // revokes the winner's object URL mid-playback.
 let playToken = 0;
+// Persistent play() failures (a refused gesture chain, a codec the device
+// cannot decode) do not heal within a session, and a kid screen runs this
+// path on every tap. Report each failure kind once per session.
+const reportedPlayFailures = new Set<string>();
 
 /**
  * Fetch the clip ourselves instead of handing the URL to the media element.
@@ -69,7 +73,11 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     // A bad codec (NotSupportedError) or a refused gesture chain
     // (NotAllowedError, #428) degrades to TTS forever if nobody hears
     // about it (#359).
-    captureException(err, { level: 'warning', tags: { component: 'audio', op: 'play' } });
+    const kind = err instanceof Error ? err.name : String(err);
+    if (!reportedPlayFailures.has(kind)) {
+      reportedPlayFailures.add(kind);
+      captureException(err, { level: 'warning', tags: { component: 'audio', op: 'play' } });
+    }
     throw err;
   }
 };
