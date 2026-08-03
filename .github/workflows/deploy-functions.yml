@@ -48,5 +48,8 @@ jobs:
           # Same pin as ci.yml and deploy.yml — bump deliberately, not via
           # `latest`.
           version: 2.105.0
+      # No function name: deploy everything under supabase/functions/, so a
+      # new function cannot be forgotten here — a hardcoded name made edits
+      # to generate-voice redeploy delete-account and report green (#433).
       - if: steps.changed.outputs.deploy == 'true'
-        run: supabase functions deploy delete-account --project-ref "$PROJECT_REF"
+        run: supabase functions deploy --project-ref "$PROJECT_REF"
