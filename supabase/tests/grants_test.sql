@@ -1,11 +1,14 @@
 -- Regression test pinning the grant-layer contract from
--- 20260426180000_grant_authenticated.sql + 20260427000000_tighten_grants.sql.
+-- 20260426180000_grant_authenticated.sql + 20260427000000_tighten_grants.sql,
+-- plus the function EXECUTE contracts (#401) from
+-- 20260610110409_add_delete_pictogram_rpc.sql and
+-- 20260427145144_move_helpers_to_private_schema.sql.
 -- Without this, a future migration could silently revoke or over-grant and
 -- the regression would only surface as a 42501 in production.
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(72);
+SELECT plan(88);
 
 -- 1–16: authenticated has full CRUD on the four real app tables.
 SELECT ok(has_table_privilege('authenticated', 'public.kids',          'SELECT'), 'authenticated can SELECT kids');
@@ -109,6 +112,45 @@ SELECT ok(NOT has_table_privilege('anon', 'public.template_pictograms', 'DELETE'
 SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'INSERT'), 'anon cannot INSERT template_boards');
 SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'UPDATE'), 'anon cannot UPDATE template_boards');
 SELECT ok(NOT has_table_privilege('anon', 'public.template_boards',     'DELETE'), 'anon cannot DELETE template_boards');
+
+-- 73–75: EXECUTE on the delete_pictogram RPC. Pins the grant contract from
+-- 20260610110409_add_delete_pictogram_rpc.sql: anon has no surface in this
+-- app, so the default PUBLIC grant is revoked and execute is pinned per
+-- role. anon lacking EXECUTE also proves the PUBLIC revoke held — a PUBLIC
+-- grant would flow to anon.
+SELECT ok(has_function_privilege('authenticated', 'public.delete_pictogram(uuid)', 'EXECUTE'), 'authenticated can EXECUTE delete_pictogram');
+SELECT ok(has_function_privilege('service_role',  'public.delete_pictogram(uuid)', 'EXECUTE'), 'service_role can EXECUTE delete_pictogram');
+SELECT ok(NOT has_function_privilege('anon',      'public.delete_pictogram(uuid)', 'EXECUTE'), 'anon cannot EXECUTE delete_pictogram');
+
+-- 76–85: the five RLS helpers in `private` KEEP EXECUTE for the API roles.
+-- This is the load-bearing half of #91: policies call these helpers during
+-- evaluation, and revoking EXECUTE on a function in that position crashes
+-- the Postgres backend mid-query (verified empirically — see
+-- 20260427145144_move_helpers_to_private_schema.sql). The advisor's
+-- "revoke EXECUTE" remediation must fail here, loudly, before it reaches
+-- production. The trigger functions (handle_new_user, set_updated_at) and
+-- the event trigger (rls_auto_enable) are excluded: the system fires them
+-- without checking the caller's EXECUTE, so no grant is load-bearing.
+SELECT ok(has_function_privilege('authenticated', 'private.is_board_owner(uuid)',                'EXECUTE'), 'authenticated keeps EXECUTE on is_board_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_board_member(uuid)',               'EXECUTE'), 'authenticated keeps EXECUTE on is_board_member (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_board_editor(uuid)',               'EXECUTE'), 'authenticated keeps EXECUTE on is_board_editor (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'authenticated keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_board_owner(uuid)',                'EXECUTE'), 'anon keeps EXECUTE on is_board_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_board_member(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_member (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_board_editor(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_editor (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'anon keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+
+-- 86–88: USAGE on the `private` schema itself. The other documented half of
+-- the same crash contract: without USAGE the role cannot resolve the
+-- qualified helper name during policy evaluation, and the backend-crash
+-- failure mode reappears (20260427145144_move_helpers_to_private_schema.sql).
+-- The EXECUTE pins above read the function ACL only and stay green through
+-- a schema-level revoke.
+SELECT ok(has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated keeps USAGE on private (RLS evaluation)');
+SELECT ok(has_schema_privilege('anon',          'private', 'USAGE'), 'anon keeps USAGE on private (RLS evaluation)');
+SELECT ok(has_schema_privilege('service_role',  'private', 'USAGE'), 'service_role keeps USAGE on private');
 
 SELECT * FROM finish();
 ROLLBACK;
