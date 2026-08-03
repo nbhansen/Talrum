@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
@@ -41,6 +42,11 @@ const maybeSingleMock = vi.fn<
   }>
 >();
 
+// Boundary for the generate-voice edge function (#422): the wire shape is a
+// base64 JSON envelope (see generateVoice.ts for why not raw audio bytes).
+const invokeMock =
+  vi.fn<(name: string, opts: unknown) => Promise<{ data: unknown; error: MockError | null }>>();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
@@ -53,6 +59,8 @@ vi.mock('@/lib/supabase', () => ({
         return { upload: uploadMock, remove: removeMock };
       },
     },
+    // Lazy: the factory is hoisted and runs before `invokeMock` initializes.
+    functions: { invoke: (name: string, opts: unknown) => invokeMock(name, opts) },
   },
 }));
 
@@ -103,17 +111,23 @@ const fakeRecording = (blob = new Blob(['voice'], { type: 'audio/webm' })): Fake
   cancel: vi.fn(),
 });
 
-const renderDialog = (picto: Pictogram): ReturnType<typeof render> => {
+const renderDialog = (
+  picto: Pictogram,
+  { strict = false }: { strict?: boolean } = {},
+): ReturnType<typeof render> => {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const tree = (
     <QueryClientProvider client={qc}>
       <TestSessionProvider>
         <VoiceRecorderDialog picto={picto} onClose={vi.fn()} />
       </TestSessionProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  // strict mirrors main.tsx's <StrictMode>: effects run setup → cleanup →
+  // setup on mount, which a cleanup-only mount guard does not survive.
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 };
 
 beforeEach(() => {
@@ -127,6 +141,7 @@ beforeEach(() => {
   playMock.mockReset().mockResolvedValue(undefined);
   supportedMock.mockReset().mockReturnValue(true);
   startMock.mockReset();
+  invokeMock.mockReset();
 });
 
 describe('VoiceRecorderDialog', () => {
@@ -323,5 +338,103 @@ describe('VoiceRecorderDialog', () => {
     unmount();
 
     expect(rec.cancel).toHaveBeenCalled();
+  });
+
+  describe('generated voice (#422)', () => {
+    const generatedEnvelope = (): unknown => ({
+      ok: true,
+      mimeType: 'audio/mpeg',
+      audioBase64: btoa('generated-mp3'),
+    });
+
+    // strict: main.tsx runs the app under <StrictMode>, whose double-mount
+    // closed a cleanup-only openRef guard for good — every dev generation
+    // silently dropped its preview while CI stayed green (#433 review).
+    it('generates a preview and writes nothing until the parent saves', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
+      renderDialog(pictoWithoutAudio, { strict: true });
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(await screen.findByText(/Voice ready/)).toBeInTheDocument();
+      expect(invokeMock).toHaveBeenCalledWith('generate-voice', {
+        body: { label: 'Brush teeth', language: 'en' },
+      });
+      // The core promise of the flow: preview first, no writes yet.
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('saving the preview uploads it as .mp3 through the normal audio path', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+      await screen.findByText(/Voice ready/);
+      await user.click(screen.getByRole('button', { name: /save voice/i }));
+
+      await waitFor(() => {
+        expect(uploadMock).toHaveBeenCalledTimes(1);
+      });
+      const [path, blob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
+      expect(path).toMatch(/\/p1-[0-9A-HJKMNP-TV-Z]{26}\.mp3$/);
+      expect(blob.type).toBe('audio/mpeg');
+      expect(storageBucketsUsed).toContain('pictogram-audio');
+      await waitFor(() => {
+        expect(updatePatches).toContainEqual({ audio_path: path });
+      });
+      // The preview is consumed; the pad returns to its idle layout.
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
+      });
+    });
+
+    it('discarding the preview writes nothing and returns to idle', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+      await screen.findByText(/Voice ready/);
+      await user.click(screen.getByRole('button', { name: /discard/i }));
+
+      expect(screen.queryByText(/Voice ready/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
+    it('blames the connection only when the request never got a response', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({
+        data: null,
+        error: { message: 'fetch failed' },
+      });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(await screen.findByText(/Check your connection/)).toBeInTheDocument();
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: /generate voice/i })).toBeEnabled();
+    });
+
+    // The HTTP-error → code mapping itself is pinned in generateVoice.test.ts
+    // (FunctionsHttpError is only constructible in lib/); here the mutation
+    // rejects with the mapped error and the dialog must pick the right copy.
+    it('a server-side failure says so instead of blaming the connection (#359 rationale)', async () => {
+      const user = userEvent.setup();
+      const { GenerateVoiceError } = await import('@/lib/queries/generateVoice');
+      invokeMock.mockRejectedValue(new GenerateVoiceError('synthesis_failed', 'azure down'));
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(
+        await screen.findByText('Voice generation failed. Try again in a moment.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Check your connection/)).not.toBeInTheDocument();
+    });
   });
 });

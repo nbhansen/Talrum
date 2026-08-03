@@ -73,9 +73,19 @@ dashboard (Project settings → API → "Reset service_role key"), the
 runtime picks up the new value on the next invocation; no redeploy
 or CLI action on our side.
 
-Custom (non-default) secrets a function might need — e.g., a
-`STRIPE_SECRET_KEY` — go through `supabase secrets set` as documented
-upstream. The `delete-account` function has no custom secrets today.
+Custom (non-default) secrets a function might need go through
+`supabase secrets set` as documented upstream. Today there are two,
+both used by `generate-voice` (#422):
+
+- `AZURE_SPEECH_KEY` — the key from the Azure Speech service page
+  (portal.azure.com → the Speech resource → Keys and Endpoint).
+- `AZURE_SPEECH_REGION` — the data center picked at creation
+  (`northeurope`).
+
+To rotate the key: regenerate it in the Azure portal, then
+`supabase secrets set AZURE_SPEECH_KEY=<new value>`. The runtime picks
+up new secret values on the next invocation; no redeploy needed. The
+`delete-account` function has no custom secrets.
 
 ### Verifying the deployed function is running
 
@@ -112,6 +122,12 @@ SUPABASE_SERVICE_ROLE_KEY=<from supabase status>
 
 Then: `supabase functions serve delete-account --env-file supabase/functions/.env.local`.
 This is what `npm run test:e2e:delete-account` and CI both rely on.
+
+For `generate-voice`, add the Azure secrets to the same file
+(`AZURE_SPEECH_KEY=…`, `AZURE_SPEECH_REGION=northeurope`), then
+`supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
+Without them the function boots but every call returns
+`synthesis_failed`.
 
 ## Manual fallback if workflows are broken
 
