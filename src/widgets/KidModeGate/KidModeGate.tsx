@@ -28,7 +28,7 @@ interface KidModeGateProps {
  */
 export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JSX.Element => {
   const kidCopy = getKidCopy();
-  const { verifying, requestExit, cancel, verify } = usePinExit(onExitConfirmed);
+  const { verifying, requestExit, cancel, verify, lockedUntil } = usePinExit(onExitConfirmed);
 
   return (
     <>
@@ -41,6 +41,8 @@ export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JS
             onSubmit={verify}
             onCancel={cancel}
             errorMessage={kidCopy.pin.wrongPin}
+            lockedUntil={lockedUntil}
+            lockedMessage={kidCopy.pin.locked}
           />
         </Modal>
       )}

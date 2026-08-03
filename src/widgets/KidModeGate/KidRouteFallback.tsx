@@ -36,7 +36,7 @@ export const KidRouteFallback = (): JSX.Element => {
   // rows — a crash that repeats on the way out of a crash is worse than
   // landing somewhere neutral. Parent home is also where the parent-route
   // fallback sends people, for the same reason.
-  const { verifying, requestExit, cancel, verify } = usePinExit(() => {
+  const { verifying, requestExit, cancel, verify, lockedUntil } = usePinExit(() => {
     void navigate('/', { replace: true });
   });
 
@@ -50,6 +50,8 @@ export const KidRouteFallback = (): JSX.Element => {
             onSubmit={verify}
             onCancel={cancel}
             errorMessage={kidCopy.pin.wrongPin}
+            lockedUntil={lockedUntil}
+            lockedMessage={kidCopy.pin.locked}
           />
         </Modal>
       ) : (
