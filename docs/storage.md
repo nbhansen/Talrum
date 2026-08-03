@@ -35,8 +35,13 @@ signedUrlFor(bucket, path)          src/lib/storage/storage.ts
      CacheFirst on /storage/v1/object/*, cache `talrum-storage-v1`
 ```
 
-Audio takes the same path minus the hook: `playPictogramAudio` in
-`src/lib/platform/audio.ts` awaits `signedUrlFor` directly.
+Audio takes the same path minus the hook and minus the media element:
+`playPictogramAudio` in `src/lib/platform/audio.ts` awaits `signedUrlFor`,
+fetches the clip, and plays the bytes through a blob object URL. The fetch
+matters: a media element always sends a `Range` header, Supabase answers
+`206 Partial Content`, and the SW cache rejects a 206 (#378). The plain
+fetch gets a CORS 200 that the service worker stores like any photo, so a
+previously played recording also plays offline.
 
 ## The three tiers
 
@@ -55,14 +60,19 @@ renders from `URL.createObjectURL` until the outbox uploads the real blob.
 
 When minting fails (offline, transient network), `signedUrlFor` returns the
 expired entry instead of throwing. That sounds wrong — the token is dead —
-but the service worker makes it safe: workbox caches storage responses
-CacheFirst with `ignoreSearch: true`, so the `?token=...` query is stripped
-from the cache key and every rotation of a signed URL for the same object
-resolves to the same cached bytes. A stale URL never reaches Supabase; the
-SW answers from `talrum-storage-v1`. The two caches are complementary: the
-URL cache keeps the _request_ stable so the SW
-cache can keep serving the _bytes_. Only a photo never viewed on this device
-is genuinely unreachable offline.
+but the service worker makes it safe: the persisted URL is the one the
+last successful _mint_ produced, and the cache keys include the
+`?token=...` query on purpose (see the `matchOptions` note in
+vite.config.ts) — so when that URL also served the last successful load
+(the common case), returning it reproduces the exact cache key, the SW
+answers from `talrum-storage-v1`, and the request never reaches Supabase.
+The two can desync: a mint that succeeds right before the load after it
+fails leaves the cached bytes keyed under the _previous_ URL, unreachable
+until that token expires or a load succeeds again. The cost is a
+placeholder (photos) or the TTS fallback (audio) for up to an hour, not an
+error. The two caches are complementary: the URL cache keeps the _request_
+stable so the SW cache can keep serving the _bytes_. Only an object never
+loaded on this device is genuinely unreachable offline.
 
 ## The `stock:` sentinel
 
