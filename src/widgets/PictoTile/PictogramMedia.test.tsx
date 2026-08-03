@@ -5,7 +5,7 @@ import type { Pictogram } from '@/types/domain';
 
 const useSignedUrlMock = vi.fn<(bucket: string, path: string | undefined) => string | null>();
 
-vi.mock('@/lib/useSignedUrl', () => ({
+vi.mock('@/lib/storage/useSignedUrl', () => ({
   useSignedUrl: (bucket: string, path: string | undefined) => useSignedUrlMock(bucket, path),
 }));
 

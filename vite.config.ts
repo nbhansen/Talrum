@@ -136,7 +136,8 @@ export default defineConfig({
         // CacheFirst keeps photo bytes on disk so kid mode in the car works
         // even after the signed-URL token has expired: offline, signedUrlFor
         // fails to mint and returns the last URL it persisted (see
-        // src/lib/storage.ts), which is exactly the key already in this cache.
+        // src/lib/storage/storage.ts), which is exactly the key already in
+        // this cache.
         // Every clause below is load-bearing — see #355 and the assertion in
         // scripts/verify-sw-routes.mjs.
         runtimeCaching: [

@@ -1,7 +1,7 @@
 // Module-level state backing `./drain.ts`. Lives in its own file (no Supabase
 // or `@/*` imports) so vitest.setup.ts can import the reset hook without
 // dragging the runtime client through tsconfig.node.json. Same pattern as
-// `src/lib/storage-cache.ts`.
+// `src/lib/storage/storage-cache.ts`.
 
 export interface OutboxStatus {
   online: boolean;

@@ -18,9 +18,9 @@
 import { readFileSync } from 'node:fs';
 
 const CACHE_NAME = 'talrum-storage-v1';
-// A signed URL of the shape src/lib/storage.ts mints. The host is immaterial —
-// what matters is that it is a different origin from the app, which every
-// Supabase project is.
+// A signed URL of the shape src/lib/storage/storage.ts mints. The host is
+// immaterial — what matters is that it is a different origin from the app,
+// which every Supabase project is.
 const SAMPLE_URL =
   'https://project.supabase.co/storage/v1/object/sign/pictogram-images/u/p.jpg?token=abc.def.ghi';
 

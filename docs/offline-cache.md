@@ -26,7 +26,7 @@ Talrum keeps three distinct offline stores. Newcomers conflate them; don't.
    for Supabase Storage photo bytes. It stores _bytes by URL_; the data
    cache stores _rows by query key_.
 
-A fourth, smaller stripe rides alongside: `src/lib/storage.ts` persists
+A fourth, smaller stripe rides alongside: `src/lib/storage/storage.ts` persists
 minted signed URLs to IndexedDB under `signed-url:` keys, so a reload
 re-issues the same URL and the SW cache key stays stable.
 
