@@ -64,9 +64,13 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Closing the dialog mid-generation must not leak: a blob URL created for
-  // a dropped setPreview would never reach the cleanup effect below.
+  // a dropped setPreview would never reach the cleanup effect below. The
+  // setup body must re-assert true — StrictMode runs setup → cleanup →
+  // setup on a dev mount, and a cleanup-only version leaves the guard
+  // permanently closed there (#433 review).
   const openRef = useRef(true);
   useEffect(() => {
+    openRef.current = true;
     return () => {
       openRef.current = false;
     };

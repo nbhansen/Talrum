@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
@@ -110,17 +111,23 @@ const fakeRecording = (blob = new Blob(['voice'], { type: 'audio/webm' })): Fake
   cancel: vi.fn(),
 });
 
-const renderDialog = (picto: Pictogram): ReturnType<typeof render> => {
+const renderDialog = (
+  picto: Pictogram,
+  { strict = false }: { strict?: boolean } = {},
+): ReturnType<typeof render> => {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const tree = (
     <QueryClientProvider client={qc}>
       <TestSessionProvider>
         <VoiceRecorderDialog picto={picto} onClose={vi.fn()} />
       </TestSessionProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  // strict mirrors main.tsx's <StrictMode>: effects run setup → cleanup →
+  // setup on mount, which a cleanup-only mount guard does not survive.
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 };
 
 beforeEach(() => {
@@ -340,10 +347,13 @@ describe('VoiceRecorderDialog', () => {
       audioBase64: btoa('generated-mp3'),
     });
 
+    // strict: main.tsx runs the app under <StrictMode>, whose double-mount
+    // closed a cleanup-only openRef guard for good — every dev generation
+    // silently dropped its preview while CI stayed green (#433 review).
     it('generates a preview and writes nothing until the parent saves', async () => {
       const user = userEvent.setup();
       invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
-      renderDialog(pictoWithoutAudio);
+      renderDialog(pictoWithoutAudio, { strict: true });
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));
 
