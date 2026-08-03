@@ -41,8 +41,7 @@ export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JS
             onSubmit={verify}
             onCancel={cancel}
             errorMessage={kidCopy.pin.wrongPin}
-            lockedUntil={lockedUntil}
-            lockedMessage={kidCopy.pin.locked}
+            lock={{ until: lockedUntil, message: kidCopy.pin.locked }}
           />
         </Modal>
       )}

@@ -73,7 +73,10 @@ visible countdown — 30s, doubling per group of five, capped at 5 minutes
 (`pinThrottle.ts`). The counter is module state shared by both exit
 surfaces, so closing and reopening the pad does not reset it — but it is
 deliberately not persisted: surviving a reload would turn a forgotten PIN
-into a device lockout. Brute force became the only way from kid mode into
+into a device lockout. The flip side is stated plainly: a kid who can
+reload the app resets the counter too. That is accepted — Guided Access
+is the real containment on iPadOS, and the throttle only prices up
+casual guessing. Brute force became the only way from kid mode into
 parent mode when #353 removed PIN creation from the gate; an older sibling
 with ten minutes is the adversary, not a kid guessing once.
 

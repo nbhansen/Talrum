@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useState } from 'react';
 
 import styles from './PinPad.module.css';
+import { MAX_LOCK_MS } from './pinThrottle';
 
 const PIN_LENGTH = 4;
 
@@ -10,10 +11,12 @@ interface PinPadProps {
   onSubmit: (pin: string) => Promise<boolean>;
   onCancel: () => void;
   errorMessage?: string;
-  /** Epoch ms until which entry is throttle-locked (#372); 0/absent = unlocked. */
-  lockedUntil?: number;
-  /** Countdown copy shown while locked; pass it together with `lockedUntil`. */
-  lockedMessage?: (secondsLeft: number) => string;
+  /**
+   * Throttle lock (#372): keys disable until `until` (epoch ms) and the pad
+   * shows `message` as a countdown. One prop, not two, so no caller can
+   * disable the keys without explaining why.
+   */
+  lock?: { until: number; message: (secondsLeft: number) => string };
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as const;
@@ -24,9 +27,9 @@ export const PinPad = ({
   onSubmit,
   onCancel,
   errorMessage,
-  lockedUntil = 0,
-  lockedMessage,
+  lock,
 }: PinPadProps): JSX.Element => {
+  const lockedUntil = lock?.until ?? 0;
   const [digits, setDigits] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,8 +109,13 @@ export const PinPad = ({
         ))}
       </div>
       <div className={styles.error}>
-        {locked && lockedMessage
-          ? lockedMessage(Math.max(1, Math.ceil((lockedUntil - now) / 1000)))
+        {locked && lock
+          ? // Clamped to the lock ceiling: the first locked paint still holds
+            // a `now` from before the lock, and an unclamped difference would
+            // flash an impossible number until the zero-delay tick lands.
+            lock.message(
+              Math.min(Math.max(1, Math.ceil((lockedUntil - now) / 1000)), MAX_LOCK_MS / 1000),
+            )
           : (error ?? '')}
       </div>
       <button type="button" className={styles.cancel} onClick={onCancel}>

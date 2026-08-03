@@ -14,7 +14,8 @@
 
 const GROUP_SIZE = 5;
 const BASE_LOCK_MS = 30_000;
-const MAX_LOCK_MS = 5 * 60_000;
+/** Exported for PinPad's display clamp: no countdown may claim more than this. */
+export const MAX_LOCK_MS = 5 * 60_000;
 
 let failCount = 0;
 let lockedUntil = 0;
