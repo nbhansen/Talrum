@@ -84,6 +84,10 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
  *     mode by user A's PIN on a shared device.
  *   - The last-board pointer (#178) — otherwise user B's auto-launch lands
  *     on user A's board UUID, which 404s under RLS.
+ *   - The service worker's storage cache (#380) — user A's photo and
+ *     recording bytes, keyed by signed URL. Not addressable without the
+ *     wiped path and token stripes, so this is defence in depth — but bytes
+ *     on a shared device should not outlive the account that put them there.
  *
  * Synchronous from the caller's POV for the localStorage clears; the IDB
  * deletes race with the next sign-in's hydration but every operation is
@@ -93,8 +97,8 @@ export const clearPersistedCache = async (): Promise<void> => {
   queryClient.clear();
   clearPin();
   clearLastBoard();
-  // persister and the outbox/signed-url sweep touch disjoint IDB entries,
-  // so the round trips parallelize cleanly.
+  // persister, the outbox/signed-url sweep, and Cache Storage are disjoint
+  // stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),
     keys().then((all) => {
@@ -104,5 +108,41 @@ export const clearPersistedCache = async (): Promise<void> => {
       );
       return Promise.all(stripeKeys.map((k) => del(k)));
     }),
+    clearStorageCaches(),
   ]);
+};
+
+/**
+ * Delete the service worker's Supabase Storage cache(s). By prefix rather
+ * than the literal name in vite.config.ts (`talrum-storage-v1`): a future
+ * `-v2` bump then cannot silently orphan the old cache, because Workbox's
+ * `cleanupOutdatedCaches` covers only the precache, not runtime caches. The
+ * prefix must never match `workbox-precache-*` — the app-shell precache is
+ * not per-user, and deleting it would strip offline mode for the next user.
+ */
+const clearStorageCaches = async (): Promise<void> => {
+  // Absent in jsdom and in non-secure contexts; nothing to wipe there.
+  if (typeof caches === 'undefined') return;
+  const names = await caches.keys();
+  await Promise.all(
+    names.filter((n) => n.startsWith('talrum-storage')).map((n) => caches.delete(n)),
+  );
+  // Deleting the caches leaves Workbox's ExpirationPlugin index behind: one
+  // row per cached entry in the `workbox-expiration` IDB database, holding
+  // the full signed URL — the same per-user residue, one store over. Only
+  // the storage caches deleted above use that database, so drop it whole.
+  // The delete can wait: the SW holds an open connection and Workbox passes
+  // no `blocking` handler, so the request settles only when the browser
+  // stops the idle SW. Fine — AuthGate does not await this, the rows are
+  // unaddressable meanwhile, and a late delete that takes the next user's
+  // fresh rows self-heals because every cache hit re-stamps its row.
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase('workbox-expiration');
+    req.onsuccess = () => {
+      resolve();
+    };
+    req.onerror = () => {
+      reject(req.error ?? new Error('workbox-expiration delete failed'));
+    };
+  });
 };
