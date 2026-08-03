@@ -391,19 +391,36 @@ describe('VoiceRecorderDialog', () => {
       expect(uploadMock).not.toHaveBeenCalled();
     });
 
-    it('surfaces a generation failure and lets the user retry', async () => {
+    it('blames the connection only when the request never got a response', async () => {
       const user = userEvent.setup();
       invokeMock.mockResolvedValue({
         data: null,
-        error: { message: 'boom', statusCode: 502 },
+        error: { message: 'fetch failed' },
       });
       renderDialog(pictoWithoutAudio);
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));
 
-      expect(await screen.findByText(/Could not generate a voice/)).toBeInTheDocument();
+      expect(await screen.findByText(/Check your connection/)).toBeInTheDocument();
       expect(uploadMock).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /generate voice/i })).toBeEnabled();
+    });
+
+    // The HTTP-error → code mapping itself is pinned in generateVoice.test.ts
+    // (FunctionsHttpError is only constructible in lib/); here the mutation
+    // rejects with the mapped error and the dialog must pick the right copy.
+    it('a server-side failure says so instead of blaming the connection (#359 rationale)', async () => {
+      const user = userEvent.setup();
+      const { GenerateVoiceError } = await import('@/lib/queries/generateVoice');
+      invokeMock.mockRejectedValue(new GenerateVoiceError('synthesis_failed', 'azure down'));
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(
+        await screen.findByText('Voice generation failed. Try again in a moment.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Check your connection/)).not.toBeInTheDocument();
     });
   });
 });

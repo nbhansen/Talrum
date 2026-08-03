@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useEffect, useState } from 'react';
+import { type JSX, useCallback, useEffect, useRef, useState } from 'react';
 
 import { getAppLanguage } from '@/lib/language';
 import { playPictogramAudio } from '@/lib/platform/audio';
@@ -9,7 +9,11 @@ import {
   type Recording,
   startRecording,
 } from '@/lib/platform/recording';
-import { useGenerateVoice } from '@/lib/queries/generateVoice';
+import {
+  GenerateVoiceError,
+  MAX_LABEL_LENGTH,
+  useGenerateVoice,
+} from '@/lib/queries/generateVoice';
 import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
@@ -55,10 +59,18 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     };
   }, [rec]);
 
-  // The preview blob URL must not outlive the preview (or the dialog).
+  // The playing element for the current preview, so Listen taps replace the
+  // clip instead of layering voices, and discard can stop it.
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // The preview's playback and blob URL must not outlive the preview (or
+  // the dialog) — revoking a URL out from under a playing clip included.
   useEffect(() => {
     return () => {
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (!preview) return;
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+      URL.revokeObjectURL(preview.url);
     };
   }, [preview]);
 
@@ -133,6 +145,11 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
 
   const generate = async (): Promise<void> => {
     setError(null);
+    // The one generation failure predictable without a round trip.
+    if (picto.label.length > MAX_LABEL_LENGTH) {
+      setError('This label is too long for voice generation.');
+      return;
+    }
     setMode('generating');
     try {
       const blob = await genMut.mutateAsync({
@@ -141,8 +158,15 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
       });
       // The state swap revokes the previous preview's URL via the effect above.
       setPreview({ blob, url: URL.createObjectURL(blob) });
-    } catch {
-      setError('Could not generate a voice. Check your connection and try again.');
+    } catch (err) {
+      // Only a request that never got a response blames the connection;
+      // a server-side failure told to "check your connection" sends the
+      // parent chasing wifi that is fine.
+      setError(
+        err instanceof GenerateVoiceError && err.code !== 'network'
+          ? 'Voice generation failed. Try again in a moment.'
+          : 'Could not generate a voice. Check your connection and try again.',
+      );
     } finally {
       setMode('idle');
     }
@@ -151,7 +175,10 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   const playPreview = (): void => {
     if (!preview) return;
     setError(null);
-    new Audio(preview.url).play().catch(() => {
+    previewAudioRef.current?.pause();
+    const audio = new Audio(preview.url);
+    previewAudioRef.current = audio;
+    audio.play().catch(() => {
       setError('Could not play the preview.');
     });
   };
@@ -160,7 +187,13 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     if (!preview) return;
     setMode('uploading');
     try {
-      await saveAudio({ pictogramId: picto.id, blob: preview.blob, extension: 'mp3' });
+      await saveAudio({
+        pictogramId: picto.id,
+        blob: preview.blob,
+        // From the blob's MIME type, not a literal: the provider MIME type
+        // is the one piece of provider knowledge the seam propagates.
+        extension: extensionForMime(preview.blob.type),
+      });
       setPreview(null);
       setMode('idle');
     } catch {
