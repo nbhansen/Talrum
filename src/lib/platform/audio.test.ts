@@ -5,6 +5,8 @@ vi.mock('@/lib/storage', () => ({
   signedUrlFor: vi.fn(),
 }));
 
+vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
+
 const play = vi.fn<() => Promise<void>>();
 const pause = vi.fn();
 
@@ -23,6 +25,7 @@ const createObjectURL = vi.fn();
 const revokeObjectURL = vi.fn();
 
 let signedUrlFor: Mock;
+let captureException: Mock;
 let playPictogramAudio: (path: string) => Promise<void>;
 
 beforeEach(async () => {
@@ -48,6 +51,9 @@ beforeEach(async () => {
   // signedUrlFor instance before importing the module under test.
   vi.resetModules();
   ({ signedUrlFor } = (await import('@/lib/storage')) as unknown as { signedUrlFor: Mock });
+  ({ captureException } = (await import('@/lib/platform/telemetry')) as unknown as {
+    captureException: Mock;
+  });
   signedUrlFor.mockResolvedValue('https://storage.test/signed?token=t');
   ({ playPictogramAudio } = await import('./audio'));
 });
@@ -74,6 +80,11 @@ describe('playPictogramAudio', () => {
     await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('403');
     expect(createdSrcs).toHaveLength(0);
     expect(play).not.toHaveBeenCalled();
+    // A non-OK response is a systematically broken recording — report it (#359).
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(expect.any(Error), {
+      level: 'warning',
+      tags: { component: 'audio', op: 'fetch' },
+    });
   });
 
   it('propagates a fetch failure so the caller can fall back to TTS', async () => {
@@ -81,6 +92,40 @@ describe('playPictogramAudio', () => {
 
     await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('offline');
     expect(play).not.toHaveBeenCalled();
+    // A network-level rejection is normal offline operation, not a defect.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports a body-stream failure (truncated upload) although it is a TypeError', async () => {
+    const truncated = new TypeError('network error during body read');
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      blob: () => Promise.reject(truncated),
+    } as unknown as Response);
+
+    await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('body read');
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(truncated, {
+      level: 'warning',
+      tags: { component: 'audio', op: 'fetch' },
+    });
+  });
+
+  it('reports a refused play and propagates it (#359)', async () => {
+    vi.mocked(fetch).mockResolvedValue(okResponse(new Blob(['a'])));
+    const refused = new Error('NotAllowedError');
+    play.mockRejectedValueOnce(refused);
+
+    await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('NotAllowedError');
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(refused, {
+      level: 'warning',
+      tags: { component: 'audio', op: 'play' },
+    });
+
+    // Latched: the same failure kind does not heal in-session and would
+    // otherwise report on every tap of a kid screen.
+    play.mockRejectedValueOnce(refused);
+    await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('NotAllowedError');
+    expect(captureException).toHaveBeenCalledOnce();
   });
 
   it('stops the previous clip even when the next fetch fails', async () => {
@@ -146,5 +191,29 @@ describe('playPictogramAudio', () => {
     await expect(tapA).resolves.toBeUndefined();
     await tapB;
     expect(play).toHaveBeenCalledOnce();
+    // A superseded failure is moot — it must not report either.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('does not throw or report from a superseded tap whose play is interrupted', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(okResponse(new Blob(['a'])))
+      .mockResolvedValueOnce(okResponse(new Blob(['b'])));
+    let rejectPlayA!: (e: unknown) => void;
+    play
+      .mockImplementationOnce(() => new Promise<void>((_r, rej) => (rejectPlayA = rej)))
+      .mockResolvedValueOnce(undefined);
+
+    const tapA = playPictogramAudio('u/a.webm');
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    const tapB = playPictogramAudio('u/b.webm');
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+
+    // Tap B's pause on element A rejects A's pending play() (AbortError).
+    rejectPlayA(new Error('AbortError'));
+
+    await expect(tapA).resolves.toBeUndefined();
+    await tapB;
+    expect(captureException).not.toHaveBeenCalled();
   });
 });

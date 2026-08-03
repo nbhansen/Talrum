@@ -17,7 +17,9 @@ export const speakPictogram = async (picto: Pictogram, mode: VoiceMode): Promise
       await playPictogramAudio(picto.audioPath);
       return;
     } catch {
-      // fall through to TTS
+      // Fall through to TTS. The failure is not silent to us: signing
+      // failures report in storage.ts, everything else (403, truncated
+      // upload, bad codec, refused play) reports in platform/audio.ts (#359).
     }
   }
   speak(picto.label);

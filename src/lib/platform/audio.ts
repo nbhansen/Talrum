@@ -1,3 +1,4 @@
+import { captureException } from '@/lib/platform/telemetry';
 import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
@@ -7,6 +8,10 @@ let currentObjectUrl: string | null = null;
 // without this, two taps inside one fetch window both play, and the loser
 // revokes the winner's object URL mid-playback.
 let playToken = 0;
+// Persistent play() failures (a refused gesture chain, a codec the device
+// cannot decode) do not heal within a session, and a kid screen runs this
+// path on every tap. Report each failure kind once per session.
+const reportedPlayFailures = new Set<string>();
 
 /**
  * Fetch the clip ourselves instead of handing the URL to the media element.
@@ -30,14 +35,26 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     current.src = '';
   }
   let blob: Blob;
+  // fetch()'s offline rejection and a body stream that errors mid-read are
+  // both TypeErrors; only the response flag can tell them apart.
+  let responseReceived = false;
   try {
     const res = await fetch(url);
+    responseReceived = true;
     if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
     blob = await res.blob();
   } catch (err) {
     // A superseded call must not throw: the caller's TTS fallback would
     // speak this pictogram's label over the newer tap's clip.
     if (token !== playToken) return;
+    // Report (#359) — except a network-level rejection before any response,
+    // which is ordinary life for an app built to run offline: the TTS
+    // fallback is the design there, not a defect. What must not stay silent
+    // is a recording that is systematically broken: a 403 path, or a body
+    // that fails mid-read (truncated upload).
+    if (responseReceived || !(err instanceof TypeError)) {
+      captureException(err, { level: 'warning', tags: { component: 'audio', op: 'fetch' } });
+    }
     throw err;
   }
   if (token !== playToken) return;
@@ -46,5 +63,21 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
   currentObjectUrl = URL.createObjectURL(blob);
   const audio = new Audio(currentObjectUrl);
   current = audio;
-  await audio.play();
+  try {
+    await audio.play();
+  } catch (err) {
+    // A newer tap pausing this element rejects the pending play() with an
+    // AbortError: not a defect, and the throw would TTS this label over the
+    // newer clip — same supersession rule as the fetch catch above.
+    if (token !== playToken) return;
+    // A bad codec (NotSupportedError) or a refused gesture chain
+    // (NotAllowedError, #428) degrades to TTS forever if nobody hears
+    // about it (#359).
+    const kind = err instanceof Error ? err.name : String(err);
+    if (!reportedPlayFailures.has(kind)) {
+      reportedPlayFailures.add(kind);
+      captureException(err, { level: 'warning', tags: { component: 'audio', op: 'play' } });
+    }
+    throw err;
+  }
 };
