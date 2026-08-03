@@ -42,6 +42,30 @@ beforeEach(() => {
   captureMock.mockReset();
 });
 
+describe('useGenerateVoice envelope decoding', () => {
+  it('decodes the base64 JSON envelope into a Blob with the provider MIME type', async () => {
+    invokeMock.mockResolvedValue({
+      data: { ok: true, mimeType: 'audio/mpeg', audioBase64: btoa('clip-bytes') },
+      error: null,
+    });
+    const { result } = renderHook(() => useGenerateVoice(), { wrapper });
+    result.current.mutate({ label: 'spise', language: 'da' });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    const blob = result.current.data as Blob;
+    expect(blob.type).toBe('audio/mpeg');
+    expect(await blob.text()).toBe('clip-bytes');
+  });
+
+  it('rejects a payload that is not the envelope', async () => {
+    // What supabase-js would have produced from raw audio bytes: a string.
+    invokeMock.mockResolvedValue({ data: 'ID3…', error: null });
+    const error = await runMutation();
+    expect(error.code).toBe('internal_error');
+  });
+});
+
 describe('useGenerateVoice error mapping (#433 review)', () => {
   it('maps a server error body to its closed-set code and reports it', async () => {
     invokeMock.mockResolvedValue({

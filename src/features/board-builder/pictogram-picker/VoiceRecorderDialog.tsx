@@ -63,6 +63,15 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   // clip instead of layering voices, and discard can stop it.
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Closing the dialog mid-generation must not leak: a blob URL created for
+  // a dropped setPreview would never reach the cleanup effect below.
+  const openRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      openRef.current = false;
+    };
+  }, []);
+
   // The preview's playback and blob URL must not outlive the preview (or
   // the dialog) — revoking a URL out from under a playing clip included.
   useEffect(() => {
@@ -156,6 +165,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
         label: picto.label,
         language: getAppLanguage(),
       });
+      if (!openRef.current) return;
       // The state swap revokes the previous preview's URL via the effect above.
       setPreview({ blob, url: URL.createObjectURL(blob) });
     } catch (err) {

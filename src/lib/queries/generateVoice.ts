@@ -72,6 +72,28 @@ interface GenerateVoiceInput {
   language: VoiceLanguage;
 }
 
+// Success envelope: base64-in-JSON, because supabase-js reads audio/*
+// response bodies as text (its parse allow-list is json / octet-stream /
+// pdf / event-stream / form-data) and exposes no response headers to carry
+// a MIME type beside raw bytes.
+interface SuccessResponse {
+  ok: true;
+  mimeType: string;
+  audioBase64: string;
+}
+
+const isSuccessResponse = (v: unknown): v is SuccessResponse =>
+  v !== null &&
+  typeof v === 'object' &&
+  (v as { ok?: unknown }).ok === true &&
+  typeof (v as { mimeType?: unknown }).mimeType === 'string' &&
+  typeof (v as { audioBase64?: unknown }).audioBase64 === 'string';
+
+const decodeClip = ({ mimeType, audioBase64 }: SuccessResponse): Blob => {
+  const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+  return new Blob([bytes], { type: mimeType });
+};
+
 export const useGenerateVoice = (): UseMutationResult<
   Blob,
   GenerateVoiceError,
@@ -79,9 +101,10 @@ export const useGenerateVoice = (): UseMutationResult<
 > =>
   useMutation({
     mutationFn: async ({ label, language }) => {
-      const { data, error } = await supabase.functions.invoke<Blob>(GENERATE_VOICE_FUNCTION_NAME, {
-        body: { label, language },
-      });
+      const { data, error } = await supabase.functions.invoke<unknown>(
+        GENERATE_VOICE_FUNCTION_NAME,
+        { body: { label, language } },
+      );
       if (error) {
         if (error instanceof FunctionsHttpError) {
           // The server answered, so this is not the network's fault — a
@@ -96,10 +119,13 @@ export const useGenerateVoice = (): UseMutationResult<
         }
         throw new GenerateVoiceError('network', error.message);
       }
-      // supabase-js parses by content-type: audio/mpeg arrives as a Blob.
-      if (!(data instanceof Blob)) {
+      if (!isSuccessResponse(data)) {
         throw new GenerateVoiceError('internal_error', 'voice generation returned no audio');
       }
-      return data;
+      try {
+        return decodeClip(data);
+      } catch {
+        throw new GenerateVoiceError('internal_error', 'voice generation returned invalid audio');
+      }
     },
   });

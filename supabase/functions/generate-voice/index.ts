@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { encodeBase64 } from 'std/encoding/base64';
 
 import { synthesizeWithAzure } from './azure.ts';
 import {
   type ErrorCode,
   type ErrorResponse,
   MAX_LABEL_LENGTH,
+  type SuccessResponse,
   SynthesisError,
   type Synthesize,
   VOICE_LANGUAGES,
@@ -104,7 +106,13 @@ export const handleRequest = async (
     }
 
     const { bytes, mimeType } = await synthesize(label.trim(), language);
-    return new Response(bytes, { status: 200, headers: { 'content-type': mimeType } });
+    // A JSON envelope, not raw bytes — see SuccessResponse in types.ts for
+    // why (supabase-js would read audio/mpeg as text).
+    const payload: SuccessResponse = { ok: true, mimeType, audioBase64: encodeBase64(bytes) };
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
   } catch (err) {
     if (err instanceof SynthesisError) {
       logFailure(userId, 'synthesize', err);

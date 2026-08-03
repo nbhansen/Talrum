@@ -41,10 +41,10 @@ const maybeSingleMock = vi.fn<
   }>
 >();
 
-// Boundary for the generate-voice edge function (#422): supabase-js parses
-// its audio/mpeg response into a Blob before user code sees it.
+// Boundary for the generate-voice edge function (#422): the wire shape is a
+// base64 JSON envelope (see generateVoice.ts for why not raw audio bytes).
 const invokeMock =
-  vi.fn<(name: string, opts: unknown) => Promise<{ data: Blob | null; error: MockError | null }>>();
+  vi.fn<(name: string, opts: unknown) => Promise<{ data: unknown; error: MockError | null }>>();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -334,11 +334,15 @@ describe('VoiceRecorderDialog', () => {
   });
 
   describe('generated voice (#422)', () => {
-    const generatedBlob = (): Blob => new Blob(['generated-mp3'], { type: 'audio/mpeg' });
+    const generatedEnvelope = (): unknown => ({
+      ok: true,
+      mimeType: 'audio/mpeg',
+      audioBase64: btoa('generated-mp3'),
+    });
 
     it('generates a preview and writes nothing until the parent saves', async () => {
       const user = userEvent.setup();
-      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
       renderDialog(pictoWithoutAudio);
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));
@@ -354,7 +358,7 @@ describe('VoiceRecorderDialog', () => {
 
     it('saving the preview uploads it as .mp3 through the normal audio path', async () => {
       const user = userEvent.setup();
-      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
       renderDialog(pictoWithoutAudio);
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));
@@ -379,7 +383,7 @@ describe('VoiceRecorderDialog', () => {
 
     it('discarding the preview writes nothing and returns to idle', async () => {
       const user = userEvent.setup();
-      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
       renderDialog(pictoWithoutAudio);
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));

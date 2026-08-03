@@ -43,15 +43,27 @@ export const synthesizeWithAzure: Synthesize = async (label, language) => {
     throw new SynthesisError('AZURE_SPEECH_KEY and AZURE_SPEECH_REGION must be set');
   }
 
-  const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
-    method: 'POST',
-    headers: {
-      'Ocp-Apim-Subscription-Key': key,
-      'Content-Type': 'application/ssml+xml',
-      'X-Microsoft-OutputFormat': OUTPUT_FORMAT,
-    },
-    body: buildSsml(label, language),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': key,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': OUTPUT_FORMAT,
+      },
+      body: buildSsml(label, language),
+      // Without this, a stalled Azure connection hangs until the platform
+      // kills the function — and the dialog sits disabled on "Generating…"
+      // the whole time. A timeout lands in the synthesis_failed retry copy
+      // on a timescale a parent will sit through.
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    throw new SynthesisError(
+      `azure fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
   if (!res.ok) {
     // The body is Azure's error text; keep it out of the client response
     // (index.ts sends a generic message) but log it for diagnosis.

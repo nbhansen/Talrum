@@ -109,7 +109,7 @@ Deno.test('rejects a language outside the closed set', async () => {
   assertEquals(res.status, 400);
 });
 
-Deno.test('returns provider bytes with the provider MIME type on success', async () => {
+Deno.test('returns the provider clip as a base64 JSON envelope on success', async () => {
   let got: { label: string; language: string } | null = null;
   const synth: Synthesize = async (label, language) => {
     got = { label, language };
@@ -117,8 +117,11 @@ Deno.test('returns provider bytes with the provider MIME type on success', async
   };
   const res = await handleRequest(request({ label: ' spise ', language: 'da' }), goodAdmin, synth);
   assertEquals(res.status, 200);
-  assertEquals(res.headers.get('content-type'), 'audio/mpeg');
-  assertEquals(new Uint8Array(await res.arrayBuffer()), new Uint8Array([9, 9]));
+  // JSON, deliberately: supabase-js reads audio/* responses as text and
+  // exposes no headers — see SuccessResponse in types.ts.
+  assertEquals(res.headers.get('content-type'), 'application/json');
+  const body = await res.json();
+  assertEquals(body, { ok: true, mimeType: 'audio/mpeg', audioBase64: btoa('\x09\x09') });
   // Trimmed before the provider sees it.
   assertEquals(got, { label: 'spise', language: 'da' });
 });
