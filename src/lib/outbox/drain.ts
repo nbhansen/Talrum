@@ -42,6 +42,7 @@ const emit = async (): Promise<void> => {
     failedCount: failed.length,
     conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
     draining: drainState.draining,
+    timerDrain: drainState.timerDrain,
   };
   drainState.lastStatus = next;
   drainSubscribers.forEach((fn) => fn(next));
@@ -172,7 +173,7 @@ const scheduleRetry = (): void => {
   clearRetryTimer();
   drainState.retryTimer = setTimeout(() => {
     drainState.retryTimer = undefined;
-    void drain();
+    void drain({ fromTimer: true });
   }, drainState.retryDelayMs);
   drainState.retryDelayMs = Math.min(drainState.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
 };
@@ -202,8 +203,14 @@ export const resetRetryDelay = (): void => {
  * and that write can land last. Accepted — it is the same last-write-wins
  * class as a cross-device replay (docs/outbox.md, "Known limits"), and
  * boards stay safe via the conflict guard (#281).
+ *
+ * `fromTimer` marks a drain the retry timer started (#409): only
+ * `scheduleRetry` passes it, and the status carries it as `timerDrain` so
+ * the OfflineIndicator can keep its live-region label steady across the
+ * backoff schedule. A coalesced follow-up (`pendingDrain`) is always
+ * event-driven — something new triggered it.
  */
-export const drain = async (): Promise<void> => {
+export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   if (drainState.draining) {
     drainState.pendingDrain = true;
     return;
@@ -214,6 +221,7 @@ export const drain = async (): Promise<void> => {
     return;
   }
   drainState.draining = true;
+  drainState.timerDrain = fromTimer;
   clearRetryTimer();
   await emit();
   let sawTransient = false;
@@ -258,6 +266,7 @@ export const drain = async (): Promise<void> => {
       scheduleRetry();
     }
     drainState.draining = false;
+    drainState.timerDrain = false;
     await emit();
     if (drainState.pendingDrain) {
       // The immediate follow-up drain owns the retry decision.

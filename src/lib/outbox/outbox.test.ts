@@ -1,6 +1,7 @@
 import { clear, keys } from 'idb-keyval';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { OutboxStatus } from './drain-state';
 import type { UpdateBoardEntry } from './types';
 
 interface MockPostgrestError {
@@ -277,6 +278,29 @@ describe('transient retry timer (#391)', () => {
     expect((await listEntries())[0]?.attemptCount).toBe(1);
     await vi.advanceTimersByTimeAsync(2_000);
     await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
+  });
+
+  it('flags timer-driven drains so the indicator label stays steady (#409)', async () => {
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await putEntry(baseEntry({ id: '01HZZA' }));
+    const statuses: OutboxStatus[] = [];
+    const unsub = subscribeStatus((s) => statuses.push(s));
+    try {
+      await drain(); // event-driven: this one may say "Syncing…"
+      expect(statuses.some((s) => s.draining && !s.timerDrain)).toBe(true);
+      statuses.length = 0;
+      await vi.advanceTimersByTimeAsync(2_000);
+      await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
+      // The timer-driven pass emitted at start and end; no status from it may
+      // map to "Syncing…" — that text change is what re-announces the polite
+      // live region on every backoff cycle.
+      expect(statuses.length).toBeGreaterThan(0);
+      for (const s of statuses) {
+        expect(s.draining && !s.timerDrain).toBe(false);
+      }
+    } finally {
+      unsub();
+    }
   });
 
   it('arms no timer when the device drops mid-pass', async () => {

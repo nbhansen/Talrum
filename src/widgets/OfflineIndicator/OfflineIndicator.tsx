@@ -17,7 +17,8 @@ const discardAllFailed = async (): Promise<void> => {
  * row with Retry + Discard.
  */
 export const OfflineIndicator = (): JSX.Element | null => {
-  const { online, pendingCount, failedCount, conflictCount, draining } = useOutboxStatus();
+  const { online, pendingCount, failedCount, conflictCount, draining, timerDrain } =
+    useOutboxStatus();
 
   if (online && pendingCount === 0 && failedCount === 0 && !draining) return null;
 
@@ -51,12 +52,16 @@ export const OfflineIndicator = (): JSX.Element | null => {
     );
   }
 
-  // Online + (draining or pending): syncing.
+  // Online + (draining or pending): syncing. Timer-driven re-drains (#391)
+  // keep the queued label (#409): each one would otherwise flip the text
+  // queued → Syncing… → queued, and this polite live region re-announces on
+  // every text change — a one-minute outage reads out about six times.
+  // "Syncing…" stays for user- and event-driven drains only.
   return (
     <div role="status" className={`${styles.pill} ${styles.pillSyncing}`}>
       <span className={styles.dot} aria-hidden="true" />
       <span className={styles.label}>
-        {draining ? 'Syncing…' : `Sync queued · ${pendingCount}`}
+        {draining && !timerDrain ? 'Syncing…' : `Sync queued · ${pendingCount}`}
       </span>
     </div>
   );

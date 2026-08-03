@@ -13,10 +13,20 @@ export interface OutboxStatus {
    */
   conflictCount: number;
   draining: boolean;
+  /**
+   * True while the current drain was started by the retry timer (#391).
+   * The OfflineIndicator keeps its live-region label at "Sync queued · N"
+   * for these instead of flipping to "Syncing…" — a transient outage
+   * re-drains every few seconds, and a polite live region re-announces on
+   * every text change (#409).
+   */
+  timerDrain: boolean;
 }
 
 interface DrainState {
   draining: boolean;
+  /** Mirror of `OutboxStatus.timerDrain` for the drain in progress. */
+  timerDrain: boolean;
   pendingDrain: boolean;
   listenersAttached: boolean;
   lastStatus: OutboxStatus;
@@ -37,10 +47,12 @@ const initialStatus = (): OutboxStatus => ({
   failedCount: 0,
   conflictCount: 0,
   draining: false,
+  timerDrain: false,
 });
 
 export const drainState: DrainState = {
   draining: false,
+  timerDrain: false,
   pendingDrain: false,
   listenersAttached: false,
   lastStatus: initialStatus(),
@@ -53,6 +65,7 @@ export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
 export const __resetDrainForTests = (): void => {
   clearTimeout(drainState.retryTimer);
   drainState.draining = false;
+  drainState.timerDrain = false;
   drainState.pendingDrain = false;
   drainState.listenersAttached = false;
   drainState.lastStatus = initialStatus();

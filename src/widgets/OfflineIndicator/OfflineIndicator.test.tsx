@@ -50,10 +50,51 @@ describe('OfflineIndicator', () => {
       online: true,
       pendingCount: 1,
       failedCount: 0,
-      draining: true,
+      draining: false,
+      timerDrain: false,
     });
-    render(<OfflineIndicator />);
+    const { rerender } = render(<OfflineIndicator />);
+    expect(screen.getByRole('status')).toHaveTextContent(/Sync queued · 1/);
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 1,
+      failedCount: 0,
+      draining: true,
+      timerDrain: false,
+    });
+    rerender(<OfflineIndicator />);
     expect(screen.getByRole('status')).toHaveTextContent(/Syncing/);
+  });
+
+  it('keeps the live-region text steady across a timer-driven re-drain (#409)', () => {
+    // Walk one backoff cycle of a transient outage: queued (timer armed) →
+    // timer drain running → transient again, queued. The polite live region
+    // re-announces on any text change, so all three must render the same
+    // text — only a user- or event-driven drain may say "Syncing…".
+    const cycle = [
+      { draining: false, timerDrain: false },
+      { draining: true, timerDrain: true },
+      { draining: false, timerDrain: false },
+    ];
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 2,
+      failedCount: 0,
+      ...cycle[0],
+    });
+    const { rerender } = render(<OfflineIndicator />);
+    const initialText = screen.getByRole('status').textContent;
+    expect(initialText).toContain('Sync queued · 2');
+    for (const step of cycle.slice(1)) {
+      useOutboxStatusMock.mockReturnValue({
+        online: true,
+        pendingCount: 2,
+        failedCount: 0,
+        ...step,
+      });
+      rerender(<OfflineIndicator />);
+      expect(screen.getByRole('status').textContent).toBe(initialText);
+    }
   });
 
   it('shows a failure pill with Retry + Discard', () => {
