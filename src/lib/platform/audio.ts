@@ -2,6 +2,11 @@ import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
+// Generation counter: each tap invalidates every in-flight older call. The
+// awaits below span a network round trip, so overlapping taps are real —
+// without this, two taps inside one fetch window both play, and the loser
+// revokes the winner's object URL mid-playback.
+let playToken = 0;
 
 /**
  * Fetch the clip ourselves instead of handing the URL to the media element.
@@ -14,7 +19,9 @@ let currentObjectUrl: string | null = null;
  * request never leaves the page.
  */
 export const playPictogramAudio = async (path: string): Promise<void> => {
+  const token = ++playToken;
   const url = await signedUrlFor(AUDIO_BUCKET, path);
+  if (token !== playToken) return;
   // Stop the previous clip before any fallible IO: if the fetch below throws,
   // speakPictogram falls back to TTS, and a still-playing clip would talk
   // over it.
@@ -22,9 +29,18 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     current.pause();
     current.src = '';
   }
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
-  const blob = await res.blob();
+  let blob: Blob;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
+    blob = await res.blob();
+  } catch (err) {
+    // A superseded call must not throw: the caller's TTS fallback would
+    // speak this pictogram's label over the newer tap's clip.
+    if (token !== playToken) return;
+    throw err;
+  }
+  if (token !== playToken) return;
   // Revoke the previous clip's object URL, or every tap leaks one blob.
   if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
   currentObjectUrl = URL.createObjectURL(blob);

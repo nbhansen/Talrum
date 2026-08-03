@@ -103,4 +103,48 @@ describe('playPictogramAudio', () => {
     expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:mock-1');
     expect(createdSrcs).toEqual(['blob:mock-1', 'blob:mock-2']);
   });
+
+  it('plays only the newest of two overlapping taps', async () => {
+    let resolveA!: (r: Response) => void;
+    let resolveB!: (r: Response) => void;
+    vi.mocked(fetch)
+      .mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)))
+      .mockImplementationOnce(() => new Promise<Response>((r) => (resolveB = r)));
+
+    const tapA = playPictogramAudio('u/a.webm');
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const tapB = playPictogramAudio('u/b.webm');
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+
+    resolveA(okResponse(new Blob(['a'])));
+    resolveB(okResponse(new Blob(['b'])));
+    await Promise.all([tapA, tapB]);
+
+    // Tap A was superseded mid-fetch: it must not create an element, play,
+    // or revoke the object URL tap B is playing from.
+    expect(createdSrcs).toEqual(['blob:mock-1']);
+    expect(play).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('does not throw from a superseded tap whose fetch fails', async () => {
+    let rejectA!: (e: unknown) => void;
+    let resolveB!: (r: Response) => void;
+    vi.mocked(fetch)
+      .mockImplementationOnce(() => new Promise<Response>((_r, rej) => (rejectA = rej)))
+      .mockImplementationOnce(() => new Promise<Response>((r) => (resolveB = r)));
+
+    const tapA = playPictogramAudio('u/a.webm');
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const tapB = playPictogramAudio('u/b.webm');
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+
+    rejectA(new TypeError('offline'));
+    resolveB(okResponse(new Blob(['b'])));
+
+    // If tap A threw, its caller would speak A's label over B's clip.
+    await expect(tapA).resolves.toBeUndefined();
+    await tapB;
+    expect(play).toHaveBeenCalledOnce();
+  });
 });
