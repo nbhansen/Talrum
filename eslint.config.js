@@ -40,7 +40,10 @@ const fileCategories = [
   // Tests and test-utils follow the layer rules of the folder they live in
   // (they had NO boundary enforcement before #397), with one relaxation
   // granted below: they may import from app/ to mount providers.
-  { category: 'test', pattern: ['**/*.test.ts', '**/*.test.tsx', '**/*.test-utils.tsx'] },
+  {
+    category: 'test',
+    pattern: ['**/*.test.ts', '**/*.test.tsx', '**/*.test-utils.ts', '**/*.test-utils.tsx'],
+  },
 ];
 
 const SUPABASE_PLUMBING_MSG =
@@ -247,9 +250,9 @@ export default tseslint.config(
     },
   },
   {
-    // src/ only: `checkAllOrigins: true` evaluates external imports too, and
-    // files outside src/ (Deno edge functions, scripts, vitest.setup.ts) match
-    // no element, so their externals would hit the default disallow.
+    // src/ only. Test files outside src/ (Deno edge functions, scripts)
+    // match the `test` file category but no element, so with
+    // `checkAllOrigins: true` their imports would hit the default disallow.
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },
     settings: {
@@ -268,6 +271,11 @@ export default tseslint.config(
           policies: layerPolicies,
         },
       ],
+      // Self-policing element list: `boundaries/dependencies` silently skips
+      // a file that matches no element and no file category, so a new src/
+      // folder nobody adds to `layerElements` would get zero enforcement.
+      // This rule flags such files instead.
+      'boundaries/no-unknown-files': 'error',
     },
   },
 );
