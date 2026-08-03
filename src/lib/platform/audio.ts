@@ -31,19 +31,24 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     current.src = '';
   }
   let blob: Blob;
+  // fetch()'s offline rejection and a body stream that errors mid-read are
+  // both TypeErrors; only the response flag can tell them apart.
+  let responseReceived = false;
   try {
     const res = await fetch(url);
+    responseReceived = true;
     if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
     blob = await res.blob();
   } catch (err) {
     // A superseded call must not throw: the caller's TTS fallback would
     // speak this pictogram's label over the newer tap's clip.
     if (token !== playToken) return;
-    // Report (#359) — except a network-level rejection (TypeError), which is
-    // ordinary life for an app built to run offline: the TTS fallback is the
-    // design there, not a defect. What must not stay silent is a recording
-    // that is systematically broken: a 403 path or a truncated body.
-    if (!(err instanceof TypeError)) {
+    // Report (#359) — except a network-level rejection before any response,
+    // which is ordinary life for an app built to run offline: the TTS
+    // fallback is the design there, not a defect. What must not stay silent
+    // is a recording that is systematically broken: a 403 path, or a body
+    // that fails mid-read (truncated upload).
+    if (responseReceived || !(err instanceof TypeError)) {
       captureException(err, { level: 'warning', tags: { component: 'audio', op: 'fetch' } });
     }
     throw err;
@@ -57,6 +62,10 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
   try {
     await audio.play();
   } catch (err) {
+    // A newer tap pausing this element rejects the pending play() with an
+    // AbortError: not a defect, and the throw would TTS this label over the
+    // newer clip — same supersession rule as the fetch catch above.
+    if (token !== playToken) return;
     // A bad codec (NotSupportedError) or a refused gesture chain
     // (NotAllowedError, #428) degrades to TTS forever if nobody hears
     // about it (#359).

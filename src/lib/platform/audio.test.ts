@@ -96,6 +96,20 @@ describe('playPictogramAudio', () => {
     expect(captureException).not.toHaveBeenCalled();
   });
 
+  it('reports a body-stream failure (truncated upload) although it is a TypeError', async () => {
+    const truncated = new TypeError('network error during body read');
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      blob: () => Promise.reject(truncated),
+    } as unknown as Response);
+
+    await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('body read');
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(truncated, {
+      level: 'warning',
+      tags: { component: 'audio', op: 'fetch' },
+    });
+  });
+
   it('reports a refused play and propagates it (#359)', async () => {
     vi.mocked(fetch).mockResolvedValue(okResponse(new Blob(['a'])));
     const refused = new Error('NotAllowedError');
@@ -172,6 +186,28 @@ describe('playPictogramAudio', () => {
     await tapB;
     expect(play).toHaveBeenCalledOnce();
     // A superseded failure is moot — it must not report either.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('does not throw or report from a superseded tap whose play is interrupted', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(okResponse(new Blob(['a'])))
+      .mockResolvedValueOnce(okResponse(new Blob(['b'])));
+    let rejectPlayA!: (e: unknown) => void;
+    play
+      .mockImplementationOnce(() => new Promise<void>((_r, rej) => (rejectPlayA = rej)))
+      .mockResolvedValueOnce(undefined);
+
+    const tapA = playPictogramAudio('u/a.webm');
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    const tapB = playPictogramAudio('u/b.webm');
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+
+    // Tap B's pause on element A rejects A's pending play() (AbortError).
+    rejectPlayA(new Error('AbortError'));
+
+    await expect(tapA).resolves.toBeUndefined();
+    await tapB;
     expect(captureException).not.toHaveBeenCalled();
   });
 });
