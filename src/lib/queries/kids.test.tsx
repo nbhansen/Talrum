@@ -356,7 +356,7 @@ describe('active-kid persistence failure reporting (#359)', () => {
     });
   });
 
-  it('reports a localStorage read failure and treats the stored id as absent', () => {
+  it('reports a localStorage read failure once per session and treats the id as absent', () => {
     const denied = new Error('access denied');
     const spy = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
       throw denied;
@@ -365,6 +365,9 @@ describe('active-kid persistence failure reporting (#359)', () => {
       // The failed read yields null, which equals the requested id, so the
       // write path is never reached: only the read failure is reported.
       expect(() => setActiveKidId(null)).not.toThrow();
+      // The read is a useSyncExternalStore getSnapshot and runs per render;
+      // a blocked localStorage blocks persistently, so the report is latched.
+      setActiveKidId(null);
     } finally {
       spy.mockRestore();
     }

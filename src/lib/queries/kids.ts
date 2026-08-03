@@ -86,6 +86,12 @@ const subscribeActiveKid = (cb: () => void): (() => void) => {
   };
 };
 
+// A blocked localStorage blocks persistently (privacy mode, "block all
+// storage"), and this read is the getSnapshot of a useSyncExternalStore —
+// it runs on every render. Latch the report so the signal arrives once per
+// session instead of once per render.
+let reportedReadFailure = false;
+
 const getStoredActiveKidId = (): string | null => {
   try {
     return localStorage.getItem(ACTIVE_KID_KEY);
@@ -93,7 +99,10 @@ const getStoredActiveKidId = (): string | null => {
     // Falling back to the first kid is fine for the user, but not silently:
     // this is app state, not a preference — losing it changes which boards
     // the parent sees (#359).
-    captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'read' } });
+    if (!reportedReadFailure) {
+      reportedReadFailure = true;
+      captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'read' } });
+    }
     return null;
   }
 };

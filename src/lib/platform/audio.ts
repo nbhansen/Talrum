@@ -1,3 +1,4 @@
+import { captureException } from '@/lib/platform/telemetry';
 import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
@@ -38,6 +39,13 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     // A superseded call must not throw: the caller's TTS fallback would
     // speak this pictogram's label over the newer tap's clip.
     if (token !== playToken) return;
+    // Report (#359) — except a network-level rejection (TypeError), which is
+    // ordinary life for an app built to run offline: the TTS fallback is the
+    // design there, not a defect. What must not stay silent is a recording
+    // that is systematically broken: a 403 path or a truncated body.
+    if (!(err instanceof TypeError)) {
+      captureException(err, { level: 'warning', tags: { component: 'audio', op: 'fetch' } });
+    }
     throw err;
   }
   if (token !== playToken) return;
@@ -46,5 +54,13 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
   currentObjectUrl = URL.createObjectURL(blob);
   const audio = new Audio(currentObjectUrl);
   current = audio;
-  await audio.play();
+  try {
+    await audio.play();
+  } catch (err) {
+    // A bad codec (NotSupportedError) or a refused gesture chain
+    // (NotAllowedError, #428) degrades to TTS forever if nobody hears
+    // about it (#359).
+    captureException(err, { level: 'warning', tags: { component: 'audio', op: 'play' } });
+    throw err;
+  }
 };
