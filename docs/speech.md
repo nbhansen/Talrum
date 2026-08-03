@@ -94,9 +94,12 @@ caching, playback, fallback) cannot tell the two apart.
 
 Privacy: generating sends the pictogram's label — parent-authored text
 that can be personal (names, routines) — to the provider (Microsoft
-Azure, EU region `northeurope`). The function does not log labels, and
-nothing else leaves the device. Any parent-facing privacy text must name
-this sub-processor while the feature exists.
+Azure, EU region `northeurope`). The function does not log labels (the
+Azure error path keeps only status + request id for exactly this
+reason), and nothing else leaves the device. Disclosed to parents in
+`docs/privacy-policy.md` §4 and §10, which renders verbatim at the
+public `/privacy-policy` route — keep policy and provider in sync if
+either changes.
 
 The provider is swappable by design. The client knows only the function
 name and the `{ label, language }` wire contract

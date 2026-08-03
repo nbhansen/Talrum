@@ -4,7 +4,7 @@
 > service actually does today; it is not a warranty. If you need a
 > commitment beyond what is written here, ask before you use the service.
 
-**Effective date:** 1 August 2026
+**Effective date:** 3 August 2026
 
 ## 1. Who we are
 
@@ -57,6 +57,12 @@ request metadata (IP address, user agent) but none of your account content.
 Crash reports go to Sentry, acting as our data processor. Sentry receives the
 technical data described in section 2 and no account content.
 
+When you use **Generate voice**, the text label of that one pictogram is sent
+to Microsoft Azure (our data processor for speech synthesis) in its **North
+Europe (Ireland)** region — inside the EU. Azure turns the text into audio
+and returns it; we do not log the label, and nothing else is sent. This
+happens only when you press the button, never automatically.
+
 ## 5. Who has access
 
 - **You**, the caregiver, via a JSON Web Token bound to your account. Row
@@ -106,8 +112,10 @@ the child is not the account holder and does not interact with the service
 directly.
 
 We treat content describing children with heightened sensitivity: it is
-stored under the same RLS isolation as all other caregiver data, never
-shared with third parties, and never used for analytics or advertising.
+stored under the same RLS isolation as all other caregiver data and never
+used for analytics or advertising. It is not shared with third parties,
+with one exception you control: pressing **Generate voice** sends that
+pictogram's text label to Microsoft Azure for speech synthesis (section 4).
 The service is operated from and for Denmark/the EU. It is not offered in the
 United States, so US-specific children's-privacy rules (COPPA) are not
 addressed here.

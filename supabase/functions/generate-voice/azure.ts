@@ -65,9 +65,12 @@ export const synthesizeWithAzure: Synthesize = async (label, language) => {
     );
   }
   if (!res.ok) {
-    // The body is Azure's error text; keep it out of the client response
-    // (index.ts sends a generic message) but log it for diagnosis.
-    throw new SynthesisError(`azure responded ${res.status}: ${await res.text()}`);
+    // Status and request id only — never the body. An upstream 400 can echo
+    // the offending SSML, which contains the label, and index.ts logs this
+    // message; the privacy policy's "we do not log the label" must stay
+    // unconditionally true. The request id is what Azure support asks for.
+    const requestId = res.headers.get('apim-request-id') ?? 'unknown';
+    throw new SynthesisError(`azure responded ${res.status} (request ${requestId})`);
   }
   return { bytes: new Uint8Array(await res.arrayBuffer()), mimeType: 'audio/mpeg' };
 };
