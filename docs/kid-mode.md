@@ -68,6 +68,18 @@ reachable by clearing the PIN in another tab while this one sits in kid mode,
 and trapping the parent there would be worse. Reaching it otherwise needs
 devtools, which the threat model above already excludes.
 
+Wrong entries throttle (#372): every 5th wrong entry locks the pad with a
+visible countdown — 30s, doubling per group of five, capped at 5 minutes
+(`pinThrottle.ts`). The counter is module state shared by both exit
+surfaces, so closing and reopening the pad does not reset it — but it is
+deliberately not persisted: surviving a reload would turn a forgotten PIN
+into a device lockout. The flip side is stated plainly: a kid who can
+reload the app resets the counter too. That is accepted — Guided Access
+is the real containment on iPadOS, and the throttle only prices up
+casual guessing. Brute force became the only way from kid mode into
+parent mode when #353 removed PIN creation from the gate; an older sibling
+with ten minutes is the adversary, not a kid guessing once.
+
 All strings shown by the gate come from `getKidCopy()` — kid-visible copy
 is centralized in `src/lib/kidCopy.ts` (see [speech.md](./speech.md)). Only
 the verify strings live there; the PIN-creation copy is parent-facing and

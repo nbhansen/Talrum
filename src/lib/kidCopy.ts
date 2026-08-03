@@ -31,6 +31,8 @@ export interface KidCopy {
     verifyTitle: string;
     verifySubtitle: string;
     wrongPin: string;
+    /** Throttle-lock countdown after repeated wrong entries (#372). */
+    locked: (secondsLeft: number) => string;
   };
 }
 
@@ -52,6 +54,10 @@ const copy: Record<AppLanguage, KidCopy> = {
       verifyTitle: 'Enter PIN to exit',
       verifySubtitle: 'Enter your 4-digit parent PIN.',
       wrongPin: 'Wrong PIN',
+      locked: (secondsLeft: number): string =>
+        secondsLeft === 1
+          ? 'Too many tries. Wait 1 second.'
+          : `Too many tries. Wait ${secondsLeft} seconds.`,
     },
   },
   da: {
@@ -71,6 +77,10 @@ const copy: Record<AppLanguage, KidCopy> = {
       verifyTitle: 'Indtast PIN for at afslutte',
       verifySubtitle: 'Indtast din 4-cifrede forældre-PIN.',
       wrongPin: 'Forkert PIN',
+      locked: (secondsLeft: number): string =>
+        secondsLeft === 1
+          ? 'For mange forsøg. Vent 1 sekund.'
+          : `For mange forsøg. Vent ${secondsLeft} sekunder.`,
     },
   },
 };

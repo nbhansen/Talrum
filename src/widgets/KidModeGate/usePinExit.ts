@@ -1,6 +1,13 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 import { hasPin, pinGateDisabled, verifyPin } from '@/lib/pin';
+
+import {
+  getPinLockedUntil,
+  recordPinFailure,
+  resetPinThrottle,
+  subscribePinThrottle,
+} from './pinThrottle';
 
 interface PinExit {
   /** True while the PIN pad should be shown. */
@@ -11,6 +18,8 @@ interface PinExit {
   cancel: () => void;
   /** PinPad's `onSubmit`: resolves false on a wrong PIN so the pad can say so. */
   verify: (pin: string) => Promise<boolean>;
+  /** Epoch ms until which entry is throttle-locked (#372); 0 when unlocked. */
+  lockedUntil: number;
 }
 
 /**
@@ -32,9 +41,11 @@ interface PinExit {
  */
 export const usePinExit = (onExit: () => void): PinExit => {
   const [verifying, setVerifying] = useState(false);
+  const lockedUntil = useSyncExternalStore(subscribePinThrottle, getPinLockedUntil, () => 0);
 
   return {
     verifying,
+    lockedUntil,
     requestExit: (): void => {
       if (pinGateDisabled() || !hasPin()) {
         onExit();
@@ -44,10 +55,16 @@ export const usePinExit = (onExit: () => void): PinExit => {
     },
     cancel: (): void => setVerifying(false),
     verify: async (pin: string): Promise<boolean> => {
+      // The pad disables its keys while locked; this guard is the backstop
+      // for an entry already in flight when the lock engaged.
+      if (Date.now() < getPinLockedUntil()) return false;
       const ok = await verifyPin(pin);
       if (ok) {
+        resetPinThrottle();
         setVerifying(false);
         onExit();
+      } else {
+        recordPinFailure();
       }
       return ok;
     },
