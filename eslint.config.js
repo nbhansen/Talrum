@@ -23,6 +23,11 @@ const layerElements = [
   { type: 'lib-queries', pattern: 'src/lib/queries' },
   { type: 'lib-outbox', pattern: 'src/lib/outbox' },
   { type: 'lib-storage', pattern: 'src/lib/storage' },
+  // Any other lib sub-folder (auth, platform, and whatever comes next).
+  // Captured by name so ui/ can allow-list the presentational-safe ones:
+  // a NEW lib sub-folder starts closed to ui/ instead of open (#282).
+  { type: 'lib-sub', pattern: 'src/lib/*', capture: ['sub'] },
+  // Root files of src/lib only — the sub-folder patterns above win first.
   { type: 'lib', pattern: 'src/lib' },
   { type: 'theme', pattern: 'src/theme' },
   { type: 'types', pattern: 'src/types' },
@@ -50,7 +55,7 @@ const fileCategories = [
 const SUPABASE_PLUMBING_MSG =
   'The supabase client is data-layer plumbing: reads go through @/lib/queries, writes through @/lib/outbox, storage through @/lib/storage (docs/queries.md). AuthGate is the sole app/ exception.';
 
-const allLib = ['lib', 'lib-queries', 'lib-outbox', 'lib-storage'];
+const allLib = ['lib', 'lib-sub', 'lib-queries', 'lib-outbox', 'lib-storage'];
 const sharedBottom = ['theme', 'types', 'glyphs'];
 
 const layerPolicies = [
@@ -88,11 +93,16 @@ const layerPolicies = [
     },
   },
   {
-    // ui/ is the dumb tier (#282): presentational primitives only. Plain lib
-    // helpers are fine; the domain sub-folders are banned by name below.
+    // ui/ is the dumb tier (#282): presentational primitives only. Root lib
+    // helpers are fine; of the lib sub-folders, only platform/ (telemetry,
+    // speech, …) is presentational-safe. auth/, queries/, outbox/, storage/
+    // and any FUTURE sub-folder are domain plumbing and stay closed.
     from: { element: { type: 'ui' } },
     allow: {
-      to: { element: { types: { anyOf: ['ui', 'lib', ...sharedBottom, 'assets'] } } },
+      to: [
+        { element: { types: { anyOf: ['ui', 'lib', ...sharedBottom, 'assets'] } } },
+        { element: { type: 'lib-sub', captured: { sub: 'platform' } } },
+      ],
     },
   },
   {
