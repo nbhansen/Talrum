@@ -60,6 +60,12 @@ export const OfflineIndicator = (): JSX.Element | null => {
   // timer drain that wakes to a queue another tab already emptied, where
   // the steady label would read "Sync queued · 0" for one emit before the
   // pill unmounts.
+  // The steady label knowingly covers the timer drain that succeeds, which
+  // after an outage is the usual recovery path (#391 exists so no external
+  // trigger is needed): a real sync then runs under "Sync queued · N" until
+  // the end emit updates the pill, for up to a handler timeout (#413) on a
+  // blob upload. Accepted: the pill and dot look the same either way, and a
+  // label that lags one pass beats an announcement on every backoff cycle.
   return (
     <div role="status" className={`${styles.pill} ${styles.pillSyncing}`}>
       <span className={styles.dot} aria-hidden="true" />
