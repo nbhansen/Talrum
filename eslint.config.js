@@ -37,6 +37,7 @@ const fileCategories = [
   { category: 'supabase-client', pattern: 'src/lib/supabase.ts' },
   { category: 'pin', pattern: 'src/lib/pin.ts' },
   { category: 'auth-gate', pattern: 'src/app/AuthGate.tsx' },
+  { category: 'session-provider', pattern: 'src/app/SessionProvider.tsx' },
   // Tests and test-utils follow the layer rules of the folder they live in
   // (they had NO boundary enforcement before #397), with one relaxation
   // granted below: they may import from app/ to mount providers.
@@ -194,10 +195,11 @@ const layerPolicies = [
   },
   {
     // Tests mount the real provider tree: session.test-utils renders
-    // @/app/SessionProvider. Everything else (supabase client, cross-feature,
-    // ui domain bans) applies to tests unchanged.
+    // @/app/SessionProvider. The allow covers exactly that file, not all of
+    // app/ — everything else (supabase client, cross-feature, ui domain
+    // bans, the rest of app/) applies to tests unchanged.
     from: { file: { categories: 'test' } },
-    allow: { to: { element: { type: 'app' } } },
+    allow: { to: { file: { categories: 'session-provider' } } },
   },
 ];
 
@@ -256,7 +258,11 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },
     settings: {
-      'import/resolver': { typescript: { alwaysTryTypes: true } },
+      // `project` pinned to the tsconfig that declares the `@/*` paths. The
+      // root tsconfig is solution-style; without the pin, a resolution
+      // failure would classify local imports as external — which the blanket
+      // external allow permits — and silently disable the whole layer map.
+      'import/resolver': { typescript: { alwaysTryTypes: true, project: './tsconfig.app.json' } },
       'boundaries/elements': layerElements,
       'boundaries/files': fileCategories,
     },
