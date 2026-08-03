@@ -92,6 +92,12 @@ nothing is written anywhere until they save, and saving goes through the
 same `useSetPictogramAudio` path as a recording — downstream (outbox,
 caching, playback, fallback) cannot tell the two apart.
 
+Privacy: generating sends the pictogram's label — parent-authored text
+that can be personal (names, routines) — to the provider (Microsoft
+Azure, EU region `northeurope`). The function does not log labels, and
+nothing else leaves the device. Any parent-facing privacy text must name
+this sub-processor while the feature exists.
+
 The provider is swappable by design. The client knows only the function
 name and the `{ label, language }` wire contract
 (`src/lib/queries/generateVoice.ts`). Inside the function, the `Synthesize`

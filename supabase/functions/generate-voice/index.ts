@@ -125,10 +125,13 @@ export const handleRequest = async (
 
 if (import.meta.main) {
   const url = Deno.env.get('SUPABASE_URL');
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  // Anon key, deliberately: the only Supabase call here is auth.getUser
+  // with the caller's own JWT. delete-account needs service role to purge
+  // users and buckets; a bug in this handler should run with RLS intact.
+  const key = Deno.env.get('SUPABASE_ANON_KEY');
   if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
+    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set');
   }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  Deno.serve((req) => handleRequest(req, admin));
+  const client = createClient(url, key, { auth: { persistSession: false } });
+  Deno.serve((req) => handleRequest(req, client));
 }

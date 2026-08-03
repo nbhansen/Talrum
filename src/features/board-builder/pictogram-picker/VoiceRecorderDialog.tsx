@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react';
 
-import { getAppLanguage } from '@/lib/language';
+import { getVoiceLanguage, isAppLanguage } from '@/lib/language';
 import { playPictogramAudio } from '@/lib/platform/audio';
 import {
   extensionForMime,
@@ -165,9 +165,14 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     }
     setMode('generating');
     try {
+      // getVoiceLanguage, not getAppLanguage: the voice should match what
+      // the TTS fallback would speak, not the language of parent-UI copy.
+      // Clamped to the function's closed set — for a locale we have no
+      // neural voice for, English is the least-wrong default.
+      const voiceLang = getVoiceLanguage();
       const blob = await genMut.mutateAsync({
         label: picto.label,
-        language: getAppLanguage(),
+        language: isAppLanguage(voiceLang) ? voiceLang : 'en',
       });
       if (!openRef.current) return;
       // The state swap revokes the previous preview's URL via the effect above.

@@ -5,8 +5,6 @@
  * change the other.
  */
 
-export const GENERATE_VOICE_FUNCTION_NAME = 'generate-voice';
-
 /** Languages the function accepts. A closed set: the value picks a voice. */
 export const VOICE_LANGUAGES = ['da', 'en'] as const;
 export type VoiceLanguage = (typeof VOICE_LANGUAGES)[number];
