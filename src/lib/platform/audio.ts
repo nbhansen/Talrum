@@ -15,13 +15,16 @@ let currentObjectUrl: string | null = null;
  */
 export const playPictogramAudio = async (path: string): Promise<void> => {
   const url = await signedUrlFor(AUDIO_BUCKET, path);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
-  const blob = await res.blob();
+  // Stop the previous clip before any fallible IO: if the fetch below throws,
+  // speakPictogram falls back to TTS, and a still-playing clip would talk
+  // over it.
   if (current) {
     current.pause();
     current.src = '';
   }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`audio fetch failed with status ${res.status}`);
+  const blob = await res.blob();
   // Revoke the previous clip's object URL, or every tap leaks one blob.
   if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
   currentObjectUrl = URL.createObjectURL(blob);

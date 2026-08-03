@@ -83,6 +83,17 @@ describe('playPictogramAudio', () => {
     expect(play).not.toHaveBeenCalled();
   });
 
+  it('stops the previous clip even when the next fetch fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(okResponse(new Blob(['a'])));
+    await playPictogramAudio('u/a.webm');
+
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError('offline'));
+    await expect(playPictogramAudio('u/b.webm')).rejects.toThrow('offline');
+
+    // The TTS fallback fires next; the old clip must not talk over it.
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
   it('stops the previous clip and revokes its object URL on the next play', async () => {
     vi.mocked(fetch).mockResolvedValue(okResponse(new Blob(['a'])));
     await playPictogramAudio('u/a.webm');
