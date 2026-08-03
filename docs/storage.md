@@ -36,7 +36,7 @@ signedUrlFor(bucket, path)          src/lib/storage/storage.ts
 ```
 
 Audio takes the same path minus the hook: `playPictogramAudio` in
-`src/lib/audio.ts` awaits `signedUrlFor` directly.
+`src/lib/platform/audio.ts` awaits `signedUrlFor` directly.
 
 ## The three tiers
 

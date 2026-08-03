@@ -3,7 +3,7 @@ import { type JSX, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const captureExceptionMock = vi.fn();
-vi.mock('@/lib/telemetry', () => ({
+vi.mock('@/lib/platform/telemetry', () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 

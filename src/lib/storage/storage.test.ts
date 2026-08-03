@@ -21,7 +21,7 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { storage: { from: (bucket: string) => fromMock(bucket) } },
 }));
 
-vi.mock('@/lib/telemetry', () => ({
+vi.mock('@/lib/platform/telemetry', () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 

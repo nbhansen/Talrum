@@ -1,14 +1,14 @@
 import { type JSX, useCallback, useEffect, useState } from 'react';
 
-import { playPictogramAudio } from '@/lib/audio';
-import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
+import { playPictogramAudio } from '@/lib/platform/audio';
 import {
   extensionForMime,
   isRecordingSupported,
   MAX_RECORDING_MS,
   type Recording,
   startRecording,
-} from '@/lib/recording';
+} from '@/lib/platform/recording';
+import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';

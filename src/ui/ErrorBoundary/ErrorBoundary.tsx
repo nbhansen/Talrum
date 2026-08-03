@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-import { captureException } from '@/lib/telemetry';
+import { captureException } from '@/lib/platform/telemetry';
 
 interface Props {
   children: ReactNode;

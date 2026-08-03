@@ -6,8 +6,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { startOutbox } from '@/lib/outbox';
-import { registerServiceWorker } from '@/lib/serviceWorker';
-import { initTelemetry } from '@/lib/telemetry';
+import { registerServiceWorker } from '@/lib/platform/serviceWorker';
+import { initTelemetry } from '@/lib/platform/telemetry';
 
 import { App } from './App';
 

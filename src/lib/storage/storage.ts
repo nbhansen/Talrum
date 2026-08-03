@@ -1,8 +1,8 @@
 import { del, get, set } from 'idb-keyval';
 import { ulid } from 'ulid';
 
+import { captureException } from '@/lib/platform/telemetry';
 import { supabase } from '@/lib/supabase';
-import { captureException } from '@/lib/telemetry';
 
 import { type SignedUrlEntry, signedUrlMemCache as memCache } from './storage-cache';
 

@@ -54,7 +54,7 @@ vi.mock('@/lib/queryClient', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/telemetry', () => ({
+vi.mock('@/lib/platform/telemetry', () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 

@@ -9,8 +9,10 @@
  * present.
  */
 
-import { getVoiceLanguage, primarySubtag } from './language';
-import { getSpeechPrefs } from './speechPrefs';
+// Relative (not @/lib) imports: vitest.setup.ts imports this module, and
+// tsconfig.node.json has no @ path alias. Same constraint as storage-cache.ts.
+import { getVoiceLanguage, primarySubtag } from '../language';
+import { getSpeechPrefs } from '../speechPrefs';
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
 let cachedVoiceLang: string | null = null;

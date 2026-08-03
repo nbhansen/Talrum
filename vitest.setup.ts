@@ -11,7 +11,7 @@ import { afterEach, vi } from 'vitest';
 
 import { __resetBoardClockForTests } from './src/lib/outbox/board-clock';
 import { __resetDrainForTests } from './src/lib/outbox/drain-state';
-import { __resetSpeechForTests } from './src/lib/speech';
+import { __resetSpeechForTests } from './src/lib/platform/speech';
 import { __resetSignedUrlCache } from './src/lib/storage/storage-cache';
 
 // Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
