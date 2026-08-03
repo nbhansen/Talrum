@@ -8,7 +8,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(85);
+SELECT plan(88);
 
 -- 1–16: authenticated has full CRUD on the four real app tables.
 SELECT ok(has_table_privilege('authenticated', 'public.kids',          'SELECT'), 'authenticated can SELECT kids');
@@ -141,6 +141,16 @@ SELECT ok(has_function_privilege('anon',          'private.is_board_member(uuid)
 SELECT ok(has_function_privilege('anon',          'private.is_board_editor(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_editor (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'anon keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+
+-- 86–88: USAGE on the `private` schema itself. The other documented half of
+-- the same crash contract: without USAGE the role cannot resolve the
+-- qualified helper name during policy evaluation, and the backend-crash
+-- failure mode reappears (20260427145144_move_helpers_to_private_schema.sql).
+-- The EXECUTE pins above read the function ACL only and stay green through
+-- a schema-level revoke.
+SELECT ok(has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated keeps USAGE on private (RLS evaluation)');
+SELECT ok(has_schema_privilege('anon',          'private', 'USAGE'), 'anon keeps USAGE on private (RLS evaluation)');
+SELECT ok(has_schema_privilege('service_role',  'private', 'USAGE'), 'service_role keeps USAGE on private');
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -15,7 +15,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(4);
+SELECT plan(5);
 
 INSERT INTO auth.users (id, email)
 VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'alice@test.local');
@@ -57,7 +57,7 @@ SELECT cmp_ok(
   'UPDATE moves updated_at forward'
 );
 
--- ── 3. A client cannot backdate updated_at through the API path ────────────
+-- ── 3-4. A client cannot backdate updated_at through the API path ──────────
 -- Run as authenticated Alice, the production write path. A stale client
 -- sending its own updated_at must not win — the trigger overrides it, so
 -- every landed write stales the #281 guard on other clients.
@@ -70,6 +70,15 @@ UPDATE public.boards
  WHERE id = 'eeeeeeee-0000-4000-8000-000000000401';
 RESET ROLE;
 
+-- Floor check: assertion 2 already left updated_at = now(), so the override
+-- assertion below passes vacuously if RLS denies the UPDATE (zero rows).
+-- Pin that the write landed, same shape as handle_new_user_test.sql.
+SELECT is(
+  (SELECT name FROM public.boards
+    WHERE id = 'eeeeeeee-0000-4000-8000-000000000401'),
+  'Renamed again',
+  'setup: the authenticated UPDATE landed (RLS allowed the owner write)'
+);
 SELECT is(
   (SELECT updated_at FROM public.boards
     WHERE id = 'eeeeeeee-0000-4000-8000-000000000401'),
