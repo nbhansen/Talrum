@@ -5,8 +5,15 @@
 // temporary file with three imports that MUST each produce a boundaries
 // error and fails the build if any of them lints clean.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { globSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+// Sweep leftovers from a SIGKILLed run first: eslint does not read
+// .gitignore, so a stale canary would fail the next `npm run lint`. The
+// random mkdtemp suffix means a leftover is never reused.
+for (const stale of globSync('src/ui/boundary-canary-*/')) {
+  rmSync(stale, { recursive: true, force: true });
+}
 
 // Inside src/ui/ so the file classifies as the `ui` element. No leading dot
 // (eslint skips dotfolders); the name must not match the test globs.
