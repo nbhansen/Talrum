@@ -60,14 +60,19 @@ renders from `URL.createObjectURL` until the outbox uploads the real blob.
 
 When minting fails (offline, transient network), `signedUrlFor` returns the
 expired entry instead of throwing. That sounds wrong — the token is dead —
-but the service worker makes it safe: the stale URL is the exact URL whose
-response the SW cached on the last successful load — the cache keys include
-the `?token=...` query on purpose (see the `matchOptions` note in
-vite.config.ts), and returning the persisted URL reproduces that exact key.
-The request never reaches Supabase; the SW answers from
-`talrum-storage-v1`. The two caches are complementary: the URL cache keeps
-the _request_ stable so the SW cache can keep serving the _bytes_. Only an
-object never loaded on this device is genuinely unreachable offline.
+but the service worker makes it safe: the persisted URL is the one the
+last successful _mint_ produced, and the cache keys include the
+`?token=...` query on purpose (see the `matchOptions` note in
+vite.config.ts) — so when that URL also served the last successful load
+(the common case), returning it reproduces the exact cache key, the SW
+answers from `talrum-storage-v1`, and the request never reaches Supabase.
+The two can desync: a mint that succeeds right before the load after it
+fails leaves the cached bytes keyed under the _previous_ URL, unreachable
+until that token expires or a load succeeds again. The cost is a
+placeholder (photos) or the TTS fallback (audio) for up to an hour, not an
+error. The two caches are complementary: the URL cache keeps the _request_
+stable so the SW cache can keep serving the _bytes_. Only an object never
+loaded on this device is genuinely unreachable offline.
 
 ## The `stock:` sentinel
 
