@@ -2,7 +2,7 @@ import type { Query } from '@tanstack/react-query';
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
 import { del, get, keys, set } from 'idb-keyval';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getLastBoard, setLastBoard } from './lastBoard';
 import { hasPin, setPin } from './pin';
@@ -98,6 +98,20 @@ describe('persistOptions.shouldDehydrateQuery', () => {
 });
 
 describe('clearPersistedCache', () => {
+  // jsdom has no Cache Storage; stub the two methods the scrub uses.
+  const stubCaches = (names: string[]): Set<string> => {
+    const live = new Set(names);
+    vi.stubGlobal('caches', {
+      keys: () => Promise.resolve([...live]),
+      delete: (name: string) => Promise.resolve(live.delete(name)),
+    });
+    return live;
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('wipes cache, PIN, last-board, and the per-user IDB stripes but leaves foreign keys alone', async () => {
     // Simulate user A's device state.
     queryClient.setQueryData(['boards'], [{ id: 'b1' }]);
@@ -123,6 +137,23 @@ describe('clearPersistedCache', () => {
     expect(await get('some-other-feature')).toBe('keep-me');
   });
 
+  it('deletes the SW storage cache by prefix but leaves the app-shell precache alone (#380)', async () => {
+    const live = stubCaches([
+      'talrum-storage-v1',
+      // A hypothetical future bump that a literal-name delete would orphan.
+      'talrum-storage-v2',
+      // The precache is not per-user; deleting it would strip offline mode
+      // from the app shell for the next user.
+      'workbox-precache-v2-https://talrum.pages.dev/',
+    ]);
+
+    await clearPersistedCache();
+
+    expect([...live]).toEqual(['workbox-precache-v2-https://talrum.pages.dev/']);
+  });
+
+  // Also covers the no-Cache-Storage path: no stub is installed here, so
+  // `caches` is undefined, as in jsdom and non-secure browsing contexts.
   it('is idempotent on an already-clean device', async () => {
     await expect(clearPersistedCache()).resolves.toBeUndefined();
     await expect(clearPersistedCache()).resolves.toBeUndefined();

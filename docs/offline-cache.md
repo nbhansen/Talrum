@@ -134,17 +134,18 @@ The scrub wipes every per-user stripe, not just the query cache:
   mode by A's PIN.
 - The last-board pointer (`clearLastBoard`, #178) — otherwise B's
   auto-launch lands on A's board UUID, which 404s under RLS.
+- The SW storage cache (#380) — A's photo and recording bytes, keyed by
+  signed URL. Deleted by prefix (`talrum-storage`) rather than the literal
+  name in vite.config.ts, so a future `-v2` bump cannot orphan the old
+  cache — Workbox's `cleanupOutdatedCaches` covers only the precache. The
+  precache itself (`workbox-precache-*`) is not per-user and stays.
 
-The localStorage clears are synchronous; the IDB deletes race the next
-sign-in's hydration, which is fine because every operation is idempotent.
+The localStorage clears are synchronous; the IDB and Cache Storage deletes
+race the next sign-in's hydration, which is fine because every operation is
+idempotent.
 
 ## Known limits
 
 - The scrub is per-tab-triggered but the stores are per-origin; a second
   tab signed in as A while this tab switches to B is out of scope (Supabase
   auth broadcasts the sign-out across tabs anyway).
-- The SW `talrum-storage-v1` cache is _not_ wiped at auth boundaries: it
-  holds bytes keyed by storage URL, and reaching them requires a path from
-  the (wiped) data and signed-URL caches. The cache's own expiry eventually
-  evicts them. This was dormant until #355 made the cache actually
-  populate; #380 tracks adding it to the scrub.
