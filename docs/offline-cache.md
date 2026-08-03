@@ -32,12 +32,16 @@ re-issues the same URL and the SW cache key stays stable.
 
 That fourth stripe is what makes the third one work offline, and the two
 are easy to mistake for redundant. A signed URL carries a `?token=` that
-rotates hourly, so the cache key changes every time one is minted. Offline
-the app never gets that far: `signedUrlFor` tries to re-mint, fails, and
-returns the last URL it persisted — which is exactly the key already
-sitting in the SW cache, expired token and all. `CacheFirst` never looks at
-the token, so the bytes come back. That is the whole mechanism behind "kid
-mode works in the car".
+rotates hourly, and the SW cache keys include it — deliberately, see the
+`matchOptions` note in vite.config.ts. Offline the app never mints:
+`signedUrlFor` fails to re-mint and returns the last URL it persisted.
+When that URL also served the last successful load — the common case — it
+reproduces the exact cache key and the bytes come back, expired token and
+all. The two stripes can desync: a mint that succeeds right before a load
+that fails strands the bytes under the previous key for up to an hour
+(see [storage.md](./storage.md)). The cost is a placeholder or the TTS
+fallback, never an error. That is the whole mechanism behind "kid mode
+works in the car".
 
 Two things about this cache are easy to break and impossible to see from a
 test (#355), so both are asserted at build time by
@@ -59,7 +63,10 @@ always requests audio with a `Range` header, Supabase answers `206 Partial
 Content`, and `cache.put` rejects a 206 outright — so `playPictogramAudio`
 fetches the clip itself (a plain CORS 200 the route can store) and plays
 the bytes through a blob object URL. When the fetch fails and the cache has
-no copy, `speakPictogram` falls back to TTS.
+no copy, `speakPictogram` falls back to TTS. Recordings share the photos'
+`maxEntries: 200` LRU budget, so a pictogram with both a photo and a
+recording takes two entries plus hourly rotation duplicates — revisiting
+the cap before libraries grow is tracked in #266.
 
 ## The persister
 
