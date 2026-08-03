@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
 import { type AdminClient, deleteAccount } from './deleteAccount.ts';
 import { type DeleteResponse, DeletionError, type ErrorCode } from './types.ts';
 
@@ -12,13 +13,13 @@ type AdminLike = Pick<AdminClient, 'auth'>;
 const errorResponse = (code: ErrorCode, message: string, status: number): Response =>
   new Response(JSON.stringify({ ok: false, error: code, message } satisfies DeleteResponse), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...corsHeaders },
   });
 
 const okResponse = (): Response =>
   new Response(JSON.stringify({ ok: true } satisfies DeleteResponse), {
     status: 200,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...corsHeaders },
   });
 
 const logFailure = (userId: string | null, step: string, error: unknown): void => {
@@ -66,6 +67,11 @@ export const handleRequest = async (
   const start = Date.now();
   let userId: string | null = null;
   try {
+    // Before any method or auth check: the browser's preflight carries no
+    // Authorization header, and a non-2xx kills the real request (#435).
+    if (req.method === 'OPTIONS') {
+      return preflightResponse();
+    }
     if (req.method !== 'POST') {
       return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
     }

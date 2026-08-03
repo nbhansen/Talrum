@@ -34,6 +34,24 @@ const errorCode = async (res: Response): Promise<string> => {
   return body.error;
 };
 
+Deno.test('answers the CORS preflight before any auth check (#435)', async () => {
+  const res = await handleRequest(
+    new Request('http://localhost/generate-voice', { method: 'OPTIONS' }),
+    noUserAdmin,
+    okSynth,
+  );
+  assertEquals(res.status, 204);
+  assertEquals(res.headers.get('access-control-allow-origin'), '*');
+  assertEquals(res.headers.get('access-control-allow-headers')?.includes('authorization'), true);
+});
+
+Deno.test('every response carries the CORS origin header (#435)', async () => {
+  const err = await handleRequest(request({ label: '', language: 'da' }), goodAdmin, okSynth);
+  assertEquals(err.headers.get('access-control-allow-origin'), '*');
+  const ok = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin, okSynth);
+  assertEquals(ok.headers.get('access-control-allow-origin'), '*');
+});
+
 Deno.test('rejects non-POST', async () => {
   const res = await handleRequest(
     new Request('http://localhost/generate-voice', { method: 'GET' }),

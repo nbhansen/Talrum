@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { encodeBase64 } from 'std/encoding/base64';
 
+import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
 import { synthesizeWithAzure } from './azure.ts';
 import {
   type ErrorCode,
@@ -33,7 +34,7 @@ interface AuthLike {
 const errorResponse = (code: ErrorCode, message: string, status: number): Response =>
   new Response(JSON.stringify({ ok: false, error: code, message } satisfies ErrorResponse), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...corsHeaders },
   });
 
 const logFailure = (userId: string | null, step: string, error: unknown): void => {
@@ -59,6 +60,11 @@ export const handleRequest = async (
 ): Promise<Response> => {
   let userId: string | null = null;
   try {
+    // Before any method or auth check: the browser's preflight carries no
+    // Authorization header, and a non-2xx kills the real request (#435).
+    if (req.method === 'OPTIONS') {
+      return preflightResponse();
+    }
     if (req.method !== 'POST') {
       return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
     }
@@ -111,7 +117,7 @@ export const handleRequest = async (
     const payload: SuccessResponse = { ok: true, mimeType, audioBase64: encodeBase64(bytes) };
     return new Response(JSON.stringify(payload), {
       status: 200,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...corsHeaders },
     });
   } catch (err) {
     if (err instanceof SynthesisError) {
