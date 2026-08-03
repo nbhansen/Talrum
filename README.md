@@ -119,8 +119,9 @@ Top layer to bottom:
 | `theme/`, `types/` | CSS design tokens; domain types + generated `supabase.ts` (regenerate with `npm run types:db`, never edit).                                                                             |
 | `supabase/`        | Outside `src/`: config, migrations, seed.sql, pgTAP tests, edge functions.                                                                                                              |
 
-Data-access rules — pinned by `no-restricted-imports` / `no-restricted-syntax`
-in `eslint.config.js`:
+Data-access rules — pinned by the `boundaries/dependencies` layer policies in
+`eslint.config.js` (one declared layer map; it covers alias and relative
+imports, and test files):
 
 - DB reads go through `src/lib/queries/*` (react-query hooks) — conventions
   and the write-pattern decision guide are in
