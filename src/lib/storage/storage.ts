@@ -1,8 +1,9 @@
 import { del, get, set } from 'idb-keyval';
 import { ulid } from 'ulid';
 
-import { supabase } from '../supabase';
-import { captureException } from '../telemetry';
+import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/telemetry';
+
 import { type SignedUrlEntry, signedUrlMemCache as memCache } from './storage-cache';
 
 export const AUDIO_BUCKET = 'pictogram-audio';

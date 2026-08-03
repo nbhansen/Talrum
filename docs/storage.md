@@ -19,7 +19,7 @@ cached, persisted, and, when all else fails, served stale.
 ## The shape
 
 ```
-<PictogramMedia>                    src/ui/PictoTile/PictogramMedia.tsx
+<PictogramMedia>                    src/widgets/PictoTile/PictogramMedia.tsx
   │ stock: sentinel → bundled /seed-photos/<slug>.jpg, no Supabase at all
   ▼
 useSignedUrl(bucket, path)          src/lib/storage/useSignedUrl.ts
