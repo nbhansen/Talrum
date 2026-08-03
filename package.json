@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint . --max-warnings 0",
+    "lint:boundaries": "node scripts/verify-boundaries.mjs",
     "lint:css": "stylelint \"src/**/*.module.css\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

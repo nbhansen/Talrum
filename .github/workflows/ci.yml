@@ -43,6 +43,10 @@ jobs:
           fi
       - run: npm run typecheck
       - run: npm run lint
+      # Canary for the layer map (#397): a resolver failure would silently
+      # no-op boundaries/dependencies while lint stays green. This asserts a
+      # known violation still errors.
+      - run: npm run lint:boundaries
       - run: npm run lint:css
       # Nothing enforced prettier before (#382): lint-staged's glob was
       # root-only, so anything under src/ or .github/ drifted unnoticed and
