@@ -82,6 +82,26 @@ across platforms), the heuristic silently takes over. The settings UI uses
 `subscribeVoices` / `getAvailableVoices` to re-render when the async list
 arrives, and tests reset module state with `__resetSpeechForTests`.
 
+## Generated voices (#422)
+
+The record dialog can also _generate_ a clip: `Generate voice` sends the
+pictogram's label to the `generate-voice` edge function, which returns MP3
+bytes from a neural TTS voice (a good `da-DK` voice is the whole point —
+device TTS for Danish is poor or missing). The parent listens to a preview;
+nothing is written anywhere until they save, and saving goes through the
+same `useSetPictogramAudio` path as a recording — downstream (outbox,
+caching, playback, fallback) cannot tell the two apart.
+
+The provider is swappable by design. The client knows only the function
+name and the `{ label, language }` wire contract
+(`src/lib/queries/generateVoice.ts`). Inside the function, the `Synthesize`
+type in `supabase/functions/generate-voice/types.ts` is the seam;
+`azure.ts` (Azure AI Speech) is the only file in the repository that knows
+which vendor runs. To swap: implement the signature in a new file, change
+one import in `index.ts`. The voice per language is fixed on purpose — a
+generated voice joins a learned symbol system, so the same label must sound
+the same on every generation.
+
 ## Kid copy: one file, one audit point
 
 Every string a kid can see lives in `src/lib/kidCopy.ts` — one `KidCopy`

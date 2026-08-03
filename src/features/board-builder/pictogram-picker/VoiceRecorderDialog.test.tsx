@@ -41,6 +41,11 @@ const maybeSingleMock = vi.fn<
   }>
 >();
 
+// Boundary for the generate-voice edge function (#422): supabase-js parses
+// its audio/mpeg response into a Blob before user code sees it.
+const invokeMock =
+  vi.fn<(name: string, opts: unknown) => Promise<{ data: Blob | null; error: MockError | null }>>();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
@@ -53,6 +58,8 @@ vi.mock('@/lib/supabase', () => ({
         return { upload: uploadMock, remove: removeMock };
       },
     },
+    // Lazy: the factory is hoisted and runs before `invokeMock` initializes.
+    functions: { invoke: (name: string, opts: unknown) => invokeMock(name, opts) },
   },
 }));
 
@@ -127,6 +134,7 @@ beforeEach(() => {
   playMock.mockReset().mockResolvedValue(undefined);
   supportedMock.mockReset().mockReturnValue(true);
   startMock.mockReset();
+  invokeMock.mockReset();
 });
 
 describe('VoiceRecorderDialog', () => {
@@ -323,5 +331,79 @@ describe('VoiceRecorderDialog', () => {
     unmount();
 
     expect(rec.cancel).toHaveBeenCalled();
+  });
+
+  describe('generated voice (#422)', () => {
+    const generatedBlob = (): Blob => new Blob(['generated-mp3'], { type: 'audio/mpeg' });
+
+    it('generates a preview and writes nothing until the parent saves', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(await screen.findByText(/Voice ready/)).toBeInTheDocument();
+      expect(invokeMock).toHaveBeenCalledWith('generate-voice', {
+        body: { label: 'Brush teeth', language: 'en' },
+      });
+      // The core promise of the flow: preview first, no writes yet.
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('saving the preview uploads it as .mp3 through the normal audio path', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+      await screen.findByText(/Voice ready/);
+      await user.click(screen.getByRole('button', { name: /save voice/i }));
+
+      await waitFor(() => {
+        expect(uploadMock).toHaveBeenCalledTimes(1);
+      });
+      const [path, blob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
+      expect(path).toMatch(/\/p1-[0-9A-HJKMNP-TV-Z]{26}\.mp3$/);
+      expect(blob.type).toBe('audio/mpeg');
+      expect(storageBucketsUsed).toContain('pictogram-audio');
+      await waitFor(() => {
+        expect(updatePatches).toContainEqual({ audio_path: path });
+      });
+      // The preview is consumed; the pad returns to its idle layout.
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
+      });
+    });
+
+    it('discarding the preview writes nothing and returns to idle', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({ data: generatedBlob(), error: null });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+      await screen.findByText(/Voice ready/);
+      await user.click(screen.getByRole('button', { name: /discard/i }));
+
+      expect(screen.queryByText(/Voice ready/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a generation failure and lets the user retry', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockResolvedValue({
+        data: null,
+        error: { message: 'boom', statusCode: 502 },
+      });
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(await screen.findByText(/Could not generate a voice/)).toBeInTheDocument();
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: /generate voice/i })).toBeEnabled();
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react';
 
+import { getAppLanguage } from '@/lib/language';
 import { playPictogramAudio } from '@/lib/platform/audio';
 import {
   extensionForMime,
@@ -8,11 +9,12 @@ import {
   type Recording,
   startRecording,
 } from '@/lib/platform/recording';
+import { useGenerateVoice } from '@/lib/queries/generateVoice';
 import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
-import { MicIcon, PlayIcon, StopIcon, TrashIcon } from '@/ui/icons';
+import { CheckIcon, MicIcon, PlayIcon, SparkleIcon, StopIcon, TrashIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
@@ -23,16 +25,24 @@ interface Props {
   onClose: () => void;
 }
 
-type Mode = 'idle' | 'starting' | 'recording' | 'uploading' | 'playing';
+type Mode = 'idle' | 'starting' | 'recording' | 'generating' | 'uploading' | 'playing';
+
+/** A generated clip held for preview. Nothing is saved until the parent accepts. */
+interface GeneratedPreview {
+  blob: Blob;
+  url: string;
+}
 
 const TITLE_ID = 'tal-voice-recorder-title';
 
 export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   const [mode, setMode] = useState<Mode>('idle');
   const [rec, setRec] = useState<Recording | null>(null);
+  const [preview, setPreview] = useState<GeneratedPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const saveMut = useSetPictogramAudio();
   const clearMut = useClearPictogramAudio();
+  const genMut = useGenerateVoice();
   // mutateAsync is referentially stable; depending on `saveMut` itself would
   // recreate `stop` every render and reset the cap timer below.
   const { mutateAsync: saveAudio } = saveMut;
@@ -44,6 +54,13 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
       rec?.cancel();
     };
   }, [rec]);
+
+  // The preview blob URL must not outlive the preview (or the dialog).
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
 
   const start = async (): Promise<void> => {
     setError(null);
@@ -114,8 +131,54 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     }
   };
 
+  const generate = async (): Promise<void> => {
+    setError(null);
+    setMode('generating');
+    try {
+      const blob = await genMut.mutateAsync({
+        label: picto.label,
+        language: getAppLanguage(),
+      });
+      // The state swap revokes the previous preview's URL via the effect above.
+      setPreview({ blob, url: URL.createObjectURL(blob) });
+    } catch {
+      setError('Could not generate a voice. Check your connection and try again.');
+    } finally {
+      setMode('idle');
+    }
+  };
+
+  const playPreview = (): void => {
+    if (!preview) return;
+    setError(null);
+    new Audio(preview.url).play().catch(() => {
+      setError('Could not play the preview.');
+    });
+  };
+
+  const savePreview = async (): Promise<void> => {
+    if (!preview) return;
+    setMode('uploading');
+    try {
+      await saveAudio({ pictogramId: picto.id, blob: preview.blob, extension: 'mp3' });
+      setPreview(null);
+      setMode('idle');
+    } catch {
+      setMode('idle');
+      setError('Upload failed. Check your connection and try again.');
+    }
+  };
+
+  const discardPreview = (): void => {
+    setPreview(null);
+  };
+
   const busy =
-    mode === 'starting' || mode === 'uploading' || mode === 'playing' || clearMut.isPending;
+    mode === 'starting' ||
+    mode === 'generating' ||
+    mode === 'uploading' ||
+    mode === 'playing' ||
+    clearMut.isPending;
 
   return (
     <Modal onClose={onClose} labelledBy={TITLE_ID}>
@@ -141,6 +204,14 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
             <span className={styles.recDot} aria-live="polite">
               Recording… Stops after {MAX_RECORDING_MS / 1000} seconds.
             </span>
+          ) : mode === 'generating' ? (
+            <span className={styles.empty} aria-live="polite">
+              Generating a voice…
+            </span>
+          ) : preview ? (
+            <span className={styles.ok} aria-live="polite">
+              Voice ready — listen, then save or discard.
+            </span>
           ) : hasAudio ? (
             <span className={styles.ok}>Recording saved ✓</span>
           ) : (
@@ -155,29 +226,57 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
         )}
       </div>
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>
-          {hasAudio && mode !== 'recording' && (
-            <>
-              <Button variant="ghost" onClick={play} disabled={busy}>
-                <PlayIcon size={12} /> Play
+        {preview ? (
+          // A generated clip is waiting. Nothing else until the parent
+          // decides — saving and re-recording over an unheard preview are
+          // both mistakes this layout makes impossible.
+          <>
+            <div className={styles.footerLeft}>
+              <Button variant="ghost" onClick={playPreview} disabled={busy}>
+                <PlayIcon size={12} /> Listen
               </Button>
-              <Button variant="ghost" onClick={del} disabled={busy}>
-                <TrashIcon size={14} /> Delete
+            </div>
+            <div className={styles.footerRight}>
+              <Button variant="ghost" onClick={discardPreview} disabled={busy}>
+                <TrashIcon size={14} /> Discard
               </Button>
-            </>
-          )}
-        </div>
-        <div className={styles.footerRight}>
-          {mode === 'recording' ? (
-            <Button variant="primary" onClick={stop}>
-              <StopIcon size={14} /> Stop
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={start} disabled={!supported || busy}>
-              <MicIcon size={14} /> {hasAudio ? 'Re-record' : 'Record'}
-            </Button>
-          )}
-        </div>
+              <Button variant="primary" onClick={savePreview} disabled={busy}>
+                <CheckIcon size={14} /> Save voice
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={styles.footerLeft}>
+              {hasAudio && mode !== 'recording' && (
+                <>
+                  <Button variant="ghost" onClick={play} disabled={busy}>
+                    <PlayIcon size={12} /> Play
+                  </Button>
+                  <Button variant="ghost" onClick={del} disabled={busy}>
+                    <TrashIcon size={14} /> Delete
+                  </Button>
+                </>
+              )}
+            </div>
+            <div className={styles.footerRight}>
+              {mode === 'recording' ? (
+                <Button variant="primary" onClick={stop}>
+                  <StopIcon size={14} /> Stop
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={generate} disabled={busy}>
+                    <SparkleIcon size={14} /> Generate voice
+                  </Button>
+                  <Button variant="primary" onClick={start} disabled={!supported || busy}>
+                    <MicIcon size={14} /> {hasAudio ? 'Re-record' : 'Record'}
+                  </Button>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </footer>
     </Modal>
   );
