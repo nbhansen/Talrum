@@ -126,6 +126,20 @@ Deno.test('handler: GET → 405 method_not_allowed', async () => {
   assertEquals(body.error, 'method_not_allowed');
 });
 
+Deno.test('handler: OPTIONS preflight → 204 with CORS headers, no auth check (#435)', async () => {
+  const req = new Request('https://x.invalid/delete-account', { method: 'OPTIONS' });
+  const admin = makeAdminStub({});
+  const res = await handleRequest(req, admin, noopDelete);
+  assertEquals(res.status, 204);
+  assertEquals(res.headers.get('access-control-allow-origin'), '*');
+});
+
+Deno.test('handler: responses carry the CORS origin header (#435)', async () => {
+  const req = new Request('https://x.invalid/delete-account', { method: 'GET' });
+  const res = await handleRequest(req, makeAdminStub({}), noopDelete);
+  assertEquals(res.headers.get('access-control-allow-origin'), '*');
+});
+
 Deno.test('handler: DeletionError storage_purge_failed → 500 with code', async () => {
   const req = new Request('https://x.invalid/delete-account', {
     method: 'POST',
