@@ -133,7 +133,7 @@ in `eslint.config.js`:
   ([docs/storage.md](./docs/storage.md)).
 - Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
   live in `src/lib/auth/`.
-- The service worker is registered by `src/lib/serviceWorker.ts`, not by
+- The service worker is registered by `src/lib/platform/serviceWorker.ts`, not by
   vite-plugin-pwa's injected snippet (`injectRegister: false`) — that snippet
   had no `.catch()`, so a browser that blocks service workers raised an
   unhandled rejection (#375). A failed registration means no offline mode, so
@@ -220,7 +220,7 @@ Nothing deploys on PRs — both halves run only on push to `main`.
 
 **Observability**
 
-Production builds report errors to Sentry via `src/lib/telemetry.ts`. Dev
+Production builds report errors to Sentry via `src/lib/platform/telemetry.ts`. Dev
 builds and any build missing `VITE_SENTRY_DSN` no-op silently. Posture:
 
 - `sendDefaultPii: false`, no session replay, no traces — errors only.

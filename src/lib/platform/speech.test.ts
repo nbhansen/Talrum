@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { setLanguagePref } from './language';
+import { setLanguagePref } from '@/lib/language';
+import { setSpeechPrefs } from '@/lib/speechPrefs';
+
 import { __resetSpeechForTests, getAvailableVoices, isSpeechSupported, speak } from './speech';
-import { setSpeechPrefs } from './speechPrefs';
 
 interface FakeVoice {
   name: string;

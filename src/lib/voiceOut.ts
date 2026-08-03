@@ -1,7 +1,6 @@
+import { playPictogramAudio } from '@/lib/platform/audio';
+import { speak } from '@/lib/platform/speech';
 import type { Pictogram, VoiceMode } from '@/types/domain';
-
-import { playPictogramAudio } from './audio';
-import { speak } from './speech';
 
 /**
  * Single entry point both kid screens use to speak a pictogram.

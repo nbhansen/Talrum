@@ -3,9 +3,9 @@ import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } fr
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
+import { captureException } from '@/lib/platform/telemetry';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
-import { captureException } from '@/lib/telemetry';
 import { useOnline } from '@/lib/useOnline';
 import { Spinner } from '@/ui/Spinner/Spinner';
 

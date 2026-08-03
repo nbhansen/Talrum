@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as audio from './audio';
-import * as speech from './speech';
+import * as audio from '@/lib/platform/audio';
+import * as speech from '@/lib/platform/speech';
+
 import { speakPictogram } from './voiceOut';
 
-vi.mock('./speech', () => ({ speak: vi.fn() }));
-vi.mock('./audio', () => ({ playPictogramAudio: vi.fn() }));
+vi.mock('@/lib/platform/speech', () => ({ speak: vi.fn() }));
+vi.mock('@/lib/platform/audio', () => ({ playPictogramAudio: vi.fn() }));
 
 const illusPicto = {
   id: 'a',

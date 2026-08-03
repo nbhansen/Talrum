@@ -1,3 +1,4 @@
+import { captureException } from '@/lib/platform/telemetry';
 import {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
@@ -7,7 +8,6 @@ import {
   uploadBlob,
 } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-import { captureException } from '@/lib/telemetry';
 
 import { noteBoardUpdatedAt, resolveExpectedUpdatedAt } from './board-clock';
 import type {
@@ -414,7 +414,7 @@ export const HANDLER_TIMEOUT_MS = 30_000;
  * permanent `failed` (#414 review). The payloads are bounded by
  * construction: photos are re-encoded to 512px JPEG (~100 KB,
  * `src/lib/image.ts`) and recordings are capped at `MAX_RECORDING_MS`
- * (#416, `src/lib/recording.ts` — change the cap and this bound together),
+ * (#416, `src/lib/platform/recording.ts` — change the cap and this bound together),
  * so the worst clip is a few hundred KB, well inside 120 s on any usable
  * uplink. The headroom is for the slowest real uplinks; the bound's job is
  * hang detection.

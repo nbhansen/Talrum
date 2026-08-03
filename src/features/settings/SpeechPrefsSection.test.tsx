@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { __resetSpeechForTests } from '@/lib/speech';
+import { __resetSpeechForTests } from '@/lib/platform/speech';
 import { getSpeechPrefs } from '@/lib/speechPrefs';
 
 import { SpeechPrefsSection } from './SpeechPrefsSection';

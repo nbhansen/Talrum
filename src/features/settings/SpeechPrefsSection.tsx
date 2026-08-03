@@ -1,7 +1,12 @@
 import { type JSX, useEffect, useState } from 'react';
 
 import { getVoiceLanguage, primarySubtag } from '@/lib/language';
-import { getAvailableVoices, isSpeechSupported, speak, subscribeVoices } from '@/lib/speech';
+import {
+  getAvailableVoices,
+  isSpeechSupported,
+  speak,
+  subscribeVoices,
+} from '@/lib/platform/speech';
 import {
   clearSpeechPrefs,
   getSpeechPrefs,

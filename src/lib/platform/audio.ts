@@ -1,4 +1,4 @@
-import { AUDIO_BUCKET, signedUrlFor } from './storage';
+import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
 

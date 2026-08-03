@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
-import type * as recordingModule from '@/lib/recording';
+import type * as recordingModule from '@/lib/platform/recording';
 import type { Pictogram } from '@/types/domain';
 
 interface MockError {
@@ -58,14 +58,14 @@ vi.mock('@/lib/supabase', () => ({
 
 // Playback needs a real <audio> pipeline; the module is a 14-line signed-URL +
 // Audio wrapper. The dialog's contract is "call it, surface its failure".
-vi.mock('@/lib/audio', () => ({
+vi.mock('@/lib/platform/audio', () => ({
   playPictogramAudio: vi.fn(),
 }));
 
 // startRecording/isRecordingSupported have their own behavioral tests against
 // a fake MediaRecorder (recording.test.ts); here they're the seam that lets
 // the test steer permission-denied vs. captured-blob outcomes.
-vi.mock('@/lib/recording', async (importOriginal) => {
+vi.mock('@/lib/platform/recording', async (importOriginal) => {
   const actual = await importOriginal<typeof recordingModule>();
   return {
     ...actual,
@@ -74,8 +74,9 @@ vi.mock('@/lib/recording', async (importOriginal) => {
   };
 });
 
-const { playPictogramAudio } = await import('@/lib/audio');
-const { isRecordingSupported, MAX_RECORDING_MS, startRecording } = await import('@/lib/recording');
+const { playPictogramAudio } = await import('@/lib/platform/audio');
+const { isRecordingSupported, MAX_RECORDING_MS, startRecording } =
+  await import('@/lib/platform/recording');
 const { VoiceRecorderDialog } = await import('./VoiceRecorderDialog');
 
 const playMock = vi.mocked(playPictogramAudio);

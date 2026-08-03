@@ -88,7 +88,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const captureExceptionMock = vi.fn();
-vi.mock('@/lib/telemetry', () => ({
+vi.mock('@/lib/platform/telemetry', () => ({
   captureException: (err: unknown, ctx?: unknown) => captureExceptionMock(err, ctx),
 }));
 
