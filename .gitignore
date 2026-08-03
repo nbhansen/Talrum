@@ -27,3 +27,6 @@ skills-lock.json
 
 # Graphify output (local knowledge graph artifacts)
 graphify-out/
+
+# Temp fixture of scripts/verify-boundaries.mjs; left behind only on SIGKILL
+src/ui/boundary-canary-*/

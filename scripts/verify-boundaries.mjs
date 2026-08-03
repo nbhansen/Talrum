@@ -22,6 +22,15 @@ const cases = [
 
 writeFileSync(canary, cases.map((c) => c.line).join('\n') + '\n');
 
+// try/finally does not unwind on signals; without this, Ctrl-C during the
+// eslint call would orphan the canary inside src/ui/.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    rmSync(canaryDir, { recursive: true, force: true });
+    process.exit(1);
+  });
+}
+
 let report;
 try {
   let out;
