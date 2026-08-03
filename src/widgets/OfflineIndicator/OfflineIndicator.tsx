@@ -56,12 +56,17 @@ export const OfflineIndicator = (): JSX.Element | null => {
   // keep the queued label (#409): each one would otherwise flip the text
   // queued → Syncing… → queued, and this polite live region re-announces on
   // every text change — a one-minute outage reads out about six times.
-  // "Syncing…" stays for user- and event-driven drains only.
+  // "Syncing…" stays for user- and event-driven drains only — and for a
+  // timer drain that wakes to a queue another tab already emptied, where
+  // the steady label would read "Sync queued · 0" for one emit before the
+  // pill unmounts.
   return (
     <div role="status" className={`${styles.pill} ${styles.pillSyncing}`}>
       <span className={styles.dot} aria-hidden="true" />
       <span className={styles.label}>
-        {draining && !timerDrain ? 'Syncing…' : `Sync queued · ${pendingCount}`}
+        {draining && (!timerDrain || pendingCount === 0)
+          ? 'Syncing…'
+          : `Sync queued · ${pendingCount}`}
       </span>
     </div>
   );

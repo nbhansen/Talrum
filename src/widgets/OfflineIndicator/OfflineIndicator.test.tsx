@@ -66,6 +66,21 @@ describe('OfflineIndicator', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/Syncing/);
   });
 
+  it('never renders "Sync queued · 0" when a timer drain finds an emptied queue', () => {
+    // Another tab can drain the entry while this tab's retry timer is armed;
+    // the timer drain then starts with zero pending. The old "Syncing…" text
+    // is the only honest label for that emit.
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 0,
+      failedCount: 0,
+      draining: true,
+      timerDrain: true,
+    });
+    render(<OfflineIndicator />);
+    expect(screen.getByRole('status')).toHaveTextContent(/Syncing/);
+  });
+
   it('keeps the live-region text steady across a timer-driven re-drain (#409)', () => {
     // Walk one backoff cycle of a transient outage: queued (timer armed) →
     // timer drain running → transient again, queued. The polite live region
