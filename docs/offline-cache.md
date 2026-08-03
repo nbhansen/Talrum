@@ -139,6 +139,11 @@ The scrub wipes every per-user stripe, not just the query cache:
   name in vite.config.ts, so a future `-v2` bump cannot orphan the old
   cache — Workbox's `cleanupOutdatedCaches` covers only the precache. The
   precache itself (`workbox-precache-*`) is not per-user and stays.
+- Workbox's expiration index (#380) — the `workbox-expiration` IDB
+  database, one row per cached entry holding the full signed URL. The
+  delete can settle late (the SW holds an open connection until the
+  browser stops it), which is fine: the rows are unaddressable meanwhile,
+  and a late delete self-heals because every cache hit re-stamps its row.
 
 The localStorage clears are synchronous; the IDB and Cache Storage deletes
 race the next sign-in's hydration, which is fine because every operation is

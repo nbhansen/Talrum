@@ -127,4 +127,22 @@ const clearStorageCaches = async (): Promise<void> => {
   await Promise.all(
     names.filter((n) => n.startsWith('talrum-storage')).map((n) => caches.delete(n)),
   );
+  // Deleting the caches leaves Workbox's ExpirationPlugin index behind: one
+  // row per cached entry in the `workbox-expiration` IDB database, holding
+  // the full signed URL — the same per-user residue, one store over. Only
+  // the storage caches deleted above use that database, so drop it whole.
+  // The delete can wait: the SW holds an open connection and Workbox passes
+  // no `blocking` handler, so the request settles only when the browser
+  // stops the idle SW. Fine — AuthGate does not await this, the rows are
+  // unaddressable meanwhile, and a late delete that takes the next user's
+  // fresh rows self-heals because every cache hit re-stamps its row.
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase('workbox-expiration');
+    req.onsuccess = () => {
+      resolve();
+    };
+    req.onerror = () => {
+      reject(req.error ?? new Error('workbox-expiration delete failed'));
+    };
+  });
 };

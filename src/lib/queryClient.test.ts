@@ -152,6 +152,31 @@ describe('clearPersistedCache', () => {
     expect([...live]).toEqual(['workbox-precache-v2-https://talrum.pages.dev/']);
   });
 
+  it("drops Workbox's expiration index — its rows hold the user's signed URLs (#380)", async () => {
+    // Mimic what ExpirationPlugin leaves behind: an IDB database whose rows
+    // embed full signed storage URLs. The connection must close, or the
+    // scrub's deleteDatabase would wait on it.
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open('workbox-expiration', 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore('cache-entries', { keyPath: 'id' });
+      };
+      req.onsuccess = () => {
+        req.result.close();
+        resolve();
+      };
+      req.onerror = () => {
+        reject(req.error);
+      };
+    });
+    stubCaches([]);
+
+    await clearPersistedCache();
+
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).not.toContain('workbox-expiration');
+  });
+
   // Also covers the no-Cache-Storage path: no stub is installed here, so
   // `caches` is undefined, as in jsdom and non-secure browsing contexts.
   it('is idempotent on an already-clean device', async () => {
