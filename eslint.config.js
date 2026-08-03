@@ -152,6 +152,32 @@ const layerPolicies = [
     message: SUPABASE_PLUMBING_MSG,
   },
 
+  // ---- External packages (`checkAllOrigins: true` brings them in scope). ----
+  // Externals are free by default; the one exception is constructing a second
+  // supabase client, which would bypass the module ban above.
+  {
+    from: { element: { type: '*' } },
+    allow: { to: { module: { origin: 'external' } } },
+  },
+  {
+    from: { element: { type: '*' } },
+    allow: { to: { module: { origin: 'core' } } },
+  },
+  {
+    // Kind 'value' only: `import type { Session }` stays legal everywhere.
+    from: { element: { type: '*' } },
+    disallow: {
+      to: { module: { origin: 'external', source: '@supabase/supabase-js' } },
+      dependency: { kind: 'value' },
+    },
+    message:
+      'Do not construct a second supabase client: value imports from @supabase/supabase-js belong in lib/ (the app client lives in @/lib/supabase). Type imports are fine everywhere.',
+  },
+  {
+    from: { element: { types: { anyOf: allLib } } },
+    allow: { to: { module: { origin: 'external', source: '@supabase/supabase-js' } } },
+  },
+
   // ---- Narrow exceptions. Last match wins, so these go at the end. ----
   {
     // lib/ owns the client: queries, outbox, storage, and auth wrap it.
@@ -194,15 +220,9 @@ export default tseslint.config(
       },
     },
     plugins: {
-      boundaries,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'simple-import-sort': simpleImportSort,
-    },
-    settings: {
-      'import/resolver': { typescript: { alwaysTryTypes: true } },
-      'boundaries/elements': layerElements,
-      'boundaries/files': fileCategories,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -214,15 +234,6 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      'boundaries/dependencies': [
-        'error',
-        {
-          default: 'disallow',
-          message:
-            'Import violates the layer map (app → features → widgets/layouts → ui/lib → theme/types/glyphs). {{from.element.types.[0]}} may not import {{to.element.types.[0]}} — see the README architecture section and eslint.config.js.',
-          policies: layerPolicies,
-        },
-      ],
       // #218: prevent side-effect imports of .module.css — prod minification
       // drops their rules. Global CSS belongs in a plain .css file.
       'no-restricted-syntax': [
@@ -231,6 +242,30 @@ export default tseslint.config(
           selector: 'ImportDeclaration[specifiers.length=0][source.value=/\\.module\\.css$/]',
           message:
             'Side-effect import of a .module.css file. CSS Modules must be imported as `import styles from ...`. For global CSS, rename to plain .css.',
+        },
+      ],
+    },
+  },
+  {
+    // src/ only: `checkAllOrigins: true` evaluates external imports too, and
+    // files outside src/ (Deno edge functions, scripts, vitest.setup.ts) match
+    // no element, so their externals would hit the default disallow.
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { boundaries },
+    settings: {
+      'import/resolver': { typescript: { alwaysTryTypes: true } },
+      'boundaries/elements': layerElements,
+      'boundaries/files': fileCategories,
+    },
+    rules: {
+      'boundaries/dependencies': [
+        'error',
+        {
+          default: 'disallow',
+          checkAllOrigins: true,
+          message:
+            'Import violates the layer map (app → features → widgets/layouts → ui/lib → theme/types/glyphs). {{from.element.types.[0]}} may not import {{to.element.types.[0]}} — see the README architecture section and eslint.config.js.',
+          policies: layerPolicies,
         },
       ],
     },
