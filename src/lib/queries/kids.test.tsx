@@ -42,6 +42,9 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { from: (table: string) => fromMock(table) },
 }));
 
+vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
+const telemetry = await import('@/lib/platform/telemetry');
+
 // Import after the mock is registered.
 const { kidsQueryKey, setActiveKidId, useCreateKid, useDeleteKid, useKids, useRenameKid } =
   await import('./kids');
@@ -326,5 +329,48 @@ describe('useDeleteKid', () => {
       await result.current.mutateAsync({ kidId: 'k1' });
     });
     expect(localStorage.getItem('talrum:active-kid-id')).toBe('k2');
+  });
+});
+
+describe('active-kid persistence failure reporting (#359)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(telemetry.captureException).mockClear();
+  });
+
+  it('reports a localStorage write failure and does not throw', () => {
+    const quota = new Error('quota exceeded');
+    // vitest.setup.ts replaces localStorage with a plain shim, so spy on the
+    // object itself, not Storage.prototype.
+    const spy = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw quota;
+    });
+    try {
+      expect(() => setActiveKidId('k1')).not.toThrow();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(telemetry.captureException).toHaveBeenCalledExactlyOnceWith(quota, {
+      level: 'warning',
+      tags: { component: 'activeKid', op: 'write' },
+    });
+  });
+
+  it('reports a localStorage read failure and treats the stored id as absent', () => {
+    const denied = new Error('access denied');
+    const spy = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+      throw denied;
+    });
+    try {
+      // The failed read yields null, which equals the requested id, so the
+      // write path is never reached: only the read failure is reported.
+      expect(() => setActiveKidId(null)).not.toThrow();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(telemetry.captureException).toHaveBeenCalledExactlyOnceWith(denied, {
+      level: 'warning',
+      tags: { component: 'activeKid', op: 'read' },
+    });
   });
 });

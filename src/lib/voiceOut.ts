@@ -1,5 +1,6 @@
 import { playPictogramAudio } from '@/lib/platform/audio';
 import { speak } from '@/lib/platform/speech';
+import { captureException } from '@/lib/platform/telemetry';
 import type { Pictogram, VoiceMode } from '@/types/domain';
 
 /**
@@ -16,8 +17,11 @@ export const speakPictogram = async (picto: Pictogram, mode: VoiceMode): Promise
     try {
       await playPictogramAudio(picto.audioPath);
       return;
-    } catch {
-      // fall through to TTS
+    } catch (err) {
+      // Fall through to TTS for the user, but report it: a systematically
+      // broken recording (bad codec, 403 path, truncated upload) would
+      // otherwise degrade to TTS forever with no signal to anyone (#359).
+      captureException(err, { level: 'warning', tags: { component: 'voiceOut' } });
     }
   }
   speak(picto.label);
