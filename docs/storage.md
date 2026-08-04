@@ -115,7 +115,7 @@ image joins a learned symbol system, so it is generated once at authoring
 time and never regenerated at play time.
 
 Privacy: generating sends the typed label — parent-authored text that can
-be personal — to the provider (Microsoft Azure). The function does not log
+be personal — to the provider (Microsoft Azure, EU region `swedencentral`). The function does not log
 labels (the error path keeps only status + request id for exactly this
 reason), and nothing else leaves the device. Disclosed to parents in
 `docs/privacy-policy.md` §4 and §10 — keep policy and provider in sync if
