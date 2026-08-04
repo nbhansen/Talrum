@@ -5,13 +5,14 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
+import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 
 import styles from './PictoPicker.module.css';
 import { LibraryTab } from './tabs/LibraryTab';
 import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
-type PickerTab = 'library' | 'upload';
+type PickerTab = 'library' | 'upload' | 'generate';
 
 interface TabDef {
   value: PickerTab;
@@ -35,6 +36,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
   const tabs: readonly TabDef[] = [
     { value: 'library', label: 'Library', sub: isPending ? '' : `${pictograms.length}` },
     { value: 'upload', label: 'Upload', sub: 'Photo / image' },
+    { value: 'generate', label: 'Generate', sub: 'AI image' },
   ];
   // Keep the dialog's pictogram in sync with the query cache so `audio_path`
   // updates (record → save, delete) flow through without remounting.
@@ -61,7 +63,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Add pictograms"
-          subtitle="Pick from the library or upload a photo."
+          subtitle="Pick from the library, upload a photo, or generate an image."
           titleId={TITLE_ID}
           onClose={onClose}
           closeLabel="Close picker"
@@ -97,6 +99,7 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
           />
         )}
         {tab === 'upload' && <PictogramUpload />}
+        {tab === 'generate' && <PictogramGenerate />}
       </div>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>

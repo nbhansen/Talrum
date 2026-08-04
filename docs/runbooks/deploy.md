@@ -74,16 +74,27 @@ runtime picks up the new value on the next invocation; no redeploy
 or CLI action on our side.
 
 Custom (non-default) secrets a function might need go through
-`supabase secrets set` as documented upstream. Today there are two,
-both used by `generate-voice` (#422):
+`supabase secrets set` as documented upstream. Today there are five,
+all used by the generate functions (#422):
+
+For `generate-voice`:
 
 - `AZURE_SPEECH_KEY` — the key from the Azure Speech service page
   (portal.azure.com → the Speech resource → Keys and Endpoint).
 - `AZURE_SPEECH_REGION` — the data center picked at creation
   (`northeurope`).
 
-To rotate the key: regenerate it in the Azure portal, then
-`supabase secrets set AZURE_SPEECH_KEY=<new value>`. The runtime picks
+For `generate-image`:
+
+- `AZURE_OPENAI_KEY` — the key from the Azure OpenAI resource page
+  (portal.azure.com → the resource → Keys and Endpoint).
+- `AZURE_OPENAI_ENDPOINT` — the resource URL
+  (`https://<name>.openai.azure.com`).
+- `AZURE_OPENAI_IMAGE_DEPLOYMENT` — the deployment name typed when
+  deploying the image model (`gpt-image-1`).
+
+To rotate a key: regenerate it in the Azure portal, then
+`supabase secrets set <NAME>=<new value>`. The runtime picks
 up new secret values on the next invocation; no redeploy needed. The
 `delete-account` function has no custom secrets.
 
@@ -127,7 +138,8 @@ For `generate-voice`, add the Azure secrets to the same file
 (`AZURE_SPEECH_KEY=…`, `AZURE_SPEECH_REGION=northeurope`), then
 `supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
 Without them the function boots but every call returns
-`synthesis_failed`.
+`synthesis_failed`. `generate-image` works the same way with its three
+secrets; without them every call returns `generation_failed`.
 
 ## Manual fallback if workflows are broken
 

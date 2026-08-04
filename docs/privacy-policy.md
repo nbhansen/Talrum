@@ -4,7 +4,7 @@
 > service actually does today; it is not a warranty. If you need a
 > commitment beyond what is written here, ask before you use the service.
 
-**Effective date:** 3 August 2026
+**Effective date:** 4 August 2026
 
 ## 1. Who we are
 
@@ -63,6 +63,13 @@ Europe (Ireland)** region — inside the EU. Azure turns the text into audio
 and returns it; we do not log the label, and nothing else is sent. This
 happens only when you press the button, never automatically.
 
+When you use **Generate image**, the text label you type is sent to
+Microsoft Azure (our data processor for image generation) in an EU region.
+Azure turns the text into a pictogram image and returns it; we do not log
+the label, and nothing else is sent. This happens only when you press the
+button, never automatically, and nothing is saved unless you accept the
+preview.
+
 ## 5. Who has access
 
 - **You**, the caregiver, via a JSON Web Token bound to your account. Row
@@ -114,8 +121,9 @@ directly.
 We treat content describing children with heightened sensitivity: it is
 stored under the same RLS isolation as all other caregiver data and never
 used for analytics or advertising. It is not shared with third parties,
-with one exception you control: pressing **Generate voice** sends that
-pictogram's text label to Microsoft Azure for speech synthesis (section 4).
+with one exception you control: pressing **Generate voice** or **Generate
+image** sends that pictogram's text label to Microsoft Azure for speech
+synthesis or image generation (section 4).
 The service is operated from and for Denmark/the EU. It is not offered in the
 United States, so US-specific children's-privacy rules (COPPA) are not
 addressed here.
@@ -128,4 +136,4 @@ take effect.
 
 ## 12. Effective date
 
-1 August 2026.
+4 August 2026.
