@@ -8,11 +8,11 @@ export interface ProcessedImage {
   previewUrl: string;
 }
 
-const loadBitmap = async (file: File): Promise<ImageBitmap | HTMLImageElement> => {
+const loadBitmap = async (source: Blob): Promise<ImageBitmap | HTMLImageElement> => {
   if (typeof createImageBitmap === 'function') {
-    return createImageBitmap(file);
+    return createImageBitmap(source);
   }
-  const url = URL.createObjectURL(file);
+  const url = URL.createObjectURL(source);
   try {
     return await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
@@ -35,11 +35,12 @@ const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
   });
 
 /**
- * Decode the file, center-crop the largest square, downscale to OUTPUT_SIZE,
- * and re-encode as JPEG. Runs entirely client-side.
+ * Decode the image, center-crop the largest square, downscale to
+ * OUTPUT_SIZE, and re-encode as JPEG. Runs entirely client-side. Takes any
+ * Blob: a picked File or a generated image (#422).
  */
-export const cropToSquareJpeg = async (file: File): Promise<ProcessedImage> => {
-  const bitmap = await loadBitmap(file);
+export const cropToSquareJpeg = async (source: Blob): Promise<ProcessedImage> => {
+  const bitmap = await loadBitmap(source);
   const w = bitmap instanceof HTMLImageElement ? bitmap.naturalWidth : bitmap.width;
   const h = bitmap instanceof HTMLImageElement ? bitmap.naturalHeight : bitmap.height;
   const side = Math.min(w, h);

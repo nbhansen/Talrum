@@ -97,3 +97,38 @@ next render can't sign a URL for bytes that changed underneath it.
 `signed-url:` key at auth boundaries alongside the query cache and outbox —
 the entries reference the previous user's storage paths. The full sign-out
 wipe is documented in [offline-cache.md](./offline-cache.md).
+
+## Generated images (#422)
+
+The picker's Generate tab can draw a pictogram: the parent types a label,
+the `generate-image` edge function returns JPEG bytes from an image model,
+and the client crops them through the same `cropToSquareJpeg` pipeline as
+an uploaded photo. The parent sees the cropped result as a preview; nothing
+is written anywhere until they save, and saving goes through the same
+`useCreatePhotoPictogram` outbox path as an upload — downstream (outbox,
+caching, signed URLs) cannot tell the two apart.
+
+Every prompt goes through one fixed style template
+(`supabase/functions/generate-image/prompt.ts`), on purpose: generated
+pictograms must read as one visual system across a board, and a generated
+image joins a learned symbol system, so it is generated once at authoring
+time and never regenerated at play time.
+
+Privacy: generating sends the typed label — parent-authored text that can
+be personal — to the provider (Microsoft Azure, EU data zone: the
+deployment behind `AZURE_OPENAI_IMAGE_DEPLOYMENT` must be a Data Zone or
+regional deployment of an EU resource, never Global — see the deploy
+runbook). The function does not log
+labels (the error path keeps only status + request id for exactly this
+reason), and nothing else leaves the device. Disclosed to parents in
+`docs/privacy-policy.md` §4 and §10 — keep policy and provider in sync if
+either changes.
+
+The provider is swappable by design, mirroring `generate-voice` (see
+[speech.md](./speech.md)): the client knows only the function name and the
+`{ label }` wire contract (`src/lib/queries/generateImage.ts`); inside the
+function, the `GenerateImage` type in
+`supabase/functions/generate-image/types.ts` is the seam and `azure.ts`
+(Azure OpenAI) is the only file in the repository that knows which vendor
+runs. To swap: implement the signature in a new file, change one import in
+`index.ts`.
