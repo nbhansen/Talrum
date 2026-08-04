@@ -159,11 +159,30 @@ describe('PictogramGenerate · generate flow', () => {
 
   it('shows the server-failure copy for a generation_failed response', async () => {
     const user = userEvent.setup();
+    // A pre-mapped error, not a real 502 envelope: building a
+    // FunctionsHttpError here would need a value import from
+    // @supabase/supabase-js, which the boundary lint restricts to lib/.
+    // The 502-body → generation_failed mapping is covered in
+    // generateImage.test.ts; this test covers the widget's copy split.
     invokeMock.mockRejectedValue(new GenerateImageError('generation_failed', 'azure down'));
     renderGenerate();
 
     await typeAndGenerate(user);
 
+    expect(
+      await screen.findByText('Image generation failed. Try again in a moment.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the retry copy, not the connection copy, when the returned bytes cannot be decoded', async () => {
+    const user = userEvent.setup();
+    cropMock.mockRejectedValue(new Error('could not decode image'));
+    renderGenerate();
+
+    await typeAndGenerate(user);
+
+    // A crop/decode failure is not the connection's fault; "check your
+    // connection" would send the parent chasing wifi that is fine.
     expect(
       await screen.findByText('Image generation failed. Try again in a moment.'),
     ).toBeInTheDocument();

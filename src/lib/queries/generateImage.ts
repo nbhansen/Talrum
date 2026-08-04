@@ -20,8 +20,9 @@ import { supabase } from '@/lib/supabase';
 
 const GENERATE_IMAGE_FUNCTION_NAME = 'generate-image';
 
-/** Mirrors the function's cap; the tab checks it before a round trip. */
-export const MAX_LABEL_LENGTH = 60;
+// No client-side mirror of the function's 60-character label cap: the
+// Generate tab's input is capped at 40, the same as an upload label, so
+// the server cap cannot be hit from the UI.
 
 // The function's closed error codes, plus 'network' for a request that
 // never got a response — the one case that really is the connection's

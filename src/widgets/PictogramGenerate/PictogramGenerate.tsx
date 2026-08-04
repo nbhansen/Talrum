@@ -57,13 +57,15 @@ export const PictogramGenerate = (): JSX.Element => {
       // The state swap revokes the previous preview's URL via the effect above.
       setPreview(processed);
     } catch (err) {
-      // Only a request that never got a response blames the connection; a
-      // server-side failure told to "check your connection" sends the
-      // parent chasing wifi that is fine.
+      // Only a request that never got a response blames the connection; any
+      // other failure — server-side or a crop/decode error on the returned
+      // bytes — told to "check your connection" sends the parent chasing
+      // wifi that is fine. Retry is still the right advice for those:
+      // generation is non-deterministic, so the next attempt may decode.
       setError(
-        err instanceof GenerateImageError && err.code !== 'network'
-          ? 'Image generation failed. Try again in a moment.'
-          : 'Could not generate an image. Check your connection and try again.',
+        err instanceof GenerateImageError && err.code === 'network'
+          ? 'Could not generate an image. Check your connection and try again.'
+          : 'Image generation failed. Try again in a moment.',
       );
     } finally {
       setBusy(null);
