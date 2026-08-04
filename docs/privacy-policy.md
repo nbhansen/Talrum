@@ -64,8 +64,9 @@ and returns it; we do not log the label, and nothing else is sent. This
 happens only when you press the button, never automatically.
 
 When you use **Generate image**, the text label you type is sent to
-Microsoft Azure (our data processor for image generation) in its **Sweden
-Central (Sweden)** region — inside the EU.
+Microsoft Azure (our data processor for image generation) inside its **EU
+data zone** — Microsoft picks the data center per request, always within
+the EU.
 Azure turns the text into a pictogram image and returns it; we do not log
 the label, and nothing else is sent. This happens only when you press the
 button, never automatically, and nothing is saved unless you accept the

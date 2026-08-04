@@ -93,6 +93,7 @@ export const PictogramGenerate = (): JSX.Element => {
 
   const discard = (): void => {
     setPreview(null);
+    setError(null);
   };
 
   return (
@@ -105,7 +106,11 @@ export const PictogramGenerate = (): JSX.Element => {
             <div className={styles.hint}>
               This is how the pictogram will look. Save it, or discard and generate again.
             </div>
-            {error && <div className={styles.error}>{error}</div>}
+            {error && (
+              <div className={styles.error} role="alert">
+                {error}
+              </div>
+            )}
             <div className={styles.previewActions}>
               <Button variant="ghost" onClick={discard} disabled={busy !== null}>
                 Discard
@@ -144,7 +149,11 @@ export const PictogramGenerate = (): JSX.Element => {
               disabled={busy !== null}
             />
           </label>
-          {error && <div className={styles.error}>{error}</div>}
+          {error && (
+            <div className={styles.error} role="alert">
+              {error}
+            </div>
+          )}
           <div className={styles.formActions}>
             <Button
               variant="primary"

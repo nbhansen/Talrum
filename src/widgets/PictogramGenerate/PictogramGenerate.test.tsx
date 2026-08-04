@@ -157,6 +157,22 @@ describe('PictogramGenerate · generate flow', () => {
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
+  it('does not carry a save-failure message past Discard (#437 review)', async () => {
+    const user = userEvent.setup();
+    upsertMock.mockResolvedValue({ error: { code: '42501', message: 'row-level-security' } });
+    renderGenerate();
+
+    await typeAndGenerate(user);
+    await screen.findByRole('button', { name: 'Add to library' });
+    await user.click(screen.getByRole('button', { name: 'Add to library' }));
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+    // Back on the form, with no stale error next to an empty preview.
+    expect(await screen.findByText('Generate a pictogram image')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('shows the server-failure copy for a generation_failed response', async () => {
     const user = userEvent.setup();
     // A pre-mapped error, not a real 502 envelope: building a

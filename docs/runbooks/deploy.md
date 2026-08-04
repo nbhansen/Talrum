@@ -91,7 +91,11 @@ For `generate-image`:
 - `AZURE_OPENAI_ENDPOINT` — the resource URL
   (`https://<name>.openai.azure.com`).
 - `AZURE_OPENAI_IMAGE_DEPLOYMENT` — the deployment name typed when
-  deploying the image model (`gpt-image-1`).
+  deploying the image model. **The deployment type must keep the data
+  in the EU**: pick "Data Zone Standard" (EU data zone) or a regional
+  type on an EU resource, never a "Global" type — a Global deployment
+  routes each request to any Microsoft data center worldwide, and the
+  privacy policy (§4) promises parents the label stays in the EU.
 
 To rotate a key: regenerate it in the Azure portal, then
 `supabase secrets set <NAME>=<new value>`. The runtime picks
