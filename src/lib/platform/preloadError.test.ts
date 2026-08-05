@@ -17,6 +17,20 @@ const firePreloadError = (): Event => {
   return event;
 };
 
+// A blocked sessionStorage throws SecurityError on every access (privacy
+// mode, "block all cookies") — jsdom's always works, so simulate it.
+const blockStorage = (): void => {
+  const deny = (): never => {
+    throw new DOMException('The operation is insecure.', 'SecurityError');
+  };
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: { getItem: deny, setItem: deny, removeItem: deny },
+  });
+};
+
+const realSessionStorage = window.sessionStorage;
+
 beforeEach(() => {
   captureMessageMock.mockClear();
   reloadMock.mockClear();
@@ -32,25 +46,29 @@ beforeEach(() => {
 // No listener teardown needed: install replaces any previous listener, so
 // the last install in each test is the only one that fires.
 afterEach(() => {
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: realSessionStorage,
+  });
   vi.restoreAllMocks();
 });
 
 describe('installPreloadErrorRecovery', () => {
-  it('reloads once on a preload error and marks the session', () => {
+  it('reloads once on a preload error and stamps the session', () => {
     installPreloadErrorRecovery();
 
     const event = firePreloadError();
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem(RELOADED_FLAG)).not.toBeNull();
+    expect(Number(sessionStorage.getItem(RELOADED_FLAG))).toBeGreaterThan(0);
     // Recovered deliberately: Vite must not also throw the error.
     expect(event.defaultPrevented).toBe(true);
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
-  it('does not reload again when the page after the reload fails the same way', () => {
-    // Simulate the page that loads after the recovery reload.
-    sessionStorage.setItem(RELOADED_FLAG, 'true');
+  it('does not reload again when the failure recurs right after the reload', () => {
+    // Simulate the page that loads after the recovery reload: fresh stamp.
+    sessionStorage.setItem(RELOADED_FLAG, String(Date.now()));
     installPreloadErrorRecovery();
 
     const event = firePreloadError();
@@ -64,10 +82,34 @@ describe('installPreloadErrorRecovery', () => {
     );
   });
 
-  it('re-arms after a page that loads cleanly following the recovery reload', () => {
-    // The recovered page removes the flag at install time...
-    sessionStorage.setItem(RELOADED_FLAG, 'true');
+  // The long-lived tab is the tab this feature exists for: after one
+  // recovery it must be armed again for the deploy after next (#443
+  // review).
+  it('reloads again for a failure long after the previous recovery', () => {
+    sessionStorage.setItem(RELOADED_FLAG, String(Date.now() - 60_000));
     installPreloadErrorRecovery();
-    expect(sessionStorage.getItem(RELOADED_FLAG)).toBeNull();
+
+    firePreloadError();
+
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+    expect(captureMessageMock).not.toHaveBeenCalled();
+  });
+
+  // Storage blocked (privacy mode): install runs at boot, before render —
+  // a throw here would white-screen the app (#443 review).
+  it('installs without throwing when sessionStorage is blocked', () => {
+    blockStorage();
+
+    expect(() => installPreloadErrorRecovery()).not.toThrow();
+  });
+
+  it('never reloads when sessionStorage is blocked — no stamp means no loop guard', () => {
+    blockStorage();
+    installPreloadErrorRecovery();
+
+    const event = firePreloadError();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
   });
 });
