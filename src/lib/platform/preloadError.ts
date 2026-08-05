@@ -11,14 +11,17 @@ const RELOAD_WINDOW_MS = 30_000;
 // (privacy mode, "block all cookies"), and this runs at boot, before
 // render — an uncaught throw here would white-screen the app.
 
-// Fail safe is "reloaded just now": without storage there is no loop
-// guard, so never start a reload.
-const reloadedRecently = (): boolean => {
+// 'blocked' is its own state, not folded into 'recent': a storage-blocked
+// browser never reloaded, and reporting it as "still failing after a
+// recovery reload" would read in Sentry as the reload fix not working.
+type ReloadState = 'armed' | 'recent' | 'blocked';
+
+const reloadState = (): ReloadState => {
   try {
     const stamp = Number(sessionStorage.getItem(RELOADED_FLAG));
-    return stamp > 0 && Date.now() - stamp < RELOAD_WINDOW_MS;
+    return stamp > 0 && Date.now() - stamp < RELOAD_WINDOW_MS ? 'recent' : 'armed';
   } catch {
-    return true;
+    return 'blocked';
   }
 };
 
@@ -35,17 +38,25 @@ const stampReload = (): boolean => {
  * Recovers from a deploy landing under an open tab (#442).
  *
  * Each deploy replaces the hashed asset files, so a tab that loaded the
- * previous `index.html` asks for chunks that no longer exist on the server.
- * The precache would cover the gap, but it is wiped at auth boundaries
- * (#431) and the new worker activates immediately (`autoUpdate`). The next
- * lazy-route navigation then fails and the user sees a broken page.
+ * previous `index.html` asks for chunks that no longer exist on the
+ * server. The old chunk is gone from the cache too: the activating worker
+ * (`skipWaiting` + `clientsClaim`) drops the previous deploy's precache
+ * entries via `cleanupOutdatedCaches`. The next lazy-route navigation then
+ * fails and the user sees a broken page.
  *
  * Vite fires `vite:preloadError` when a dynamic import or its CSS fails.
- * One reload fetches the current `index.html` with the current asset names.
- * The sessionStorage timestamp stops a reload loop when a reload does not
- * fix it (the failure is then something else, and it is reported instead)
- * — while a stamp older than RELOAD_WINDOW_MS re-arms the tab, so the
- * long-lived tab this exists for also survives the deploy after next.
+ * One reload fetches the current `index.html` with the current asset
+ * names. The sessionStorage timestamp stops a reload loop when a reload
+ * does not fix it (the failure is then something else, and it is reported
+ * instead) — while a stamp older than RELOAD_WINDOW_MS re-arms the tab, so
+ * the long-lived tab this exists for also survives the deploy after next.
+ *
+ * The event's default is deliberately NOT prevented: preventing it makes
+ * the failed import resolve `undefined` instead of rejecting, which the
+ * route table's `.then((m) => ...)` turns into an opaque TypeError. Letting
+ * the original error propagate keeps the diagnosable "Unable to preload"
+ * message in Sentry while the reload is already on its way — the same
+ * shape as the vite:preloadError example in Vite's own docs.
  */
 let listener: AbortController | null = null;
 
@@ -57,11 +68,19 @@ export const installPreloadErrorRecovery = (): void => {
 
   window.addEventListener(
     'vite:preloadError',
-    (event) => {
+    () => {
       // Checked at error time, not install time: the recovered page keeps
       // its fresh stamp for the whole window, but must be armed again by
       // the time the next deploy lands under it.
-      if (reloadedRecently()) {
+      const state = reloadState();
+      if (state === 'blocked') {
+        // No storage means no loop guard, so never start a reload.
+        captureMessage('Chunk load failed with storage blocked — cannot auto-reload', {
+          level: 'warning',
+        });
+        return;
+      }
+      if (state === 'recent') {
         // Reloading did not fix it — not a stale deploy, so let the error
         // propagate to the route boundary and say what happened.
         captureMessage('Chunk load still failing after a recovery reload', {
@@ -69,11 +88,9 @@ export const installPreloadErrorRecovery = (): void => {
         });
         return;
       }
-      // No stamp means no loop guard: let the error propagate instead of
-      // starting a reload that nothing can stop from repeating.
+      // Stamp first: reloading without a written loop guard could repeat
+      // forever.
       if (!stampReload()) return;
-      // Recovered deliberately: stop Vite from also throwing the error.
-      event.preventDefault();
       window.location.reload();
     },
     { signal: listener.signal },

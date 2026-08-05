@@ -61,8 +61,10 @@ describe('installPreloadErrorRecovery', () => {
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
     expect(Number(sessionStorage.getItem(RELOADED_FLAG))).toBeGreaterThan(0);
-    // Recovered deliberately: Vite must not also throw the error.
-    expect(event.defaultPrevented).toBe(true);
+    // Deliberately NOT prevented (#443 review round 2): preventing makes
+    // the failed import resolve `undefined`, which the route table turns
+    // into an opaque TypeError. The original error stays diagnosable.
+    expect(event.defaultPrevented).toBe(false);
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
@@ -111,5 +113,16 @@ describe('installPreloadErrorRecovery', () => {
 
     expect(reloadMock).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
+    // Its own message (#443 review round 2): "still failing after a
+    // recovery reload" would read as the reload fix not working, when no
+    // reload ever happened.
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.stringMatching(/storage blocked/i),
+      expect.objectContaining({ level: 'warning' }),
+    );
+    expect(captureMessageMock).not.toHaveBeenCalledWith(
+      expect.stringMatching(/still failing/i),
+      expect.anything(),
+    );
   });
 });
