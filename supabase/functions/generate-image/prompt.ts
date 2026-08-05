@@ -9,9 +9,15 @@
  * providers must not change how pictograms look any more than it has to.
  */
 export const buildImagePrompt = (label: string): string =>
-  `A pictogram for a child's communication board showing: ${label}. ` +
+  // The label leads with "usually Danish" and sits in quotes: a trailing
+  // "may be in Danish" hint loses against the English template, so short
+  // Danish phrases were read as English ("i bad" became a sad child, not a
+  // bath). Verified against the live model with both a Danish and an
+  // English label before this wording was chosen.
+  `A pictogram for a child's communication board. ` +
+  `The board is used by a Danish family, so the label is usually Danish: "${label}". ` +
+  'Show what the label means. ' +
   'One single subject, centered, filling most of the frame. ' +
   'Flat vector illustration style with thick clean outlines and soft muted colors. ' +
   'Plain solid off-white background. No text, no letters, no numbers, no symbols. ' +
-  'Calm, friendly, minimal detail, no background scenery. ' +
-  'The label may be in Danish.';
+  'Calm, friendly, minimal detail, no background scenery.';

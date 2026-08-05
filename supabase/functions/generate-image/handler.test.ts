@@ -143,6 +143,10 @@ Deno.test('every prompt goes through the fixed style template (#422)', async () 
   assertStringIncludes(prompt, 'Flat vector illustration style');
   assertStringIncludes(prompt, 'No text');
   assertStringIncludes(prompt, "child's communication board");
+  // The Danish-first declaration is load-bearing: without it the model read
+  // short Danish phrases as English ("i bad" → a sad child, not a bath).
+  assertStringIncludes(prompt, 'usually Danish');
+  assertStringIncludes(prompt, '"i morgen"');
 });
 
 Deno.test('maps a provider failure to generation_failed without leaking detail', async () => {
