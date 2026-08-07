@@ -50,8 +50,7 @@ describe('outbox store', () => {
   it('ignores foreign IDB keys and entries that vanish mid-scan', async () => {
     await putEntry(entry('01A'));
     await set('signed-url:not-an-entry', { url: 'x' });
-    // A key whose value is gone — the shape a delete racing keys()→get()
-    // produces; listEntries must skip it, not return undefined holes.
+    // The shape a delete racing keys()→get() produces: skipped, not a hole.
     await set('outbox:01B', undefined);
 
     const entries = await listEntries();

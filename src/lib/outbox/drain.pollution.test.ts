@@ -30,16 +30,13 @@ describe('drain module-state cross-test isolation', () => {
 
   it('second test must see clean lastStatus and an empty subscriber set', () => {
     expect(getStatus().pendingCount).toBe(0);
-    // Direct probe: if the prior test's subscriber leaked, drainSubscribers
-    // would still contain it. Asserting on the Set directly (rather than via
-    // observable behavior) closes the gap that pendingCount alone can't see.
+    // On the Set directly, because pendingCount alone cannot see a leak.
     expect(drainSubscribers.size).toBe(0);
 
     let pushes = 0;
     const unsub = subscribeStatus(() => {
       pushes += 1;
     });
-    // subscribeStatus pushes lastStatus to the new subscriber synchronously.
     expect(pushes).toBe(1);
     expect(drainSubscribers.size).toBe(1);
     unsub();

@@ -65,7 +65,6 @@ beforeEach(async () => {
   guardSelectMock.mockReset();
   unguardedSelectMock.mockReset();
   matchMock.mockClear();
-  // Default: handler succeeds.
   unguardedSelectMock.mockResolvedValue({
     data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
     error: null,
@@ -97,7 +96,6 @@ describe('outbox store', () => {
     await deleteEntry('01HZZA');
     const entries = await listEntries();
     expect(entries).toHaveLength(0);
-    // No stray IDB key left behind.
     const remaining = (await keys()).filter(
       (k) => typeof k === 'string' && k.startsWith('outbox:'),
     );
@@ -179,9 +177,8 @@ const realTick = (): Promise<void> =>
 
 describe('transient retry timer (#391)', () => {
   beforeEach(() => {
-    // Only fake the timer pair the retry scheduler uses. fake-indexeddb
-    // resolves through real setImmediate rounds; faking those would deadlock
-    // every IDB await behind the timer clock.
+    // Only the pair the scheduler uses: fake-indexeddb resolves through real
+    // setImmediate rounds, and faking those deadlocks every IDB await.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   });
 
@@ -190,9 +187,8 @@ describe('transient retry timer (#391)', () => {
   });
 
   /**
-   * `advanceTimersByTimeAsync` fires the timer callback (`void drain()`) but
-   * can't await it — the drain settles over real macrotask rounds (IDB).
-   * Poll the assertion across those rounds; bounded so a genuine failure
+   * `advanceTimersByTimeAsync` fires `void drain()` but cannot await it, and the
+   * drain settles over real macrotask rounds. Bounded, so a genuine failure
    * still surfaces as the assertion error.
    */
   const waitReal = async (check: () => Promise<void>): Promise<void> => {
@@ -219,12 +215,10 @@ describe('transient retry timer (#391)', () => {
     });
     await putEntry(baseEntry({ id: '01HZZA' }));
     await drain();
-    // First attempt failed transiently: entry pending, re-drain scheduled.
     expect(eqMock).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(2_000);
     await waitReal(async () => expect(await listEntries()).toEqual([]));
-    // Queue emptied — no timer may remain.
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -298,9 +292,8 @@ describe('transient retry timer (#391)', () => {
       statuses.length = 0;
       await vi.advanceTimersByTimeAsync(2_000);
       await waitReal(async () => expect((await listEntries())[0]?.attemptCount).toBe(2));
-      // The timer-driven pass emitted at start and end; no status from it may
-      // map to "Syncing…" — that text change is what re-announces the polite
-      // live region on every backoff cycle.
+      // No status from a timer pass may map to "Syncing…": that text change is
+      // what re-announces the polite live region on every backoff cycle.
       expect(statuses.length).toBeGreaterThan(0);
       for (const s of statuses) {
         expect(s.draining && !s.timerDrain).toBe(false);
@@ -311,9 +304,8 @@ describe('transient retry timer (#391)', () => {
   });
 
   it('arms no timer when the device drops mid-pass', async () => {
-    // The offline listener can't help here: it fires while `draining` is
-    // still true and there is no timer to clear yet. The finally block must
-    // skip the arm itself.
+    // The offline listener fires while `draining` is still true and there is no
+    // timer to clear, so the finally block must skip the arm itself.
     unguardedSelectMock.mockImplementation(() => {
       setOnline(false);
       return Promise.reject(new TypeError('Failed to fetch'));
@@ -339,9 +331,8 @@ describe('transient retry timer (#391)', () => {
 
 describe('cross-tab coordination (#278, #289)', () => {
   /**
-   * Minimal Web Locks fake: serializes callbacks per lock name via a promise
-   * chain. jsdom has no `navigator.locks`, so installing this opts drain()
-   * into its locked path; the surrounding afterEach removes it again.
+   * jsdom has no `navigator.locks`, so installing this fake is what opts the
+   * drain into its locked path.
    */
   const installFakeLocks = () => {
     const chains = new Map<string, Promise<unknown>>();
@@ -375,8 +366,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     // "Another tab" grabs the lock first.
     void navigator.locks.request('talrum-outbox', () => held);
     const drainDone = drain();
-    // Wait until drain has queued its own lock request, then give the
-    // microtask queue a chance to (incorrectly) run handlers anyway.
+    // Then give the microtask queue a chance to run handlers anyway.
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(eqMock).not.toHaveBeenCalled();
@@ -506,9 +496,8 @@ describe('cross-tab coordination (#278, #289)', () => {
       patch: { name: 'x' },
     });
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
-    // Another tab persists an entry while our fast path is parked on the
-    // lock. The pre-lock queue observation (empty) is stale now; acting on
-    // it would jump the queue — the #279 staleness bug, cross-tab edition.
+    // The pre-lock queue observation is stale by the time the lock is granted,
+    // and acting on it would jump the queue (#279, cross-tab).
     await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
     release();
     await done;
@@ -528,9 +517,8 @@ describe('cross-tab coordination (#278, #289)', () => {
       boardId: 'board-new',
       patch: { name: 'x' },
     });
-    // "Tab B" queues for the lock right behind the slow path's request. An
-    // append outside the lock would let B observe only the old backlog,
-    // drain it, and fast-path a younger write past this one.
+    // An append outside the lock would let B observe only the old backlog and
+    // fast-path a younger write past this one.
     let observed: string[] = [];
     await navigator.locks.request('talrum-outbox', async () => {
       observed = (await listEntries()).map((e) => e.id);
@@ -541,9 +529,8 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('an offline enqueue also appends under the lock (#395)', async () => {
-    // online/offline events are per-window: this tab can be offline while
-    // another tab is still online and mid-fast-path. An unlocked offline
-    // append could race that fast path and land behind a younger write.
+    // online/offline events are per-window, so this tab can be offline while
+    // another is mid-fast-path.
     const request = installFakeLocks();
     setOnline(false);
     let release = (): void => undefined;
@@ -581,9 +568,8 @@ describe('cross-tab coordination (#278, #289)', () => {
         new Promise<never>(() => undefined) as ReturnType<typeof unguardedSelectMock>,
       );
       const drainDone = drain();
-      // The drain reaches the handler over real IDB macrotasks; the timeout
-      // timer is not armed until then, so advancing the fake clock earlier
-      // would fire nothing. Bounded so a genuine failure still surfaces.
+      // The timeout timer is not armed until the drain reaches the handler over
+      // real macrotasks, so advancing the clock earlier fires nothing.
       for (let i = 0; unguardedSelectMock.mock.calls.length === 0; i++) {
         if (i >= 1000) throw new Error('handler never started');
         await realTick();
@@ -628,8 +614,8 @@ describe('discardEntry', () => {
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
     const seen: number[] = [];
     const unsub = subscribeStatus((s) => seen.push(s.failedCount));
-    // Surface the "1 failed" state to subscribers up front so the post-discard
-    // drop is an observable transition, not just a coincidental end value.
+    // Makes the post-discard drop an observable transition rather than a
+    // coincidental end value.
     await refreshStatus();
     expect(seen[seen.length - 1]).toBe(1);
     // No drain, no online/offline event follows — discardEntry must push the
@@ -659,8 +645,7 @@ describe('retryFailed', () => {
     await retryFailed();
     const entries = await listEntries();
     expect(entries).toHaveLength(1);
-    // Reset to pending with attemptCount restarted — one drain attempt has
-    // run since the reset, so the count is 1, not 4.
+    // One drain attempt has run since the reset, so the count is 1, not 4.
     expect(entries[0]?.status).toBe('pending');
     expect(entries[0]?.attemptCount).toBe(1);
   });
@@ -690,10 +675,8 @@ describe('conflict guard (#281)', () => {
   });
 
   it('persists forwarded baselines so another tab can continue the chain', async () => {
-    // A and B were enqueued against the same snapshot. A lands (server clock
-    // moves to T1); B fails transiently and stays queued. The forwarded
-    // baseline must be in IDB, not just this tab's memory — the tab that
-    // picks the queue up later starts with an empty board clock.
+    // The forwarded baseline must reach IDB, not just this tab's memory: the
+    // tab that picks the queue up later starts with an empty board clock.
     guardSelectMock
       .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
       .mockRejectedValueOnce(new TypeError('Failed to fetch'));
@@ -754,8 +737,7 @@ describe('conflict guard (#281)', () => {
       }),
     );
     await retryFailed();
-    // Replayed through the unguarded eq path; a kept guard would re-conflict
-    // forever, making the Retry button a dead end.
+    // A kept guard would re-conflict forever, making Retry a dead end.
     expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
     expect(matchMock).not.toHaveBeenCalled();
     expect(await listEntries()).toEqual([]);
@@ -783,8 +765,7 @@ describe('conflict guard (#281)', () => {
   });
 
   it('reports conflict failures separately in the status feed', async () => {
-    // One conflict, one unrelated permanent failure: the pill needs to know
-    // a conflict is among them to name it (#281's promised message).
+    // The pill must know a conflict is among them to name it (#281).
     guardSelectMock.mockResolvedValue({ data: [], error: null });
     unguardedSelectMock.mockResolvedValue({
       data: null,
@@ -848,9 +829,8 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The handler round trip is a window in which the page can go away — a
-  // reload, a tab close. An entry that only lived in memory took the write
-  // with it, together with the optimistic patch (#445).
+  // The round trip is a window in which the page can go away, and an entry
+  // that lived only in memory took the write with it (#445).
   it('online: the entry is durable while the handler is in flight', async () => {
     let landHandler!: () => void;
     unguardedSelectMock.mockReturnValueOnce(
@@ -872,9 +852,8 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The reason the in-flight entry is `attempting`. As `pending` it showed up
-  // in the count as a write waiting to sync, and every exit path then had to
-  // emit a correction afterwards (#446 review).
+  // As `pending` it counted as a write waiting to sync, so every exit path had
+  // to emit a correction afterwards (#446).
   it('online: the in-flight entry is never counted as pending', async () => {
     let landHandler!: () => void;
     unguardedSelectMock.mockReturnValueOnce(
@@ -924,9 +903,8 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The crash recovery #445 is actually about. A page that goes away mid-write
-  // leaves an `attempting` entry; the next lock holder knows its owner is gone
-  // — the browser released the lock — and promotes it.
+  // The crash recovery #445 is about: the next lock holder knows an
+  // `attempting` entry has no owner, because the browser released the lock.
   it('adopts an entry abandoned mid-attempt and replays it', async () => {
     await putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
 
@@ -940,10 +918,8 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The sign-out sweep cannot be the guarantee: a fast path waiting on the
-  // cross-tab lock acquires it after the sweep releases and writes its entry,
-  // blob included, behind the deletes. The owner check does not care when the
-  // entry was written (#446 review).
+  // A fast path waiting on the lock acquires it after the sweep releases and
+  // writes behind the deletes, so the sweep cannot be the guarantee (#446).
   it('never replays an entry belonging to another account', async () => {
     setOwnerId('user-b');
     await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
@@ -955,9 +931,8 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The account can switch while a write waits on the lock. The stamp is read
-  // at call time for exactly this reason: reading it inside the lock callback
-  // would label user A's write with user B and defeat the check (#446 review).
+  // Reading the stamp inside the lock callback would label user A's write with
+  // user B, which is why it is read at call time (#446).
   it('abandons a write whose account changed while it waited for the lock', async () => {
     // jsdom has no Web Locks, so stub one that does not grant until told —
     // standing in for the sign-out sweep holding it.
@@ -986,9 +961,8 @@ describe('enqueueAndDrain', () => {
     expect(eqMock).not.toHaveBeenCalled();
   });
 
-  // startOutbox drains at module load, before AuthGate has resolved the
-  // session. Without the gate that boot drain replays a previous account's
-  // leftovers before the owner is known (#446 review).
+  // startOutbox drains at module load, before AuthGate resolves the session,
+  // so without the gate that boot drain replays the previous account (#446).
   it('does not drain until the signed-in account is known, then drains for it', async () => {
     __resetOutboxOwnerForTests();
     await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
@@ -1060,9 +1034,7 @@ describe('enqueueAndDrain', () => {
   });
 
   it('online + pending backlog: enqueues behind the queue instead of jumping it (#279)', async () => {
-    // An older write is still queued (e.g. offline backlog). A new online
-    // write must not bypass it — the queued entry would replay later and
-    // overwrite the newer state on the server.
+    // The queued entry would replay later and overwrite the newer state.
     await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old' }));
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'board-new', patch: { name: 'x' } });
     expect(eqMock.mock.calls).toEqual([
@@ -1111,9 +1083,7 @@ describe('startOutbox', () => {
     const seen: number[] = [];
     startOutbox();
     const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
-    // emit() does an IDB roundtrip (listEntries) before pushing to subscribers,
-    // then drain()'s offline branch emits again. Counting macrotask ticks
-    // flakes under load (#87) — poll the actual condition instead.
+    // Counting macrotask ticks flakes under load (#87), so poll the condition.
     await vi.waitFor(() => expect(seen).toContain(2));
     unsub();
   });

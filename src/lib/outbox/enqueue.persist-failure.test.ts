@@ -81,9 +81,8 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
     );
   });
 
-  // A failed delete is not a failed handler. Classifying it as one replayed a
-  // write the server had accepted and put the IndexedDB error text in the
-  // entry's lastError (#446 review).
+  // Classifying a failed delete as a failed handler replayed a write the server
+  // had accepted, and put the IndexedDB error in `lastError` (#446).
   it('does not treat a failed delete as a failed write', async () => {
     deleteEntryMock.mockRejectedValue(new DOMException('Closed', 'InvalidStateError'));
 
@@ -95,23 +94,18 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
       expect.any(DOMException),
       expect.objectContaining({ tags: { component: 'outbox', op: 'delete-after-landing' } }),
     );
-    // The write landed and the handler ran once. A transient re-queue would
-    // have replayed it immediately.
+    // A transient re-queue would have replayed it immediately.
     expect(eqMock).toHaveBeenCalledTimes(1);
-    // The entry outlived the write it recorded, but as `attempting`: no count
-    // names it and no drain replays it until one adopts it. That needs no
-    // follow-up here — it is the abandoned-attempt case, which the next lock
-    // holder resolves.
+    // The entry outlived its write, but as `attempting` — the abandoned-attempt
+    // case, which the next lock holder resolves.
     expect((await listEntries())[0]?.status).toBe('attempting');
-    // The signature of the bug: classifying the delete failure as a handler
-    // failure re-queued the entry with the IndexedDB error as its lastError.
+    // The signature of the bug: the IndexedDB error as `lastError`.
     expect(putEntryMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ lastError: expect.stringContaining('Closed') }),
     );
   });
 
-  // With the entry already queued, the retry bookkeeping is only bookkeeping:
-  // the drain replays the write whether or not the attempt count landed.
+  // The drain replays the write whether or not the attempt count landed.
   it('keeps a transient write queued when only the retry bookkeeping fails', async () => {
     selectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     putEntryMock.mockImplementationOnce(realStore.putEntry as (e: never) => Promise<void>);
@@ -128,8 +122,7 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
     );
   });
 
-  // The entry outlived a write the UI rolled back. As `pending` it would sit
-  // in the count for a write the user watched fail (#446 review).
+  // As `pending` it would sit in the count for a write the user watched fail.
   it('leaves an uncleared permanent failure out of the count', async () => {
     selectMock.mockResolvedValue({
       data: null,
@@ -146,8 +139,7 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
     expect(getStatus().pendingCount).toBe(0);
   });
 
-  // Both puts failed, so nothing is queued. Resolving here would report the
-  // write as saved while it vanished — the silent loss #445 is about.
+  // Nothing is queued, so resolving would report a vanished write as saved.
   it('rejects a transient write when no put lands, rather than claiming it is queued', async () => {
     selectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));

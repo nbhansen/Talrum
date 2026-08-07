@@ -27,9 +27,8 @@ type UpdateSelectResult = Promise<{
 const guardSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
 const unguardedSelectMock = vi.fn<(cols: string) => UpdateSelectResult>();
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
-// `.eq()` serves two chain shapes: pictogram/kid handlers await it as the
-// terminal, the unguarded boards path chains `.select('updated_at')` off it.
-// Mirrors supabase-js, where the filter builder is a thenable with `.select`.
+// `.eq()` serves two chain shapes, like supabase-js: pictogram and kid handlers
+// await it, the unguarded boards path chains `.select` off it.
 const updateMock = vi.fn(() => ({
   eq: (c: string, v: string) => Object.assign(eqMock(c, v), { select: unguardedSelectMock }),
   match: matchMock,
@@ -124,7 +123,6 @@ beforeEach(() => {
   captureExceptionMock.mockReset();
   fromMock.mockClear();
   storageFromMock.mockClear();
-  // Defaults: every supabase call succeeds.
   eqMock.mockResolvedValue({ error: null });
   unguardedSelectMock.mockResolvedValue({
     data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
@@ -169,9 +167,8 @@ describe('runHandler · updateBoard', () => {
       boardId: 'b-1',
       patch: { name: 'X' },
     };
-    // The instanceof check is what the drain branches on; the message is
-    // user-visible via `lastError`, including extraction from a plain
-    // (non-Error) PostgREST object. Pin both.
+    // The drain branches on the instanceof; the message reaches the user through
+    // `lastError`, even from a plain PostgREST object. Pin both.
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
     await expect(runHandler(entry)).rejects.toMatchObject({
       message: 'db 42501: permission denied',
@@ -227,10 +224,8 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
   });
 
   it('replaces a stale baseline with the updated_at its own prior write produced', async () => {
-    // Two entries enqueued against the same snapshot (offline chain): the
-    // first replay bumps the server clock, so the second must guard against
-    // the produced T1, not its own stale T0 — guarding with T0 would
-    // conflict against ourselves.
+    // An offline chain: the first replay bumps the server clock, so the second
+    // must guard against T1 or it conflicts against itself.
     guardSelectMock
       .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
       .mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
@@ -241,7 +236,7 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
 
   it('prefers a newer entry baseline over an older produced timestamp', async () => {
     // A refetch can hand a later edit a baseline newer than anything this
-    // device produced; the device clock must not drag the guard backwards.
+    // device produced, and the clock must not drag the guard back.
     guardSelectMock
       .mockResolvedValueOnce({ data: [{ updated_at: T1 }], error: null })
       .mockResolvedValueOnce({ data: [{ updated_at: T2 }], error: null });
@@ -251,9 +246,8 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
   });
 
   it('feeds the board clock from unguarded successes too', async () => {
-    // An unguarded replay (pre-#281 entry, or a conflict retry with the
-    // guard stripped) bumps the server clock like any other write. A queued
-    // guarded entry for the same board must not self-conflict against it.
+    // An unguarded replay bumps the server clock like any write, and a queued
+    // guarded entry must not self-conflict against it.
     unguardedSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
     await runHandler({ ...baseProps, kind: 'updateBoard', boardId: 'b-1', patch: { name: 'X' } });
     guardSelectMock.mockResolvedValue({ data: [{ updated_at: T2 }], error: null });
@@ -297,9 +291,8 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
   it.each(['40001', '40P01', '08000', '08006', '53300', '57P03', '57014'])(
     'throws %s as a plain Error so the drain keeps the entry pending',
     async (code) => {
-      // A plain object, not an Error instance — the shape supabase-js can
-      // hand back. The drain persists `err.message` as `lastError`, so the
-      // wrapper must be a real Error and must carry the SQLSTATE.
+      // The plain-object shape supabase-js can hand back. The drain persists
+      // `err.message`, so the wrapper must be a real Error carrying the SQLSTATE.
       const dbError = { code, message: 'try again', details: '', hint: '' };
       eqMock.mockResolvedValue({ error: dbError });
       let caught: unknown;
@@ -343,9 +336,8 @@ describe('runHandler · createPhotoPicto', () => {
       blob,
       expect.objectContaining({ upsert: true }),
     );
-    // `ignoreDuplicates: true` is the idempotency contract: a replay of a
-    // landed create hits ON CONFLICT DO NOTHING instead of a 23505, which
-    // classifyAndThrow would mark permanent and flip the entry to failed.
+    // The idempotency contract: without it a replay raises 23505, which is
+    // classified permanent and flips a landed create to failed.
     expect(upsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'p-1',
@@ -358,10 +350,8 @@ describe('runHandler · createPhotoPicto', () => {
   });
 
   it('converges when the same entry replays after the create landed (#393)', async () => {
-    // Stateful mock with real duplicate-key semantics: a second write of the
-    // same id raises 23505 unless `ignoreDuplicates` is passed (ON CONFLICT
-    // DO NOTHING). A revert to a plain `.insert` — or dropping the option —
-    // fails this test the way it would fail against Postgres.
+    // Real duplicate-key semantics, so dropping `ignoreDuplicates` or reverting
+    // to a plain `.insert` fails here the way it would against Postgres.
     const inserted = new Set<string>();
     upsertMock.mockImplementation((row, opts) => {
       const { id } = row as { id: string };
@@ -382,9 +372,7 @@ describe('runHandler · createPhotoPicto', () => {
       blob: new Blob(['x'], { type: 'image/jpeg' }),
       path: 'o-1/p-1-01HV1JPG.jpg',
     };
-    // First attempt lands the row; the tab crashes before the entry is
-    // marked done. The replay re-uploads (storage upsert) and the row
-    // upsert resolves without error under ON CONFLICT DO NOTHING.
+    // The row landed, then the tab crashed before the entry was marked done.
     await runHandler(entry);
     await expect(runHandler(entry)).resolves.toBeUndefined();
     expect(upsertMock).toHaveBeenCalledTimes(2);
@@ -412,14 +400,11 @@ describe('runHandler · createPhotoPicto', () => {
     }
     expect(caught).toBeDefined();
     expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
-    // Lock in that the original storage error reaches the drain layer with
-    // its statusCode intact — drain.ts uses this to bump attemptCount and
-    // schedule a retry. A regression that re-wrapped 5xx in some other
-    // custom subclass would trip this.
+    // The statusCode must survive to the drain, which uses it to schedule the
+    // retry. Re-wrapping a 5xx in another subclass trips this.
     expect(caught).toBe(uploadErr);
     expect((caught as { statusCode?: number }).statusCode).toBe(500);
-    // Insert never ran because upload threw first; the bucket cleanup path
-    // only fires when insert fails after a successful upload.
+    // The cleanup path only fires when the insert fails after a good upload.
     expect(upsertMock).not.toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
   });
@@ -438,18 +423,16 @@ describe('runHandler · createPhotoPicto', () => {
       path: 'o-1/p-1-01HV1JPG.jpg',
     };
     await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
-    // No rollback delete (#414 review): a run abandoned by the handler
-    // timeout could execute it concurrently with its own retry and delete
-    // the blob the retry just re-uploaded — a permanently dangling
-    // image_path. The orphaned object is the cheaper failure.
+    // No rollback delete: a run abandoned by the timeout could delete the blob
+    // its own retry just re-uploaded, leaving a dangling image_path (#414).
     expect(removeMock).not.toHaveBeenCalled();
   });
 });
 
 describe('runHandler · legacy blob entries (#415)', () => {
   it('fails an entry persisted before versioned paths permanently, with an instruction', async () => {
-    // Pre-#415 persisted shape: extension, no path. Replaying it would
-    // re-derive the deterministic path new writes no longer own.
+    // A pre-#415 shape, whose replay would re-derive a deterministic path that
+    // new writes no longer own.
     const legacy = {
       ...baseProps,
       kind: 'createPhotoPicto',
@@ -469,8 +452,8 @@ describe('runHandler · legacy blob entries (#415)', () => {
 
 describe('runHandler · setPictoAudio', () => {
   it('uploads, updates the row, and removes the recording the row pointed at', async () => {
-    // The superseded path comes from the row read, not a client snapshot
-    // (#418 review) — the cache can hold a stale blob: URL.
+    // From the row read, not a client snapshot, which can hold a blob: URL
+    // (#418).
     maybeSingleMock.mockResolvedValue({
       data: { image_path: null, audio_path: 'o-1/p-1-01HV0OLD.m4a' },
       error: null,
@@ -638,8 +621,8 @@ describe('runHandler · deletePicto', () => {
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1JPG.jpg']);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1WEBM.webm']);
     expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p-1' });
-    // The boards scrub + row delete happen inside the RPC — the only table
-    // traffic is the row-path read (#418).
+    // The scrub and the delete happen inside the RPC, so the only table traffic
+    // is the row-path read.
     expect(updateMock).not.toHaveBeenCalled();
     expect(deleteMock).not.toHaveBeenCalled();
   });
@@ -801,10 +784,8 @@ describe('runHandler · handler IO timeout (#413)', () => {
     );
     await vi.advanceTimersByTimeAsync(BLOB_HANDLER_TIMEOUT_MS);
     expect(await outcome).toMatch(/timed out/);
-    // The zombie fails long after the entry was re-queued. runHandler's race
-    // subscribed to the run when it started, which is what keeps that from
-    // being an unhandled rejection — and Vitest failing on one is the
-    // assertion.
+    // runHandler's race subscribed to the run when it started, which is what
+    // keeps this late rejection handled. Vitest failing on one is the assertion.
     rejectLate(new TypeError('Failed to fetch'));
     await vi.advanceTimersByTimeAsync(0);
   });
@@ -831,10 +812,8 @@ describe('runHandler · handler IO timeout (#413)', () => {
     );
     await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
     expect(await outcome).toMatch(/timed out/);
-    // The hung row read finally lands. Without the between-step gate the
-    // zombie would continue into its row update and null an audio_path a
-    // later setPictoAudio entry may have set since (#414 review) — and then
-    // remove that entry's recording.
+    // Without the between-step gate the zombie continues into its row update,
+    // nulls an audio_path a later entry set, and removes that recording.
     settleRead();
     await vi.advanceTimersByTimeAsync(0);
     expect(updateMock).not.toHaveBeenCalled();
@@ -875,8 +854,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
       name: 'Mia',
     };
     await runHandler(entry);
-    // A leaked timer would fire a stray rejection 30 s into some later
-    // handler run (and shows up here as a pending fake timer).
+    // A leak fires a stray rejection 30 s into some later handler run.
     expect(vi.getTimerCount()).toBe(0);
   });
 });
