@@ -112,6 +112,40 @@ describe('clearPersistedCache', () => {
     vi.unstubAllGlobals();
   });
 
+  // The outbox sweep is the only thing between a shared device and user A's
+  // writes, blobs included. Unlocked it is a `keys()` snapshot then deletes,
+  // and the fast path holds the cross-tab lock while it persists an entry and
+  // runs its handler — so a write landing after the snapshot would outlive
+  // sign-out and be replayed under user B (#446 review).
+  it('sweeps the outbox stripes under the outbox cross-tab lock', async () => {
+    stubCaches([]);
+    const lockNames: string[] = [];
+    let outboxKeysBeforeRelease: IDBValidKey[] = ['not-read'];
+    // jsdom has no Web Locks, so withCrossTabLock would run unlocked.
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: async (name: string, fn: () => Promise<unknown>) => {
+          lockNames.push(name);
+          const result = await fn();
+          outboxKeysBeforeRelease = (await keys()).filter(
+            (k) => typeof k === 'string' && k.startsWith('outbox:'),
+          );
+          return result;
+        },
+      },
+    });
+    await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
+
+    await clearPersistedCache();
+
+    Reflect.deleteProperty(navigator, 'locks');
+    expect(lockNames).toEqual(['talrum-outbox']);
+    // Already gone before the lock was released, so a fast path waiting on it
+    // could not have landed an entry behind the sweep's snapshot.
+    expect(outboxKeysBeforeRelease).toEqual([]);
+  });
+
   it('wipes cache, PIN, last-board, and the per-user IDB stripes but leaves foreign keys alone', async () => {
     // Simulate user A's device state.
     queryClient.setQueryData(['boards'], [{ id: 'b1' }]);

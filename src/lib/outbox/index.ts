@@ -122,15 +122,16 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
     // Inside the lock, so an `attempting` entry left by a page that went away
     // has no live owner. Promote it before the check below, or this write
-    // would fast-path straight past an older one (#279's shape).
-    await adoptOrphans();
+    // would fast-path straight past an older one (#279's shape). The queue it
+    // returns is the one the check reads, so this costs no extra round trip.
+    const entries = await adoptOrphans();
     // Read `onLine` inside the lock: an offline pre-check would sit outside
     // and go seconds stale during the lock wait (same hazard as drain's
     // in-lock re-check); attempting on a dead network burns a retry attempt
     // for nothing. Persist unattempted instead — the drain() below no-ops
     // offline and emits the new pending count.
     const offline = typeof navigator !== 'undefined' && !navigator.onLine;
-    if (offline || (await listEntries()).some((e) => e.status === 'pending')) {
+    if (offline || entries.some((e) => e.status === 'pending')) {
       await putEntry(newEntry());
       return 'queued-unattempted';
     }

@@ -49,15 +49,10 @@ const emit = async (): Promise<void> => {
 };
 
 /**
- * Recompute status from the current IDB state and notify subscribers. For
- * the paths that do no draining, because drain() is what normally emits:
- *
- * - `discardEntry` — otherwise the OfflineIndicator keeps the discarded
- *   entry in its counts until the next unrelated outbox event.
- * - `enqueueAndDrain`, once a fast-path write lands or fails permanently
- *   (#445, #446 review). The entry is in the queue for the handler's round
- *   trip, so an emit in that window counts it as pending, and neither
- *   outcome drains afterwards to correct it.
+ * Recompute status from the current IDB state and notify subscribers. Sole
+ * caller is `discardEntry` — a discard does no draining (drain() is what
+ * normally emits), so it must push the updated counts itself or the
+ * OfflineIndicator waits for the next unrelated outbox event.
  */
 export const refreshStatus = (): Promise<void> => emit();
 
@@ -107,11 +102,22 @@ const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
  *
  * Without `navigator.locks` the proof does not hold, and `withCrossTabLock`
  * runs unlocked — the degradation that file already documents.
+ *
+ * Returns the queue as it stands afterwards, so callers that need to read it
+ * next do not pay a second `listEntries` — `keys()` plus a `get` per key — on
+ * the hot path for a scan that finds nothing in the common case.
  */
-const adoptOrphans = async (): Promise<void> => {
-  for (const e of await listEntries()) {
-    if (e.status === 'attempting') await putEntry({ ...e, status: 'pending' });
-  }
+export const adoptOrphans = async (): Promise<OutboxEntry[]> => {
+  const entries = await listEntries();
+  if (!entries.some((e) => e.status === 'attempting')) return entries;
+  return Promise.all(
+    entries.map(async (e) => {
+      if (e.status !== 'attempting') return e;
+      const promoted: OutboxEntry = { ...e, status: 'pending' };
+      await putEntry(promoted);
+      return promoted;
+    }),
+  );
 };
 
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
@@ -177,8 +183,6 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * lock) from inside the callback. Generic so the fast path can report its
  * outcome through the lock and act on it after the release.
  */
-export { adoptOrphans };
-
 export const withCrossTabLock = async <T>(fn: () => Promise<T>): Promise<T> => {
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
     return (await navigator.locks.request('talrum-outbox', fn)) as T;
@@ -267,11 +271,12 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       // tab releases the lock; attempting entries on a network that dropped
       // meanwhile burns their transient-retry budget on guaranteed failures.
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-      // Inside the lock, so any `attempting` entry lost its owner.
-      await adoptOrphans();
+      // Inside the lock, so any `attempting` entry lost its owner. Its return
+      // seeds the first pass, so the promotion costs no extra round trip.
+      let queue = await adoptOrphans();
       let stop = false;
       while (!stop) {
-        const entries = (await listEntries()).filter((e) => e.status === 'pending');
+        const entries = queue.filter((e) => e.status === 'pending');
         if (entries.length === 0) break;
         for (const entry of entries) {
           const outcome = await runOne(entry);
@@ -282,6 +287,9 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
             break;
           }
         }
+        // Re-read for the next pass: this one deleted what it landed, and an
+        // enqueue may have appended behind it.
+        queue = await listEntries();
       }
     });
   } finally {

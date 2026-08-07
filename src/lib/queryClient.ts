@@ -4,6 +4,7 @@ import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-cl
 import { del, get, keys, set } from 'idb-keyval';
 
 import { clearLastBoard } from './lastBoard';
+import { withCrossTabLock } from './outbox/drain';
 import { clearPin } from './pin';
 
 /**
@@ -101,12 +102,19 @@ export const clearPersistedCache = async (): Promise<void> => {
   // stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),
-    keys().then((all) => {
-      const stripeKeys = all.filter(
+    // Under the outbox's cross-tab lock (#446 review). The sweep is a
+    // snapshot of `keys()` followed by deletes, and the fast path holds that
+    // lock while it writes an entry and runs its handler. Unlocked, a write
+    // that lands after the snapshot outlives sign-out as an orphaned entry,
+    // which the next account's drain adopts and replays — user A's payload,
+    // including the photo and recording blobs, surfacing under user B.
+    // Nothing in here takes the lock already.
+    withCrossTabLock(async () => {
+      const stripeKeys = (await keys()).filter(
         (k): k is string =>
           typeof k === 'string' && (k.startsWith('outbox:') || k.startsWith('signed-url:')),
       );
-      return Promise.all(stripeKeys.map((k) => del(k)));
+      await Promise.all(stripeKeys.map((k) => del(k)));
     }),
     clearStorageCaches(),
   ]);
