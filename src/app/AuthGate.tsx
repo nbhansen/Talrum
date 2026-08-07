@@ -3,6 +3,7 @@ import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } fr
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
+import { setOutboxOwner } from '@/lib/outbox/owner';
 import { captureException } from '@/lib/platform/telemetry';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -51,6 +52,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       .getSession()
       .then(({ data }) => {
         if (cancelled) return;
+        setOutboxOwner(data.session?.user.id ?? null);
         lastUserIdRef.current = data.session?.user.id ?? null;
         setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
       })
@@ -73,6 +75,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
           }),
         );
       }
+      // Same listener as the sweep above, so the queue's idea of who owns it
+      // can never disagree with the auth boundary that wipes it (#446 review).
+      setOutboxOwner(newUserId);
       lastUserIdRef.current = newUserId;
       setState(session ? { status: 'in', session } : { status: 'out' });
     });

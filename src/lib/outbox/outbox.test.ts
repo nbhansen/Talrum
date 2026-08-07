@@ -33,6 +33,7 @@ const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS } = await import('./handlers');
 const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
+const { __resetOutboxOwnerForTests, setOutboxOwner } = await import('./owner');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -52,6 +53,7 @@ const setOnline = (online: boolean): void => {
 beforeEach(async () => {
   await clear();
   setOnline(true);
+  __resetOutboxOwnerForTests();
   updateMock.mockClear();
   fromMock.mockClear();
   eqMock.mockClear();
@@ -933,6 +935,41 @@ describe('enqueueAndDrain', () => {
 
     expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
     expect(await listEntries()).toEqual([]);
+  });
+
+  // The sign-out sweep cannot be the guarantee: a fast path waiting on the
+  // cross-tab lock acquires it after the sweep releases and writes its entry,
+  // blob included, behind the deletes. The owner check does not care when the
+  // entry was written (#446 review).
+  it('never replays an entry belonging to another account', async () => {
+    setOutboxOwner('user-b');
+    await putEntry(baseEntry({ id: '01HZZA', ownerId: 'user-a' }));
+
+    await drain();
+
+    // Not replayed under user B, and the bytes are gone rather than parked.
+    expect(eqMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('keeps an entry written before the owner stamp existed', async () => {
+    setOutboxOwner('user-b');
+    // No ownerId: unattributed, not foreign.
+    await putEntry(baseEntry({ id: '01HZZA' }));
+
+    await drain();
+
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('stamps the signed-in owner onto a new entry', async () => {
+    setOutboxOwner('user-a');
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+
+    expect((await listEntries())[0]?.ownerId).toBe('user-a');
   });
 
   // FIFO still holds across the adoption: a new write must not jump an

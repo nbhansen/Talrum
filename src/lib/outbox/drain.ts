@@ -7,6 +7,7 @@ import {
   RETRY_MAX_DELAY_MS,
 } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { getOutboxOwner } from './owner';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -87,37 +88,56 @@ const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
 };
 
 /**
- * Promote abandoned `attempting` entries back to `pending`.
+ * Make the queue safe for this session to act on, and return what is left.
  *
- * MUST be called from inside the cross-tab lock, and is exact there rather
- * than a heuristic: the fast path holds the lock for its whole attempt, and
- * the browser releases a held lock when its tab dies. So an `attempting`
- * entry visible to a lock holder cannot have a live owner — the owner would
- * still be holding the lock. That covers the reload this exists for (#445),
- * a crash, and another tab dying, with no timestamp and no timeout.
+ * MUST be called from inside the cross-tab lock. Two jobs:
  *
- * The attempt is not counted: the entry may have landed server-side before
- * the page went away, so the replay is the same at-least-once case handlers
- * are already idempotent for, not a burnt retry.
+ * 1. **Drop foreign entries.** An entry belongs to the account that enqueued
+ *    it, and on a shared device must never run on behalf of another. The
+ *    sign-out sweep (`queryClient.ts`) deletes the queue at the auth
+ *    boundary, but cannot be the whole guarantee: a fast path waiting on the
+ *    lock acquires it *after* the sweep releases and writes its entry behind
+ *    the deletes (#446 review). Here the owner is checked instead of the
+ *    timing, so the ordering stops mattering. An entry with no owner predates
+ *    the stamp — unattributed, not foreign, so it is kept. With no current
+ *    owner (signed out, or before the session resolves) nothing is dropped:
+ *    there is nobody to compare against.
  *
- * Without `navigator.locks` the proof does not hold, and `withCrossTabLock`
- * runs unlocked — the degradation that file already documents.
+ * 2. **Promote abandoned attempts.** Exact inside the lock rather than a
+ *    heuristic: the fast path holds the lock for its whole attempt, and the
+ *    browser releases a held lock when its tab dies. So an `attempting` entry
+ *    visible to a lock holder cannot have a live owner — the owner would
+ *    still be holding the lock. That covers the reload this exists for
+ *    (#445), a crash, and another tab dying, with no timestamp and no
+ *    timeout. The attempt is not counted: the entry may have landed
+ *    server-side before the page went away, so the replay is the same
+ *    at-least-once case handlers are already idempotent for.
  *
- * Returns the queue as it stands afterwards, so callers that need to read it
- * next do not pay a second `listEntries` — `keys()` plus a `get` per key — on
- * the hot path for a scan that finds nothing in the common case.
+ * Returning the surviving queue means callers do not pay a second
+ * `listEntries` — `keys()` plus a `get` per key — on the hot path for a scan
+ * that finds nothing in the common case.
+ *
+ * Without `navigator.locks` the lock proof does not hold and
+ * `withCrossTabLock` runs unlocked — the degradation that function
+ * documents. The owner check does not depend on the lock and still holds.
  */
-export const adoptOrphans = async (): Promise<OutboxEntry[]> => {
-  const entries = await listEntries();
-  if (!entries.some((e) => e.status === 'attempting')) return entries;
-  return Promise.all(
-    entries.map(async (e) => {
-      if (e.status !== 'attempting') return e;
+export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
+  const owner = getOutboxOwner();
+  const kept: OutboxEntry[] = [];
+  for (const e of await listEntries()) {
+    if (owner !== null && e.ownerId !== undefined && e.ownerId !== owner) {
+      await deleteEntry(e.id);
+      continue;
+    }
+    if (e.status === 'attempting') {
       const promoted: OutboxEntry = { ...e, status: 'pending' };
       await putEntry(promoted);
-      return promoted;
-    }),
-  );
+      kept.push(promoted);
+      continue;
+    }
+    kept.push(e);
+  }
+  return kept;
 };
 
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
@@ -271,9 +291,10 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       // tab releases the lock; attempting entries on a network that dropped
       // meanwhile burns their transient-retry budget on guaranteed failures.
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-      // Inside the lock, so any `attempting` entry lost its owner. Its return
-      // seeds the first pass, so the promotion costs no extra round trip.
-      let queue = await adoptOrphans();
+      // Inside the lock: drops entries this session does not own and adopts
+      // abandoned attempts. Its return seeds the first pass, so neither costs
+      // an extra round trip.
+      let queue = await reconcileQueue();
       let stop = false;
       while (!stop) {
         const entries = queue.filter((e) => e.status === 'pending');

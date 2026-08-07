@@ -53,6 +53,16 @@ export type OutboxFailureKind = 'conflict' | 'permanent';
 interface OutboxEntryBase {
   /** ULID — monotonically sortable, stable across reloads. */
   id: string;
+  /**
+   * The signed-in user this write is on behalf of. `reconcileQueue`
+   * (drain.ts) drops entries owned by anybody but the current session, so a
+   * write that outlives sign-out on a shared device is never replayed under
+   * the next account (#446 review).
+   *
+   * Optional only for entries written before the stamp existed: a missing
+   * owner is unattributed, not foreign, and is kept rather than deleted.
+   */
+  ownerId?: string;
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;

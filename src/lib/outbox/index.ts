@@ -4,10 +4,10 @@ import { ulid } from 'ulid';
 import { captureException } from '@/lib/platform/telemetry';
 
 import {
-  adoptOrphans,
   drain,
   getStatus,
   type OutboxStatus,
+  reconcileQueue,
   refreshStatus,
   resetRetryDelay,
   startOutbox,
@@ -15,6 +15,7 @@ import {
   withCrossTabLock,
 } from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { getOutboxOwner } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -78,7 +79,8 @@ type EntryInput = DistributiveOmit<
  * `emit()` and `refreshStatus()` read the queue unlocked, but neither counts
  * an attempt, and the drain loop's filter skips it — so no exit path has to
  * correct a status or schedule a follow-up. An abandoned attempt is adopted
- * by the next lock holder (`adoptOrphans`, drain.ts). Where `navigator.locks`
+ * by the next lock holder (`reconcileQueue`, drain.ts), which also drops any
+ * entry belonging to a different account. Where `navigator.locks`
  * is missing, `withCrossTabLock` runs unlocked and that adoption is no longer
  * exact; handlers are idempotent for exactly this class.
  *
@@ -112,19 +114,29 @@ type EntryInput = DistributiveOmit<
  * app's write volume.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
-  const newEntry = (): OutboxEntry => ({
-    ...input,
-    id: ulid(),
-    enqueuedAt: Date.now(),
-    attemptCount: 0,
-    status: 'pending',
-  });
+  const newEntry = (): OutboxEntry => {
+    const base = {
+      ...input,
+      id: ulid(),
+      enqueuedAt: Date.now(),
+      attemptCount: 0,
+      status: 'pending' as const,
+    };
+    // Stamped so a write can never run on behalf of another account, whatever
+    // the ordering around the sign-out sweep (#446 review, owner.ts). Added
+    // rather than always set, because `exactOptionalPropertyTypes` forbids an
+    // explicit `undefined` and `createPhotoPicto` already carries its own —
+    // the same session user either way.
+    const owner = getOutboxOwner();
+    return owner === null ? base : { ...base, ownerId: owner };
+  };
   const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
     // Inside the lock, so an `attempting` entry left by a page that went away
-    // has no live owner. Promote it before the check below, or this write
-    // would fast-path straight past an older one (#279's shape). The queue it
-    // returns is the one the check reads, so this costs no extra round trip.
-    const entries = await adoptOrphans();
+    // has no live owner. Reconcile before the check below, or this write
+    // would fast-path straight past an older one (#279's shape). It also drops
+    // entries this session does not own. The queue it returns is the one the
+    // check reads, so neither costs an extra round trip.
+    const entries = await reconcileQueue();
     // Read `onLine` inside the lock: an offline pre-check would sit outside
     // and go seconds stale during the lock wait (same hazard as drain's
     // in-lock re-check); attempting on a dead network burns a retry attempt

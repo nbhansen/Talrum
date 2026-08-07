@@ -102,13 +102,15 @@ export const clearPersistedCache = async (): Promise<void> => {
   // stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),
-    // Under the outbox's cross-tab lock (#446 review). The sweep is a
-    // snapshot of `keys()` followed by deletes, and the fast path holds that
-    // lock while it writes an entry and runs its handler. Unlocked, a write
-    // that lands after the snapshot outlives sign-out as an orphaned entry,
-    // which the next account's drain adopts and replays — user A's payload,
-    // including the photo and recording blobs, surfacing under user B.
-    // Nothing in here takes the lock already.
+    // Under the outbox's cross-tab lock (#446 review), which buys exactly one
+    // thing: no write can land between this `keys()` snapshot and its deletes.
+    // It does NOT stop a fast path that is *waiting* on the lock — that one
+    // acquires it after this releases and writes its entry, blob included,
+    // behind the deletes. Nothing here can fix that ordering, so the sweep is
+    // not the guarantee. Every entry carries its `ownerId`, and
+    // `reconcileQueue` drops the ones this session does not own, whenever
+    // they were written. This stays because it clears the bytes promptly,
+    // which the owner check alone would leave until the next drain.
     withCrossTabLock(async () => {
       const stripeKeys = (await keys()).filter(
         (k): k is string =>

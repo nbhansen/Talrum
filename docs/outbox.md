@@ -79,6 +79,22 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   drain next takes the lock, which offline means waiting for `online`. It is
   never *misreported* — the old shape reported a pending write that had
   already landed.
+
+- **An entry runs only for the account that enqueued it** (#446 review). Each
+  entry carries its `ownerId` (`owner.ts`, set from the same
+  `onAuthStateChange` listener that triggers the sign-out sweep), and
+  `reconcileQueue` deletes any entry the current session does not own. An
+  entry with no owner predates the stamp — unattributed, not foreign, so it is
+  kept.
+
+  The sweep in `clearPersistedCache` cannot carry this on its own. Both it and
+  the fast path take the outbox lock, so nothing lands *between* its `keys()`
+  snapshot and its deletes — but a fast path already **waiting** on that lock
+  acquires it once the sweep releases, and writes its entry, blob included,
+  behind the deletes. On a shared device that entry would then be adopted and
+  replayed under the next account. The owner check does not depend on the
+  ordering, so it holds where the sweep cannot. The sweep stays because it
+  clears the bytes at once, rather than at the next drain.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
