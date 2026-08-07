@@ -160,8 +160,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   guarded against cross-device overwrites.
 - ✅ As a parent, my data is cached locally (IndexedDB) so the app opens fast
   and works through brief offline gaps.
-- 🔜 As a parent, a write that is in flight when the page reloads is not
-  lost. ([#445])
+- ✅ As a parent, a write that is in flight when the page reloads is not
+  lost. The outbox writes the entry before it tries the write, so a reload
+  finds it and finishes it. ([#445])
 - 🔜 As a parent or kid, the builder draft and the current sequence step
   survive a reload — a deploy now reloads open tabs. ([#444])
 
