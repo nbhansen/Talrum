@@ -15,14 +15,10 @@ import {
 } from './types.ts';
 
 /**
- * Turns a pictogram label into spoken audio (#422). The HTTP shell below
- * owns auth, validation and error codes; the provider behind the Synthesize
- * seam owns everything vendor-specific. See types.ts for the contract and
- * azure.ts for the one Azure-aware file.
- *
- * The client previews the returned bytes and saves them through the normal
- * pictogram-audio upload path only when the parent accepts — this function
- * writes nothing to Storage or the database.
+ * Turns a pictogram label into spoken audio (#422). The shell below owns auth,
+ * validation and error codes; the provider behind the Synthesize seam owns
+ * everything vendor-specific. This function writes nothing: the client
+ * previews the bytes and saves them through the normal upload path.
  */
 
 interface AuthLike {

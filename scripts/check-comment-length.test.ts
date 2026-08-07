@@ -30,4 +30,28 @@ describe('findLongComments', () => {
   it('ignores a string that merely contains a comment marker', () => {
     expect(findLongComments(`const url = 'https://example.com';\n`)).toEqual([]);
   });
+
+  // A marker line that carries prose is prose. Counting only the lines between
+  // the markers let a five-line `/* one … five */` pass a four-line cap.
+  it('counts prose sharing a line with either marker', () => {
+    expect(findLongComments('/* one\n two\n three\n four\n five */')).toEqual([
+      { line: 1, length: 5 },
+    ]);
+    expect(findLongComments(`/**\n${lines(4, ' *')}\n * five */`)).toEqual([
+      { line: 1, length: 5 },
+    ]);
+    expect(findLongComments('/* one\n two\n three\n four */')).toEqual([]);
+  });
+
+  it('accepts a whole comment on one line', () => {
+    expect(findLongComments('/* just this */')).toEqual([]);
+  });
+
+  // Blank `//` lines do not end a run: three paragraphs joined that way are one
+  // comment, and splitting them is not a way under the cap.
+  it('treats a bare // separator as part of the same run', () => {
+    expect(findLongComments(`${lines(3, '//')}\n//\n${lines(3, '//')}`)).toEqual([
+      { line: 1, length: 7 },
+    ]);
+  });
 });

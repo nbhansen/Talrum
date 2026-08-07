@@ -5,6 +5,13 @@ import { globSync, readFileSync } from 'node:fs';
 
 const MAX_LINES = 4;
 
+const SOURCE_GLOBS = ['src/**/*.{ts,tsx}', 'scripts/**/*.{ts,mjs}', 'supabase/functions/**/*.ts'];
+
+// A marker line counts as prose whenever it carries any, so `/* one` and
+// `* five */` are not free.
+const BARE_OPEN = /^\/\*+$/;
+const BARE_CLOSE = /^\*\/$/;
+
 // Returns [{ line, length }] for every comment block over the cap.
 export function findLongComments(source) {
   const lines = source.split('\n');
@@ -20,8 +27,9 @@ export function findLongComments(source) {
     } else if (text.startsWith('/*')) {
       let j = i;
       while (j < lines.length && !lines[j].includes('*/')) j++;
-      // Content lines only: the opening and closing markers carry no prose.
-      const length = j - i - 1;
+      let length = j - i + 1;
+      if (BARE_OPEN.test(text)) length--;
+      if (j > i && BARE_CLOSE.test(lines[j].trim())) length--;
       if (length > MAX_LINES) out.push({ line: i + 1, length });
       i = j;
     }
@@ -29,18 +37,23 @@ export function findLongComments(source) {
   return out;
 }
 
-const files = globSync('src/**/*.{ts,tsx}');
-const failures = files.flatMap((file) =>
-  findLongComments(readFileSync(file, 'utf8')).map((f) => `${file}:${f.line} — ${f.length} lines`),
-);
-
-if (failures.length > 0) {
-  console.error(`Comment blocks over ${MAX_LINES} lines (AGENTS.md §4):\n`);
-  for (const f of failures) console.error(`  ${f}`);
-  console.error(
-    `\n${failures.length} over the cap. Cut them to the why, or move the long form to docs/.`,
+// Only run the check when invoked as a script, never when a test imports it.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const files = SOURCE_GLOBS.flatMap((g) => globSync(g));
+  const failures = files.flatMap((file) =>
+    findLongComments(readFileSync(file, 'utf8')).map(
+      (f) => `${file}:${f.line} — ${f.length} lines`,
+    ),
   );
-  process.exit(1);
-}
 
-console.log(`No comment block over ${MAX_LINES} lines in ${files.length} files.`);
+  if (failures.length > 0) {
+    console.error(`Comment blocks over ${MAX_LINES} lines (AGENTS.md §4):\n`);
+    for (const f of failures) console.error(`  ${f}`);
+    console.error(
+      `\n${failures.length} over the cap. Cut them to the why, or move the long form to docs/.`,
+    );
+    process.exit(1);
+  }
+
+  console.log(`No comment block over ${MAX_LINES} lines in ${files.length} files.`);
+}

@@ -1,9 +1,7 @@
-// Canary for the layer map (#397). The boundaries/dependencies rule fails
-// SILENTLY if import resolution breaks: an unresolved `@/*` import
-// reclassifies as an external module, the blanket external allow permits it,
-// and the whole layer map no-ops with zero lint errors. This script writes a
-// temporary file with three imports that MUST each produce a boundaries
-// error and fails the build if any of them lints clean.
+// Canary for the layer map (#397): the boundaries rule fails silently if
+// import resolution breaks, because an unresolved `@/*` import reclassifies as
+// external and the blanket allow permits it. This writes three imports that
+// must each error, and fails the build if any of them lints clean.
 import { execFileSync } from 'node:child_process';
 import { globSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

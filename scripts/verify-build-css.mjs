@@ -10,13 +10,10 @@ const css = readdirSync(dir)
   .map((f) => readFileSync(join(dir, f), 'utf8'))
   .join('\n');
 
-// Regexes anchor on the EXACT selectors we expect, not just substrings:
-// a future single-component `box-sizing: border-box` rule must not satisfy
-// the universal-selector reset check, and `.somebody{font-family:...}` must
-// not satisfy the body check. Vite's minifier collapses `::before` to `:before`
-// and drops the redundant `*` before a pseudo-element (`*::before` → `:before`),
-// so the universal-selector pattern tolerates both forms. The leading bare `*`
-// stays required so a scoped `.foo{box-sizing:border-box}` can't pass.
+// Anchored on exact selectors, not substrings, so a scoped
+// `.foo{box-sizing:border-box}` cannot satisfy the universal reset check. The
+// patterns tolerate `::before` and `:before`, because Vite's minifier collapses
+// the two.
 const required = [
   { name: '--tal-space-4 token definition', re: /--tal-space-4:/ },
   { name: '--tal-ink token definition', re: /--tal-ink:/ },

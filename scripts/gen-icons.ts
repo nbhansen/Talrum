@@ -1,12 +1,6 @@
 /**
- * Slices src/assets/talrum-logo.png into the PWA icon family.
- *
- * Run with:
- *   npm run icons:gen
- *
- * Emits public/icon-192.png, public/icon-512.png, public/apple-touch-icon.png,
- * and public/icon-512-maskable.png (Android adaptive-icon safe-zone variant
- * on the brand background). Idempotent: re-running overwrites; commit the outputs.
+ * Slices src/assets/talrum-logo.png into the PWA icon family. Run with
+ * `npm run icons:gen`; re-running overwrites, and the outputs are committed.
  */
 
 import { fileURLToPath } from 'node:url';
@@ -36,12 +30,9 @@ await Promise.all([
       .png(pngOpts)
       .toFile(out),
   ),
-  // Maskable variant: logo at 80% of canvas, centered, on opaque brand bg.
-  // The web-manifest maskable safe zone is the inner 80% diameter circle, so
-  // the rounded-square logo's corners will clip on circular system masks —
-  // that's expected and the whole point of the maskable purpose. The actual
-  // content (speaker glyph + wordmark) stays well within the safe circle;
-  // only the outer brand-frame corners get cropped.
+  // The maskable safe zone is the inner 80% circle, so the rounded-square
+  // logo's corners clip on circular system masks. That is the point: the
+  // glyph and wordmark stay inside the circle, only the frame is cropped.
   sharp(src)
     .resize(410, 410, { fit: 'contain', background: BRAND_BG })
     .extend({ top: 51, bottom: 51, left: 51, right: 51, background: BRAND_BG })

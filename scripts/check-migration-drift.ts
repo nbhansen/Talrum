@@ -1,12 +1,7 @@
 /**
- * Detects drift between supabase/migrations/*.sql filename prefixes and the
- * linked Supabase project's supabase_migrations.schema_migrations.version
- * column. The classic symptom of a migration applied via the Supabase MCP
- * apply_migration tool, which stamps apply-time timestamps instead of the
- * filename prefix.
- *
- * Run with:
- *   npm run migrations:check-drift
+ * Detects drift between the migration filename prefixes and the linked
+ * project's `schema_migrations.version`, the symptom of a migration applied
+ * through the Supabase MCP tool. Run with `npm run migrations:check-drift`.
  */
 
 import { spawnSync } from 'node:child_process';
