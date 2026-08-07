@@ -3,6 +3,10 @@ type: Reference
 title: Offline Synchronization Model
 description: Details on Talrum's offline-first architecture, optimistic UI caching, IndexedDB outbox queue, and conflict handling.
 tags: [offline, sync, indexeddb, optimistic-ui, queue]
+openwiki:
+  roles: [architecture, operations]
+  source_paths: [src/lib/storage/storage.ts, src/lib/queryClient.ts, src/lib/platform/audio.ts]
+  symbols: [signedUrlFor, clearPersistedCache]
 ---
 
 # Offline Synchronization Model
@@ -26,11 +30,11 @@ flowchart TD
     UI -->|"3. Fast path (if online)"| Backend
     UI -->|"4. Fallback (if offline/failed)"| Outbox
     Outbox -->|"5. Queued mutation"| Drain
-    Drain -->|"6. Flush on reconnect"| Backend
+    Drain -->|"6. Flush on reconnect (Timer-driven retries)"| Backend
 ```
 *Data flow of a mutation through the optimistic cache and offline outbox queue.*
 
-Concurrently, the application attempts a fast path: if the network is available, it pushes the change directly to the backend. If the application is offline or the network request fails, the mutation payload is serialized and placed into an outbox queue backed by IndexedDB. 
+Concurrently, the application attempts a fast path: if the network is available, it pushes the change directly to the backend. If the application is offline or the network request fails, the mutation payload is serialized and placed into an outbox queue backed by IndexedDB. The global UI reflects these offline queued changes steadily via timer-driven polling mechanisms inside the drain and indicator components.
 
 ## The Drain Loop and Replay
 
@@ -38,11 +42,17 @@ Mutations stored in the outbox are assigned a unique lexicographically sortable 
 
 To prevent concurrent drain loops from executing simultaneously across multiple browser tabs, the system employs cross-tab locking via the Web Locks API.
 
-## Storage Artifact Safety
+## Media Offline Caching & Storage Artifact Safety
 
 Because outbox operations like image or audio uploads can be delayed during flaky connections, storage objects are designed to be idempotent and immune to race conditions. Rather than uploading to deterministic paths—which could cause a delayed, older upload to overwrite a newer one—every media upload is assigned a unique, versioned path (e.g., suffixed with a ULID) at the time of queuing. 
 
-When an outbox handler executes, the database row acts as the single source of truth for the current media path. Instead of relying on client-side snapshots that might become stale, handlers read the active storage path directly from the row before performing any cleanup. This ensures that offline replays accurately reflect the chain of operations, and late-arriving network requests only write to isolated paths they exclusively own, leaving the newest state intact.
+To support offline media viewing, Talrum extensively uses the Service Worker cache on downloaded URLs:
+*   **Images**: Signed URLs are cached locally so the Service Worker can serve them offline without roundtripping to mint a new signature.
+*   **Audio**: Because standard HTML media elements send a `Range` header that results in a `206 Partial Content` response (which the Service Worker cache rejects), audio playback uses a fetch-to-blob strategy. The file is fetched normally to get a `200 OK` response that the cache accepts, and played locally via an object URL.
+
+When an outbox handler executes, the database row acts as the single source of truth for the current media path. Instead of relying on client-side snapshots that might become stale, handlers read the active storage path directly from the row before performing any cleanup. 
+
+**Auth Boundary Cleansing**: To ensure data privacy between different parent accounts on a shared device, all caches (Service Worker, IndexedDB queries, and signed URLs) are completely wiped during authentication boundaries (sign in / sign out) in `src/lib/queryClient.ts`.
 
 ## Conflict Handling
 
