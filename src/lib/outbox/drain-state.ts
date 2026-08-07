@@ -27,15 +27,14 @@ interface DrainState {
   pendingDrain: boolean;
   listenersAttached: boolean;
   lastStatus: OutboxStatus;
-  /** Scheduled re-drain after a transient failure (#391). */
   retryTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Delay for the next scheduled re-drain; doubles per transient pass. */
+  /** Doubles per transient pass, up to RETRY_MAX_DELAY_MS. */
   retryDelayMs: number;
 }
 
-/** First re-drain delay after a transient failure (#391). */
+// The retry schedule (#391). MAX_ATTEMPTS_BEFORE_FAILED in drain.ts is sized
+// against these two, so change them together.
 export const RETRY_BASE_DELAY_MS = 2_000;
-/** Backoff ceiling for the scheduled re-drain (#391). */
 export const RETRY_MAX_DELAY_MS = 30_000;
 
 const initialStatus = (): OutboxStatus => ({

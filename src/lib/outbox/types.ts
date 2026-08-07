@@ -43,7 +43,7 @@ interface OutboxEntryBase {
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;
-  /** Last error message, surfaced in the indicator's failed-pill. Display only. */
+  /** Display copy for the failed-pill. Never compare against it (#392). */
   lastError?: string;
   /** Set whenever `status` is `failed`. See {@link OutboxFailureKind}. */
   failureKind?: OutboxFailureKind;
