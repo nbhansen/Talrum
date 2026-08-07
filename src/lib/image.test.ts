@@ -3,10 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cropToSquareJpeg } from './image';
 
 /**
- * jsdom has no 2d canvas rasterizer, so the unit under test here is the crop
- * geometry and the decode/encode plumbing: which source rectangle lands on
- * the canvas, which encoder settings are used, and how each failure mode
- * surfaces. drawImage/toBlob are recorded, not rendered.
+ * jsdom has no 2d rasterizer, so drawImage and toBlob are recorded rather than
+ * rendered: the unit here is the crop geometry and the failure modes.
  */
 
 interface DrawArgs {
@@ -134,9 +132,8 @@ describe('cropToSquareJpeg via createImageBitmap', () => {
 
 describe('cropToSquareJpeg via <img> fallback (no createImageBitmap)', () => {
   /**
-   * A real HTMLImageElement (so the `instanceof` branch reads naturalWidth/
-   * naturalHeight) whose src setter is overridden to fire onload/onerror
-   * asynchronously instead of hitting jsdom's non-loading pipeline.
+   * A real HTMLImageElement, so the `instanceof` branch reads natural*, with its
+   * src setter overridden to fire onload rather than hit jsdom's pipeline.
    */
   const installFakeImage = ({
     naturalWidth,
@@ -147,8 +144,7 @@ describe('cropToSquareJpeg via <img> fallback (no createImageBitmap)', () => {
     naturalHeight: number;
     fail?: boolean;
   }): void => {
-    // A function expression (not an arrow — `new Image()` must work) whose
-    // constructor-return hands back a real HTMLImageElement.
+    // Not an arrow: `new Image()` must work.
     const FakeImage = function (): HTMLImageElement {
       const img = document.createElement('img');
       Object.defineProperty(img, 'naturalWidth', { value: naturalWidth });
@@ -176,8 +172,8 @@ describe('cropToSquareJpeg via <img> fallback (no createImageBitmap)', () => {
 
     const result = await cropToSquareJpeg(someFile());
 
-    // 640×480 → side 480, x-offset 80. The <img> element carries width 0 in
-    // jsdom, so these numbers prove the natural* branch was used.
+    // 640×480 → side 480, x-offset 80. The element carries width 0 in jsdom,
+    // so these numbers prove the natural* branch ran.
     expect(drawCalls[0]).toMatchObject({ sx: 80, sy: 0, sw: 480, sh: 480, dw: 512, dh: 512 });
     expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:in');
     expect(result.previewUrl).toBe('blob:out');

@@ -36,9 +36,8 @@ interface ReorderableProps<T extends Identified> {
 }
 
 /**
- * Pointer-based reorderable list. Replaces the prototype's HTML5 drag-and-drop,
- * which doesn't work on iPad touch. Uses @dnd-kit under the hood but keeps the
- * API tight — caller only sees items, onReorder, and DragBindings.
+ * Pointer-based, because HTML5 drag-and-drop does not work on iPad touch.
+ * @dnd-kit stays behind the API: callers see items, onReorder and DragBindings.
  */
 export const Reorderable = <T extends Identified>({
   items,

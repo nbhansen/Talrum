@@ -25,11 +25,7 @@ const NAV: readonly NavItem[] = [
 interface ParentShellProps {
   active?: ParentNavKey;
   onNav?: (id: ParentNavKey) => void;
-  /**
-   * Page-specific kid-mode entry point. Each route picks the right board
-   * (most routes via useKidModeNav; BoardBuilder → the board being edited).
-   * Omitted when no board qualifies — the button renders disabled.
-   */
+  /** Omitted when no board qualifies, which renders the button disabled. */
   onKidMode?: () => void;
   title?: string;
   subtitle?: string;

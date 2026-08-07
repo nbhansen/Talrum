@@ -46,9 +46,8 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', vi.fn());
   URL.createObjectURL = createObjectURL;
   URL.revokeObjectURL = revokeObjectURL;
-  // Fresh module per test: audio.ts keeps the current clip in module-level
-  // state. The reset also recreates the storage mock, so grab the new
-  // signedUrlFor instance before importing the module under test.
+  // audio.ts keeps the current clip in module state. The reset also recreates
+  // the storage mock, so grab the new instance before importing.
   vi.resetModules();
   ({ signedUrlFor } = (await import('@/lib/storage')) as unknown as { signedUrlFor: Mock });
   ({ captureException } = (await import('@/lib/platform/telemetry')) as unknown as {
@@ -121,8 +120,7 @@ describe('playPictogramAudio', () => {
       tags: { component: 'audio', op: 'play' },
     });
 
-    // Latched: the same failure kind does not heal in-session and would
-    // otherwise report on every tap of a kid screen.
+    // Latched: the same failure kind would otherwise report on every tap.
     play.mockRejectedValueOnce(refused);
     await expect(playPictogramAudio('u/a.webm')).rejects.toThrow('NotAllowedError');
     expect(captureException).toHaveBeenCalledOnce();
@@ -165,8 +163,7 @@ describe('playPictogramAudio', () => {
     resolveB(okResponse(new Blob(['b'])));
     await Promise.all([tapA, tapB]);
 
-    // Tap A was superseded mid-fetch: it must not create an element, play,
-    // or revoke the object URL tap B is playing from.
+    // Tap A was superseded mid-fetch, so it must not revoke the URL B plays.
     expect(createdSrcs).toEqual(['blob:mock-1']);
     expect(play).toHaveBeenCalledOnce();
     expect(revokeObjectURL).not.toHaveBeenCalled();

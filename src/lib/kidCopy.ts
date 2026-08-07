@@ -20,9 +20,8 @@ export interface KidCopy {
     letsGoTo: (label: string) => string;
     hearAgain: (label: string) => string;
   };
-  // Verification only. Choosing a PIN is a parent-UI job (Settings → Parent
-  // PIN) and its copy lives there, in English — a kid must never be shown a
-  // way to create the PIN that contains them (#353).
+  // Verification only: a kid must never be shown a way to create the PIN that
+  // contains them, so the setup copy lives in parent UI (#353).
   pin: {
     verifyTitle: string;
     verifySubtitle: string;

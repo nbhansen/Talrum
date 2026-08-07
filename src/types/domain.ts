@@ -1,10 +1,8 @@
 import type { AccentBg } from '@/theme/tokens';
 
 /**
- * A CSS color expression used for pictogram tile backgrounds. Unlike the
- * semantic accent tokens, these are raw OKLCH strings because the seed
- * library uses a slightly softer lightness (88%) than the full accents
- * and a handful of custom hues (e.g. red-ish for apple).
+ * Raw OKLCH rather than an accent token: the seed library uses a softer
+ * lightness than the accents, plus a few custom hues.
  */
 export type PictogramTint = string;
 
@@ -46,7 +44,7 @@ interface PhotoPictogram {
   slug?: string;
   label: string;
   style: 'photo';
-  /** Storage key or inline blob URL. Undefined in Phase 1 for seed data. */
+  /** Storage key, stock sentinel, or an optimistic blob URL. */
   imagePath?: string;
   audioPath?: string;
 }
@@ -66,24 +64,15 @@ export interface Board {
   kind: BoardKind;
   labelsVisible: boolean;
   voiceMode: VoiceMode;
-  /**
-   * Pictogram ids in display order. Resolved against the pictogram catalog
-   * at render time — the board doesn't own the pictogram data.
-   */
+  /** Resolved against the catalog at render time; the board owns no picto data. */
   stepIds: string[];
-  /**
-   * When true, KidSequence lets the kid drag tiles to reorder. Caregiver-
-   * controlled; off by default because not every kid benefits from the
-   * extra interaction surface.
-   */
+  /** Caregiver-controlled, and off by default: not every kid wants the surface. */
   kidReorderable: boolean;
   accent: AccentBg;
   updatedLabel: string;
   /**
-   * Raw server `updated_at`, the optimistic-concurrency baseline for guarded
-   * board updates (#281). Optional because boards rehydrated from a query
-   * cache persisted before this field existed lack it — their writes degrade
-   * to unguarded last-write-wins until the next refetch.
+   * The conflict-guard baseline (#281). Optional: a board rehydrated from a
+   * cache persisted before this existed degrades to last-write-wins.
    */
   serverUpdatedAt?: string;
 }

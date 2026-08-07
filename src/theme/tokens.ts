@@ -49,9 +49,8 @@ export const shadowVar = (token: ShadowToken): string => `var(--tal-shadow-${tok
 export const spaceVar = (token: SpaceToken): string => `var(--tal-space-${token})`;
 
 /**
- * The 5 accent backgrounds usable on a Board. Narrower than ColorToken so
- * that callers can't pass non-accent tokens (e.g. `ink`, `photo-stripe-a`)
- * into accent-typed slots, and so `inkForAccent` can be a total function.
+ * Narrower than ColorToken so a non-accent token cannot reach an accent slot,
+ * and so `inkForAccent` can be total.
  */
 export type AccentBg = 'sage' | 'sky' | 'peach' | 'lavender' | 'sun';
 

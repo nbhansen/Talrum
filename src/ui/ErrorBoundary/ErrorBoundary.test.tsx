@@ -14,8 +14,7 @@ const Boom = ({ msg = 'boom' }: { msg?: string }): JSX.Element => {
 };
 
 describe('ErrorBoundary', () => {
-  // React logs caught errors to console.error during render. Silence so the
-  // test output isn't polluted; restore so unrelated errors still surface.
+  // React logs a caught error during render. Restore, so unrelated ones surface.
   let errSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -60,8 +59,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('clears error state when reset() is called from the fallback', () => {
-    // Toggleable child: throws while toggle=true, renders normally otherwise.
-    // The fallback's button flips the toggle AND calls reset, so the next
+    // The fallback's button flips the toggle and calls reset, so the next
     // render finds clean children.
     const Harness = (): JSX.Element => {
       const [throwing, setThrowing] = useState(true);
@@ -90,8 +88,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('catches a second throw after reset (state is not latched)', () => {
-    // Reset clears the error, but a child that throws again on the next
-    // render must re-trigger the fallback rather than bubble out.
+    // A child that throws again must re-trigger the fallback, not bubble out.
     const Harness = (): JSX.Element => {
       const [n, setN] = useState(0);
       return (
@@ -114,8 +111,7 @@ describe('ErrorBoundary', () => {
     };
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'retry-0' }));
-    // Reset cleared, child re-rendered, child threw again → fallback again
-    // with the bumped counter visible.
+    // The bumped counter proves the second throw went through reset.
     expect(screen.getByRole('button', { name: 'retry-1' })).toBeInTheDocument();
   });
 });

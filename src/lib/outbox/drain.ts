@@ -166,7 +166,6 @@ const scheduleRetry = (): void => {
   drainState.retryDelayMs = Math.min(drainState.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
 };
 
-/** Offline path for the timer: cancel it and start the backoff over. */
 const cancelRetryOnOffline = (): void => {
   clearRetryTimer();
   drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
@@ -259,7 +258,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   }
 };
 
-/** Wires `online` events + does an initial drain. Idempotent — call once at app boot. */
+/** Idempotent — call once at app boot. */
 export const startOutbox = (): void => {
   if (drainState.listenersAttached) return;
   drainState.listenersAttached = true;
