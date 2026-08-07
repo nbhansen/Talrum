@@ -4,13 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as StoreModule from './store';
 
 /**
- * The IDB bookkeeping around a fast-path write is best effort: it must never
- * decide the outcome (#446 review). Proving that needs `putEntry`/
- * `deleteEntry` to fail on demand, so `./store` is mocked here and this lives
- * in its own file — outbox.test.ts uses the real store throughout.
- *
- * Both mocks run the real implementation by default, so every test that does
- * not force a failure still reads and writes a real fake-indexeddb store.
+ * Proving that IDB bookkeeping never decides a write's outcome (#446) needs
+ * `putEntry`/`deleteEntry` to fail on demand, so this file mocks `./store`
+ * while outbox.test.ts uses the real one. Both mocks default to the real
+ * implementation, so a test that forces no failure still hits fake-indexeddb.
  */
 const putEntryMock = vi.fn<(entry: never) => Promise<void>>();
 const deleteEntryMock = vi.fn<(id: string) => Promise<void>>();

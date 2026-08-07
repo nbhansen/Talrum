@@ -119,11 +119,9 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
   });
 
-  // This assertion used to pin the opposite behaviour — a full-screen
-  // <Link to="/"> labelled "Tap to go back" — which made a crash the last
-  // ungated route from kid mode into parent UI (#371). Assert on the absence
-  // of any link, so relabelling the button cannot reopen the hole quietly.
-  // What the buttons then do is covered by KidRouteFallback.test.tsx.
+  // Assert the absence of any link, not the labels, so relabelling a button
+  // cannot quietly reopen the last ungated route out of kid mode (#371).
+  // KidRouteFallback.test.tsx covers what the buttons do.
   it('a crashing kid route contains the child instead of linking to parent home (#371)', () => {
     render(
       <MemoryRouter>
@@ -143,13 +141,9 @@ describe('routes — error boundary wiring', () => {
 });
 
 /**
- * The containment invariant the review found broken (#353): before this, kid
- * mode could be entered with no PIN, and the exit gate then offered to *create*
- * one — so a child could pick 1111, confirm it, and land in the board builder.
- *
- * These assert at the router level, which is where the invariant now lives.
- * `KidModeGate.test.tsx` covers the gate widget and passed throughout the bug's
- * lifetime; that is exactly why this layer needs its own tests.
+ * At the router level, which is where the containment invariant lives (#353).
+ * `KidModeGate.test.tsx` covers the widget and passed throughout the bug's
+ * lifetime, which is why this layer needs its own tests.
  */
 describe('kid routes require a device PIN (#353)', () => {
   const KidScreen = (): JSX.Element => <div data-testid="kid-screen" />;

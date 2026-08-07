@@ -86,28 +86,19 @@ const parentSuspenseFallback = (
   </div>
 );
 
-// Empty kid-tinted shell — no spinner, no text. Kid-mode prefers a calm
-// static screen during the brief async wait while the route chunk loads.
+// No spinner, no text: kid mode prefers a calm screen for a brief wait.
 const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="true" />;
 
 /**
- * Kid mode is a one-way door only while a device PIN exists to close it, so a
- * device without one must not enter kid mode at all (#353). Sitting in `wrap`'s
- * kid branch rather than inside each kid route makes that structural: the
- * `'kid'` variant *is* the guard, so a third kid route cannot be added without
- * it, and the guard runs before the route's own hooks fetch a board.
- *
- * Every way in lands here — the sidebar KID button, BoardBuilder's own
- * hardcoded launch, and ParentHomeRoute's session auto-launch.
+ * A device with no PIN must not enter kid mode at all (#353). This lives in
+ * `wrap`'s kid branch so the `'kid'` variant is the guard: a third kid route
+ * cannot be added without it, and it runs before the route fetches a board.
  */
 const RequireKidPin = ({ children }: { children: ReactNode }): ReactNode =>
   kidModeNeedsPinSetup() ? <Navigate to="/settings?pin=required" replace /> : children;
 
-// ErrorBoundary wraps Suspense (not the other way around) so that a
-// chunk-load failure during the dynamic import lands in the route's own
-// error fallback (with Retry) instead of bubbling to the app-root fallback.
-// Exported so tests can mount routes through the same wrapping the real
-// router uses.
+// ErrorBoundary outside Suspense, so a failed chunk import lands in the
+// route's own fallback with its Retry, not the app-root one.
 export const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   <ErrorBoundary fallback={variant === 'kid' ? kidRouteFallback : parentRouteFallback}>
     <Suspense fallback={variant === 'kid' ? kidSuspenseFallback : parentSuspenseFallback}>

@@ -19,35 +19,10 @@ const patchPictogramInList = (
 ): Pictogram[] | undefined => list?.map((p) => (p.id === id ? patch(p) : p));
 
 /**
- * Walk every pictogram currently in the cache and `URL.revokeObjectURL` any
- * `blob:` imagePath / audioPath. Optimistic mutations plant local blob URLs
- * for instant render; once the outbox uploads succeed the next `invalidateQueries`
- * refetch replaces the row with a real signed-URL path, but the blob keeps
- * its memory reference unless we explicitly revoke. Sweep before invalidation
- * so the next refetch resolves the real URL into the cache slot we just freed.
- *
- * Called via `beforeRollback` and `settle` by every pictogram mutation that
- * plants a blob URL. Known accepted races:
- *
- *   - Two concurrent uploads: the earlier one's sweep also revokes the later
- *     one's still-pending blob → brief broken-image flash on the second tile
- *     until invalidation refetches the real signed URL.
- *   - Audio mid-buffer: revoking a `blob:` URL while an `<audio>` element is
- *     mid-load can stop playback. Recordings are small (KBs), uploads are
- *     normally faster than the user can hit play immediately after recording,
- *     so this rarely surfaces in practice.
- *   - Error-path double sweep: `beforeRollback` sweeps before the snapshot
- *     restore (the failed mutation's own planted URL must be revoked while
- *     the cache still references it), then `settle` sweeps again after. The
- *     second pass can revoke a URL the restore resurrected — one planted by
- *     an earlier, not-yet-reconciled mutation. Error paths only run on the
- *     online fast path, so the settle invalidation refetches real paths
- *     immediately; the cost is the same brief flash as above.
- *
- * Both are accepted tradeoffs in exchange for the simpler "scan all blobs"
- * implementation; the alternative (per-mutation id tracking through
- * onSuccess/onError contexts) is significantly more wiring for a workflow
- * that doesn't realistically produce concurrent uploads.
+ * Revoke every `blob:` URL an optimistic mutation planted, before the settle
+ * refetch replaces the rows with signed URLs. Scanning all blobs instead of
+ * tracking ids per mutation costs a brief broken-image flash when two uploads
+ * overlap; the wiring for the exact version is not worth it at this volume.
  */
 const revokePictogramBlobs = (qc: QueryClient): void => {
   const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);

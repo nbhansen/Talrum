@@ -1,32 +1,15 @@
 /**
- * Per-board record of the newest server `updated_at` this device has
- * produced (#281).
- *
- * The `boards_set_updated_at` trigger bumps `updated_at` on every UPDATE —
- * including our own. Entries enqueued before an earlier write for the same
- * board has replayed carry a baseline that our own replay immediately
- * invalidates; guarding with the raw baseline would conflict against
- * ourselves (offline edit chains, rapid online edits racing the refetch).
- * Successful updateBoard handlers note the timestamp the server returned,
- * and `resolveExpectedUpdatedAt` substitutes it when it is newer than an
- * entry's own baseline.
- *
- * In-memory only: a reload starts empty and the first replay re-seeds it
- * from its own baseline. Cross-tab handoff is covered by the drain loop
- * persisting resolved baselines back into pending entries (see `drain.ts`).
- * Keep this module import-free — `vitest.setup.ts` resets it globally, so it
- * must stay loadable outside the app graph like `drain-state.ts`.
+ * Newest server `updated_at` this device has produced for each board (#281).
+ * The trigger bumps `updated_at` on our own writes too, so a queued entry's
+ * raw baseline would conflict against our own replay. In-memory only; a
+ * reload re-seeds from the first replay. Keep import-free for the test setup.
  */
 const newestByBoard = new Map<string, string>();
 
 /**
- * Timestamps compare lexicographically, not via `Date.parse`. Every value
- * here is PostgREST's timestamptz rendering (`rowToBoard`, the handlers'
- * `.select('updated_at')`): UTC `+00:00` suffix, fields ordered most- to
- * least-significant — so string order equals time order, including the
- * microseconds `Date.parse` would truncate. Within one millisecond that
- * truncation lets a stale value win a `>=` race and resolve a guard
- * backwards, surfacing as a spurious conflict.
+ * Compares lexicographically, not via `Date.parse`. Every value is PostgREST
+ * timestamptz, so string order equals time order — including the microseconds
+ * `Date.parse` truncates, which would let a stale value win a `>=` race.
  */
 export const noteBoardUpdatedAt = (boardId: string, updatedAt: string): void => {
   const known = newestByBoard.get(boardId);
@@ -36,11 +19,8 @@ export const noteBoardUpdatedAt = (boardId: string, updatedAt: string): void => 
 };
 
 /**
- * The guard an updateBoard entry should use right now: the newer of the
- * entry's own baseline and the last timestamp this device produced for the
- * board. An `undefined` baseline means the entry is unguarded — never invent
- * a guard for it (Retry-after-conflict relies on a stripped guard staying
- * stripped).
+ * An `undefined` baseline means the entry is unguarded. Never invent a guard
+ * for it: Retry-after-conflict relies on a stripped guard staying stripped.
  */
 export const resolveExpectedUpdatedAt = (
   boardId: string,

@@ -14,14 +14,10 @@ let playToken = 0;
 const reportedPlayFailures = new Set<string>();
 
 /**
- * Fetch the clip ourselves instead of handing the URL to the media element.
- * A media element always sends `Range: bytes=0-`, Supabase answers
- * `206 Partial Content`, and `cache.put` rejects a 206 — so a recording
- * played via `new Audio(url)` can never land in the SW's `talrum-storage-v1`
- * cache (#378). A plain fetch gets a CORS 200 that the CacheFirst storage
- * route stores like any photo; offline, the same fetch is answered from that
- * cache. The blob URL then plays from memory, so the media element's Range
- * request never leaves the page.
+ * Fetch the clip rather than hand the URL to the media element: an element
+ * sends `Range`, Supabase answers 206, and `cache.put` rejects a 206, so the
+ * clip could never be cached for offline use (#378). A plain fetch gets a 200,
+ * and the blob URL then plays from memory.
  */
 export const playPictogramAudio = async (path: string): Promise<void> => {
   const token = ++playToken;
@@ -47,11 +43,9 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     // A superseded call must not throw: the caller's TTS fallback would
     // speak this pictogram's label over the newer tap's clip.
     if (token !== playToken) return;
-    // Report (#359) — except a network-level rejection before any response,
-    // which is ordinary life for an app built to run offline: the TTS
-    // fallback is the design there, not a defect. What must not stay silent
-    // is a recording that is systematically broken: a 403 path, or a body
-    // that fails mid-read (truncated upload).
+    // Report (#359), except a rejection before any response — ordinary life
+    // offline, where the TTS fallback is the design. A 403 path or a body that
+    // fails mid-read is the systematic breakage that must not stay silent.
     if (responseReceived || !(err instanceof TypeError)) {
       captureException(err, { level: 'warning', tags: { component: 'audio', op: 'fetch' } });
     }

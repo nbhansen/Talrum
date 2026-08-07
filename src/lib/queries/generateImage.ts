@@ -5,17 +5,10 @@ import { captureException } from '@/lib/platform/telemetry';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Client side of the generate-image edge function (#422). The whole
- * provider (Azure today) lives behind the function; this module only knows
- * the wire contract, mirrored byte-for-byte from
- * `supabase/functions/generate-image/types.ts` — tsconfig does not include
- * supabase/, so a cross-import is not possible. Change one side, change the
- * other.
- *
- * The returned Blob is a preview. Nothing is stored anywhere until the
- * parent accepts and the caller saves it through the normal pictogram
- * upload path — from that point the image is indistinguishable from an
- * upload.
+ * Client side of the generate-image edge function (#422). The wire contract is
+ * mirrored from `supabase/functions/generate-image/types.ts`, because tsconfig
+ * excludes supabase/. Change one side, change the other. The returned Blob is
+ * a preview; nothing is stored until the caller saves it as a normal upload.
  */
 
 const GENERATE_IMAGE_FUNCTION_NAME = 'generate-image';

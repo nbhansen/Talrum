@@ -9,18 +9,12 @@ import {
 import { performSignOut } from '@/lib/auth/session';
 import { supabase } from '@/lib/supabase';
 
-// Edge function name. Mirrored byte-for-byte by DELETE_ACCOUNT_FUNCTION_NAME
-// in `supabase/functions/delete-account/types.ts` — tsconfig doesn't include
-// supabase/ so a cross-import isn't possible. Extracting the literal here at
-// least fails one test (below) if the directory is renamed without updating
-// both sides.
+// Mirrored in `supabase/functions/delete-account/types.ts`, because tsconfig
+// excludes supabase/. A test below fails if the two drift apart.
 const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 
-// Closed-set error codes shared with the edge function. The wire contract
-// (the JSON `error` field) is the API; both sides must agree on these
-// literal strings. Mirrors `supabase/functions/delete-account/types.ts`
-// byte-for-byte. If the function adds a new code, add it here and update
-// DeleteAccountDialog's toast map.
+// The wire contract. Add a code here and in DeleteAccountDialog's toast map
+// whenever the edge function adds one.
 const DELETE_ACCOUNT_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
@@ -57,25 +51,16 @@ export const mapErrorCode = (payload: RawErrorPayload): DeleteAccountError => {
   return new DeleteAccountError(code, payload.message ?? '');
 };
 
-// supabase-js wire shapes:
-//   2xx → { data: <parsed body>, error: null }
-//   4xx/5xx → { data: null, error: FunctionsHttpError } where error.context
-//             is the original Response (body must be re-parsed by us).
-// The edge function's success body is { ok: true }; its error body is
-// { ok: false, error: <code>, message: <copy> }. We only ever see the latter
-// inside FunctionsHttpError.context, never as a 2xx { ok: false } payload.
+// supabase-js routes 4xx/5xx into `error`, carrying the original Response on
+// `.context`, so an error body is only ever reachable by re-parsing that.
 type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
 
 export interface UseDeleteMyAccountOptions {
   /** Optional QueryClient injection for testing. Production code omits. */
   injectedClient?: QueryClient;
   /**
-   * Callback fired BEFORE supabase.auth.signOut() — useful for navigating
-   * to a public route before AuthGate transitions to 'out' and replaces
-   * the subtree with <Login />. supabase-js fires onAuthStateChange
-   * synchronously from inside signOut() (before the promise resolves), so
-   * any post-signOut navigation runs after the dialog has already
-   * unmounted. Navigating here is the only reliable order.
+   * Fired before signOut. supabase-js fires onAuthStateChange synchronously
+   * from inside signOut(), so anything after it runs on an unmounted tree.
    */
   onPreSignOut?: () => void;
 }
@@ -85,10 +70,8 @@ export const useDeleteMyAccount = (
 ): UseMutationResult<void, DeleteAccountError, void> => {
   const ctxClient = useQueryClient();
   const qc = options.injectedClient ?? ctxClient;
-  // Explicit generics so TError is the narrow DeleteAccountError (not the
-  // TanStack default), and TVariables is `void` so callers `mutate()` with
-  // no arg. The lint rule rejects `void` in generic positions; both uses
-  // here are TanStack's documented "no data / no input" idiom.
+  // Explicit generics narrow TError and make `mutate()` argument-free. The
+  // lint rule rejects `void` here, but this is TanStack's documented idiom.
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   return useMutation<void, DeleteAccountError, void>({
     mutationFn: async (): Promise<void> => {
@@ -97,12 +80,8 @@ export const useDeleteMyAccount = (
         { body: {} },
       );
       if (error) {
-        // supabase-js routes 4xx/5xx into `error` (a FunctionsHttpError)
-        // with the original Response on `.context`. Parse the body to
-        // recover the closed-set error code; without this the toast in
-        // DeleteAccountDialog always falls through to 'internal_error'
-        // and the unauthorized / storage_purge_failed / auth_delete_failed
-        // branches are unreachable.
+        // Recover the closed-set code from the body, or every toast falls
+        // through to 'internal_error'.
         if (error instanceof FunctionsHttpError) {
           try {
             const body: unknown = await error.context.clone().json();
@@ -139,16 +118,9 @@ export const useDeleteMyAccount = (
       }
     },
     onSuccess: async () => {
-      // Order matters:
-      //   1. clear the cache so no in-flight query refetches with a
-      //      still-valid session and produces stale data.
-      //   2. onPreSignOut (typically: navigate to /account-deleted) runs
-      //      while the dialog is still mounted. AuthGate's
-      //      onAuthStateChange listener fires synchronously inside
-      //      signOut() and unmounts the dialog the instant the SIGNED_OUT
-      //      event lands — too late to navigate from a useEffect on
-      //      mutation.isSuccess.
-      //   3. signOut last.
+      // Clear first, so no in-flight query refetches on a live session.
+      // Navigate second, while the dialog is still mounted — signOut unmounts
+      // it synchronously. Sign out last.
       qc.clear();
       options.onPreSignOut?.();
       await performSignOut();

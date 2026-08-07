@@ -14,11 +14,8 @@ export interface OutboxStatus {
   conflictCount: number;
   draining: boolean;
   /**
-   * True while the current drain was started by the retry timer (#391).
-   * The OfflineIndicator keeps its live-region label at "Sync queued · N"
-   * for these instead of flipping to "Syncing…" — a transient outage
-   * re-drains every few seconds, and a polite live region re-announces on
-   * every text change (#409).
+   * The OfflineIndicator holds its label steady for these, because an outage
+   * re-drains every few seconds and each text change re-announces (#409).
    */
   timerDrain: boolean;
 }

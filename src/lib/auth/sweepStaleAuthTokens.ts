@@ -1,12 +1,6 @@
 /**
- * Supabase stores its session under `sb-<host-first-segment>-auth-token` in
- * localStorage. When VITE_SUPABASE_URL points at a different project than a
- * previous boot (cloud → staging → local rotation, or any env switch), the
- * old key sticks around forever — see #184.
- *
- * Sweep removes any `sb-*-auth-token` whose host differs from the currently
- * configured Supabase URL. Idempotent and safe: Supabase recreates its key
- * on the next sign-in. On a malformed URL we leave everything alone rather
+ * Supabase keys its session by host, so switching VITE_SUPABASE_URL strands the
+ * old key forever (#184). On a malformed URL, leave everything alone rather
  * than risk wiping a live session.
  */
 const TOKEN_KEY_PATTERN = /^sb-.+-auth-token$/;

@@ -10,17 +10,10 @@ export interface UseMagicLink {
 }
 
 /**
- * Magic-link email sign-in. `sendLink` requests an email; the user clicks the
- * link, lands back on the app at `emailRedirectTo`, and supabase-js's
- * `detectSessionInUrl` (on by default) exchanges the URL for a session, which
- * AuthGate picks up. Returns `true` on success so callers can advance UI state
- * without inspecting `error`. Centralized here so features never call
- * `supabase.auth.signInWithOtp` directly — see issue #126.
- *
- * Why a link, not a typed code (#219): the 6-digit code only reaches the user
- * if the email template renders `{{ .Token }}`, which is dashboard-managed and
- * was dropped in prod. The link is present in every email regardless of
- * template, so it's the only sign-in path the frontend can guarantee works.
+ * Magic-link email sign-in. `detectSessionInUrl` exchanges the returning URL
+ * for a session and AuthGate picks it up. A link, not a typed code (#219): the
+ * 6-digit code renders only if the dashboard-managed email template keeps
+ * `{{ .Token }}`, which prod dropped once. Centralised here per #126.
  */
 export const useMagicLink = (): UseMagicLink => {
   const [busy, setBusy] = useState(false);

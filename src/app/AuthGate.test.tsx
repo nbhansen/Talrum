@@ -174,12 +174,9 @@ describe('AuthGate', () => {
     }
   });
 
-  // Regression for the deletion flow end-to-end behaviour: the user was
-  // signed in, navigated to /account-deleted, and then signOut() fires.
-  // AuthGate's onAuthStateChange listener flips state to 'out' — and at
-  // that moment the PUBLIC_PATHS branch must keep rendering children, not
-  // bounce to <Login />. This test fails if anyone removes the
-  // PUBLIC_PATHS check from the `out` branch.
+  // Fails if the PUBLIC_PATHS check leaves the `out` branch: at the moment
+  // SIGNED_OUT lands, a user already on /account-deleted must keep seeing it
+  // rather than bounce to <Login />.
   it('keeps showing children on /account-deleted when SIGNED_OUT fires after navigation', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/account-deleted');
@@ -229,11 +226,8 @@ describe('AuthGate', () => {
     }
   });
 
-  // Regression cover for cross-user re-auth: signing out and back in as a
-  // different user must propagate the new user.id all the way through
-  // SessionProvider so dependent hooks (mutations, useUserEmail) read the
-  // new user. Verifies AuthGate wires onAuthStateChange → setState →
-  // SessionProvider value without missing a session swap.
+  // Signing back in as a different user must carry the new user.id through
+  // SessionProvider, or dependent hooks keep reading the old one.
   it('propagates a new session.user when onAuthStateChange fires after re-auth', async () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     const sessionB = makeSession('user-b-id', 'b@example.com');

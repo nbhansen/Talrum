@@ -14,13 +14,7 @@ const TITLE_ID = 'del-acct-title';
 
 interface Props {
   onCancel: () => void;
-  /**
-   * Forwarded to useDeleteMyAccount; fires BEFORE supabase.auth.signOut so
-   * the caller can navigate to a public route while this dialog is still
-   * mounted. AuthGate's onAuthStateChange listener fires synchronously
-   * from inside signOut() and would otherwise unmount the dialog before
-   * any post-success effect could run.
-   */
+  /** Fires before signOut, while this dialog is still mounted. */
   onPreSignOut: () => void;
 }
 
@@ -39,15 +33,9 @@ const toastFor = (err: DeleteAccountError | null): string => {
 };
 
 /**
- * Typed-phrase confirmation. Default focus is Cancel — the destructive
- * button only enables once the user types the literal phrase. Esc cancels
- * unless a deletion is already in flight (don't yank the dialog out from
- * under the user mid-mutation; let it finish and surface the error).
- *
- * Navigation is the parent's responsibility, fired through onPreSignOut
- * inside the mutation — see useDeleteMyAccount for why it must run before
- * signOut. Once that callback has navigated, AuthGate unmounts this
- * dialog as part of the route change; no post-success effect needed.
+ * Typed-phrase confirmation. Esc cancels unless a deletion is already in
+ * flight: let it finish and surface the error rather than yank the dialog.
+ * Navigation belongs to the parent, through `onPreSignOut`.
  */
 export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Element => {
   const cancelRef = useRef<HTMLButtonElement>(null);

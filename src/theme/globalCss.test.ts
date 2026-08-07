@@ -3,11 +3,9 @@ import '@/theme/reset.css';
 
 import { describe, expect, it } from 'vitest';
 
-// Belt + braces alongside scripts/verify-build-css.mjs (#218): the build script
-// proves tokens land in the CSS bytes; this proves they actually apply to the
-// DOM. If either tokens.css or reset.css ever turns back into a CSS module
-// (whose side-effect-imported rules can vanish in prod minification), tokens
-// stop resolving on `:root` and this test fails fast.
+// scripts/verify-build-css.mjs proves the tokens land in the CSS bytes; this
+// proves they apply to the DOM. Turning tokens.css back into a CSS module,
+// whose rules can vanish in prod minification, fails here (#218).
 describe('global theme CSS', () => {
   it('defines design tokens on :root', () => {
     const root = getComputedStyle(document.documentElement);

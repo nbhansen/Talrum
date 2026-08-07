@@ -4,15 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useBoards } from '@/lib/queries/boards';
 import { useActiveKid } from '@/lib/queries/kids';
 
-// Resolves the parent shell's KID button into the board a kid would actually
-// want: the most recently updated non-empty board (useBoards returns boards
-// sorted by updated_at desc), preferring the active kid's boards and falling
-// back to any kid's. Empty boards are skipped — kid mode's empty state is a
-// dead end. Returns undefined when no board qualifies so the shell can
-// disable the button instead of silently doing nothing. Routes that don't
-// have their own board context (Library, Kids, Settings, ParentHome) share
-// this hook; BoardBuilder keeps its own wiring because it launches into the
-// board being edited.
+// Picks the most recently updated non-empty board, preferring the active kid's.
+// Empty boards are skipped because kid mode's empty state is a dead end, and
+// undefined lets the shell disable the button rather than do nothing.
 export const useKidModeNav = (): (() => void) | undefined => {
   const navigate = useNavigate();
   const boardsQuery = useBoards();

@@ -12,6 +12,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:boundaries": "node scripts/verify-boundaries.mjs",
     "lint:css": "stylelint \"src/**/*.module.css\"",
+    "lint:comments": "node scripts/check-comment-length.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",

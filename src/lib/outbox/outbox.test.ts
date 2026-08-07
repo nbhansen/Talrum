@@ -762,11 +762,9 @@ describe('conflict guard (#281)', () => {
   });
 
   it('a guard-stripped retry still feeds the board clock — queued edits do not self-conflict', async () => {
-    // A conflict-failed and the user tapped Retry (guard stripped); B was
-    // queued meanwhile against the still-stale cached baseline. A's unguarded
-    // replay bumps the server clock like any write, so B must guard against
-    // the value A produced, not its own T0 — otherwise the device conflicts
-    // with itself and the pill cries wolf.
+    // A was conflict-failed and retried with its guard stripped; B queued
+    // meanwhile against the stale baseline. A's replay bumps the server clock,
+    // so B must guard against that value or the device conflicts with itself.
     await putEntry(
       baseEntry({
         id: '01HZZA',

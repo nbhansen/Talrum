@@ -78,7 +78,7 @@ Each comment and each document is a second copy of the truth. The copy goes stal
 
 - The default is no comment. Names carry the meaning. A comment must not repeat a name.
 - Write a comment only for what the code cannot say: a non-obvious *why*, a constraint from outside the file, or a correct choice that reads as a mistake.
-- Three lines is the maximum. If a comment needs more, the design is unclear, or the text belongs in `docs/`.
+- Four lines is the maximum, enforced by `npm run lint:comments` in CI. If a comment needs more, the design is unclear, or the text belongs in `docs/`.
 - Never narrate a review round, a bug history, or a PR discussion. Cite the issue instead: `// FIFO by ULID, not enqueue time (#445).`
 - No file-header essays. A module docblock is one sentence, or none.
 - In a test, do not restate the test name in the body.
@@ -190,7 +190,7 @@ After every session where the agent did something wrong:
 - Test (all): `npm run test`
 - Test (single file): `npx vitest run src/path/to/file.test.ts`
 - DB tests (pgTAP): `npm run test:db` — single file: `supabase test db supabase/tests/<file>.sql`
-- Lint: `npm run lint` (zero warnings) and `npm run lint:css`
+- Lint: `npm run lint` (zero warnings), `npm run lint:css`, and `npm run lint:comments`
 - Typecheck: `npm run typecheck`
 - After editing a migration: `supabase db reset && npm run types:db`, commit the migration **and** the regenerated `src/types/supabase.ts`
 

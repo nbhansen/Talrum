@@ -184,12 +184,9 @@ describe('useSetStepIds', () => {
     fromMock.mockClear();
   });
 
-  // Regression for #80: the prior API took a pre-computed `stepIds: string[]`,
-  // which let callers close over render-time `board.stepIds`. If the cache
-  // shifted between render and mutate (concurrent edit, outbox drain, long-
-  // open picker), the closed-over snapshot would clobber it. The new API
-  // takes an updater and reads the cache at the synchronous boundary of
-  // `mutate()` so the merge always uses fresh state.
+  // Regression for #80: a pre-computed `stepIds` let callers close over
+  // render-time state, which clobbered the cache when a drain or a long-open
+  // picker shifted it. The updater form reads inside `mutate()` instead.
   it('applies the updater against fresh cache state, not a stale snapshot', async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

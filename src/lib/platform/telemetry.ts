@@ -3,21 +3,10 @@ import * as Sentry from '@sentry/react';
 type CaptureContext = Parameters<typeof Sentry.captureException>[1];
 
 /**
- * PII posture (intentional):
- *   - sendDefaultPii: false (no IP, no cookies, no headers).
- *   - tracesSampleRate: 0 (errors only — no performance/transaction data).
- *   - No session-replay integration.
- *   - beforeSend strips event.user.email and any breadcrumb message longer
- *     than 120 chars. Board names and pictogram labels are short; the cap
- *     catches accidental long user-content leaks (e.g. error.message echoing
- *     a stack frame that captured a closure value) without scrubbing real
- *     stack content.
- *   - beforeBreadcrumb strips query strings from breadcrumb URLs. This is
- *     load-bearing, not cosmetic: the default fetch breadcrumb carries the
- *     full URL in data.url, and platform/audio.ts fetches signed storage
- *     URLs whose ?token= is a one-hour bearer token for a child's voice
- *     recording. Without the strip, every event captured after such a fetch
- *     ships that token to Sentry (#359 review).
+ * The PII posture below is intentional. `beforeBreadcrumb` is load-bearing:
+ * the default fetch breadcrumb carries the full URL, and a signed storage URL
+ * holds a one-hour bearer token for a child's recording (#359). The 120-char
+ * breadcrumb cap catches long user content without scrubbing real stacks.
  */
 export const initTelemetry = (): void => {
   if (Sentry.getClient()) return;

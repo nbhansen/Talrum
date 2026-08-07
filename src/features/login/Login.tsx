@@ -11,11 +11,9 @@ import styles from './Login.module.css';
 type Stage = 'email' | 'sent';
 
 /**
- * Magic-link sign-in. Step 1 sends an email with a sign-in link; the parent
- * opens it on the same device and supabase-js exchanges the URL for a session
- * (AuthGate then flips to the app). In local dev the email is captured by
- * Mailpit at http://localhost:54324 — open the latest message, click the link.
- * New emails trigger handle_new_user() which clones the starter library.
+ * Magic-link sign-in. In local dev the email lands in Mailpit at
+ * http://localhost:54324. A new address triggers `handle_new_user()`, which
+ * clones the starter library.
  */
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');

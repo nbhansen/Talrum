@@ -17,13 +17,9 @@ beforeEach(() => {
 });
 
 describe('PinManagementSection', () => {
-  // A test here used to walk this whole flow just to assert console.error was
-  // never called on the enter-new→confirm-new transition: PinPad.tap() once
-  // called submit() from inside a setDigits updater, which schedules a setState
-  // on this section mid-render and makes React log. That is now enforced for
-  // every test by the console.error guard in vitest.setup.ts (#387) — the walk
-  // below trips the same transition, so the regression is still covered, just
-  // without a five-second test to time out.
+  // The mid-render setState regression (#387) needs no test of its own: the
+  // console.error guard in vitest.setup.ts enforces it for every test, and the
+  // walk below trips the same enter-new→confirm-new transition.
   it('shows the no-PIN message when no PIN is set', () => {
     render(<PinManagementSection />);
     expect(screen.getByText(/No PIN set, so kid mode is unavailable/i)).toBeInTheDocument();

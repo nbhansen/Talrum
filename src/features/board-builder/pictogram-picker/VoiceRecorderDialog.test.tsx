@@ -213,13 +213,9 @@ describe('VoiceRecorderDialog', () => {
       channel.port2.postMessage(null);
     });
 
-  // 20 s, not the default 5 s. The two loops below can spend up to 2000 real
-  // macrotask rounds, and the save path drains IDB on those rounds — one more
-  // round trip since the outbox persists before it attempts (#445). Under a
-  // loaded machine that budget alone can outlast the default timeout, and the
-  // failure looks like a hang rather than the assertion it really is. The
-  // loop bounds still cap the test, so a genuine break surfaces as
-  // `expect(uploadMock).toHaveBeenCalledTimes(1)`.
+  // 20 s, not the default 5 s: the loops below can spend 2000 real macrotask
+  // rounds and the save path drains IDB on them. The loop bounds still cap the
+  // test, so a genuine break surfaces as the assertion, not a timeout.
   it('stops and saves automatically at the duration cap (#416)', { timeout: 20_000 }, async () => {
     // RTL's waitFor does not advance vitest's fake clock, so this test
     // drives the clock and the real macrotask queue by hand.
