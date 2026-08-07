@@ -29,11 +29,13 @@ vi.mock('@/lib/supabase', () => ({
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
-const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
+const { discardEntry, enqueueAndDrain, retryFailed, setOutboxOwner } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS } = await import('./handlers');
 const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
-const { __resetOutboxOwnerForTests, setOutboxOwner } = await import('./owner');
+// setOwnerId sets the state without the drain `setOutboxOwner` kicks, which
+// would otherwise run in the background of every test.
+const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -54,6 +56,9 @@ beforeEach(async () => {
   await clear();
   setOnline(true);
   __resetOutboxOwnerForTests();
+  // Every test but the account ones runs as one signed-in user; draining is
+  // gated on an owner being known.
+  setOwnerId('user-a');
   updateMock.mockClear();
   fromMock.mockClear();
   eqMock.mockClear();
@@ -942,8 +947,8 @@ describe('enqueueAndDrain', () => {
   // blob included, behind the deletes. The owner check does not care when the
   // entry was written (#446 review).
   it('never replays an entry belonging to another account', async () => {
-    setOutboxOwner('user-b');
-    await putEntry(baseEntry({ id: '01HZZA', ownerId: 'user-a' }));
+    setOwnerId('user-b');
+    await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
 
     await drain();
 
@@ -952,9 +957,61 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  it('keeps an entry written before the owner stamp existed', async () => {
+  // The account can switch while a write waits on the lock. The stamp is read
+  // at call time for exactly this reason: reading it inside the lock callback
+  // would label user A's write with user B and defeat the check (#446 review).
+  it('abandons a write whose account changed while it waited for the lock', async () => {
+    // jsdom has no Web Locks, so stub one that does not grant until told —
+    // standing in for the sign-out sweep holding it.
+    let grantLock!: () => void;
+    const granted = new Promise<void>((r) => {
+      grantLock = r;
+    });
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: async (_name: string, fn: () => Promise<unknown>) => {
+          await granted;
+          return fn();
+        },
+      },
+    });
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    setOwnerId('user-b');
+    grantLock();
+
+    await expect(write).rejects.toThrow(/account changed/i);
+    Reflect.deleteProperty(navigator, 'locks');
+    // Nothing of user A's is left on the device, and no handler ran for it.
+    expect(await listEntries()).toEqual([]);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  // startOutbox drains at module load, before AuthGate has resolved the
+  // session. Without the gate that boot drain replays a previous account's
+  // leftovers before the owner is known (#446 review).
+  it('does not drain until the signed-in account is known, then drains for it', async () => {
+    __resetOutboxOwnerForTests();
+    await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
+
+    await drain();
+
+    expect(eqMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toHaveLength(1);
+
+    // The session resolves as somebody else: the drain it kicks drops the
+    // entry rather than replaying it.
     setOutboxOwner('user-b');
-    // No ownerId: unattributed, not foreign.
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toEqual([]);
+    });
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps an entry written before the owner stamp existed', async () => {
+    setOwnerId('user-b');
+    // No enqueuedBy: unattributed, not foreign.
     await putEntry(baseEntry({ id: '01HZZA' }));
 
     await drain();
@@ -963,13 +1020,12 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  it('stamps the signed-in owner onto a new entry', async () => {
-    setOutboxOwner('user-a');
+  it('stamps the enqueueing account onto a new entry', async () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
 
-    expect((await listEntries())[0]?.ownerId).toBe('user-a');
+    expect((await listEntries())[0]?.enqueuedBy).toBe('user-a');
   });
 
   // FIFO still holds across the adoption: a new write must not jump an

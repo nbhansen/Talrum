@@ -34,7 +34,7 @@ export type BoardRowPatch = Pick<
  *
  * Because the lock is held for the whole attempt and the browser releases it
  * when a tab dies, an `attempting` entry seen from *inside* the lock is
- * proof its owner is gone. `adoptOrphans` promotes those to `pending`
+ * proof its owner is gone. `reconcileQueue` promotes those to `pending`
  * (drain.ts) — exact, not a timeout.
  *
  * `failed` — out of retries or permanently rejected. The indicator's Retry
@@ -54,15 +54,20 @@ interface OutboxEntryBase {
   /** ULID — monotonically sortable, stable across reloads. */
   id: string;
   /**
-   * The signed-in user this write is on behalf of. `reconcileQueue`
-   * (drain.ts) drops entries owned by anybody but the current session, so a
-   * write that outlives sign-out on a shared device is never replayed under
-   * the next account (#446 review).
+   * The signed-in user who enqueued this write. `reconcileQueue` (drain.ts)
+   * drops entries enqueued by anybody but the current session, so a write
+   * that outlives sign-out on a shared device is never replayed under the
+   * next account (#446 review).
+   *
+   * Deliberately not named `ownerId`: `CreatePhotoPictogramEntry.ownerId` is
+   * a *payload* field, written to the row as `owner_id` and used to mint the
+   * storage path. One name for both would let this queue-level stamp
+   * overwrite the payload through a spread.
    *
    * Optional only for entries written before the stamp existed: a missing
-   * owner is unattributed, not foreign, and is kept rather than deleted.
+   * value is unattributed, not foreign, and is kept rather than deleted.
    */
-  ownerId?: string;
+  enqueuedBy?: string;
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;

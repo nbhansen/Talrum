@@ -69,7 +69,7 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   Recovery is exact rather than a timeout. The fast path holds the cross-tab
   lock for its whole attempt and the browser releases a held lock when its
   tab dies, so an `attempting` entry seen **from inside the lock** cannot
-  have a live owner. `adoptOrphans` (`drain.ts`) promotes those to `pending`,
+  have a live owner. `reconcileQueue` (`drain.ts`) promotes those to `pending`,
   and both `drain` and the fast path call it first — the fast path so a new
   write cannot jump an abandoned older one. The attempt is not counted
   against the retry budget: the abandoned write may well have landed
@@ -81,20 +81,35 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   already landed.
 
 - **An entry runs only for the account that enqueued it** (#446 review). Each
-  entry carries its `ownerId` (`owner.ts`, set from the same
-  `onAuthStateChange` listener that triggers the sign-out sweep), and
-  `reconcileQueue` deletes any entry the current session does not own. An
-  entry with no owner predates the stamp — unattributed, not foreign, so it is
-  kept.
+  entry carries `enqueuedBy`, and `reconcileQueue` deletes any entry the
+  current session did not enqueue. An entry without it predates the stamp —
+  unattributed, not foreign, so it is kept. The name is deliberately not
+  `ownerId`: `CreatePhotoPictogramEntry.ownerId` is a payload field, written
+  to the row as `owner_id` and used to mint the storage path, and one name for
+  both would let the queue-level stamp overwrite the payload through a spread.
 
-  The sweep in `clearPersistedCache` cannot carry this on its own. Both it and
-  the fast path take the outbox lock, so nothing lands *between* its `keys()`
-  snapshot and its deletes — but a fast path already **waiting** on that lock
-  acquires it once the sweep releases, and writes its entry, blob included,
-  behind the deletes. On a shared device that entry would then be adopted and
-  replayed under the next account. The owner check does not depend on the
-  ordering, so it holds where the sweep cannot. The sweep stays because it
-  clears the bytes at once, rather than at the next drain.
+  Two rules make this hold, and the second is the subtle one:
+
+  - `enqueueAndDrain` reads the owner **at call time**, never after the lock
+    wait. `run` is the lock callback, so a read there happens after the auth
+    boundary has already moved — it would label user A's write with user B and
+    defeat the check. If the account changed while the write queued for the
+    lock, the write is abandoned rather than stamped: the account it belongs
+    to is gone, and the handler would fail under RLS anyway.
+  - `drain` does nothing while no account is known. `startOutbox` drains at
+    module load, before AuthGate has resolved the session, so without this the
+    first drain after every reload would replay a previous account's leftovers
+    before the owner is known. `setOutboxOwner` runs the drain that gate skips
+    once the session resolves.
+
+  The sweep in `clearPersistedCache` is deliberately **not** under the outbox
+  lock. The lock would only stop a write landing between the sweep's `keys()`
+  snapshot and its deletes, never one already waiting on it — so the sweep was
+  never what made this hold. Taking the lock would buy the weaker half of the
+  property and cost the stronger one: the lock is held across handler IO, so a
+  sign-out during a photo upload would leave user A's blobs on a shared device
+  for the whole upload instead of wiping them at once.
+
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.

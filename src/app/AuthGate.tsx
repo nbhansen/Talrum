@@ -3,7 +3,7 @@ import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } fr
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
-import { setOutboxOwner } from '@/lib/outbox/owner';
+import { setOutboxOwner } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';

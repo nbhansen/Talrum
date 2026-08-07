@@ -98,10 +98,11 @@ const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
  *    boundary, but cannot be the whole guarantee: a fast path waiting on the
  *    lock acquires it *after* the sweep releases and writes its entry behind
  *    the deletes (#446 review). Here the owner is checked instead of the
- *    timing, so the ordering stops mattering. An entry with no owner predates
- *    the stamp — unattributed, not foreign, so it is kept. With no current
- *    owner (signed out, or before the session resolves) nothing is dropped:
- *    there is nobody to compare against.
+ *    timing, so the ordering stops mattering. An entry with no `enqueuedBy`
+ *    predates the stamp — unattributed, not foreign, so it is kept. With no
+ *    current owner nothing is dropped, because there is nobody to compare
+ *    against; `drain` does not run in that state at all, so the inert case
+ *    never reaches a handler.
  *
  * 2. **Promote abandoned attempts.** Exact inside the lock rather than a
  *    heuristic: the fast path holds the lock for its whole attempt, and the
@@ -125,7 +126,7 @@ export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
   const owner = getOutboxOwner();
   const kept: OutboxEntry[] = [];
   for (const e of await listEntries()) {
-    if (owner !== null && e.ownerId !== undefined && e.ownerId !== owner) {
+    if (owner !== null && e.enqueuedBy !== undefined && e.enqueuedBy !== owner) {
       await deleteEntry(e.id);
       continue;
     }
@@ -272,6 +273,16 @@ export const resetRetryDelay = (): void => {
 export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   if (drainState.draining) {
     drainState.pendingDrain = true;
+    return;
+  }
+  // No signed-in account means no session to write with, and no way to tell
+  // whose entries these are. `startOutbox` drains at module load, before
+  // AuthGate has resolved the session, so this is the boot path every time —
+  // and without the gate the first drain after every reload would replay a
+  // previous account's leftovers before the owner is known (#446 review).
+  // `setOutboxOwner` runs the drain this skips once the session resolves.
+  if (getOutboxOwner() === null) {
+    await emit();
     return;
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {

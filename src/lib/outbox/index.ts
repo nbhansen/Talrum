@@ -15,12 +15,27 @@ import {
   withCrossTabLock,
 } from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
-import { getOutboxOwner } from './owner';
+import { getOutboxOwner, setOwnerId } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
 export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
 export { startOutbox, UnretryableOutboxError };
+
+/**
+ * Tell the outbox which account it is working for. AuthGate calls this from
+ * the same `onAuthStateChange` listener that triggers the sign-out sweep, so
+ * the queue and the auth boundary cannot disagree about who owns what.
+ *
+ * Draining is gated on an owner being known, and `startOutbox` runs at module
+ * load — before the session resolves — so the drain it attempts is a no-op.
+ * This is what runs the one the new session is owed.
+ */
+export const setOutboxOwner = (id: string | null): void => {
+  const changed = getOutboxOwner() !== id;
+  setOwnerId(id);
+  if (changed && id !== null) void drain();
+};
 
 /**
  * IDB bookkeeping that must never decide the outcome of a write. The queue
@@ -114,6 +129,12 @@ type EntryInput = DistributiveOmit<
  * app's write volume.
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
+  // Captured here, at call time, and never re-read inside `run`. `run` is the
+  // lock callback, so it executes *after* the lock wait — and the auth
+  // boundary is exactly what changes during that wait. Reading it there would
+  // stamp user A's write with user B, which is the entry the stamp exists to
+  // catch (#446 review).
+  const owner = getOutboxOwner();
   const newEntry = (): OutboxEntry => {
     const base = {
       ...input,
@@ -122,20 +143,23 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       attemptCount: 0,
       status: 'pending' as const,
     };
-    // Stamped so a write can never run on behalf of another account, whatever
-    // the ordering around the sign-out sweep (#446 review, owner.ts). Added
-    // rather than always set, because `exactOptionalPropertyTypes` forbids an
-    // explicit `undefined` and `createPhotoPicto` already carries its own —
-    // the same session user either way.
-    const owner = getOutboxOwner();
-    return owner === null ? base : { ...base, ownerId: owner };
+    // Added rather than always set, because `exactOptionalPropertyTypes`
+    // forbids an explicit `undefined`.
+    return owner === null ? base : { ...base, enqueuedBy: owner };
   };
   const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+    // The account changed while this write queued for the lock, so the user
+    // it belongs to is gone. Writing the entry now would leave user A's
+    // payload on the device for user B, and the handler would fail under
+    // RLS anyway. Abandon it and let React Query roll the patch back.
+    if (getOutboxOwner() !== owner) {
+      throw new Error('Signed-in account changed before the write started.');
+    }
     // Inside the lock, so an `attempting` entry left by a page that went away
     // has no live owner. Reconcile before the check below, or this write
     // would fast-path straight past an older one (#279's shape). It also drops
-    // entries this session does not own. The queue it returns is the one the
-    // check reads, so neither costs an extra round trip.
+    // entries this session did not enqueue. The queue it returns is the one
+    // the check reads, so neither costs an extra round trip.
     const entries = await reconcileQueue();
     // Read `onLine` inside the lock: an offline pre-check would sit outside
     // and go seconds stale during the lock wait (same hazard as drain's
