@@ -859,20 +859,18 @@ describe('enqueueAndDrain', () => {
     await vi.waitFor(async () => {
       expect(await listEntries()).toHaveLength(1);
     });
-    // Pending, so a drain in this tab or the next one replays it.
-    expect((await listEntries())[0]?.status).toBe('pending');
+    // `attempting`, not `pending`: durable, but not work waiting to be done.
+    expect((await listEntries())[0]?.status).toBe('attempting');
 
     landHandler();
     await write;
     expect(await listEntries()).toEqual([]);
   });
 
-  // A status push during the round trip counts the in-flight entry as
-  // pending, and nothing else emits on the landed path. An `offline` event in
-  // that window has no later emitter until the device comes back, so the
-  // indicator would show "1 pending" for a write that succeeded (#446
-  // review).
-  it('online: a status push during the round trip is corrected once the write lands', async () => {
+  // The reason the in-flight entry is `attempting`. As `pending` it showed up
+  // in the count as a write waiting to sync, and every exit path then had to
+  // emit a correction afterwards (#446 review).
+  it('online: the in-flight entry is never counted as pending', async () => {
     let landHandler!: () => void;
     unguardedSelectMock.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -885,18 +883,18 @@ describe('enqueueAndDrain', () => {
     await vi.waitFor(async () => {
       expect(await listEntries()).toHaveLength(1);
     });
-    // Stand in for the `offline` listener's unlocked emit.
+    // Any unlocked emitter — the `offline` listener is the one that has no
+    // later emitter to correct it.
     await refreshStatus();
-    expect(getStatus().pendingCount).toBe(1);
+    expect(getStatus().pendingCount).toBe(0);
 
     landHandler();
     await write;
     expect(getStatus().pendingCount).toBe(0);
   });
 
-  // Same window, but the write is rejected: the throw skips the landed path's
-  // correction, so it needs its own (#446 review).
-  it('online: a permanent failure also corrects the status it left behind', async () => {
+  // Same window, but the write is rejected. Nothing to correct here either.
+  it('online: a permanent failure leaves no count behind', async () => {
     let denyHandler!: () => void;
     unguardedSelectMock.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -913,11 +911,42 @@ describe('enqueueAndDrain', () => {
       expect(await listEntries()).toHaveLength(1);
     });
     await refreshStatus();
-    expect(getStatus().pendingCount).toBe(1);
+    expect(getStatus().pendingCount).toBe(0);
 
     denyHandler();
     await expect(write).rejects.toThrow();
     expect(getStatus().pendingCount).toBe(0);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The crash recovery #445 is actually about. A page that goes away mid-write
+  // leaves an `attempting` entry; the next lock holder knows its owner is gone
+  // — the browser released the lock — and promotes it.
+  it('adopts an entry abandoned mid-attempt and replays it', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
+
+    // Nothing counts it until it is adopted: it is not known to be waiting.
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(0);
+
+    await drain();
+
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // FIFO still holds across the adoption: a new write must not jump an
+  // abandoned one (#279's shape).
+  it('does not fast-path past an entry abandoned mid-attempt', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old', status: 'attempting' }));
+
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'board-new', patch: { name: 'x' } });
+
+    expect(eqMock.mock.calls).toEqual([
+      ['id', 'board-old'],
+      ['id', 'board-new'],
+    ]);
+    expect(await listEntries()).toEqual([]);
   });
 
   it('online + non-retryable: rejects without enqueueing', async () => {

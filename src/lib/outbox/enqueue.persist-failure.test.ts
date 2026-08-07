@@ -41,6 +41,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 
 const realStore = await vi.importActual<typeof StoreModule>('./store');
 const { enqueueAndDrain } = await import('./index');
+const { getStatus, refreshStatus } = await import('./drain');
 const { listEntries } = await import('./store');
 const { captureException } = await import('@/lib/platform/telemetry');
 
@@ -87,9 +88,7 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
   // write the server had accepted and put the IndexedDB error text in the
   // entry's lastError (#446 review).
   it('does not treat a failed delete as a failed write', async () => {
-    // Only the first delete fails, so the replay can clear the entry and the
-    // end state is deterministic.
-    deleteEntryMock.mockRejectedValueOnce(new DOMException('Closed', 'InvalidStateError'));
+    deleteEntryMock.mockRejectedValue(new DOMException('Closed', 'InvalidStateError'));
 
     await expect(
       enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
@@ -99,14 +98,14 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
       expect.any(DOMException),
       expect.objectContaining({ tags: { component: 'outbox', op: 'delete-after-landing' } }),
     );
-    // Something has to clear the entry: the landed path neither drains nor
-    // arms the retry timer, so without the follow-up drain the indicator sits
-    // at one queued write until an unrelated event (#446 review).
-    await vi.waitFor(async () => {
-      expect(await listEntries()).toEqual([]);
-    });
-    // Twice: the fast path, then the replay that cleared it.
-    expect(eqMock).toHaveBeenCalledTimes(2);
+    // The write landed and the handler ran once. A transient re-queue would
+    // have replayed it immediately.
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    // The entry outlived the write it recorded, but as `attempting`: no count
+    // names it and no drain replays it until one adopts it. That needs no
+    // follow-up here — it is the abandoned-attempt case, which the next lock
+    // holder resolves.
+    expect((await listEntries())[0]?.status).toBe('attempting');
     // The signature of the bug: classifying the delete failure as a handler
     // failure re-queued the entry with the IndexedDB error as its lastError.
     expect(putEntryMock).not.toHaveBeenCalledWith(
@@ -132,9 +131,9 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
     );
   });
 
-  // The entry outlived a write the UI rolled back. Left pending it would sit
-  // in the count and ambush the next unrelated drain (#446 review).
-  it('drains an entry a permanent failure could not clear', async () => {
+  // The entry outlived a write the UI rolled back. As `pending` it would sit
+  // in the count for a write the user watched fail (#446 review).
+  it('leaves an uncleared permanent failure out of the count', async () => {
     selectMock.mockResolvedValue({
       data: null,
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
@@ -145,11 +144,9 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
       enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
     ).rejects.toThrow();
 
-    // The drain replays it, hits the same permanent error, and marks it
-    // failed — a state the indicator can show and the user can discard.
-    await vi.waitFor(async () => {
-      expect((await listEntries())[0]?.status).toBe('failed');
-    });
+    expect((await listEntries())[0]?.status).toBe('attempting');
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(0);
   });
 
   // Both puts failed, so nothing is queued. Resolving here would report the

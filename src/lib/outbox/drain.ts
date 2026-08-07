@@ -91,6 +91,29 @@ const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
   }
 };
 
+/**
+ * Promote abandoned `attempting` entries back to `pending`.
+ *
+ * MUST be called from inside the cross-tab lock, and is exact there rather
+ * than a heuristic: the fast path holds the lock for its whole attempt, and
+ * the browser releases a held lock when its tab dies. So an `attempting`
+ * entry visible to a lock holder cannot have a live owner — the owner would
+ * still be holding the lock. That covers the reload this exists for (#445),
+ * a crash, and another tab dying, with no timestamp and no timeout.
+ *
+ * The attempt is not counted: the entry may have landed server-side before
+ * the page went away, so the replay is the same at-least-once case handlers
+ * are already idempotent for, not a burnt retry.
+ *
+ * Without `navigator.locks` the proof does not hold, and `withCrossTabLock`
+ * runs unlocked — the degradation that file already documents.
+ */
+const adoptOrphans = async (): Promise<void> => {
+  for (const e of await listEntries()) {
+    if (e.status === 'attempting') await putEntry({ ...e, status: 'pending' });
+  }
+};
+
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
   try {
     await runHandler(entry);
@@ -154,6 +177,8 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * lock) from inside the callback. Generic so the fast path can report its
  * outcome through the lock and act on it after the release.
  */
+export { adoptOrphans };
+
 export const withCrossTabLock = async <T>(fn: () => Promise<T>): Promise<T> => {
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
     return (await navigator.locks.request('talrum-outbox', fn)) as T;
@@ -242,6 +267,8 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       // tab releases the lock; attempting entries on a network that dropped
       // meanwhile burns their transient-retry budget on guaranteed failures.
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      // Inside the lock, so any `attempting` entry lost its owner.
+      await adoptOrphans();
       let stop = false;
       while (!stop) {
         const entries = (await listEntries()).filter((e) => e.status === 'pending');

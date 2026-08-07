@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import { captureException } from '@/lib/platform/telemetry';
 
 import {
+  adoptOrphans,
   drain,
   getStatus,
   type OutboxStatus,
@@ -72,17 +73,14 @@ type EntryInput = DistributiveOmit<
  * IndexedDB keeps the availability it had before, and the failure goes to
  * telemetry.
  *
- * The cost is one IDB put and one delete on every online write, plus a
- * status refresh once it lands. The entry is visible in the queue for the
- * length of the round trip: the cross-tab lock keeps every drain and every
- * other enqueue from acting on it, but `emit()` and `refreshStatus()` read
- * the queue unlocked, so a status push in that window counts it as pending —
- * which is what it is. The refresh on the landed path is what corrects that
- * push; without it the correction would wait for the next emitter, and an
- * `offline` event mid-round-trip has none until the device comes back.
- * Where `navigator.locks` is missing, `withCrossTabLock` runs unlocked and a
- * concurrent drain can replay the in-flight entry; handlers are idempotent
- * for exactly this class (see drain.ts and docs/outbox.md).
+ * The cost is one IDB put and one delete on every online write. The entry
+ * carries `status: 'attempting'` throughout, which is what keeps that cheap:
+ * `emit()` and `refreshStatus()` read the queue unlocked, but neither counts
+ * an attempt, and the drain loop's filter skips it — so no exit path has to
+ * correct a status or schedule a follow-up. An abandoned attempt is adopted
+ * by the next lock holder (`adoptOrphans`, drain.ts). Where `navigator.locks`
+ * is missing, `withCrossTabLock` runs unlocked and that adoption is no longer
+ * exact; handlers are idempotent for exactly this class.
  *
  * Offline: skip the immediate attempt — persist the entry and resolve. The
  * UI keeps the optimistic state; the drain loop replays when `online` fires.
@@ -121,13 +119,11 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
-  // Set when a permanent failure could not clear its entry. That path throws,
-  // so it cannot report an outcome, and the lock callback must not call
-  // drain() itself.
-  let orphaned = false;
-  const run = async (): Promise<
-    'landed' | 'landed-still-queued' | 'queued-transient' | 'queued-unattempted'
-  > => {
+  const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+    // Inside the lock, so an `attempting` entry left by a page that went away
+    // has no live owner. Promote it before the check below, or this write
+    // would fast-path straight past an older one (#279's shape).
+    await adoptOrphans();
     // Read `onLine` inside the lock: an offline pre-check would sit outside
     // and go seconds stale during the lock wait (same hazard as drain's
     // in-lock re-check); attempting on a dead network burns a retry attempt
@@ -138,12 +134,18 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       await putEntry(newEntry());
       return 'queued-unattempted';
     }
-    const entry = newEntry();
+    const entry: OutboxEntry = { ...newEntry(), status: 'attempting' };
     // Persist before the attempt (#445). The handler's round trip is a
     // window in which the page can go away — a reload, a tab close — and
     // an entry that lives only in memory goes with it. The optimistic
     // cache patch does not survive either, so the write vanishes with no
     // queue entry, no error, and nothing for the user to retry.
+    //
+    // `attempting`, not `pending`: this write is not waiting for a drain,
+    // it is being run right now. That distinction is what keeps the entry
+    // out of the pending count and out of the drain loop for the length of
+    // the round trip, and it is why nothing here has to correct a status or
+    // schedule a follow-up afterwards (#446 review).
     //
     // Best effort, deliberately. A device that cannot write IndexedDB
     // (quota, most likely on the blob-carrying kinds) must keep making
@@ -156,29 +158,19 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     } catch (err) {
       if (err instanceof UnretryableOutboxError) {
         // The mutation rejects and React Query rolls the patch back, so
-        // the entry must not stay behind as a queued write.
-        const cleared = await bestEffort('delete-after-permanent-failure', () =>
-          deleteEntry(entry.id),
-        );
-        // If it did stay behind, nothing on this path would pick it up: it
-        // would sit in the count as a pending write the UI already discarded,
-        // until some unrelated event drained it. Draining now is only about
-        // that stuck count (#446 review).
-        //
-        // It does NOT save the user from the replay. The drain is the replay:
-        // the entry converges to `failed`, and for a conflict that is a pill
-        // whose Retry strips the guard and applies the patch React Query just
-        // rolled back. Accepted residual — the entry is already written and
-        // the same hazard waits either way; this makes it visible and
-        // discardable now instead of ambushing the next write.
-        orphaned = !cleared;
+        // the entry must not stay behind. If the delete fails it stays
+        // `attempting`, which is not counted and not drained, until a
+        // lock-holding drain adopts and replays it — the same at-least-once
+        // case as any other abandoned attempt.
+        await bestEffort('delete-after-permanent-failure', () => deleteEntry(entry.id));
         throw err;
       }
       // Transient — join the queue. We intentionally use the same entry
       // (with attemptCount = 1 to reflect the just-failed attempt) so the
       // drain loop respects the retry ceiling.
-      const attempted = {
+      const attempted: OutboxEntry = {
         ...entry,
+        status: 'pending',
         attemptCount: 1,
         lastError: err instanceof Error ? err.message : 'unknown error',
       };
@@ -198,34 +190,15 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // Outside the try: a failed delete is not a failed handler. Inside, an
     // IDB error after a landed write took the transient branch, which
     // replayed a write the server had accepted and put the IndexedDB error
-    // text in the entry's lastError (#446 review). Best effort here leaves
-    // the entry queued instead, which the drain replays — the same
-    // at-least-once contract handlers are already idempotent for.
-    if (!(await bestEffort('delete-after-landing', () => deleteEntry(entry.id)))) {
-      // The write landed but its entry did not clear. Nothing on the landed
-      // path would pick it up — it neither drains nor arms the retry timer —
-      // so the indicator would sit at "Sync queued · 1" until an unrelated
-      // event, the stuck-count class of #290 and #391 (#446 review). Say so,
-      // and let the follow-up drain replay it: the handler is idempotent and
-      // the replay is what clears the entry.
-      return 'landed-still-queued';
-    }
+    // text in the entry's lastError (#446 review). A failure here leaves the
+    // entry `attempting`, which shows in no count and blocks no drain until
+    // one adopts and replays it.
+    await bestEffort('delete-after-landing', () => deleteEntry(entry.id));
     return 'landed';
   };
 
-  let outcome: 'landed' | 'landed-still-queued' | 'queued-transient' | 'queued-unattempted';
-  try {
-    outcome = await withCrossTabLock(run);
-  } catch (err) {
-    // A permanent failure rethrows past the refresh at the bottom, and an
-    // emit during the round trip counted this entry as pending. Without the
-    // correction the indicator keeps showing it for a write that was rejected
-    // and rolled back (#446 review). A drain emits for itself.
-    if (orphaned) void drain();
-    else await refreshStatus();
-    throw err;
-  }
-  if (outcome === 'queued-transient' || outcome === 'landed-still-queued') {
+  const outcome = await withCrossTabLock(run);
+  if (outcome === 'queued-transient') {
     void drain();
     return;
   }
@@ -235,25 +208,9 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // so the indicator updates without waiting for the next online/offline
     // event.
     await drain();
-    return;
   }
-  // Landed. The entry was in the queue for the length of the round trip, and
-  // an emit in that window counted it as pending. Nothing else emits on this
-  // path, so without this the correction waits for the next emitter — and an
-  // `offline` event that lands mid-round-trip has none until the device comes
-  // back, leaving "1 pending" on screen for a write that succeeded (#446
-  // review). Not a free read: the precondition only excludes *pending*
-  // entries, and `listEntries` deserializes whole entries, so a caregiver
-  // sitting on failed blob-carrying entries pays for those blobs here.
-  //
-  // It is also an emitter, not only a correction. The lock is already
-  // released, so a successor write can have persisted its own entry by the
-  // time this read runs, and the count then names that one — which mounts
-  // the indicator and announces through its polite live region for a burst
-  // of edits that used to be silent (#446 review). Accepted: a real pending
-  // write is what it reports, and the alternative is leaving a stale count
-  // after every offline event.
-  await refreshStatus();
+  // A landed write needs no follow-up. Its entry was `attempting` throughout,
+  // so no count ever named it and there is nothing to correct.
 };
 
 /**

@@ -19,8 +19,9 @@ mutation hook (lib/queries/*)
   ▼
 enqueueAndDrain(entry)            src/lib/outbox/index.ts
   │ persist entry to IndexedDB — every path, before any attempt
-  │ online + empty queue → run the handler now, delete on success (fast path)
-  │ otherwise            → leave it queued, drain replays it
+  │ online + empty queue → status `attempting`, run the handler now,
+  │                        delete on success (fast path)
+  │ otherwise            → status `pending`, drain replays it
   ▼
 drain()                           src/lib/outbox/drain.ts
   │ FIFO over pending entries; retries, backoff, status events
@@ -47,16 +48,37 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   (#442), a tab close, a crash — and an entry that lived only in memory went
   with it. The optimistic cache patch does not survive either (the persisted
   cache is busted by commit), so the write disappeared with no queue entry, no
-  error, and nothing for the user to retry. The cost, and it is not free: one
-  put and one delete per online write, plus a status refresh once it lands.
-  For the blob-carrying kinds the put copies the whole payload into IndexedDB
-  and deletes it moments later — a few hundred KB for a photo or a recording
-  — and it happens **while the cross-tab lock is held**, so it also stalls
-  the other tab's drain and fast path. Durability needs the blob persisted,
-  so this is the price of the guarantee, not an accident. The status refresh
-  reads whole entries too, so failed blob entries waiting on Retry/Discard
-  are deserialized on every online write. A status emit during the round trip
-  counts the in-flight entry as pending, which is what it is.
+  error, and nothing for the user to retry.
+
+  The cost is one put and one delete per online write. For the blob-carrying
+  kinds the put copies the whole payload into IndexedDB and deletes it moments
+  later — a few hundred KB for a photo or a recording — and it happens
+  **while the cross-tab lock is held**, so it also stalls the other tab's
+  drain and fast path. Durability needs the blob persisted, so this is the
+  price of the guarantee, not an accident.
+
+- **An in-flight entry is `attempting`, not `pending`** (#446 review). The
+  two are different facts: `pending` means a write is waiting for a drain,
+  and the in-flight one is being run right now under the lock. Writing it as
+  `pending` made the pending count name a write that was not waiting, made
+  the drain loop a candidate to double-run it, and made every exit path
+  responsible for emitting a correction afterwards. `attempting` is invisible
+  to `pendingCount`, to the drain loop's filter, and to the fast path's
+  empty-queue check, so none of that is needed.
+
+  Recovery is exact rather than a timeout. The fast path holds the cross-tab
+  lock for its whole attempt and the browser releases a held lock when its
+  tab dies, so an `attempting` entry seen **from inside the lock** cannot
+  have a live owner. `adoptOrphans` (`drain.ts`) promotes those to `pending`,
+  and both `drain` and the fast path call it first — the fast path so a new
+  write cannot jump an abandoned older one. The attempt is not counted
+  against the retry budget: the abandoned write may well have landed
+  server-side, so its replay is the ordinary at-least-once case.
+
+  Residual: an abandoned attempt is durable but shows in no count until a
+  drain next takes the lock, which offline means waiting for `online`. It is
+  never *misreported* — the old shape reported a pending write that had
+  already landed.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
