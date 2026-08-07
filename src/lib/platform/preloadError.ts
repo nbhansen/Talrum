@@ -42,8 +42,13 @@ const readRecovery = (): Recovery | null => {
 
 const writeRecovery = (reloads: number): boolean => {
   try {
-    sessionStorage.setItem(RELOADED_AT, String(Date.now()));
+    // The count goes first, because the two writes are not atomic. A count
+    // without a stamp is harmless: readRecovery clears it when there is no
+    // stamp. A stamp without a count would say a reload happened when none
+    // did, and mislabel the next 30 seconds of failures as "still failing
+    // after a recovery reload" (#443 review round 7).
     sessionStorage.setItem(RELOAD_COUNT, String(reloads));
+    sessionStorage.setItem(RELOADED_AT, String(Date.now()));
     return true;
   } catch {
     return false;

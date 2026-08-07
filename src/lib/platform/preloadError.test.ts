@@ -232,4 +232,41 @@ describe('installPreloadErrorRecovery', () => {
       expect.objectContaining({ level: 'warning' }),
     );
   });
+
+  // The two writes are not atomic. A stamp without a count would claim a
+  // reload that never happened (#443 review round 7).
+  it('leaves no stamp when only part of the reload guard can be written', () => {
+    const store = new Map<string, string>();
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          if (key === RELOADED_AT) throw new DOMException('Quota', 'QuotaExceededError');
+          store.set(key, value);
+        },
+        removeItem: (key: string) => store.delete(key),
+      },
+    });
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(store.has(RELOADED_AT)).toBe(false);
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.stringMatching(/could not persist the reload guard/i),
+      expect.objectContaining({ level: 'warning' }),
+    );
+
+    // A count with no stamp must not read back as a recovery: the next
+    // failure is armed, not "still failing".
+    captureMessageMock.mockClear();
+    firePreloadError();
+
+    expect(captureMessageMock).not.toHaveBeenCalledWith(
+      expect.stringMatching(/still failing/i),
+      expect.anything(),
+    );
+  });
 });
