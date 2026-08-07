@@ -76,12 +76,12 @@ describe('findOrphans', () => {
 });
 
 describe('formatOrphanError', () => {
-  it('includes each orphan and the CLAUDE.md reference', () => {
+  it('includes each orphan and the AGENTS.md reference', () => {
     const msg = formatOrphanError(['20260501123456', '20260501134522']);
     expect(msg).toContain('Migration drift detected.');
     expect(msg).toContain('  - 20260501123456');
     expect(msg).toContain('  - 20260501134522');
-    expect(msg).toContain('CLAUDE.md');
+    expect(msg).toContain('AGENTS.md §12');
     expect(msg).toContain('MCP');
   });
 });

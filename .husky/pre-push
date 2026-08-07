@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Migration drift guard. See #133 and CLAUDE.md §12.
+# Migration drift guard. See #133 and AGENTS.md §12.
 # Fast feedback only — CI is the unskippable enforcement layer.
 
 set -e

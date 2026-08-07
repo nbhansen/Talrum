@@ -1,7 +1,7 @@
 // Enforces the comment cap in AGENTS.md §4 (#450). A comment longer than four
 // lines is where narration creeps in: LLM agents write the code, then write
 // twice as many words about it, and every one of those words can go stale.
-import { globSync, readFileSync } from 'node:fs';
+import { globSync, readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const MAX_LINES = 4;
@@ -48,8 +48,18 @@ export function findLongComments(source) {
 }
 
 // Only run the check when invoked as a script, never when a test imports it.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+
+if (invokedDirectly) {
   const files = SOURCE_GLOBS.flatMap((g) => globSync(g));
+  // A glob that stops matching would otherwise pass green while enforcing
+  // nothing — the silent no-op verify-boundaries.mjs exists to prevent.
+  if (files.length === 0) {
+    console.error('check-comment-length: the globs matched no files, so nothing was checked.');
+    process.exit(1);
+  }
   const failures = files.flatMap((file) =>
     findLongComments(readFileSync(file, 'utf8')).map(
       (f) => `${file}:${f.line} — ${f.length} lines`,
