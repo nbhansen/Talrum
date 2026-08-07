@@ -14,9 +14,9 @@ const SOURCE_GLOBS = [
 ];
 
 // A marker line counts as prose whenever it carries any, so `/* one` and
-// `* five */` are not free.
-const BARE_OPEN = /^\/\*+$/;
-const BARE_CLOSE = /^\*\/$/;
+// `* five */` are not free. JSX wraps its own in braces.
+const BARE_OPEN = /^\{?\/\*+$/;
+const BARE_CLOSE = /^\*\/\}?$/;
 
 // Returns [{ line, length }] for every comment block over the cap. Only
 // comments that start a line are inspected: telling `// x` apart from a `//`
@@ -36,13 +36,16 @@ export function findLongComments(source) {
       const length = j - i + 1;
       if (length > MAX_LINES) out.push({ line: i + 1, length });
       i = j;
-    } else if (text.startsWith('/*')) {
+    } else if (text.startsWith('/*') || text.startsWith('{/*')) {
       let j = i;
       while (j < lines.length && !lines[j].includes('*/')) j++;
-      const closed = j < lines.length;
-      let length = (closed ? j : lines.length - 1) - i + 1;
+      // An unclosed `/*` is not a comment — the file would not compile. It is a
+      // string that happens to start a line, so keep scanning past it rather
+      // than swallow every real comment below.
+      if (j >= lines.length) continue;
+      let length = j - i + 1;
       if (BARE_OPEN.test(text)) length--;
-      if (closed && j > i && BARE_CLOSE.test(lines[j].trim())) length--;
+      if (j > i && BARE_CLOSE.test(lines[j].trim())) length--;
       if (length > MAX_LINES) out.push({ line: i + 1, length });
       i = j;
     }

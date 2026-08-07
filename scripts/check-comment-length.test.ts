@@ -61,7 +61,17 @@ describe('findLongComments', () => {
   it('does not crash on a block comment that is never closed', () => {
     const inTemplate = ['const t = `', '/* looks like a comment', '`;'].join('\n');
     expect(findLongComments(inTemplate)).toEqual([]);
-    expect(findLongComments(`/* one\n${lines(5, ' ')}`)).toEqual([{ line: 1, length: 6 }]);
+    // Skipped, not counted: an unclosed `/*` would otherwise swallow every
+    // real comment below it in the file.
+    expect(findLongComments(`/* one\n${lines(5, ' ')}`)).toEqual([]);
+    expect(findLongComments(`/* x\n${lines(6, '//')}`)).toEqual([{ line: 2, length: 6 }]);
+  });
+
+  // JSX comments wrap the markers in braces, which hid a 12-line block in
+  // ParentShell.tsx from the first version of this check.
+  it('counts a JSX comment', () => {
+    expect(findLongComments(`{/*\n${lines(5, ' ')}\n*/}`)).toEqual([{ line: 1, length: 5 }]);
+    expect(findLongComments(`{/*\n${lines(4, ' ')}\n*/}`)).toEqual([]);
   });
 
   // Known and accepted gap: a comment that starts after code on the same line
