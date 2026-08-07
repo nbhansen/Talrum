@@ -3,14 +3,11 @@ import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
-// Generation counter: each tap invalidates every in-flight older call. The
-// awaits below span a network round trip, so overlapping taps are real —
-// without this, two taps inside one fetch window both play, and the loser
-// revokes the winner's object URL mid-playback.
+// The awaits below span a network round trip, so two taps inside one fetch
+// window both play, and the loser revokes the winner's URL mid-playback.
 let playToken = 0;
-// Persistent play() failures (a refused gesture chain, a codec the device
-// cannot decode) do not heal within a session, and a kid screen runs this
-// path on every tap. Report each failure kind once per session.
+// A refused gesture chain or an undecodable codec does not heal in-session,
+// and a kid screen runs this path on every tap.
 const reportedPlayFailures = new Set<string>();
 
 /**
@@ -23,9 +20,8 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
   const token = ++playToken;
   const url = await signedUrlFor(AUDIO_BUCKET, path);
   if (token !== playToken) return;
-  // Stop the previous clip before any fallible IO: if the fetch below throws,
-  // speakPictogram falls back to TTS, and a still-playing clip would talk
-  // over it.
+  // Before any fallible IO: on a throw the caller falls back to TTS, and a
+  // still-playing clip would talk over it.
   if (current) {
     current.pause();
     current.src = '';
@@ -61,12 +57,10 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     await audio.play();
   } catch (err) {
     // A newer tap pausing this element rejects the pending play() with an
-    // AbortError: not a defect, and the throw would TTS this label over the
-    // newer clip — same supersession rule as the fetch catch above.
+    // AbortError — the same supersession rule as the fetch catch above.
     if (token !== playToken) return;
-    // A bad codec (NotSupportedError) or a refused gesture chain
-    // (NotAllowedError, #428) degrades to TTS forever if nobody hears
-    // about it (#359).
+    // A bad codec or a refused gesture chain (#428) degrades to TTS forever if
+    // nobody hears about it (#359).
     const kind = err instanceof Error ? err.name : String(err);
     if (!reportedPlayFailures.has(kind)) {
       reportedPlayFailures.add(kind);
