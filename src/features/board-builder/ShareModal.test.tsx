@@ -86,9 +86,7 @@ describe('ShareModal — owner', () => {
     expect(screen.getByText('Your sharing ID')).toBeInTheDocument();
     expect(screen.getByText('Shared with')).toBeInTheDocument();
     expect(screen.getByText('Add someone')).toBeInTheDocument();
-    // The sharing ID is shown verbatim so the owner can copy it.
     expect(screen.getByText(ME_ID)).toBeInTheDocument();
-    // The member is rendered with their role.
     expect(screen.getByText(OTHER_ID)).toBeInTheDocument();
     expect(screen.getByText('viewer')).toBeInTheDocument();
   });

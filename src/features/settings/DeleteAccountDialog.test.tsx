@@ -11,8 +11,7 @@ const mutationState = {
   isSuccess: false,
   error: null as Error | null,
 };
-// Captures the options the dialog passes to useDeleteMyAccount so tests
-// can assert it forwards onPreSignOut into the mutation hook.
+// Captures the options the dialog passes to useDeleteMyAccount.
 const useDeleteMyAccountSpy = vi.fn<(opts?: { onPreSignOut?: () => void }) => unknown>();
 
 vi.mock('@/lib/queries/account', () => ({
@@ -98,9 +97,8 @@ describe('DeleteAccountDialog', () => {
     expect(mutateMock).toHaveBeenCalledTimes(1);
   });
 
-  // The dialog is responsible for forwarding onPreSignOut to the mutation
-  // hook — that's the load-bearing wiring that lets the section navigate
-  // before signOut. If a refactor drops the option, this test fails.
+  // Forwarding onPreSignOut is what lets the section navigate before signOut,
+  // so a refactor that drops the option fails here.
   it('forwards onPreSignOut to useDeleteMyAccount', () => {
     const onPreSignOut = vi.fn();
     renderDialog(onPreSignOut);

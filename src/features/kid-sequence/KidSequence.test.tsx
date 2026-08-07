@@ -80,9 +80,7 @@ describe('KidSequence', () => {
   });
 
   it('flashes only the tapped slot when a step repeats the same pictogram (#273)', async () => {
-    // "jump, jump, jump" is a valid sequence. The speaking flash must track
-    // the tapped slot, not the pictogram id — an id-keyed flash lights up
-    // every identical tile at once.
+    // "jump, jump, jump" is a valid sequence (#273).
     const qc = makeClient();
     render(
       <Wrap qc={qc}>
@@ -103,7 +101,6 @@ describe('KidSequence', () => {
         <KidSequence board={{ ...board, labelsVisible: false }} onExit={vi.fn()} />
       </Wrap>,
     );
-    // Visible label span gone — the literal label text is no longer in the DOM.
     expect(screen.queryByText('Apple')).not.toBeInTheDocument();
     expect(screen.queryByText('Drink')).not.toBeInTheDocument();
     // The button's accessible name comes from the conditional aria-label.
@@ -112,9 +109,8 @@ describe('KidSequence', () => {
   });
 
   it('preserves the accessible name on the kidReorderable (dnd-kit) branch', () => {
-    // The reorderable render path spreads dnd-kit's `attributes` and
-    // `listeners` onto the same button. `aria-label` as an explicit attribute
-    // (not a conditional spread) makes precedence over those spreads explicit.
+    // The reorderable path spreads dnd-kit's attributes onto the same button,
+    // so aria-label is explicit rather than spread, to fix precedence.
     const qc = makeClient();
     render(
       <Wrap qc={qc}>

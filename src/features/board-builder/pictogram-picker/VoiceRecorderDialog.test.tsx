@@ -17,8 +17,8 @@ interface MockResult {
   error: MockError | null;
 }
 
-// Boundary mock: the save/clear mutations run for real through the outbox
-// (enqueueAndDrain → handlers → uploadBlob/removeFromBucket → supabase).
+// A boundary mock, so the save and clear mutations run for real through the
+// outbox and its handlers.
 const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
 const storageBucketsUsed: string[] = [];
@@ -31,10 +31,8 @@ const updateMock = vi.fn((patch: Record<string, unknown>) => ({
 }));
 const updatePatches: Record<string, unknown>[] = [];
 
-// Row-path reads (#418): handlers derive storage cleanup from the row, so
-// set/clear audio issue select(...).eq(...).maybeSingle() first. The default
-// mirrors `pictoWithAudio` — tests using `pictoWithoutAudio` get no cleanup
-// either way because the read, not the picto prop, decides.
+// Handlers derive storage cleanup from the row, not the picto prop, so this
+// read is what decides whether cleanup runs (#418).
 const maybeSingleMock = vi.fn<
   () => Promise<{
     data: { image_path: string | null; audio_path: string | null } | null;
@@ -42,8 +40,7 @@ const maybeSingleMock = vi.fn<
   }>
 >();
 
-// Boundary for the generate-voice edge function (#422): the wire shape is a
-// base64 JSON envelope (see generateVoice.ts for why not raw audio bytes).
+// The wire shape is a base64 JSON envelope — see generateVoice.ts for why.
 const invokeMock =
   vi.fn<(name: string, opts: unknown) => Promise<{ data: unknown; error: MockError | null }>>();
 
@@ -64,15 +61,14 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Playback needs a real <audio> pipeline; the module is a 14-line signed-URL +
-// Audio wrapper. The dialog's contract is "call it, surface its failure".
+// Playback needs a real <audio> pipeline. The dialog's contract is only
+// "call it, surface its failure".
 vi.mock('@/lib/platform/audio', () => ({
   playPictogramAudio: vi.fn(),
 }));
 
-// startRecording/isRecordingSupported have their own behavioral tests against
-// a fake MediaRecorder (recording.test.ts); here they're the seam that lets
-// the test steer permission-denied vs. captured-blob outcomes.
+// recording.test.ts covers these against a fake MediaRecorder; here they only
+// steer permission-denied against captured-blob.
 vi.mock('@/lib/platform/recording', async (importOriginal) => {
   const actual = await importOriginal<typeof recordingModule>();
   return {
@@ -187,7 +183,6 @@ describe('VoiceRecorderDialog', () => {
       expect(updatePatches).toContainEqual({ audio_path: path });
     });
     expect(eqMock).toHaveBeenCalledWith('id', 'p1');
-    // No previous recording → nothing to clean up.
     expect(removeMock).not.toHaveBeenCalled();
     expect(screen.queryByText(/failed|could not/i)).not.toBeInTheDocument();
     // hasAudio is prop-driven (the parent re-renders with the fresh picto);
@@ -350,9 +345,8 @@ describe('VoiceRecorderDialog', () => {
       audioBase64: btoa('generated-mp3'),
     });
 
-    // strict: main.tsx runs the app under <StrictMode>, whose double-mount
-    // closed a cleanup-only openRef guard for good — every dev generation
-    // silently dropped its preview while CI stayed green (#433 review).
+    // StrictMode's double-mount closed a cleanup-only openRef guard for good,
+    // so every dev generation dropped its preview while CI stayed green (#433).
     it('generates a preview and writes nothing until the parent saves', async () => {
       const user = userEvent.setup();
       invokeMock.mockResolvedValue({ data: generatedEnvelope(), error: null });
@@ -364,7 +358,6 @@ describe('VoiceRecorderDialog', () => {
       expect(invokeMock).toHaveBeenCalledWith('generate-voice', {
         body: { label: 'Brush teeth', language: 'en' },
       });
-      // The core promise of the flow: preview first, no writes yet.
       expect(uploadMock).not.toHaveBeenCalled();
       expect(updateMock).not.toHaveBeenCalled();
     });
@@ -388,7 +381,6 @@ describe('VoiceRecorderDialog', () => {
       await waitFor(() => {
         expect(updatePatches).toContainEqual({ audio_path: path });
       });
-      // The preview is consumed; the pad returns to its idle layout.
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
       });

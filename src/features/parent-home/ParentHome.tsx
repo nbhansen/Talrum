@@ -24,11 +24,7 @@ interface ParentHomeProps {
   onNewKid?: () => void;
   /** Opens the full New board modal (name + kind + kid picker). */
   onNewBoard?: () => void;
-  /**
-   * Fast path: creates a board with default values immediately and navigates
-   * into the BoardBuilder. Disabled when no kids are loaded yet (the route
-   * passes a no-op or omits the prop while waiting on the kids query).
-   */
+  /** Creates a default board and navigates into it. Omitted while kids load. */
   onNewBlankBoard?: () => void;
   onSeeAll?: () => void;
   newBlankPending?: boolean;
@@ -50,15 +46,13 @@ export const ParentHome = ({
   const { data: kids = [] } = useKids();
   const activeKid = useActiveKid();
 
-  // Filter is client-side: every board row already carries kid_id, so there's
-  // no need for a separate query per kid. Without an active kid (no kids yet)
-  // an empty list is correct — the EmptyState below prompts to add one.
+  // Client-side, because every board row already carries kid_id. With no active
+  // kid an empty list is correct — the EmptyState prompts to add one.
   const boards = (boardsQuery.data ?? []).filter((b) => b.kidId === activeKid?.id);
   const noBoards = boards.length === 0;
   const showSwitcher = kids.length > 1;
 
-  // Only render the strip when at least one slug resolves — otherwise the
-  // heading sits alone over empty whitespace and reads like a load failure.
+  // A heading alone over empty whitespace reads like a load failure.
   const recentPictos = RECENT_STRIP_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
     (p): p is Pictogram => Boolean(p),
   );

@@ -62,9 +62,8 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
             <section className={styles.section}>
               <span className={styles.sectionLabel}>Shared with</span>
               {members.isPending ? (
-                // Distinct from the empty state so an owner who's already
-                // shared with someone doesn't see "No one yet." flash before
-                // the first fetch lands.
+                // Distinct from the empty state, or "No one yet." flashes
+                // before the first fetch lands.
                 <p className={styles.empty} role="status" aria-live="polite">
                   Loading…
                 </p>

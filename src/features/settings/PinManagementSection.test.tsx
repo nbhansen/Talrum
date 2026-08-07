@@ -27,9 +27,8 @@ describe('PinManagementSection', () => {
     expect(screen.queryByRole('button', { name: /clear pin/i })).not.toBeInTheDocument();
   });
 
-  // #353 removed PIN setup from the kid-mode exit gate, which was the only way
-  // to create one. Without this button there is no way to set a PIN at all, and
-  // therefore no way to use kid mode.
+  // Since #353 moved PIN setup out of the exit gate, this button is the only
+  // way to create one — and so the only way to reach kid mode.
   it('offers Set a PIN when none is set, and setting one enables kid mode (#353)', async () => {
     const user = userEvent.setup();
     render(<PinManagementSection />);

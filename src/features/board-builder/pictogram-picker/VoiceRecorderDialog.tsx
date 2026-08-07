@@ -161,22 +161,19 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     }
     setMode('generating');
     try {
-      // getVoiceLanguage, not getAppLanguage: the voice should match what
-      // the TTS fallback would speak, not the language of parent-UI copy.
-      // Clamped to the function's closed set — for a locale we have no
-      // neural voice for, English is the least-wrong default.
+      // getVoiceLanguage, not getAppLanguage: the clip should match what the
+      // TTS fallback would speak, not the language of parent-UI copy. English
+      // is the least-wrong default outside the function's closed set.
       const voiceLang = getVoiceLanguage();
       const blob = await genMut.mutateAsync({
         label: picto.label,
         language: isAppLanguage(voiceLang) ? voiceLang : 'en',
       });
       if (!openRef.current) return;
-      // The state swap revokes the previous preview's URL via the effect above.
       setPreview({ blob, url: URL.createObjectURL(blob) });
     } catch (err) {
-      // Only a request that never got a response blames the connection;
-      // a server-side failure told to "check your connection" sends the
-      // parent chasing wifi that is fine.
+      // Only a request that got no response blames the connection; anything
+      // else sends the parent chasing wifi that is fine.
       setError(
         err instanceof GenerateVoiceError && err.code !== 'network'
           ? 'Voice generation failed. Try again in a moment.'
@@ -275,9 +272,8 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
       </div>
       <footer className={styles.footer}>
         {preview ? (
-          // A generated clip is waiting. Nothing else until the parent
-          // decides — saving and re-recording over an unheard preview are
-          // both mistakes this layout makes impossible.
+          // Nothing else until the parent decides: saving or re-recording over
+          // an unheard preview are both mistakes this layout prevents.
           <>
             <div className={styles.footerLeft}>
               <Button variant="ghost" onClick={playPreview} disabled={busy}>

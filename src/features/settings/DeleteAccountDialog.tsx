@@ -49,8 +49,8 @@ export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Elem
     cancelRef.current?.focus();
   }, []);
 
-  // Block close while pending so the user doesn't yank the dialog out from
-  // under an in-flight mutation. Modal's Esc handler routes through here.
+  // Modal's Esc handler routes through here, so this is what blocks a close
+  // during an in-flight deletion.
   const handleClose = (): void => {
     if (!mutation.isPending) onCancel();
   };

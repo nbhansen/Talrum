@@ -57,9 +57,8 @@ describe('DeleteAccountSection', () => {
     expect(link.getAttribute('href')).toBe('/privacy-policy');
   });
 
-  // The section's whole reason for existing on this branch is to wire a
-  // navigate() into onPreSignOut. If the option goes missing, the user
-  // lands on Login after deletion (the Phase G AuthGate race).
+  // Without the navigate() wired into onPreSignOut, the user lands on Login
+  // after deletion rather than the confirmation.
   it('passes onPreSignOut to useDeleteMyAccount when the dialog opens', async () => {
     renderIt();
     await userEvent.click(screen.getByRole('button', { name: /delete my account/i }));

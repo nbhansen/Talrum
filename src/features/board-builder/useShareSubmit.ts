@@ -23,11 +23,7 @@ interface Args {
   meId: string;
 }
 
-/**
- * Owns the add-member submit flow for ShareModal: input draft state, UUID
- * surface validation, self-paste rejection, and the mutation call with
- * error-code → user-message mapping. ShareModal stays presentation-only.
- */
+/** Owns the add-member submit flow, so ShareModal stays presentation-only. */
 export const useShareSubmit = ({ boardId, meId }: Args): ShareSubmitState => {
   const addMember = useAddBoardMember();
   const [draftId, setDraftIdState] = useState('');

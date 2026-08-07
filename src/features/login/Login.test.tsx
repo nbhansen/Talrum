@@ -32,7 +32,6 @@ describe('Login', () => {
       email: 'parent@example.com',
       options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
     });
-    // Advances to the confirmation step naming the address it was sent to.
     expect(await screen.findByText(/Check your email/)).toBeInTheDocument();
     expect(screen.getByText('parent@example.com')).toBeInTheDocument();
   });

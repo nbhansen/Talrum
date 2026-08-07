@@ -81,24 +81,21 @@ describe('KidChoice', () => {
         <KidChoice board={board} onExit={vi.fn()} />
       </Wrap>,
     );
-    // Target the choice button by accessible name (marker letter + label),
-    // not the inner label span — the inner span is overlaid by absolutely-
-    // positioned media wrappers that confuse userEvent's pointer simulation.
+    // By accessible name, not the inner label span: the span is overlaid by
+    // absolutely-positioned media that confuses userEvent's pointer.
     await userEvent.click(screen.getByRole('button', { name: /Park/i }));
     expect(speakPictogramMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: park.id }),
       'tts',
     );
     expect(screen.queryByText(/Tap one to choose/)).not.toBeInTheDocument();
-    // Confirm CTA accessible name combines a CheckIcon (no name) with
-    // split text nodes — anchor on the "Let's go to" prefix only.
+    // The name combines an unnamed icon with split text nodes, so anchor on
+    // the prefix only.
     expect(screen.getByText(/Let.+s go to/)).toBeInTheDocument();
   });
 
   it('selects only the tapped slot when a board lists the same pictogram twice (#273)', async () => {
-    // A choice board may legitimately repeat a pictogram. Selection must be
-    // keyed by slot position, not pictogram id — otherwise tapping one tile
-    // marks every identical tile as picked (and the React key collides).
+    // A choice board may legitimately repeat a pictogram (#273).
     const qc = makeClient();
     render(
       <Wrap qc={qc}>
@@ -136,11 +133,9 @@ describe('KidChoice', () => {
         <KidChoice board={{ ...board, labelsVisible: false }} onExit={vi.fn()} />
       </Wrap>,
     );
-    // Visible label span gone — `Park` text is no longer in the DOM.
     expect(screen.queryByText('Park')).not.toBeInTheDocument();
     expect(screen.queryByText('Zoo')).not.toBeInTheDocument();
-    // Marker letter must still ride with the accessible name. A teacher saying
-    // "tap A" needs the screen reader to announce both, not just the label.
+    // A teacher saying "tap A" needs the reader to announce the marker too.
     expect(screen.getByRole('button', { name: /A.*Park/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /B.*Zoo/i })).toBeInTheDocument();
   });
@@ -176,14 +171,12 @@ describe('KidChoice', () => {
       </Wrap>,
     );
     expect(screen.getByRole('status')).toHaveTextContent(/grown-up/i);
-    // The "Tap one to choose" prompt is meaningless with no options — make
-    // sure we suppress it rather than stacking it under the empty-state.
+    // The prompt is meaningless with no options to tap.
     expect(screen.queryByText(/Tap one to choose/)).not.toBeInTheDocument();
   });
 
   it('shows the empty-state when every stepId references a missing pictogram', () => {
-    // Realistic production case: parent deletes a pictogram from Library
-    // while it's still referenced by a choice board.
+    // The parent deleted a pictogram a choice board still references.
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(pictogramsQueryKey, []); // both park + zoo missing
     render(

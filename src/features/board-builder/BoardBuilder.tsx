@@ -42,11 +42,7 @@ interface Step {
   picto: Pictogram;
 }
 
-/**
- * React keys must be unique across duplicates of the same pictogram. The
- * `pictoId` alone collides when a board contains the same pictogram twice.
- * A positional suffix keeps each rendered step stable during reorder.
- */
+/** `pictoId` alone collides when a board holds the same pictogram twice. */
 const buildSteps = (stepIds: string[], byId: Map<string, Pictogram>): Step[] =>
   stepIds.flatMap((pictoId, index) => {
     const picto = byId.get(pictoId);
@@ -73,15 +69,12 @@ export const BoardBuilder = ({
   const setStepIds = useSetStepIds();
   const setKidReorderable = useSetKidReorderable();
 
-  // Local title state keeps the input snappy; the mutation fires once the user
-  // pauses typing. Re-sync only when navigating to a different board — syncing
-  // on every board.name change would clobber in-progress typing when the
-  // previous debounced write lands.
+  // Local state keeps the input snappy. Syncing on every board.name change
+  // would clobber in-progress typing when the previous debounced write lands.
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [titleDraft, setTitleDraft] = useState(board.name);
-  // Re-sync the title draft only when navigating to a different board (keyed on
-  // board.id, not board.name) — see the note above. The sync write is intended.
+  // Keyed on board.id, not board.name — see above. The sync write is intended.
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => setTitleDraft(board.name), [board.id]);
   const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
