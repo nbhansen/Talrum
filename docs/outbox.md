@@ -18,8 +18,10 @@ mutation hook (lib/queries/*)
   │  optimistic patch into the React Query cache (see queries.md)
   ▼
 enqueueAndDrain(entry)            src/lib/outbox/index.ts
-  │ online + empty queue → run the handler immediately (fast path)
-  │ otherwise            → persist entry to IndexedDB, drain replays it
+  │ persist entry to IndexedDB — every path, before any attempt
+  │ online + empty queue → status `attempting`, run the handler now,
+  │                        delete on success (fast path)
+  │ otherwise            → status `pending`, drain replays it
   ▼
 drain()                           src/lib/outbox/drain.ts
   │ FIFO over pending entries; retries, backoff, status events
@@ -40,6 +42,74 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   with stale data. Offline, the mutation promise resolves as soon as the
   entry is persisted — the UI keeps its optimistic state and the indicator
   shows the pending count.
+- **The entry is durable before any attempt** (#445). The fast path persists
+  the entry, runs the handler, then deletes it. The handler's round trip is a
+  window in which the page can go away — the auto-reload after a deploy
+  (#442), a tab close, a crash — and an entry that lived only in memory went
+  with it. The optimistic cache patch does not survive either (the persisted
+  cache is busted by commit), so the write disappeared with no queue entry, no
+  error, and nothing for the user to retry.
+
+  The cost is one put and one delete per online write. For the blob-carrying
+  kinds the put copies the whole payload into IndexedDB and deletes it moments
+  later — a few hundred KB for a photo or a recording — and it happens
+  **while the cross-tab lock is held**, so it also stalls the other tab's
+  drain and fast path. Durability needs the blob persisted, so this is the
+  price of the guarantee, not an accident.
+
+- **An in-flight entry is `attempting`, not `pending`** (#446 review). The
+  two are different facts: `pending` means a write is waiting for a drain,
+  and the in-flight one is being run right now under the lock. Writing it as
+  `pending` made the pending count name a write that was not waiting, made
+  the drain loop a candidate to double-run it, and made every exit path
+  responsible for emitting a correction afterwards. `attempting` is invisible
+  to `pendingCount`, to the drain loop's filter, and to the fast path's
+  empty-queue check, so none of that is needed.
+
+  Recovery is exact rather than a timeout. The fast path holds the cross-tab
+  lock for its whole attempt and the browser releases a held lock when its
+  tab dies, so an `attempting` entry seen **from inside the lock** cannot
+  have a live owner. `reconcileQueue` (`drain.ts`) promotes those to `pending`,
+  and both `drain` and the fast path call it first — the fast path so a new
+  write cannot jump an abandoned older one. The attempt is not counted
+  against the retry budget: the abandoned write may well have landed
+  server-side, so its replay is the ordinary at-least-once case.
+
+  Residual: an abandoned attempt is durable but shows in no count until a
+  drain next takes the lock, which offline means waiting for `online`. It is
+  never *misreported* — the old shape reported a pending write that had
+  already landed.
+
+- **An entry runs only for the account that enqueued it** (#446 review). Each
+  entry carries `enqueuedBy`, and `reconcileQueue` deletes any entry the
+  current session did not enqueue. An entry without it predates the stamp —
+  unattributed, not foreign, so it is kept. The name is deliberately not
+  `ownerId`: `CreatePhotoPictogramEntry.ownerId` is a payload field, written
+  to the row as `owner_id` and used to mint the storage path, and one name for
+  both would let the queue-level stamp overwrite the payload through a spread.
+
+  Two rules make this hold, and the second is the subtle one:
+
+  - `enqueueAndDrain` reads the owner **at call time**, never after the lock
+    wait. `run` is the lock callback, so a read there happens after the auth
+    boundary has already moved — it would label user A's write with user B and
+    defeat the check. If the account changed while the write queued for the
+    lock, the write is abandoned rather than stamped: the account it belongs
+    to is gone, and the handler would fail under RLS anyway.
+  - `drain` does nothing while no account is known. `startOutbox` drains at
+    module load, before AuthGate has resolved the session, so without this the
+    first drain after every reload would replay a previous account's leftovers
+    before the owner is known. `setOutboxOwner` runs the drain that gate skips
+    once the session resolves.
+
+  The sweep in `clearPersistedCache` is deliberately **not** under the outbox
+  lock. The lock would only stop a write landing between the sweep's `keys()`
+  snapshot and its deletes, never one already waiting on it — so the sweep was
+  never what made this hold. Taking the lock would buy the weaker half of the
+  property and cost the stronger one: the lock is held across handler IO, so a
+  sign-out during a photo upload would leave user A's blobs on a shared device
+  for the whole upload instead of wiping them at once.
+
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
@@ -105,10 +175,19 @@ New entry kind? Add the interface in `types.ts`, the handler in
 `handlers.ts`, a `dispatch` case, and a mutation hook. Handlers must be:
 
 - **Idempotent.** A drain can replay an entry that already (partially)
-  succeeded — e.g. the fast path crashed after the Storage upload but before
-  the table write. Re-running must converge, not error. Server-side
+  succeeded — the fast path crashed after the Storage upload but before the
+  table write, or it landed the whole write and the page went away before the
+  entry was deleted (#445). Re-running must converge, not error. Server-side
   `array_remove`/`ON DELETE CASCADE`/RPC no-ops are the usual tools; see
   `delete_pictogram` (#280).
+
+  Guarded `updateBoard` is the exception, by design. A reload starts with an
+  empty board clock (`board-clock.ts`), so the replay still carries the
+  `expectedUpdatedAt` its own landed write invalidated, `.match` returns zero
+  rows, and the caregiver gets the conflict pill for their own write. Same
+  accepted class as the transient-code replay `handlers.ts` documents, and
+  recoverable — **Retry** strips the guard. A recoverable wrong pill beats
+  the silent loss it replaced.
 - **Authorization-free.** RLS is the security boundary; a handler running
   against someone else's rows should fail (or no-op) at the database, never
   by client-side checks.

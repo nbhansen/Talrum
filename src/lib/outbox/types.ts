@@ -22,7 +22,25 @@ export type BoardRowPatch = Pick<
   voice_mode?: VoiceMode;
 };
 
-export type OutboxEntryStatus = 'pending' | 'failed';
+/**
+ * `pending` — waiting for a drain to replay it. This is the only status the
+ * pending count, the drain loop, and the fast-path precondition act on.
+ *
+ * `attempting` — a handler is running against it right now, under the
+ * cross-tab lock. It exists so a write survives the page going away
+ * mid-handler (#445) without being mistaken for work waiting to be done:
+ * counting it would show a pending write that is not waiting, and replaying
+ * it would double-run the handler already in flight.
+ *
+ * Because the lock is held for the whole attempt and the browser releases it
+ * when a tab dies, an `attempting` entry seen from *inside* the lock is
+ * proof its owner is gone. `reconcileQueue` promotes those to `pending`
+ * (drain.ts) — exact, not a timeout.
+ *
+ * `failed` — out of retries or permanently rejected. The indicator's Retry
+ * and Discard act on these.
+ */
+export type OutboxEntryStatus = 'pending' | 'attempting' | 'failed';
 
 /**
  * Why a `failed` entry failed. `conflict` means the board conflict guard
@@ -35,6 +53,21 @@ export type OutboxFailureKind = 'conflict' | 'permanent';
 interface OutboxEntryBase {
   /** ULID — monotonically sortable, stable across reloads. */
   id: string;
+  /**
+   * The signed-in user who enqueued this write. `reconcileQueue` (drain.ts)
+   * drops entries enqueued by anybody but the current session, so a write
+   * that outlives sign-out on a shared device is never replayed under the
+   * next account (#446 review).
+   *
+   * Deliberately not named `ownerId`: `CreatePhotoPictogramEntry.ownerId` is
+   * a *payload* field, written to the row as `owner_id` and used to mint the
+   * storage path. One name for both would let this queue-level stamp
+   * overwrite the payload through a spread.
+   *
+   * Optional only for entries written before the stamp existed: a missing
+   * value is unattributed, not foreign, and is kept rather than deleted.
+   */
+  enqueuedBy?: string;
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;

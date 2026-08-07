@@ -101,6 +101,17 @@ export const clearPersistedCache = async (): Promise<void> => {
   // stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),
+    // Deliberately not under the outbox's cross-tab lock (#446 review). The
+    // lock would only stop a write landing *between* this `keys()` snapshot
+    // and its deletes — it cannot stop an enqueue that is already waiting on
+    // it, which acquires it after this releases and writes behind the
+    // deletes. So the sweep was never the thing that makes the guarantee
+    // hold; `enqueuedBy` plus `reconcileQueue` is, and that does not care
+    // when the entry was written. Taking the lock would buy the weaker half
+    // of the property and cost the stronger one: the lock is held across
+    // handler IO, so a sign-out during a photo upload would leave user A's
+    // blobs on a shared device for the whole upload rather than wiping them
+    // now.
     keys().then((all) => {
       const stripeKeys = all.filter(
         (k): k is string =>

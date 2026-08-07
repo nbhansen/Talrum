@@ -7,6 +7,7 @@ import {
   RETRY_MAX_DELAY_MS,
 } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { getOutboxOwner } from './owner';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -86,6 +87,60 @@ const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
   }
 };
 
+/**
+ * Make the queue safe for this session to act on, and return what is left.
+ *
+ * MUST be called from inside the cross-tab lock. Two jobs:
+ *
+ * 1. **Drop foreign entries.** An entry belongs to the account that enqueued
+ *    it, and on a shared device must never run on behalf of another. The
+ *    sign-out sweep (`queryClient.ts`) deletes the queue at the auth
+ *    boundary, but cannot be the whole guarantee: a fast path waiting on the
+ *    lock acquires it *after* the sweep releases and writes its entry behind
+ *    the deletes (#446 review). Here the owner is checked instead of the
+ *    timing, so the ordering stops mattering. An entry with no `enqueuedBy`
+ *    predates the stamp — unattributed, not foreign, so it is kept. With no
+ *    current owner nothing is dropped, because there is nobody to compare
+ *    against; `drain` does not run in that state at all, so the inert case
+ *    never reaches a handler.
+ *
+ * 2. **Promote abandoned attempts.** Exact inside the lock rather than a
+ *    heuristic: the fast path holds the lock for its whole attempt, and the
+ *    browser releases a held lock when its tab dies. So an `attempting` entry
+ *    visible to a lock holder cannot have a live owner — the owner would
+ *    still be holding the lock. That covers the reload this exists for
+ *    (#445), a crash, and another tab dying, with no timestamp and no
+ *    timeout. The attempt is not counted: the entry may have landed
+ *    server-side before the page went away, so the replay is the same
+ *    at-least-once case handlers are already idempotent for.
+ *
+ * Returning the surviving queue means callers do not pay a second
+ * `listEntries` — `keys()` plus a `get` per key — on the hot path for a scan
+ * that finds nothing in the common case.
+ *
+ * Without `navigator.locks` the lock proof does not hold and
+ * `withCrossTabLock` runs unlocked — the degradation that function
+ * documents. The owner check does not depend on the lock and still holds.
+ */
+export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
+  const owner = getOutboxOwner();
+  const kept: OutboxEntry[] = [];
+  for (const e of await listEntries()) {
+    if (owner !== null && e.enqueuedBy !== undefined && e.enqueuedBy !== owner) {
+      await deleteEntry(e.id);
+      continue;
+    }
+    if (e.status === 'attempting') {
+      const promoted: OutboxEntry = { ...e, status: 'pending' };
+      await putEntry(promoted);
+      kept.push(promoted);
+      continue;
+    }
+    kept.push(e);
+  }
+  return kept;
+};
+
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
   try {
     await runHandler(entry);
@@ -135,7 +190,12 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * same entries concurrently (#278). Serialize cross-tab via the Web Locks API
  * (held locks are released automatically if the tab dies). jsdom and SSR have
  * no `navigator.locks`; fall back to running unlocked — the per-tab guard
- * still covers the single-context case.
+ * still covers drains in the single-context case, but not the fast path:
+ * `enqueueAndDrain` never sets `drainState.draining`, so a drain can start
+ * mid-round-trip, list the entry the fast path persisted before attempting
+ * (#445), and run its handler a second time. Handlers are idempotent for
+ * exactly this class. Web Locks needs a secure context, so this is jsdom and
+ * plain-HTTP origins only.
  *
  * Also wraps the queue rewrites in `retryFailed`/`discardEntry` (#289) and
  * the fast path in `enqueueAndDrain` (#395) — without it, two tabs can both
@@ -215,6 +275,16 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     drainState.pendingDrain = true;
     return;
   }
+  // No signed-in account means no session to write with, and no way to tell
+  // whose entries these are. `startOutbox` drains at module load, before
+  // AuthGate has resolved the session, so this is the boot path every time —
+  // and without the gate the first drain after every reload would replay a
+  // previous account's leftovers before the owner is known (#446 review).
+  // `setOutboxOwner` runs the drain this skips once the session resolves.
+  if (getOutboxOwner() === null) {
+    await emit();
+    return;
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     cancelRetryOnOffline();
     await emit();
@@ -232,9 +302,13 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       // tab releases the lock; attempting entries on a network that dropped
       // meanwhile burns their transient-retry budget on guaranteed failures.
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      // Inside the lock: drops entries this session does not own and adopts
+      // abandoned attempts. Its return seeds the first pass, so neither costs
+      // an extra round trip.
+      let queue = await reconcileQueue();
       let stop = false;
       while (!stop) {
-        const entries = (await listEntries()).filter((e) => e.status === 'pending');
+        const entries = queue.filter((e) => e.status === 'pending');
         if (entries.length === 0) break;
         for (const entry of entries) {
           const outcome = await runOne(entry);
@@ -245,6 +319,9 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
             break;
           }
         }
+        // Re-read for the next pass: this one deleted what it landed, and an
+        // enqueue may have appended behind it.
+        queue = await listEntries();
       }
     });
   } finally {
