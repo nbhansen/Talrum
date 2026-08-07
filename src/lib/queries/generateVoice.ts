@@ -19,9 +19,8 @@ export type VoiceLanguage = 'da' | 'en';
 /** Mirrors the function's cap; the dialog checks it before a round trip. */
 export const MAX_LABEL_LENGTH = 60;
 
-// The function's closed error codes, plus 'network' for a request that
-// never got a response — the one case that really is the connection's
-// fault, and the only one the "check your connection" copy fits.
+// The function's codes, plus 'network' for a request that got no response —
+// the only case the "check your connection" copy fits.
 const WIRE_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
@@ -66,10 +65,8 @@ interface GenerateVoiceInput {
   language: VoiceLanguage;
 }
 
-// Success envelope: base64-in-JSON, because supabase-js reads audio/*
-// response bodies as text (its parse allow-list is json / octet-stream /
-// pdf / event-stream / form-data) and exposes no response headers to carry
-// a MIME type beside raw bytes.
+// Base64-in-JSON, because supabase-js reads audio/* bodies as text and carries
+// no header for a MIME type beside raw bytes.
 interface SuccessResponse {
   ok: true;
   mimeType: string;
@@ -101,9 +98,8 @@ export const useGenerateVoice = (): UseMutationResult<
       );
       if (error) {
         if (error instanceof FunctionsHttpError) {
-          // The server answered, so this is not the network's fault — a
-          // broken Azure key must not look like flaky wifi, to the parent
-          // or to us (#359 rationale).
+          // The server answered, so a broken Azure key must not look like
+          // flaky wifi — to the parent or in telemetry (#359).
           const code = await codeFromHttpError(error);
           captureException(error, {
             level: 'warning',

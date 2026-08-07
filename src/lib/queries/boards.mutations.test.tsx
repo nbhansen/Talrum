@@ -93,10 +93,8 @@ describe('useRenameBoard (useBoardPatch)', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), seed);
 
-    // The outbox classifies coded errors (Postgres / PostgREST) as
-    // permanent — that's the path that triggers React Query's onError,
-    // which rolls the optimistic patch back. A plain TypeError without
-    // a code would instead enqueue silently.
+    // A coded error is the permanent path, and so the one that reaches
+    // onError. An uncoded TypeError would enqueue silently instead.
     unguardedSelectMock.mockResolvedValueOnce({
       data: null,
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
@@ -195,8 +193,7 @@ describe('useSetStepIds', () => {
 
     const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
 
-    // Simulate a concurrent edit landing in the cache *after* render but
-    // *before* the mutate call (e.g. another tab pushed an append).
+    // A concurrent edit landing after render but before mutate.
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a', 'b'] });
 
     act(() => {
@@ -233,9 +230,8 @@ describe('useSetStepIds', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
-    // First attempt fails (RLS), second succeeds (beforeEach default).
-    // Between the two, the cache has shifted — retry must re-merge against
-    // the new state, not replay the original computed array.
+    // The cache shifts between the two attempts, so the retry must re-merge
+    // rather than replay its original array.
     unguardedSelectMock.mockResolvedValueOnce({
       data: null,
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },

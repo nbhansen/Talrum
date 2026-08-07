@@ -48,9 +48,8 @@ const fetchBoard = async (id: string): Promise<Board> => {
 };
 
 /**
- * PGRST116 = "JSON object requested, multiple (or no) rows returned" — raised
- * by `.single()` when a board doesn't exist or is hidden by RLS. It's
- * terminal: retrying the same UUID will produce the same answer.
+ * Raised by `.single()` when a board is missing or hidden by RLS. Terminal:
+ * retrying the same UUID gives the same answer.
  */
 export const isNotFoundError = (err: unknown): boolean => hasPgCode(err, 'PGRST116');
 
@@ -62,8 +61,6 @@ export const useBoard = (id: string): UseQueryResult<Board> =>
     queryKey: boardQueryKey(id),
     queryFn: () => fetchBoard(id),
     enabled: id !== '',
-    // Skip retries on PGRST116; retry transient network errors up to 3× (the
-    // React Query default). Keeps not-found instant while still shielding
-    // against flaky connections.
+    // Not-found stays instant; a flaky connection still gets its retries.
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 3,
   });

@@ -99,17 +99,14 @@ export const useDeleteMyAccount = (
               throw mapErrorCode({ ok: false, error: errorField, message: messageField });
             }
           } catch (parseErr) {
-            // Re-throw our own mapped error; swallow JSON parse / shape
-            // failures and fall through to the generic internal_error
-            // throw below.
+            // Re-throw the mapped error; a parse failure falls through below.
             if (parseErr instanceof DeleteAccountError) throw parseErr;
           }
         }
         throw new DeleteAccountError('internal_error', error.message);
       }
       if (!data?.ok) {
-        // Defensive: the function never emits a 2xx { ok: false } today,
-        // but if it ever did we'd still want to map the code.
+        // The function emits no 2xx `{ ok: false }` today, but map it anyway.
         throw mapErrorCode({
           ok: false,
           error: (data as { error?: string } | null)?.error ?? 'internal_error',

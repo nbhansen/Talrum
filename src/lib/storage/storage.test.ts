@@ -72,14 +72,12 @@ describe('signedUrlFor', () => {
     const { signedUrlFor: signedUrlForFresh } = await import('./storage');
     const recovered = await signedUrlForFresh('pictogram-images', 'a/test.jpg');
     expect(recovered).toBe('https://example.test/signed?token=abc');
-    // Mint should NOT have happened a second time — the cache hit served it.
     expect(createSignedUrlMock).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the persisted URL when minting fails (offline)', async () => {
-    // Plant a stale entry directly: expiresAt in the past forces the mint path
-    // on the next call. The mint then rejects (offline), so the implementation
-    // must reach for the stale persisted entry rather than throwing.
+    // A past expiresAt forces the mint path, and the mint then rejects, so the
+    // stale entry must be reached for rather than thrown past.
     await set('signed-url:pictogram-images/a/test.jpg', {
       url: 'https://example.test/old?token=old',
       expiresAt: Date.now() - 1000,
@@ -91,9 +89,8 @@ describe('signedUrlFor', () => {
     expect(recovered).toBe('https://example.test/old?token=old');
   });
 
-  // #142: persistent mint failures used to be invisible — the catch returned
-  // the stale URL and dropped the error. Now they're captured as warnings so
-  // Sentry can show an aggregate signal while the UX stays offline-tolerant.
+  // The stale-URL fallback must not swallow the error: without the report a
+  // persistent mint failure is invisible (#142).
   it('captures a warning when minting fails, even if a fallback is returned (#142)', async () => {
     await set('signed-url:pictogram-images/a/test.jpg', {
       url: 'https://example.test/old?token=old',

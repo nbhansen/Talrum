@@ -1,5 +1,3 @@
-// Barrel re-export. Reads live in `./boards.read`, mutations in
-// `./boards.mutations`. Kept so the 11 import sites consuming
-// `@/lib/queries/boards` don't need to churn.
+// Barrel, kept so the import sites did not churn when the file was split.
 export * from './boards.mutations';
 export * from './boards.read';

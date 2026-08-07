@@ -44,9 +44,8 @@ interface CreateKidInput {
 }
 
 /**
- * Direct Supabase insert (no outbox): the caller needs the row to exist on
- * the server before children can attach (e.g. defaulting a new board's
- * `kid_id`). An outbox-queued insert would surface RLS denials only at drain.
+ * Direct insert, no outbox: a new board's `kid_id` needs this row to exist on
+ * the server already. See docs/queries.md for the decision rule.
  */
 export const useCreateKid = (): UseMutationResult<Kid, Error, CreateKidInput> => {
   const qc = useQueryClient();
@@ -86,10 +85,8 @@ const subscribeActiveKid = (cb: () => void): (() => void) => {
   };
 };
 
-// A blocked localStorage blocks persistently (privacy mode, "block all
-// storage"), and this read is the getSnapshot of a useSyncExternalStore —
-// it runs on every render. Latch the report so the signal arrives once per
-// session instead of once per render.
+// This is a useSyncExternalStore getSnapshot, so it runs every render, and a
+// blocked localStorage stays blocked. Latch, or the signal arrives per render.
 let reportedReadFailure = false;
 let reportedWriteFailure = false;
 
@@ -97,9 +94,8 @@ const getStoredActiveKidId = (): string | null => {
   try {
     return localStorage.getItem(ACTIVE_KID_KEY);
   } catch (err) {
-    // Falling back to the first kid is fine for the user, but not silently:
-    // this is app state, not a preference — losing it changes which boards
-    // the parent sees (#359).
+    // App state, not a preference: losing it changes which boards the parent
+    // sees, so the fallback must not be silent (#359).
     if (!reportedReadFailure) {
       reportedReadFailure = true;
       captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'read' } });
@@ -109,10 +105,9 @@ const getStoredActiveKidId = (): string | null => {
 };
 
 /**
- * Set the per-device active-kid id. Pass `null` to clear (e.g. when the
- * active kid is deleted — `useActiveKid` then falls back to the first kid).
- * Skips work and the fan-out when the value is unchanged so consumers don't
- * re-render on no-op writes (e.g. tapping the already-active switcher pill).
+ * `null` clears it, and `useActiveKid` falls back to the first kid. An unchanged
+ * value skips the fan-out, so tapping the active switcher pill re-renders
+ * nothing.
  */
 export const setActiveKidId = (id: string | null): void => {
   if (getStoredActiveKidId() === id) return;
@@ -120,9 +115,8 @@ export const setActiveKidId = (id: string | null): void => {
     if (id == null) localStorage.removeItem(ACTIVE_KID_KEY);
     else localStorage.setItem(ACTIVE_KID_KEY, id);
   } catch (err) {
-    // Quota / privacy mode: stay best-effort for the user, but report it —
-    // latched like the read path, because the block is persistent and every
-    // kid-switcher tap runs this write (#359).
+    // Latched like the read path: the block is persistent and every switcher
+    // tap runs this write (#359).
     if (!reportedWriteFailure) {
       reportedWriteFailure = true;
       captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'write' } });
@@ -181,9 +175,8 @@ export const useDeleteKid = (): UseMutationResult<
         list?.filter((b) => b.kidId !== kidId),
       ),
     ],
-    // Drop the stored id so useActiveKid's first-kid fallback picks up a
-    // remaining one. The error rollback doesn't restore it — at worst the
-    // active kid flickers back on the next render, which is fine.
+    // The rollback does not restore this, so at worst the active kid flickers
+    // back on the next render.
     onMutateSideEffect: ({ kidId }) => {
       if (getStoredActiveKidId() === kidId) setActiveKidId(null);
     },

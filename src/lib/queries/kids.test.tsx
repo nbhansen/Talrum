@@ -121,8 +121,7 @@ describe('useCreateKid', () => {
 
     let returned: Kid | undefined;
     await act(async () => {
-      // Input normalization (trim) is the modal's job; the query forwards
-      // `name` to the DB unchanged.
+      // Trimming is the modal's job; the query forwards `name` unchanged.
       returned = await result.current.mutateAsync({ name: 'Mira' });
     });
 
@@ -192,10 +191,8 @@ const boardSeed = (): Board[] => [
   },
 ];
 
-// The outbox classifies coded errors (Postgres / PostgREST) as permanent —
-// that's the path that triggers React Query's onError, which rolls the
-// optimistic patch back. A plain TypeError without a code would instead
-// enqueue silently.
+// A coded error is the permanent path, and so the one that reaches onError.
+// An uncoded TypeError would enqueue silently instead.
 const rlsError: MockPostgrestError = {
   code: '42501',
   message: 'row-level-security',
@@ -364,11 +361,11 @@ describe('active-kid persistence failure reporting (#359)', () => {
       throw denied;
     });
     try {
-      // The failed read yields null, which equals the requested id, so the
-      // write path is never reached: only the read failure is reported.
+      // The failed read yields null, which matches the requested id, so the
+      // write never runs and only the read is reported.
       expect(() => setActiveKidId(null)).not.toThrow();
-      // The read is a useSyncExternalStore getSnapshot and runs per render;
-      // a blocked localStorage blocks persistently, so the report is latched.
+      // getSnapshot runs per render, and the block is persistent, so the report
+      // is latched.
       setActiveKidId(null);
     } finally {
       spy.mockRestore();

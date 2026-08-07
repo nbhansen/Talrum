@@ -8,9 +8,8 @@ import type { Database } from '@/types/supabase';
 type PictogramRow = Database['public']['Tables']['pictograms']['Row'];
 
 /**
- * Narrow a DB row (strings + nulls) into the discriminated-union domain type.
- * The init migration's CHECK constraints guarantee the narrowing is safe —
- * (style='illus' ↔ glyph/tint non-null) and (style='photo' ↔ glyph/tint null).
+ * The narrowing is safe because of the init migration's CHECK constraints:
+ * style='illus' ↔ glyph/tint non-null, style='photo' ↔ glyph/tint null.
  */
 export const rowToPictogram = (row: PictogramRow): Pictogram => {
   if (row.style === 'illus') {
@@ -54,11 +53,7 @@ export const usePictogramsById = (): Map<string, Pictogram> => {
   return useMemo(() => new Map((data ?? []).map((p) => [p.id, p])), [data]);
 };
 
-/**
- * Lookup by seed slug ('apple', 'book') — useful for the few client-side
- * lists that reference specific seed pictograms by name. User-uploaded
- * pictograms have no slug and aren't in this map. Memoized on `data`.
- */
+/** By seed slug. User uploads have no slug and are absent from this map. */
 export const usePictogramsBySlug = (): Map<string, Pictogram> => {
   const { data } = usePictograms();
   return useMemo(() => {

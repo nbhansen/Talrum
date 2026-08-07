@@ -7,12 +7,10 @@ import type { Database } from '@/types/supabase';
 
 type Row = Database['public']['Tables']['board_members']['Row'];
 
-// SELECT builder mocks
 const orderMock = vi.fn<() => Promise<{ data: Row[] | null; error: unknown }>>();
 const selectEqMock = vi.fn(() => ({ order: orderMock }));
 const selectMock = vi.fn(() => ({ eq: selectEqMock }));
 
-// INSERT mock
 const insertMock = vi.fn<(payload: unknown) => Promise<{ error: unknown }>>();
 
 // DELETE builder mocks: delete().eq().eq() returning a Promise.

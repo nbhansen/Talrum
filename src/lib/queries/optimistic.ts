@@ -6,9 +6,8 @@ import {
 } from '@tanstack/react-query';
 
 /**
- * One optimistic list cache touched by a mutation. Built via `listCache` so
- * each cache keeps its own item type without leaking a generic into the
- * heterogeneous `caches` array — the item type lives inside the closure.
+ * Built via `listCache` so each cache keeps its own item type inside the
+ * closure, rather than leaking a generic into the heterogeneous array.
  */
 export interface ListCache<Input> {
   queryKey: readonly unknown[];
@@ -30,11 +29,7 @@ export interface OptimisticListContext {
   snapshots: (unknown[] | undefined)[];
 }
 
-/**
- * List-keyed sibling of `useBoardPatch` (boards.mutations.ts): the
- * cancel → snapshot → patch → rollback → invalidate triad for whole-list
- * caches, over one or more caches per mutation.
- */
+/** The list-keyed sibling of `useBoardPatch`, over one or more caches. */
 export const useOptimisticListMutation = <Input, Result = void>(options: {
   caches: readonly ListCache<Input>[];
   mutationFn: (input: Input) => Promise<Result>;

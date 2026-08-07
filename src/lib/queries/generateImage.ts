@@ -13,13 +13,10 @@ import { supabase } from '@/lib/supabase';
 
 const GENERATE_IMAGE_FUNCTION_NAME = 'generate-image';
 
-// No client-side mirror of the function's 60-character label cap: the
-// Generate tab's input is capped at 40, the same as an upload label, so
-// the server cap cannot be hit from the UI.
+// No mirror of the function's 60-char label cap: the tab's input caps at 40.
 
-// The function's closed error codes, plus 'network' for a request that
-// never got a response — the one case that really is the connection's
-// fault, and the only one the "check your connection" copy fits.
+// The function's codes, plus 'network' for a request that got no response —
+// the only case the "check your connection" copy fits.
 const WIRE_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
@@ -63,9 +60,8 @@ interface GenerateImageInput {
   label: string;
 }
 
-// Success envelope: base64-in-JSON, same reason as generate-voice —
-// supabase-js reads image/* response bodies as text and exposes no
-// response headers to carry a MIME type beside raw bytes.
+// Base64-in-JSON, because supabase-js reads image/* bodies as text and carries
+// no header for a MIME type beside raw bytes.
 interface SuccessResponse {
   ok: true;
   mimeType: string;
@@ -97,9 +93,8 @@ export const useGenerateImage = (): UseMutationResult<
       );
       if (error) {
         if (error instanceof FunctionsHttpError) {
-          // The server answered, so this is not the network's fault — a
-          // broken Azure key must not look like flaky wifi, to the parent
-          // or to us (#359 rationale).
+          // The server answered, so a broken Azure key must not look like
+          // flaky wifi — to the parent or in telemetry (#359).
           const code = await codeFromHttpError(error);
           captureException(error, {
             level: 'warning',

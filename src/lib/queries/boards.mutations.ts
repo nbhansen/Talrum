@@ -36,9 +36,8 @@ const useBoardPatch = <Input extends { boardId: string }>(
       await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });
       const previous = qc.getQueryData<Board>(boardQueryKey(boardId));
       if (previous) {
-        // Reassert the pre-patch serverUpdatedAt: mutationFn reads the
-        // conflict-guard baseline from this cache slot after the patch, so
-        // no patch function may clobber it, whatever else it rewrites.
+        // mutationFn reads the guard baseline from this slot after the patch,
+        // so no patch function may clobber it.
         qc.setQueryData<Board>(boardQueryKey(boardId), {
           ...patch(input, previous),
           ...(previous.serverUpdatedAt === undefined
@@ -142,9 +141,8 @@ export const useSetStepIds = (): SetStepIdsResult => {
   const run = ({ boardId, update }: SetStepIdsInput): void => {
     const fresh = qc.getQueryData<Board>(boardQueryKey(boardId));
     if (!fresh) {
-      // Cache should always be hydrated by the time the UI can call this —
-      // every caller gates on a loaded `board`. A miss here means a future
-      // wiring put `useSetStepIds` ahead of its data. Surface in dev only.
+      // Every caller gates on a loaded `board`, so a miss means a future wiring
+      // put this hook ahead of its data (#365).
       if (import.meta.env.DEV) {
         console.warn(
           `[useSetStepIds] no cached board for ${boardId}; mutation skipped. ` +

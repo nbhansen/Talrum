@@ -151,9 +151,8 @@ describe('useDeleteMyAccount', () => {
     );
   });
 
-  // Pins the production wire path: closed-set codes arrive inside a
-  // FunctionsHttpError body, NOT as a 2xx { ok: false, ... } payload.
-  // supabase-js routes 4xx/5xx into `error`, not `data`.
+  // Closed-set codes arrive inside a FunctionsHttpError body, never as a 2xx
+  // `{ ok: false }` payload.
   it.each([
     ['unauthorized', 401],
     ['method_not_allowed', 405],
@@ -223,16 +222,14 @@ describe('useDeleteMyAccount', () => {
     );
   });
 
-  // The user clicked "delete forever" once. We must not silently re-fire on
-  // failure — TanStack defaults mutations to retry: 0 in v5, but pin it here
-  // so a future default change or an accidental `retry: 3` fails this test.
+  // The user clicked "delete forever" once, so a changed TanStack default or a
+  // stray `retry: 3` must fail here rather than re-fire it.
   it('does NOT auto-retry on error: mutationFn runs exactly once', async () => {
     invokeMock.mockResolvedValue({
       data: null,
       error: makeHttpError(500, { ok: false, error: 'auth_delete_failed', message: 'boom' }),
     });
-    // No retry override on the QueryClient — we want to observe the hook's
-    // own mutation behaviour, not a client-level suppression.
+    // No client-level retry override, or it would mask the hook's own.
     const qc = new QueryClient();
 
     const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {

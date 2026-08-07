@@ -2,17 +2,12 @@ import { useEffect, useState } from 'react';
 
 import { signedUrlFor } from './storage';
 
-/**
- * Resolves a storage path to a signed URL. Returns `null` while loading or
- * on error (callers should render a placeholder in that state). Re-runs when
- * bucket/path change; cancelled updates if the component unmounts first.
- */
+/** `null` while loading or on error, so callers render a placeholder. */
 export const useSignedUrl = (bucket: string, path: string | undefined): string | null => {
   const [url, setUrl] = useState<string | null>(null);
-  // The synchronous setUrl(null) resets to the loading/placeholder state when
-  // bucket/path change so a stale signed URL doesn't flash before the new fetch
-  // resolves. Intentional for an async storage loader — not the cascading-render
-  // anti-pattern react-hooks 7's set-state-in-effect rule targets.
+  // The synchronous reset stops a stale URL flashing before the new fetch
+  // resolves. Intentional for an async loader, not the cascading render the
+  // lint rule targets.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!path) {

@@ -77,8 +77,8 @@ describe('listCache', () => {
 
     renameCache(itemsKey).apply(qc, { id: 'a', name: 'Renamed' });
 
-    // React Query treats an updater returning undefined as "bail out" — an
-    // uninitialized cache must stay uninitialized, not become [].
+    // React Query reads an undefined return as "bail out", so an uninitialized
+    // cache must stay uninitialized rather than become [].
     expect(qc.getQueryData(itemsKey)).toBeUndefined();
   });
 });
@@ -118,8 +118,8 @@ describe('useOptimisticListMutation', () => {
     let resolveFetch: (items: Item[]) => void = () => {
       throw new Error('resolver not assigned');
     };
-    // A refetch that started before the mutation and answers with pre-mutation
-    // data — exactly the race onMutate's cancelQueries exists to close.
+    // A refetch that started before the mutation and answers with stale data —
+    // the race cancelQueries exists to close.
     const staleFetch = qc.fetchQuery({
       queryKey: itemsKey,
       queryFn: () => new Promise<Item[]>((r) => (resolveFetch = r)),
@@ -143,8 +143,7 @@ describe('useOptimisticListMutation', () => {
     });
 
     resolveFetch(seed());
-    // Macrotask flush so React Query fully processes the resolved fetch —
-    // a microtask tick is not enough and would pass even without cancellation.
+    // A microtask tick would pass even without cancellation.
     await act(() => new Promise((r) => setTimeout(r, 20)));
 
     expect(qc.getQueryData<Item[]>(itemsKey)?.find((i) => i.id === 'a')?.name).toBe('Renamed');
@@ -242,7 +241,7 @@ describe('useOptimisticListMutation', () => {
     reject(new Error('server said no'));
     await waitFor(() => expect(result.current.isError).toBe(true));
 
-    // Ran once, observed the already-patched cache, stayed ran after rollback.
+    // It observed the patched cache, and the rollback does not un-run it.
     expect(sideEffect).toHaveBeenCalledTimes(1);
     expect(seenDuringSideEffect).toEqual(['Renamed']);
     expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
@@ -275,7 +274,7 @@ describe('useOptimisticListMutation', () => {
     reject(new Error('server said no'));
     await waitFor(() => expect(result.current.isError).toBe(true));
 
-    // The hook observed the still-patched cache; the rollback then landed.
+    // The hook observed the still-patched cache.
     expect(beforeRollback).toHaveBeenCalledTimes(1);
     expect(seenDuringRollbackHook).toEqual(['Renamed']);
     expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());

@@ -151,8 +151,7 @@ beforeEach(() => {
   removeMock.mockReset();
   // Default: the row exists with no prior uploads — no storage cleanup.
   maybeSingleMock.mockReset().mockResolvedValue({ data: null, error: null });
-  // Fresh per test: later describes spyOn/assert these, and a mock carried
-  // across tests would leak call history into their counts.
+  // A mock carried across tests would leak call history into later counts.
   URL.createObjectURL = vi.fn(() => 'blob:planted');
   URL.revokeObjectURL = vi.fn();
 });
@@ -349,7 +348,6 @@ describe('useSetPictogramAudio', () => {
     expect(uploadedBlob).toBe(blob);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: path });
     expect(eqMock).toHaveBeenCalledWith('id', 'p2');
-    // No previous recording → no storage cleanup.
     expect(removeMock).not.toHaveBeenCalled();
     // Settle sweep: the planted blob URL is revoked, then the cache refetches.
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
@@ -425,7 +423,6 @@ describe('useSetPictogramAudio', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    // The blob URL is gone and p1 plays its prior recording again.
     expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(pictogramSeed());
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
   });
@@ -509,12 +506,11 @@ describe('useCreatePhotoPictogram', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    // No rollback delete (#414 review): a run abandoned by the handler
-    // timeout could delete the blob its own retry just re-uploaded. The
-    // orphaned object is the accepted, cheaper failure.
+    // No rollback delete: a run abandoned by the timeout could delete the blob
+    // its own retry just re-uploaded, so the orphan is the cheaper failure
+    // (#414).
     expect(removeMock).not.toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
-    // Rollback removes the optimistic row — the failed create leaves no tile.
     expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(pictogramSeed());
   });
 });
@@ -618,9 +614,7 @@ describe('useReplacePictogramImage', () => {
 });
 
 describe('revokePictogramBlobs (#28)', () => {
-  // jsdom doesn't ship URL.revokeObjectURL; install a stub so vi.spyOn has
-  // something to wrap. restoreAllMocks unwraps the spy, not the stub itself —
-  // leaving the stub in place is harmless.
+  // jsdom ships no URL.revokeObjectURL, so vi.spyOn needs something to wrap.
   if (typeof URL.revokeObjectURL !== 'function') {
     (URL as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => undefined;
   }

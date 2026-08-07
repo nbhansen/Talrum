@@ -39,11 +39,7 @@ const revokePictogramBlobs = (qc: QueryClient): void => {
 
 export const __test_revokePictogramBlobs = revokePictogramBlobs;
 
-/**
- * Shared settle tail for blob-planting mutations: sweep stale `blob:` URLs,
- * then refetch so the cache picks up the real signed paths (success) or
- * drops the optimistic row (error). Runs on both outcomes via `onSettled`.
- */
+/** Sweep planted `blob:` URLs, then refetch. Runs on both outcomes. */
 const revokeThenInvalidate = (qc: QueryClient) => (): void => {
   revokePictogramBlobs(qc);
   qc.invalidateQueries({ queryKey: pictogramsQueryKey });
@@ -55,11 +51,7 @@ interface SetAudioInput {
   extension: string;
 }
 
-/**
- * Optimistically points the pictogram at a local blob URL and queues the
- * upload through the outbox. Drain replaces the blob URL with the real
- * server path on success; offline writes wait for `online` and replay.
- */
+/** The blob URL renders now; the drain replaces it with the server path. */
 export const useSetPictogramAudio = (): UseMutationResult<
   void,
   Error,
@@ -76,21 +68,19 @@ export const useSetPictogramAudio = (): UseMutationResult<
         return patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl }));
       }),
     ],
-    // No previous-path snapshot: the handler reads the row to find the
-    // superseded object (#418 review) — the cache here can hold a stale
-    // blob: URL between an enqueue and the settle refetch.
+    // No previous-path snapshot: this cache can hold a stale blob: URL, so the
+    // handler reads the row instead (#418).
     mutationFn: ({ pictogramId, blob, extension }) =>
       enqueueAndDrain({
         kind: 'setPictoAudio',
         pictogramId,
         blob,
-        // Minted here, once per entry (#415): replays reuse the path, and no
-        // two entries ever share one, so an abandoned run's late IO cannot
-        // touch a newer recording.
+        // Once per entry, so replays reuse it and no abandoned run's late IO
+        // can touch a newer recording (#415).
         path: mintStoragePath(ownerId, pictogramId, extension),
       }),
-    // Revoke while the blob URL is still in the cache — the sweep walks
-    // current cache state, and the rollback below removes the URL from it.
+    // The sweep walks current cache state, and the rollback below removes this
+    // URL from it.
     beforeRollback: () => revokePictogramBlobs(qc),
     settle: revokeThenInvalidate(qc),
   });
@@ -142,15 +132,14 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
         blob,
         path,
       });
-      // Real path the server will end up serving; the settle invalidation
-      // refetches and replaces the blob URL with the signed path.
+      // The path the server will serve once the settle refetch lands.
       return { id, imagePath: path };
     },
     beforeRollback: () => revokePictogramBlobs(qc),
     settle: revokeThenInvalidate(qc),
   });
-  // The optimistic patch in onMutate needs the new row's id, so the id is
-  // minted here — before the inner mutation runs — not inside mutationFn.
+  // onMutate's patch needs the new row's id, so it is minted before the inner
+  // mutation runs rather than inside mutationFn.
   return {
     ...inner,
     mutate: (input, options) => {
@@ -213,9 +202,8 @@ export const useReplacePictogramImage = (): UseMutationResult<
         blob,
         path: mintStoragePath(ownerId, pictogramId, extension),
       }),
-    // Revoke while the blob URL is still in the cache (revoke walks current
-    // cache state); restoring the snapshot first would orphan the URL — it'd
-    // be unreachable from the cache and never revoked.
+    // Restoring the snapshot first would make this URL unreachable from the
+    // cache, and so never revoked.
     beforeRollback: () => revokePictogramBlobs(qc),
     settle: revokeThenInvalidate(qc),
   });
