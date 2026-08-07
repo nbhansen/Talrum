@@ -42,21 +42,21 @@ export class UnretryableOutboxError extends Error {
 /**
  * Coordination failures, not bad requests: Postgres documents "retry the
  * transaction" for these, so they must not fall through to the blanket
- * coded-error-is-permanent rule below (#394). 08P01 is excluded because a
- * malformed request cannot succeed on retry.
+ * coded-error-is-permanent rule below (#394). The 08xxx family is included
+ * except 08P01, a malformed request that cannot succeed on retry.
  */
 const TRANSIENT_DB_CODES = new Set([
-  '40001',
-  '40P01',
-  '08000',
-  '08001',
-  '08003',
-  '08004',
-  '08006',
-  '08007',
-  '53300',
-  '57P03',
-  '57014',
+  '40001', // serialization_failure
+  '40P01', // deadlock_detected
+  '08000', // connection_exception
+  '08001', // sqlclient_unable_to_establish_sqlconnection
+  '08003', // connection_does_not_exist
+  '08004', // sqlserver_rejected_establishment_of_sqlconnection
+  '08006', // connection_failure
+  '08007', // transaction_resolution_unknown
+  '53300', // too_many_connections — a shared pooler under load
+  '57P03', // cannot_connect_now
+  '57014', // query_canceled — statement_timeout, so contention; it rolled back
 ]);
 const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code);
 
