@@ -131,10 +131,8 @@ describe('PictogramSheet', () => {
     });
     const onClose = vi.fn();
     render(<PictogramSheet picto={illusPicto} onClose={onClose} />);
-    // First click → confirm pill.
     fireEvent.click(screen.getByRole('button', { name: /^delete pictogram$/i }));
     expect(deleteMock).not.toHaveBeenCalled();
-    // Second click confirms.
     fireEvent.click(screen.getByRole('button', { name: /delete forever/i }));
     await waitFor(() => {
       expect(deleteMock).toHaveBeenCalledWith({

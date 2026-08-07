@@ -16,9 +16,8 @@ interface PictoTileProps {
 }
 
 /**
- * Interactive pictogram tile — a `<button>` wrapping a `<PictoCard>`. For
- * use inside an existing interactive ancestor (where a nested button is
- * invalid HTML), use `<PictoCard>` directly.
+ * A `<button>` around a `<PictoCard>`. Inside an existing interactive ancestor
+ * use `<PictoCard>` directly — a nested button is invalid HTML.
  */
 export const PictoTile = ({
   picto,

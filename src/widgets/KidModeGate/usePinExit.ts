@@ -10,13 +10,11 @@ import {
 } from './pinThrottle';
 
 interface PinExit {
-  /** True while the PIN pad should be shown. */
   verifying: boolean;
   /** Ask to leave kid mode: opens the pad, or exits outright when there is no PIN. */
   requestExit: () => void;
-  /** Close the pad without leaving. */
   cancel: () => void;
-  /** PinPad's `onSubmit`: resolves false on a wrong PIN so the pad can say so. */
+  /** PinPad's `onSubmit`. Resolves false on a wrong PIN rather than throwing. */
   verify: (pin: string) => Promise<boolean>;
   /** Epoch ms until which entry is throttle-locked (#372); 0 when unlocked. */
   lockedUntil: number;
