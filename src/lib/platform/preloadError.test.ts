@@ -90,7 +90,7 @@ describe('installPreloadErrorRecovery', () => {
   });
 
   // A long-lived tab is what this feature exists for, so one recovery must not
-  // disarm it for the deploy after next.
+  // disarm it for the deploy after next (#443).
   it('reloads again for a failure long after the previous recovery', () => {
     sessionStorage.setItem(RELOADED_AT, String(Date.now() - 60_000));
     sessionStorage.setItem(RELOAD_COUNT, '1');
@@ -105,7 +105,7 @@ describe('installPreloadErrorRecovery', () => {
   });
 
   // `reload()` does not stop the current document, so a second failure before
-  // the navigation commits is the recovery in flight, not a failed one.
+  // the navigation commits is the recovery in flight, not a failed one (#443).
   it('stays silent for a second failure while the reload is in flight', () => {
     installPreloadErrorRecovery();
 
@@ -117,7 +117,7 @@ describe('installPreloadErrorRecovery', () => {
   });
 
   // The timestamp alone guards only a loop whose round trip is under 30 s, and
-  // a stalling chunk request outlasts that.
+  // a stalling chunk request outlasts that (#443).
   it('stops reloading after three reloads when each round trip outlasts the stamp', () => {
     sessionStorage.setItem(RELOADED_AT, String(Date.now() - 60_000));
     sessionStorage.setItem(RELOAD_COUNT, '3');
@@ -146,7 +146,7 @@ describe('installPreloadErrorRecovery', () => {
   });
 
   // Offline a reload cannot fetch the chunk, and may replace the running app
-  // with a browser error page.
+  // with a browser error page (#443).
   it('does not reload when the tab is offline', () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     installPreloadErrorRecovery();
@@ -160,7 +160,7 @@ describe('installPreloadErrorRecovery', () => {
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
-  // Install runs at boot, before render, so a throw here white-screens the app.
+  // Install runs at boot, before render, so a throw white-screens the app (#443).
   it('installs without throwing when sessionStorage is blocked', () => {
     blockStorage();
 
@@ -226,7 +226,7 @@ describe('installPreloadErrorRecovery', () => {
   });
 
   // The two writes are not atomic, and a stamp with no count would claim a
-  // reload that never happened.
+  // reload that never happened (#443).
   it('leaves no stamp when only part of the reload guard can be written', () => {
     const store = new Map<string, string>();
     Object.defineProperty(window, 'sessionStorage', {

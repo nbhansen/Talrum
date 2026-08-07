@@ -10,7 +10,7 @@ interface KidSwitcherProps {
   onSelect: (kidId: string) => void;
 }
 
-/** Always renders if mounted — hiding it for one-kid families is the caller's. */
+/** Always renders if mounted — hiding it for one-kid families is the caller's job. */
 export const KidSwitcher = ({ kids, activeKidId, onSelect }: KidSwitcherProps): JSX.Element => (
   <div className={styles.row} role="tablist" aria-label="Switch active kid">
     {kids.map((kid) => {

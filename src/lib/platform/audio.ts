@@ -3,8 +3,9 @@ import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
-// The awaits below span a network round trip, so two taps inside one fetch
-// window both play, and the loser revokes the winner's URL mid-playback.
+// The awaits below span a network round trip, so overlapping taps are real:
+// without this, two taps inside one fetch window both play, and the loser
+// revokes the winner's URL mid-playback.
 let playToken = 0;
 // A refused gesture chain or an undecodable codec does not heal in-session,
 // and a kid screen runs this path on every tap.
