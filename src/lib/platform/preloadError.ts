@@ -96,6 +96,15 @@ export const installPreloadErrorRecovery = (): void => {
       // say the fix does not work while it is still working.
       if (reloading) return;
 
+      // Offline, a reload cannot fetch the missing chunk, and it tears down
+      // the running app for a browser network error page if the precache
+      // cannot serve the navigation. Let the error go to the route
+      // boundary, which offers the reload when the connection is back
+      // (#443 review round 4). Only the false value of navigator.onLine is
+      // reliable: true also means "connected to a network that goes
+      // nowhere", so the recovery is not gated on it.
+      if (!navigator.onLine) return;
+
       // Read at error time, not install time: the recovered page keeps its
       // fresh stamp for the whole window, but must be armed again by the
       // time the next deploy lands under it.

@@ -146,6 +146,21 @@ describe('installPreloadErrorRecovery', () => {
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
+  // Offline, a reload cannot fetch the missing chunk, and it can replace
+  // the app with a browser network error page (#443 review round 4).
+  it('does not reload when the tab is offline', () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    installPreloadErrorRecovery();
+
+    const event = firePreloadError();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(RELOADED_AT)).toBeNull();
+    // The route boundary takes it from here and offers a manual reload.
+    expect(event.defaultPrevented).toBe(false);
+    expect(captureMessageMock).not.toHaveBeenCalled();
+  });
+
   // Storage blocked (privacy mode): install runs at boot, before render —
   // a throw here would white-screen the app (#443 review).
   it('installs without throwing when sessionStorage is blocked', () => {
