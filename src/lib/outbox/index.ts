@@ -30,10 +30,14 @@ export { startOutbox, UnretryableOutboxError };
  * and the write carries on. Returns whether the work succeeded, because one
  * caller has to know: a put that is the queue's *only* record of the write
  * is not bookkeeping, and must be allowed to fail the mutation.
+ *
+ * Takes a thunk, not a promise: an eager argument is evaluated at the call
+ * site, so a synchronous throw would bypass this catch and reject the
+ * mutation — the one outcome the helper exists to prevent (#446 review).
  */
-const bestEffort = async (op: string, work: Promise<void>): Promise<boolean> => {
+const bestEffort = async (op: string, work: () => Promise<void>): Promise<boolean> => {
   try {
-    await work;
+    await work();
     return true;
   } catch (err) {
     captureException(err, { level: 'warning', tags: { component: 'outbox', op } });
@@ -146,21 +150,27 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // online writes exactly as it did before. Rejecting every online write
     // on a full disk is a certain outage traded for a possible crash — the
     // wrong way round. Without the entry the attempt is what it always was.
-    const queued = await bestEffort('persist-before-attempt', putEntry(entry));
+    const queued = await bestEffort('persist-before-attempt', () => putEntry(entry));
     try {
       await runHandler(entry);
     } catch (err) {
       if (err instanceof UnretryableOutboxError) {
         // The mutation rejects and React Query rolls the patch back, so
         // the entry must not stay behind as a queued write.
-        const cleared = await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
-        // If it did stay behind, nothing on this path would pick it up, so it
-        // would sit in the count as a pending write the UI already discarded
-        // and then ambush the next unrelated drain — which replays a write
-        // the user saw rejected, and for a conflict offers a Retry that
-        // applies the patch they believe was rolled back (#446 review). Drain
-        // instead, so it converges to `failed`, where the indicator's Discard
-        // is the way out.
+        const cleared = await bestEffort('delete-after-permanent-failure', () =>
+          deleteEntry(entry.id),
+        );
+        // If it did stay behind, nothing on this path would pick it up: it
+        // would sit in the count as a pending write the UI already discarded,
+        // until some unrelated event drained it. Draining now is only about
+        // that stuck count (#446 review).
+        //
+        // It does NOT save the user from the replay. The drain is the replay:
+        // the entry converges to `failed`, and for a conflict that is a pill
+        // whose Retry strips the guard and applies the patch React Query just
+        // rolled back. Accepted residual — the entry is already written and
+        // the same hazard waits either way; this makes it visible and
+        // discardable now instead of ambushing the next write.
         orphaned = !cleared;
         throw err;
       }
@@ -179,7 +189,7 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       // queue entry, and swallowing a failure would resolve the mutation as
       // "queued" while the write vanished: the silent loss #445 is about.
       if (queued) {
-        await bestEffort('record-transient-attempt', putEntry(attempted));
+        await bestEffort('record-transient-attempt', () => putEntry(attempted));
       } else {
         await putEntry(attempted);
       }
@@ -191,7 +201,7 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // text in the entry's lastError (#446 review). Best effort here leaves
     // the entry queued instead, which the drain replays — the same
     // at-least-once contract handlers are already idempotent for.
-    if (!(await bestEffort('delete-after-landing', deleteEntry(entry.id)))) {
+    if (!(await bestEffort('delete-after-landing', () => deleteEntry(entry.id)))) {
       // The write landed but its entry did not clear. Nothing on the landed
       // path would pick it up — it neither drains nor arms the retry timer —
       // so the indicator would sit at "Sync queued · 1" until an unrelated
@@ -235,6 +245,14 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   // review). Not a free read: the precondition only excludes *pending*
   // entries, and `listEntries` deserializes whole entries, so a caregiver
   // sitting on failed blob-carrying entries pays for those blobs here.
+  //
+  // It is also an emitter, not only a correction. The lock is already
+  // released, so a successor write can have persisted its own entry by the
+  // time this read runs, and the count then names that one — which mounts
+  // the indicator and announces through its polite live region for a burst
+  // of edits that used to be silent (#446 review). Accepted: a real pending
+  // write is what it reports, and the alternative is leaving a stale count
+  // after every offline event.
   await refreshStatus();
 };
 
