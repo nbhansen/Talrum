@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 
-// Layer map (#397): app → features → widgets/layouts → ui/lib → theme/types.
+// Layer map (#397): app → features → widgets/layouts → ui/lib → theme/types/glyphs.
 // boundaries classifies the resolved target, so alias and relative imports hit
 // the same policy — the bypass `no-restricted-imports` had. The last matching
 // policy wins: broad allows first, named bans next, narrow exceptions last.
