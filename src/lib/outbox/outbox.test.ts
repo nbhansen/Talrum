@@ -838,8 +838,32 @@ describe('subscribeStatus', () => {
 });
 
 describe('enqueueAndDrain', () => {
-  it('online + success: bypasses IDB entirely', async () => {
+  it('online + success: leaves nothing in the queue', async () => {
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The handler round trip is a window in which the page can go away — a
+  // reload, a tab close. An entry that only lived in memory took the write
+  // with it, together with the optimistic patch (#445).
+  it('online: the entry is durable while the handler is in flight', async () => {
+    let landHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        landHandler = () =>
+          resolve({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    // Pending, so a drain in this tab or the next one replays it.
+    expect((await listEntries())[0]?.status).toBe('pending');
+
+    landHandler();
+    await write;
     expect(await listEntries()).toEqual([]);
   });
 

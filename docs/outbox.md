@@ -18,8 +18,9 @@ mutation hook (lib/queries/*)
   │  optimistic patch into the React Query cache (see queries.md)
   ▼
 enqueueAndDrain(entry)            src/lib/outbox/index.ts
-  │ online + empty queue → run the handler immediately (fast path)
-  │ otherwise            → persist entry to IndexedDB, drain replays it
+  │ persist entry to IndexedDB — every path, before any attempt
+  │ online + empty queue → run the handler now, delete on success (fast path)
+  │ otherwise            → leave it queued, drain replays it
   ▼
 drain()                           src/lib/outbox/drain.ts
   │ FIFO over pending entries; retries, backoff, status events
@@ -40,6 +41,15 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   with stale data. Offline, the mutation promise resolves as soon as the
   entry is persisted — the UI keeps its optimistic state and the indicator
   shows the pending count.
+- **The entry is durable before any attempt** (#445). The fast path persists
+  the entry, runs the handler, then deletes it. The handler's round trip is a
+  window in which the page can go away — the auto-reload after a deploy
+  (#442), a tab close, a crash — and an entry that lived only in memory went
+  with it. The optimistic cache patch does not survive either (the persisted
+  cache is busted by commit), so the write disappeared with no queue entry, no
+  error, and nothing for the user to retry. The cost: one put and one delete
+  per online write, and a status emit during the round trip counts the
+  in-flight entry as pending, which is what it is.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.
@@ -105,8 +115,9 @@ New entry kind? Add the interface in `types.ts`, the handler in
 `handlers.ts`, a `dispatch` case, and a mutation hook. Handlers must be:
 
 - **Idempotent.** A drain can replay an entry that already (partially)
-  succeeded — e.g. the fast path crashed after the Storage upload but before
-  the table write. Re-running must converge, not error. Server-side
+  succeeded — the fast path crashed after the Storage upload but before the
+  table write, or it landed the whole write and the page went away before the
+  entry was deleted (#445). Re-running must converge, not error. Server-side
   `array_remove`/`ON DELETE CASCADE`/RPC no-ops are the usual tools; see
   `delete_pictogram` (#280).
 - **Authorization-free.** RLS is the security boundary; a handler running

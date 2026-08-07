@@ -31,11 +31,19 @@ type EntryInput = DistributiveOmit<
 >;
 
 /**
- * The hot path for every mutation. Online: try the handler immediately; on
- * success the optimistic patch in the cache becomes durable with no IDB
- * detour. On a network failure, persist the entry and let the drain loop
- * retry. On a permanent failure (RLS, validation), reject so React Query's
- * onError rolls the optimistic patch back.
+ * The hot path for every mutation. Online: persist the entry, try the
+ * handler immediately, and delete the entry on success. On a network
+ * failure, keep the entry and let the drain loop retry. On a permanent
+ * failure (RLS, validation), delete it and reject so React Query's onError
+ * rolls the optimistic patch back.
+ *
+ * The write comes first because the handler's round trip is a window in
+ * which the page can go away (#445). Before, the fast path ran the handler
+ * with nothing in IDB, so a reload or a tab close during that round trip
+ * dropped the entry and the optimistic patch together and the write was
+ * gone without a trace. The cost is one IDB put and one delete on every
+ * online write, and a concurrent status emit can count the in-flight entry
+ * as pending for the length of the round trip — which is what it is.
  *
  * Offline: skip the immediate attempt — persist the entry and resolve. The
  * UI keeps the optimistic state; the drain loop replays when `online` fires.
@@ -87,11 +95,23 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
         return 'queued-unattempted';
       }
       const entry = newEntry();
+      // Persist before the attempt (#445). The handler's round trip is a
+      // window in which the page can go away — a reload, a tab close — and
+      // an entry that lives only in memory goes with it. The optimistic
+      // cache patch does not survive either, so the write vanishes with no
+      // queue entry, no error, and nothing for the user to retry. Nothing
+      // observes the queue in between: the cross-tab lock is held, so every
+      // drain and every other enqueue waits.
+      await putEntry(entry);
       try {
         await runHandler(entry);
+        await deleteEntry(entry.id);
         return 'landed';
       } catch (err) {
         if (err instanceof UnretryableOutboxError) {
+          // The mutation rejects and React Query rolls the patch back, so
+          // the entry must not stay behind as a queued write.
+          await deleteEntry(entry.id);
           throw err;
         }
         // Transient — join the queue. We intentionally use the same entry
