@@ -8,11 +8,7 @@ interface SessionProviderProps {
   children: ReactNode;
 }
 
-/**
- * Single source of truth for the signed-in user. Mounted by AuthGate after
- * the session has resolved; descendants read via useSession / useSessionUser
- * / useSignOut / useUserEmail without subscribing to auth themselves.
- */
+/** Mounted by AuthGate once the session resolves, so descendants never subscribe. */
 export const SessionProvider = ({ session, children }: SessionProviderProps): JSX.Element => {
   const value = useMemo<SessionContextValue>(
     () => ({

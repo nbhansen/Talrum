@@ -11,9 +11,7 @@ import type { Board, Kid, Pictogram } from '@/types/domain';
 
 const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
 
-// One pictogram is enough to unhide the "Recently added pictograms" strip so
-// the "See all" button under it renders. The conditional hides the section
-// when zero slugs resolve.
+// One pictogram unhides the "Recently added" strip, and with it "See all".
 const RECENT_PICTO: Pictogram = {
   id: 'p-apple',
   slug: 'apple',
@@ -136,10 +134,9 @@ describe('ParentHomeRoute auto-launch', () => {
     expect(screen.getByTestId('kid-choice-route')).toBeInTheDocument();
   });
 
-  // Auto-launch is the one entry into kid mode with no user gesture at all, so
-  // it must respect the PIN precondition too — otherwise a device with no PIN
-  // boots into a kid screen that the route guard immediately bounces to
-  // Settings, which is a worse first impression than just landing home (#353).
+  // Auto-launch is the one entry into kid mode with no user gesture, so it must
+  // respect the PIN precondition too, or boot lands on a bounce to Settings
+  // (#353).
   it('does not auto-launch into kid mode when no PIN is set (#353)', () => {
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
     const Wrap = makeWrap('/');
@@ -322,8 +319,6 @@ describe('ParentHomeRoute create flows', () => {
     render(<Wrap />);
 
     const user = userEvent.setup();
-    // Open the modal from the empty-state CTA (works the same as the header
-    // button — both go through `setNewBoardOpen(true)`).
     await user.click(screen.getByRole('button', { name: /create your first board/i }));
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'From modal');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
