@@ -17,12 +17,7 @@ interface PictogramMediaProps {
   className?: string | undefined;
 }
 
-/**
- * Renders just the square pictogram surface: tinted background for
- * illustrated pictos, uploaded photo (or striped placeholder) for photo
- * pictos. Used standalone (e.g. the big NOW card in kid-sequence) and
- * composed inside PictoTile.
- */
+/** The square surface alone, used standalone and composed inside PictoTile. */
 export const PictogramMedia = ({
   picto,
   size,

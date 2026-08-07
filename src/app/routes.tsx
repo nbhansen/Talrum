@@ -8,10 +8,8 @@ import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Spinner } from '@/ui/Spinner/Spinner';
 import { KidRouteFallback } from '@/widgets/KidModeGate/KidRouteFallback';
 
-// This is the router manifest, not a fast-refresh component module: it
-// deliberately exports the lazy route components alongside non-component
-// helpers (`wrap`, the fallbacks, `router`). react-refresh's HMR-boundary
-// rule doesn't apply here.
+// A router manifest, not a component module: the HMR-boundary rule does not
+// apply to it.
 /* eslint-disable react-refresh/only-export-components */
 
 const ParentHomeRoute = lazy(() =>
@@ -59,8 +57,8 @@ export const parentRouteFallback = (reset: () => void): ReactNode => (
         type="button"
         className={`${styles.routeFallbackBtn} ${styles.routeFallbackBtnPrimary}`}
         onClick={() => {
-          // Flush any cached query that might have produced bad data, then
-          // clear the boundary's error so the subtree renders fresh.
+          // Flush the cache before clearing the error, or the subtree renders
+          // the same bad data again.
           void queryClient.invalidateQueries();
           reset();
         }}
@@ -74,9 +72,8 @@ export const parentRouteFallback = (reset: () => void): ReactNode => (
   </div>
 );
 
-// Standalone — intentionally NOT wrapped in KidModeLayout. If the original
-// crash came from KidModeLayout itself, re-rendering it would re-throw. The
-// screen itself is PIN-gated; see KidRouteFallback for why (#371).
+// Not wrapped in KidModeLayout: if the crash came from the layout,
+// re-rendering it would re-throw.
 export const kidRouteFallback = (): ReactNode => <KidRouteFallback />;
 
 const parentSuspenseFallback = (
@@ -86,28 +83,19 @@ const parentSuspenseFallback = (
   </div>
 );
 
-// Empty kid-tinted shell — no spinner, no text. Kid-mode prefers a calm
-// static screen during the brief async wait while the route chunk loads.
+// No spinner, no text: kid mode prefers a calm screen for a brief wait.
 const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="true" />;
 
 /**
- * Kid mode is a one-way door only while a device PIN exists to close it, so a
- * device without one must not enter kid mode at all (#353). Sitting in `wrap`'s
- * kid branch rather than inside each kid route makes that structural: the
- * `'kid'` variant *is* the guard, so a third kid route cannot be added without
- * it, and the guard runs before the route's own hooks fetch a board.
- *
- * Every way in lands here — the sidebar KID button, BoardBuilder's own
- * hardcoded launch, and ParentHomeRoute's session auto-launch.
+ * A device with no PIN must not enter kid mode at all (#353). This lives in
+ * `wrap`'s kid branch so the `'kid'` variant is the guard: a third kid route
+ * cannot be added without it, and it runs before the route fetches a board.
  */
 const RequireKidPin = ({ children }: { children: ReactNode }): ReactNode =>
   kidModeNeedsPinSetup() ? <Navigate to="/settings?pin=required" replace /> : children;
 
-// ErrorBoundary wraps Suspense (not the other way around) so that a
-// chunk-load failure during the dynamic import lands in the route's own
-// error fallback (with Retry) instead of bubbling to the app-root fallback.
-// Exported so tests can mount routes through the same wrapping the real
-// router uses.
+// ErrorBoundary outside Suspense, so a failed chunk import lands in the
+// route's own fallback with its Retry, not the app-root one.
 export const wrap = (el: ReactNode, variant: 'parent' | 'kid'): ReactNode => (
   <ErrorBoundary fallback={variant === 'kid' ? kidRouteFallback : parentRouteFallback}>
     <Suspense fallback={variant === 'kid' ? kidSuspenseFallback : parentSuspenseFallback}>

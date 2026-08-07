@@ -3,33 +3,26 @@ import { AUDIO_BUCKET, signedUrlFor } from '@/lib/storage';
 
 let current: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
-// Generation counter: each tap invalidates every in-flight older call. The
-// awaits below span a network round trip, so overlapping taps are real —
+// The awaits below span a network round trip, so overlapping taps are real:
 // without this, two taps inside one fetch window both play, and the loser
-// revokes the winner's object URL mid-playback.
+// revokes the winner's URL mid-playback.
 let playToken = 0;
-// Persistent play() failures (a refused gesture chain, a codec the device
-// cannot decode) do not heal within a session, and a kid screen runs this
-// path on every tap. Report each failure kind once per session.
+// A refused gesture chain or an undecodable codec does not heal in-session,
+// and a kid screen runs this path on every tap.
 const reportedPlayFailures = new Set<string>();
 
 /**
- * Fetch the clip ourselves instead of handing the URL to the media element.
- * A media element always sends `Range: bytes=0-`, Supabase answers
- * `206 Partial Content`, and `cache.put` rejects a 206 — so a recording
- * played via `new Audio(url)` can never land in the SW's `talrum-storage-v1`
- * cache (#378). A plain fetch gets a CORS 200 that the CacheFirst storage
- * route stores like any photo; offline, the same fetch is answered from that
- * cache. The blob URL then plays from memory, so the media element's Range
- * request never leaves the page.
+ * Fetch the clip rather than hand the URL to the media element: an element
+ * sends `Range`, Supabase answers 206, and `cache.put` rejects a 206, so the
+ * clip could never be cached for offline use (#378). A plain fetch gets a 200,
+ * and the blob URL then plays from memory.
  */
 export const playPictogramAudio = async (path: string): Promise<void> => {
   const token = ++playToken;
   const url = await signedUrlFor(AUDIO_BUCKET, path);
   if (token !== playToken) return;
-  // Stop the previous clip before any fallible IO: if the fetch below throws,
-  // speakPictogram falls back to TTS, and a still-playing clip would talk
-  // over it.
+  // Before any fallible IO: on a throw the caller falls back to TTS, and a
+  // still-playing clip would talk over it.
   if (current) {
     current.pause();
     current.src = '';
@@ -47,11 +40,9 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     // A superseded call must not throw: the caller's TTS fallback would
     // speak this pictogram's label over the newer tap's clip.
     if (token !== playToken) return;
-    // Report (#359) — except a network-level rejection before any response,
-    // which is ordinary life for an app built to run offline: the TTS
-    // fallback is the design there, not a defect. What must not stay silent
-    // is a recording that is systematically broken: a 403 path, or a body
-    // that fails mid-read (truncated upload).
+    // Report (#359), except a rejection before any response — ordinary life
+    // offline, where the TTS fallback is the design. A 403 path or a body that
+    // fails mid-read is the systematic breakage that must not stay silent.
     if (responseReceived || !(err instanceof TypeError)) {
       captureException(err, { level: 'warning', tags: { component: 'audio', op: 'fetch' } });
     }
@@ -67,12 +58,10 @@ export const playPictogramAudio = async (path: string): Promise<void> => {
     await audio.play();
   } catch (err) {
     // A newer tap pausing this element rejects the pending play() with an
-    // AbortError: not a defect, and the throw would TTS this label over the
-    // newer clip — same supersession rule as the fetch catch above.
+    // AbortError — the same supersession rule as the fetch catch above.
     if (token !== playToken) return;
-    // A bad codec (NotSupportedError) or a refused gesture chain
-    // (NotAllowedError, #428) degrades to TTS forever if nobody hears
-    // about it (#359).
+    // A bad codec or a refused gesture chain (#428) degrades to TTS forever if
+    // nobody hears about it (#359).
     const kind = err instanceof Error ? err.name : String(err);
     if (!reportedPlayFailures.has(kind)) {
       reportedPlayFailures.add(kind);

@@ -10,12 +10,9 @@ const FALLBACK_MESSAGE = "Couldn't copy — select the ID and copy manually.";
 const COPIED_FLASH_MS = 1500;
 
 /**
- * Generic clipboard hook. `copy(text)` writes to the system clipboard, sets
- * `copied=true` for 1.5s, and resets. On a permission denial, an insecure
- * context (http://), or a missing Clipboard API surface, sets `error` to a
- * fallback message instead — Chrome/Safari reject `navigator.clipboard` on
- * non-HTTPS origins with an unhelpful DOMException, so we short-circuit
- * before calling and surface the same copy as the rejection path.
+ * `copy(text)` flashes `copied` for 1.5s. An insecure origin is short-circuited
+ * before the call, because browsers reject `navigator.clipboard` there with an
+ * unhelpful DOMException.
  */
 export const useCopy = (): CopyState => {
   const [copied, setCopied] = useState(false);

@@ -21,17 +21,14 @@ const Boom = (): JSX.Element => {
   throw new Error('boom');
 };
 
-// Stands in for SettingsRoute so the kid-route guard's destination *and* the
-// reason it passes along are both observable without the real settings tree.
+// Makes the guard's destination and its `?pin=required` reason observable.
 const SettingsProbe = (): JSX.Element => {
   const [params] = useSearchParams();
   return <div data-testid="settings">{params.get('pin')}</div>;
 };
 
-// Pins PUBLIC_PATHS (consumed by AuthGate) to the router so a typo or a
-// route renamed in routes.tsx without updating publicPaths.ts breaks the
-// test before it strands signed-out users on a Login screen they can't
-// dismiss.
+// A route renamed in routes.tsx but not in publicPaths.ts would strand
+// signed-out users on a Login screen they cannot dismiss.
 describe('PUBLIC_PATHS ↔ router consistency', () => {
   it('every PUBLIC_PATH is a real path defined in the router', () => {
     const definedPaths = new Set((router.routes as RouteObject[]).map((r) => r.path));
@@ -41,8 +38,7 @@ describe('PUBLIC_PATHS ↔ router consistency', () => {
   });
 
   it('PUBLIC_PATHS contains exactly the documented public routes', () => {
-    // Size guard: bumping this fails the test, forcing the author to
-    // confirm the addition is intentional and matches a route entry.
+    // Bumping this forces the author to confirm a new public route is intended.
     expect(PUBLIC_PATHS.size).toBe(2);
     expect(PUBLIC_PATHS.has('/account-deleted')).toBe(true);
     expect(PUBLIC_PATHS.has('/privacy-policy')).toBe(true);
@@ -58,9 +54,8 @@ describe('routes — error boundary wiring', () => {
     errSpy.mockRestore();
   });
 
-  // Structural guard: if a future PR adds a route and forgets to wrap it,
-  // this test fails before any user sees a blank screen — and before any
-  // route ships in the initial bundle (Suspense layer enforces lazy split).
+  // Catches an unwrapped route before a user sees a blank screen, and a
+  // non-lazy one before it ships in the initial bundle.
   it('every non-wildcard route is wrapped in <ErrorBoundary> with a <Suspense> child', () => {
     const routes = router.routes as RouteObject[];
     const wrapped = routes.filter((r) => r.path !== '*');
@@ -84,7 +79,6 @@ describe('routes — error boundary wiring', () => {
         </div>
       </MemoryRouter>,
     );
-    // Boundary caught — outer shell still rendered.
     expect(screen.getByTestId('shell')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/Couldn.?t load this screen/i);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
@@ -100,9 +94,7 @@ describe('routes — error boundary wiring', () => {
     await waitFor(() => {
       expect(screen.getByTestId('account-deleted-route')).toBeInTheDocument();
     });
-    // The link points at '/' — the canonical signed-out landing (Login).
-    // There is no '/login' route in routes.tsx; the previous test that
-    // stubbed one masked a dead link.
+    // '/' is the signed-out landing; there is no '/login' route to point at.
     expect(screen.getByRole('link', { name: /sign up again/i }).getAttribute('href')).toBe('/');
   });
 
@@ -115,15 +107,12 @@ describe('routes — error boundary wiring', () => {
     await waitFor(() => {
       expect(screen.getByTestId('privacy-policy-route')).toBeInTheDocument();
     });
-    // First H1 in docs/privacy-policy.md is "Privacy Policy".
+    // The first H1 in docs/privacy-policy.md.
     expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
   });
 
-  // This assertion used to pin the opposite behaviour — a full-screen
-  // <Link to="/"> labelled "Tap to go back" — which made a crash the last
-  // ungated route from kid mode into parent UI (#371). Assert on the absence
-  // of any link, so relabelling the button cannot reopen the hole quietly.
-  // What the buttons then do is covered by KidRouteFallback.test.tsx.
+  // The absence of any link, not the labels: relabelling a button must not
+  // quietly reopen the last ungated route out of kid mode (#371).
   it('a crashing kid route contains the child instead of linking to parent home (#371)', () => {
     render(
       <MemoryRouter>
@@ -137,19 +126,15 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByTestId('shell')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tap to try again' })).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    // Parent-facing wording stays out of kid mode.
+    // The parent fallback's copy.
     expect(screen.queryByText(/Couldn.?t load this screen/i)).not.toBeInTheDocument();
   });
 });
 
 /**
- * The containment invariant the review found broken (#353): before this, kid
- * mode could be entered with no PIN, and the exit gate then offered to *create*
- * one — so a child could pick 1111, confirm it, and land in the board builder.
- *
- * These assert at the router level, which is where the invariant now lives.
- * `KidModeGate.test.tsx` covers the gate widget and passed throughout the bug's
- * lifetime; that is exactly why this layer needs its own tests.
+ * At the router level, which is where the containment invariant lives (#353).
+ * `KidModeGate.test.tsx` covers the widget and passed throughout the bug's
+ * lifetime, which is why this layer needs its own tests.
  */
 describe('kid routes require a device PIN (#353)', () => {
   const KidScreen = (): JSX.Element => <div data-testid="kid-screen" />;
@@ -191,10 +176,7 @@ describe('kid routes require a device PIN (#353)', () => {
     expect(screen.queryByTestId('settings')).not.toBeInTheDocument();
   });
 
-  // Structural guard, same spirit as the ErrorBoundary one above: a third kid
-  // route added to the manifest inherits the PIN precondition automatically,
-  // because it is the 'kid' variant of wrap() that applies it. This fails if
-  // someone gives a kid route the 'parent' variant to dodge the gate.
+  // Fails if a kid route is given the 'parent' variant to dodge the gate.
   it('every /kid/* route in the real manifest is PIN-guarded', async () => {
     const kidPaths = (router.routes as RouteObject[])
       .map((r) => r.path)

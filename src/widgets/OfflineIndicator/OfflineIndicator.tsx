@@ -10,11 +10,8 @@ const discardAllFailed = async (): Promise<void> => {
 };
 
 /**
- * Small status pill, mounted once by `ParentShell` above the page header so it
- * shows on every parent screen (#354). Renders nothing when the world is
- * boring — online and the outbox is clean. When there's something to say it
- * shows the offline state, the pending count, or a "X sync failed" actionable
- * row with Retry + Discard.
+ * Status pill, mounted once by `ParentShell` so it shows on every parent
+ * screen (#354). Renders nothing when online with a clean outbox.
  */
 export const OfflineIndicator = (): JSX.Element | null => {
   const { online, pendingCount, failedCount, conflictCount, draining, timerDrain } =
@@ -52,20 +49,10 @@ export const OfflineIndicator = (): JSX.Element | null => {
     );
   }
 
-  // Online + (draining or pending): syncing. Timer-driven re-drains (#391)
-  // keep the queued label (#409): each one would otherwise flip the text
-  // queued → Syncing… → queued, and this polite live region re-announces on
-  // every text change — a one-minute outage reads out about six times.
-  // "Syncing…" stays for user- and event-driven drains only — and for a
-  // timer drain that wakes to a queue another tab already emptied, where
-  // the steady label would read "Sync queued · 0" for one emit before the
-  // pill unmounts.
-  // The steady label knowingly covers the timer drain that succeeds, which
-  // after an outage is the usual recovery path (#391 exists so no external
-  // trigger is needed): a real sync then runs under "Sync queued · N" until
-  // the end emit updates the pill, for up to a handler timeout (#413) on a
-  // blob upload. Accepted: the pill and dot look the same either way, and a
-  // label that lags one pass beats an announcement on every backoff cycle.
+  // Timer-driven re-drains keep the queued label (#409). Flipping to
+  // "Syncing…" and back re-announces this polite live region on every backoff
+  // cycle — about six times in a one-minute outage. The cost is that a
+  // recovering timer drain reads "Sync queued · N" until the end emit.
   return (
     <div role="status" className={`${styles.pill} ${styles.pillSyncing}`}>
       <span className={styles.dot} aria-hidden="true" />

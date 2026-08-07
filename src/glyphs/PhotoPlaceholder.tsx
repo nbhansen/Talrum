@@ -4,11 +4,7 @@ interface PhotoPlaceholderProps {
   label: string;
 }
 
-/**
- * Subtle diagonal stripes + mono hint text — stands in for a real uploaded
- * photo. Phase 3 replaces rendering of photo-style pictograms with a signed
- * URL from Supabase Storage.
- */
+/** Stands in for a photo pictogram with no uploaded image yet. */
 export const PhotoPlaceholder = ({ label }: PhotoPlaceholderProps): JSX.Element => (
   <svg
     viewBox="0 0 100 100"

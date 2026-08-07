@@ -29,10 +29,13 @@ vi.mock('@/lib/supabase', () => ({
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
-const { discardEntry, enqueueAndDrain, retryFailed } = await import('./index');
+const { discardEntry, enqueueAndDrain, retryFailed, setOutboxOwner } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS } = await import('./handlers');
 const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
+// setOwnerId sets the state without the drain `setOutboxOwner` kicks, which
+// would otherwise run in the background of every test.
+const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
 
 const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
   id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
@@ -52,6 +55,10 @@ const setOnline = (online: boolean): void => {
 beforeEach(async () => {
   await clear();
   setOnline(true);
+  __resetOutboxOwnerForTests();
+  // Every test but the account ones runs as one signed-in user; draining is
+  // gated on an owner being known.
+  setOwnerId('user-a');
   updateMock.mockClear();
   fromMock.mockClear();
   eqMock.mockClear();
@@ -755,11 +762,9 @@ describe('conflict guard (#281)', () => {
   });
 
   it('a guard-stripped retry still feeds the board clock — queued edits do not self-conflict', async () => {
-    // A conflict-failed and the user tapped Retry (guard stripped); B was
-    // queued meanwhile against the still-stale cached baseline. A's unguarded
-    // replay bumps the server clock like any write, so B must guard against
-    // the value A produced, not its own T0 — otherwise the device conflicts
-    // with itself and the pill cries wolf.
+    // A was conflict-failed and retried with its guard stripped; B queued
+    // meanwhile against the stale baseline. A's replay bumps the server clock,
+    // so B must guard against that value or the device conflicts with itself.
     await putEntry(
       baseEntry({
         id: '01HZZA',
@@ -838,8 +843,200 @@ describe('subscribeStatus', () => {
 });
 
 describe('enqueueAndDrain', () => {
-  it('online + success: bypasses IDB entirely', async () => {
+  it('online + success: leaves nothing in the queue', async () => {
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The handler round trip is a window in which the page can go away — a
+  // reload, a tab close. An entry that only lived in memory took the write
+  // with it, together with the optimistic patch (#445).
+  it('online: the entry is durable while the handler is in flight', async () => {
+    let landHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        landHandler = () =>
+          resolve({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    // `attempting`, not `pending`: durable, but not work waiting to be done.
+    expect((await listEntries())[0]?.status).toBe('attempting');
+
+    landHandler();
+    await write;
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The reason the in-flight entry is `attempting`. As `pending` it showed up
+  // in the count as a write waiting to sync, and every exit path then had to
+  // emit a correction afterwards (#446 review).
+  it('online: the in-flight entry is never counted as pending', async () => {
+    let landHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        landHandler = () =>
+          resolve({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    // Any unlocked emitter — the `offline` listener is the one that has no
+    // later emitter to correct it.
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(0);
+
+    landHandler();
+    await write;
+    expect(getStatus().pendingCount).toBe(0);
+  });
+
+  // Same window, but the write is rejected. Nothing to correct here either.
+  it('online: a permanent failure leaves no count behind', async () => {
+    let denyHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        denyHandler = () =>
+          resolve({
+            data: null,
+            error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+          });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(0);
+
+    denyHandler();
+    await expect(write).rejects.toThrow();
+    expect(getStatus().pendingCount).toBe(0);
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The crash recovery #445 is actually about. A page that goes away mid-write
+  // leaves an `attempting` entry; the next lock holder knows its owner is gone
+  // — the browser released the lock — and promotes it.
+  it('adopts an entry abandoned mid-attempt and replays it', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
+
+    // Nothing counts it until it is adopted: it is not known to be waiting.
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(0);
+
+    await drain();
+
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The sign-out sweep cannot be the guarantee: a fast path waiting on the
+  // cross-tab lock acquires it after the sweep releases and writes its entry,
+  // blob included, behind the deletes. The owner check does not care when the
+  // entry was written (#446 review).
+  it('never replays an entry belonging to another account', async () => {
+    setOwnerId('user-b');
+    await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
+
+    await drain();
+
+    // Not replayed under user B, and the bytes are gone rather than parked.
+    expect(eqMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toEqual([]);
+  });
+
+  // The account can switch while a write waits on the lock. The stamp is read
+  // at call time for exactly this reason: reading it inside the lock callback
+  // would label user A's write with user B and defeat the check (#446 review).
+  it('abandons a write whose account changed while it waited for the lock', async () => {
+    // jsdom has no Web Locks, so stub one that does not grant until told —
+    // standing in for the sign-out sweep holding it.
+    let grantLock!: () => void;
+    const granted = new Promise<void>((r) => {
+      grantLock = r;
+    });
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: async (_name: string, fn: () => Promise<unknown>) => {
+          await granted;
+          return fn();
+        },
+      },
+    });
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    setOwnerId('user-b');
+    grantLock();
+
+    await expect(write).rejects.toThrow(/account changed/i);
+    Reflect.deleteProperty(navigator, 'locks');
+    // Nothing of user A's is left on the device, and no handler ran for it.
+    expect(await listEntries()).toEqual([]);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  // startOutbox drains at module load, before AuthGate has resolved the
+  // session. Without the gate that boot drain replays a previous account's
+  // leftovers before the owner is known (#446 review).
+  it('does not drain until the signed-in account is known, then drains for it', async () => {
+    __resetOutboxOwnerForTests();
+    await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
+
+    await drain();
+
+    expect(eqMock).not.toHaveBeenCalled();
+    expect(await listEntries()).toHaveLength(1);
+
+    // The session resolves as somebody else: the drain it kicks drops the
+    // entry rather than replaying it.
+    setOutboxOwner('user-b');
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toEqual([]);
+    });
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps an entry written before the owner stamp existed', async () => {
+    setOwnerId('user-b');
+    // No enqueuedBy: unattributed, not foreign.
+    await putEntry(baseEntry({ id: '01HZZA' }));
+
+    await drain();
+
+    expect(eqMock).toHaveBeenCalledWith('id', 'board-1');
+    expect(await listEntries()).toEqual([]);
+  });
+
+  it('stamps the enqueueing account onto a new entry', async () => {
+    unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+
+    expect((await listEntries())[0]?.enqueuedBy).toBe('user-a');
+  });
+
+  // FIFO still holds across the adoption: a new write must not jump an
+  // abandoned one (#279's shape).
+  it('does not fast-path past an entry abandoned mid-attempt', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', boardId: 'board-old', status: 'attempting' }));
+
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'board-new', patch: { name: 'x' } });
+
+    expect(eqMock.mock.calls).toEqual([
+      ['id', 'board-old'],
+      ['id', 'board-new'],
+    ]);
     expect(await listEntries()).toEqual([]);
   });
 

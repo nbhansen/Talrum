@@ -49,20 +49,16 @@ export const useBoardMembers = (boardId: string): UseQueryResult<BoardMember[]> 
   });
 
 // ─── Error classification ───────────────────────────────────────────────────
-// Postgres returns coded errors that the UI can render as friendly copy.
-// Phase 5 only surfaces two: the PK collision when re-inviting a user, and
-// the RLS rejection when a non-owner tries to share. Anything else falls
-// through to a generic "couldn't add member" message.
+// Only two codes get friendly copy: the PK collision on a re-invite and the
+// RLS rejection when a non-owner shares. Anything else falls through.
 
 export const isAlreadyMemberError = (err: unknown): boolean => hasPgCode(err, '23505');
 
 export const isShareForbiddenError = (err: unknown): boolean => hasPgCode(err, '42501');
 
 // ─── Mutations ──────────────────────────────────────────────────────────────
-// Direct supabase writes (no outbox). Sharing is rare, low-throughput, and
-// failing loudly when offline is fine — the user can re-paste the ID once
-// they're back online. Going through the outbox would also bypass the
-// `is_board_owner` RLS check at enqueue time and we'd only learn at drain.
+// Direct writes, no outbox: sharing is rare, and the outbox would defer the
+// `is_board_owner` RLS check to drain time. See docs/queries.md.
 
 interface AddBoardMemberInput {
   boardId: string;

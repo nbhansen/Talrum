@@ -34,12 +34,9 @@ export interface SuccessResponse {
 }
 
 /**
- * The provider seam. A provider turns a finished prompt into image bytes and
- * reports the MIME type. The prompt arrives fully built (see prompt.ts) —
- * the style template is app policy, not provider knowledge. `azure.ts` is
- * the only implementation today; to swap providers, implement this signature
- * in a new file and change one import in index.ts. Nothing else — not the
- * HTTP shell, not the client — may know which provider runs.
+ * The provider seam. The prompt arrives fully built, because the style template
+ * is app policy and not provider knowledge. To swap providers, implement this
+ * signature in a new file and change one import in index.ts.
  */
 export type GenerateImage = (
   prompt: string,

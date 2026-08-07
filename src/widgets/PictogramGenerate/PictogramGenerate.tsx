@@ -9,11 +9,9 @@ import { SparkleIcon } from '@/ui/icons';
 import styles from './PictogramGenerate.module.css';
 
 /**
- * The Generate tab of the pictogram picker (#422): label in, image out,
- * behind a preview. The preview is what will be saved — the generated image
- * goes through the same crop-to-square pipeline as an uploaded photo before
- * it is shown, and Save hands the exact previewed blob to the normal
- * create-photo outbox path. Nothing is stored anywhere until Save.
+ * The Generate tab of the pictogram picker (#422). The preview is exactly what
+ * Save writes: the generated image goes through the same crop pipeline as an
+ * upload, and Save hands that blob to the normal create-photo path.
  */
 export const PictogramGenerate = (): JSX.Element => {
   const [label, setLabel] = useState('');
@@ -23,10 +21,9 @@ export const PictogramGenerate = (): JSX.Element => {
   const genMut = useGenerateImage();
   const createPhoto = useCreatePhotoPictogram();
 
-  // Leaving the tab mid-generation must not leak: a blob URL created for a
-  // dropped setPreview would never reach the cleanup effect below. The
-  // setup body must re-assert true — StrictMode runs setup → cleanup →
-  // setup on a dev mount (#433 review).
+  // A blob URL from a dropped setPreview never reaches the cleanup below. The
+  // setup body must re-assert true, or StrictMode's setup → cleanup → setup
+  // leaves the guard permanently closed (#433).
   const openRef = useRef(true);
   useEffect(() => {
     openRef.current = true;
@@ -54,14 +51,11 @@ export const PictogramGenerate = (): JSX.Element => {
         URL.revokeObjectURL(processed.previewUrl);
         return;
       }
-      // The state swap revokes the previous preview's URL via the effect above.
       setPreview(processed);
     } catch (err) {
-      // Only a request that never got a response blames the connection; any
-      // other failure — server-side or a crop/decode error on the returned
-      // bytes — told to "check your connection" sends the parent chasing
-      // wifi that is fine. Retry is still the right advice for those:
-      // generation is non-deterministic, so the next attempt may decode.
+      // Only a request that got no response blames the connection. Telling a
+      // parent to check wifi that is fine sends them chasing the wrong thing.
+      // Retry stays the advice either way: generation is non-deterministic.
       setError(
         err instanceof GenerateImageError && err.code === 'network'
           ? 'Could not generate an image. Check your connection and try again.'

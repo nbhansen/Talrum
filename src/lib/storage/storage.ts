@@ -10,10 +10,8 @@ export const AUDIO_BUCKET = 'pictogram-audio';
 export const IMAGES_BUCKET = 'pictogram-images';
 
 /**
- * Sentinel prefix on a pictogram's `image_path` that points at a bundled
- * stock JPG (`/seed-photos/<slug>.jpg`) instead of a real Storage object.
- * Seed templates ship these so fresh users see real photos without an
- * upload step. Anything else is a real path the user owns.
+ * Marks an `image_path` as a bundled stock JPG (`/seed-photos/<slug>.jpg`)
+ * rather than a Storage object. Seed templates ship these.
  */
 export const STOCK_PATH_PREFIX = 'stock:';
 
@@ -22,16 +20,10 @@ export const isUploadedStoragePath = (path: string | undefined): path is string 
   !!path && !path.startsWith(STOCK_PATH_PREFIX);
 
 /**
- * Mint a unique Storage path for one upload (#415). The ULID makes every
- * upload land on its own object; the row's `image_path`/`audio_path` is the
- * single source of truth for which object is current. Deterministic paths
- * (`owner/picto.ext`) let IO that lands late — an outbox run abandoned by
- * the handler timeout (#413) whose request is still in flight — delete or
- * overwrite an object a newer entry re-created at the same path. With
- * versioned paths that late IO acts on a path no newer write owns: at worst
- * it leaks one orphaned object, never a user's newer upload. Minted once
- * per outbox entry (at enqueue), so replays of the same entry stay
- * idempotent.
+ * A unique path per upload (#415), so IO that lands late — an outbox run the
+ * handler timeout abandoned — acts on a path no newer write owns. At worst it
+ * leaks one orphan, never a newer upload. Minted once per entry, at enqueue,
+ * so replays stay idempotent. The row is the truth about which object is live.
  */
 export const mintStoragePath = (ownerId: string, pictogramId: string, extension: string): string =>
   `${ownerId}/${pictogramId}-${ulid()}.${extension}`;
@@ -62,21 +54,13 @@ export const removeFromBucket = async (bucket: string, paths: readonly string[])
 };
 
 /**
- * Resolves a storage path to a signed URL with three escalating fallbacks:
- *
- *   1. Hot in-memory entry that's still valid → return immediately.
- *   2. Persisted IDB entry that's still valid → hydrate memory and return.
- *   3. Mint a fresh URL via Supabase, persist it, return.
- *
- * On mint failure (offline, transient network), return whichever stale entry
- * we have rather than throwing — the SW's CacheFirst plugin will serve the
- * bytes from cache regardless of token validity, so a "stale" URL still
- * resolves a valid `<img>` for a previously-viewed pictogram.
+ * Memory, then IDB, then a fresh mint. On mint failure, return a stale entry
+ * rather than throw: the service worker serves the bytes from cache whatever
+ * the token says, so a stale URL still renders a seen pictogram.
  */
 export const signedUrlFor = async (bucket: string, path: string): Promise<string> => {
-  // Optimistic offline-create paths render via URL.createObjectURL until the
-  // outbox uploads the blob. The hook contract says "give me a usable src for
-  // this path" — for blob URLs the path IS the URL; no signing needed.
+  // Optimistic creates render from a blob URL until the outbox uploads. For
+  // those the path is already the URL.
   if (path.startsWith('blob:')) return path;
   const cacheKey = `${bucket}/${path}`;
   const now = Date.now();

@@ -1,12 +1,7 @@
 /**
- * Thin wrapper around the browser's Web Speech API.
- *
- * `speechSynthesis.getVoices()` is async on first call in Chromium — voices
- * arrive via a `voiceschanged` event. We cache a heuristic-picked voice once
- * it's known so each `speak()` isn't a fresh lookup; the cache is keyed on
- * the target language so a settings change applies on the next tap. The
- * user's saved `voiceURI` (from speechPrefs) overrides the heuristic when
- * present.
+ * `getVoices()` is async on the first Chromium call — voices arrive on a
+ * `voiceschanged` event — so the picked voice is cached, keyed by language.
+ * A saved `voiceURI` overrides the heuristic.
  */
 
 // Relative (not @/lib) imports: vitest.setup.ts imports this module, and

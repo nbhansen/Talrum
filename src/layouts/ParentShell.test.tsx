@@ -27,10 +27,9 @@ afterEach(() => {
 });
 
 describe('ParentShell sync status (#354)', () => {
-  // The bug: <OfflineIndicator /> lived inside the header, which only renders
-  // when a screen passes a `title`. The board builder passes none, so the one
-  // screen where nearly every write is made was the one screen that could not
-  // report a failed one — and Retry/Discard exist nowhere else.
+  // In the header it rendered only for screens passing a `title`, which left
+  // the board builder — where nearly every write is made — unable to report a
+  // failed one (#354).
   it.each([
     ['without a title (board builder)', undefined],
     ['with a title', 'Boards'],

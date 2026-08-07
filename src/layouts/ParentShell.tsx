@@ -25,11 +25,7 @@ const NAV: readonly NavItem[] = [
 interface ParentShellProps {
   active?: ParentNavKey;
   onNav?: (id: ParentNavKey) => void;
-  /**
-   * Page-specific kid-mode entry point. Each route picks the right board
-   * (most routes via useKidModeNav; BoardBuilder → the board being edited).
-   * Omitted when no board qualifies — the button renders disabled.
-   */
+  /** Omitted when no board qualifies, which renders the button disabled. */
   onKidMode?: () => void;
   title?: string;
   subtitle?: string;
@@ -77,16 +73,10 @@ export const ParentShell = ({
       </aside>
       <main className={styles.main}>
         {/*
-          Sync status is not the header's business. It used to sit in the
-          header's right-hand slot, which quietly made it conditional on
-          `title`: a screen that passes none renders no header and so showed
-          no "Offline", no pending count, and no "N sync changes failed" row —
-          the only place Retry and Discard exist. That screen was the board
-          builder, where nearly every write in the app is made (#354).
-
-          Mounted here it cannot depend on what a page chooses to pass. The
-          indicator renders nothing when the world is boring, and `:empty`
-          collapses the wrapper so it costs no layout in that case.
+          Outside the header, so sync status cannot depend on whether a page
+          passes a `title`. In the header's slot it was invisible on the board
+          builder — the screen where nearly every write is made, and Retry and
+          Discard exist nowhere else (#354). `:empty` collapses the wrapper.
         */}
         <div className={styles.status}>
           <OfflineIndicator />

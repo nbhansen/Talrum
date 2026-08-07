@@ -112,6 +112,32 @@ describe('clearPersistedCache', () => {
     vi.unstubAllGlobals();
   });
 
+  // The lock would not make the guarantee hold — `enqueuedBy` does — and it is
+  // held across handler IO, so taking it would leave user A's blobs on a shared
+  // device for a whole upload (#446).
+  it('does not wait on the outbox lock to wipe the stripes', async () => {
+    stubCaches([]);
+    const lockNames: string[] = [];
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: (name: string, fn: () => Promise<unknown>) => {
+          lockNames.push(name);
+          return fn();
+        },
+      },
+    });
+    await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
+
+    await clearPersistedCache();
+
+    Reflect.deleteProperty(navigator, 'locks');
+    expect(lockNames).toEqual([]);
+    expect((await keys()).filter((k) => typeof k === 'string' && k.startsWith('outbox:'))).toEqual(
+      [],
+    );
+  });
+
   it('wipes cache, PIN, last-board, and the per-user IDB stripes but leaves foreign keys alone', async () => {
     // Simulate user A's device state.
     queryClient.setQueryData(['boards'], [{ id: 'b1' }]);

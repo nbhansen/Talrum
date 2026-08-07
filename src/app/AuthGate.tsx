@@ -3,6 +3,7 @@ import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } fr
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
+import { setOutboxOwner } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
 import { clearPersistedCache } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -19,38 +20,30 @@ type AuthState =
   | { status: 'out' }
   | { status: 'in'; session: Session };
 
-// Strip a trailing slash before lookup so '/account-deleted' and
-// '/account-deleted/' both match. CDN normalization, copy-pasted URLs, or
-// router quirks can introduce the slash; without normalization the user
-// gets bounced to Login.
+// A CDN rewrite or a copy-pasted URL can add a trailing slash, and without
+// this the signed-out user is bounced to Login.
 const normalizePath = (p: string): string => p.replace(/\/$/, '') || '/';
 
-/**
- * Sole subscriber to Supabase auth. Renders the login screen when no session
- * exists, mounts SessionProvider with the resolved session otherwise. Every
- * descendant reads the session via useSession() / useSessionUser().
- */
+/** The sole subscriber to Supabase auth. Descendants read `useSession()`. */
 export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const [retryCount, setRetryCount] = useState(0);
-  // Track the previously-known user.id so we can detect a same-tab account
-  // switch (SIGNED_IN with a different user without an intervening
-  // SIGNED_OUT, #179) and scrub before mounting SessionProvider.
+  // Detects a same-tab account switch: SIGNED_IN for a different user with no
+  // SIGNED_OUT between (#179).
   const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    // Reset to loading before re-resolving the session (re-runs on retry).
-    // Deliberate sync reset for an async init effect, not a cascading render.
+    // A deliberate sync reset for an async init effect, not a cascading render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ status: 'loading' });
-    // Sweep stale `sb-<other-host>-auth-token` keys left by previous
-    // VITE_SUPABASE_URL values (#184). One-shot per mount; idempotent.
+    // Stale keys from a previous VITE_SUPABASE_URL (#184). Idempotent.
     sweepStaleAuthTokens(import.meta.env.VITE_SUPABASE_URL);
     supabase.auth
       .getSession()
       .then(({ data }) => {
         if (cancelled) return;
+        setOutboxOwner(data.session?.user.id ?? null);
         lastUserIdRef.current = data.session?.user.id ?? null;
         setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
       })
@@ -61,8 +54,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const newUserId = session?.user.id ?? null;
-      // Skip the scrub on token refresh (same id) and the very first sign-in
-      // (no prior id) — those are not auth boundaries.
+      // A token refresh and a first sign-in are not auth boundaries.
       const isUserSwitch =
         newUserId !== null && lastUserIdRef.current !== null && newUserId !== lastUserIdRef.current;
       if (event === 'SIGNED_OUT' || isUserSwitch) {
@@ -73,6 +65,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
           }),
         );
       }
+      // The same listener as the sweep, so the queue's owner and the boundary
+      // that wipes it can never disagree (#446).
+      setOutboxOwner(newUserId);
       lastUserIdRef.current = newUserId;
       setState(session ? { status: 'in', session } : { status: 'out' });
     });
@@ -87,10 +82,8 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
   if (state.status === 'loading') return <AuthGateLoading key={retryCount} onRetry={retry} />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
   if (state.status === 'out') {
-    // Path-based escape hatch: signed-out users can still reach the
-    // post-deletion confirmation and the public privacy policy. children is
-    // returned without SessionProvider — the route components are static
-    // and do not call session-dependent hooks.
+    // No SessionProvider on this branch, so anything routed here must not call
+    // a session hook.
     if (PUBLIC_PATHS.has(normalizePath(window.location.pathname))) return <>{children}</>;
     return <Login />;
   }
@@ -106,10 +99,8 @@ const AuthGateOfflineHint = (): JSX.Element | null => {
 const HUNG_GETSESSION_HINT_MS = 5000;
 
 /**
- * If `getSession()` neither resolves nor rejects within 5s and the device
- * is offline, swap the spinner for the offline hint + Retry button (#30).
- * supabase-js usually rejects fast on offline, but if a request hangs the
- * user shouldn't stare at a forever-spinner with no escape hatch.
+ * supabase-js usually rejects fast when offline, but a hung request would leave
+ * the user on a forever-spinner with no escape (#30).
  */
 const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
   const online = useOnline();

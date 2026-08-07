@@ -21,14 +21,12 @@ export const ParentHomeRoute = (): JSX.Element => {
   const createBoard = useCreateBoard();
   const [newKidOpen, setNewKidOpen] = useState(false);
   const [newBoardOpen, setNewBoardOpen] = useState(false);
-  // Auto-launch into the last kid-mode board on the first parent-home visit
-  // per browser session. Subsequent visits this session (e.g. after PIN exit
-  // back to home) render ParentHome normally so the user is never trapped.
+  // Once per browser session, so a PIN exit back to home does not trap the
+  // parent in a relaunch loop.
   const [redirect] = useState(() => {
     if (hasAutoLaunched()) return null;
-    // Kid mode needs a device PIN (#353). Without one the kid route bounces
-    // straight to Settings, so auto-launching would yank the parent there on
-    // boot; land on parent home instead and let them set it when they choose.
+    // Without a PIN the kid route bounces to Settings, so auto-launching would
+    // yank the parent there on boot (#353).
     if (kidModeNeedsPinSetup()) return null;
     const last = getLastBoard();
     return last ? kidPathFor(last) : null;
@@ -40,9 +38,8 @@ export const ParentHomeRoute = (): JSX.Element => {
 
   const boardCount = boardsQuery.data?.length ?? 0;
 
-  // Fast-path create: skip the modal, drop a board with default values, and
-  // navigate straight into the BoardBuilder where the user names + tunes it.
-  // Accent rotates by current board count so the grid stays visually distinct.
+  // Skips the modal: the BoardBuilder is where the board gets named. The accent
+  // rotates by board count so the grid stays visually distinct.
   const onNewBlankBoard = (): void => {
     if (!activeKid || createBoard.isPending) return;
     createBoard.mutate(

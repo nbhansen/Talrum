@@ -27,8 +27,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 > As a parent I can get in and out of Talrum safely, with no password to
 > forget, and I stay in control of my data.
 
-- ✅ As a parent, I sign in with my email and a 6-digit one-time code (no
-  password), so there is nothing for me to forget or for anyone to leak.
+- ✅ As a parent, I sign in with my email and a magic link (no password), so
+  there is nothing for me to forget or for anyone to leak. ([#219] explains
+  why a link and not a typed code.)
 - ✅ As a parent, I can sign out from Settings.
 - ✅ As a parent, I can read the privacy policy without signing in.
 - ✅ As a parent, I can delete my account and all my data from Settings
@@ -63,22 +64,30 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 - ✅ As a parent, I toggle whether text labels are shown to the kid
   (some kids read, some are distracted by text).
 - ✅ As a parent, I choose per board how tapped pictograms sound: read aloud
-  (TTS), a recorded parent voice, or no sound.
+  (TTS), custom audio (my own recording or a generated voice), or no sound.
 - ✅ As a parent, I see clear error and not-found states instead of a blank
   screen when a board fails to load.
 
 ## Epic 4 — Pictogram library
 
-> As a parent I build a reusable vocabulary of real photos, because real
-> photos of the kid's actual cereal/shoes/bed work better than clip-art.
+> As a parent I build a reusable vocabulary of pictograms: real photos of
+> the kid's actual cereal/shoes/bed where a photo exists, and generated
+> symbols for the concepts no photo can show ("tomorrow", "wait").
 
 - ✅ As a parent, I upload a photo (JPG/PNG/WebP); Talrum crops it square
   automatically and requires me to give it a short label before it enters
   the library.
+- ✅ As a parent, I type a label and Talrum generates a matching low-stim
+  pictogram image and a natural Danish voice (Azure, via edge functions); I
+  preview and accept before anything is saved. ([#422])
 - ✅ As a parent, I browse and search every pictogram in my library, and can
   rename one, replace its photo, or delete it.
 - ✅ As a parent, I record my own voice for a pictogram, so my kid hears me
   instead of a robot.
+- ✅ As a parent, my voice recordings are capped at ten seconds, so every
+  clip can sync even on a slow uplink. ([#416])
+- 🔜 As a parent, when the image service rejects my label (content filter),
+  I get a clear message instead of a generic "generation failed". ([#438])
 - 🔜 As a parent with a large library, browsing stays fast (pagination /
   lazy fetch). ([#266], deferred until libraries actually grow)
 
@@ -88,8 +97,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 
 - ✅ As a kid, I see up to a handful of large lettered options (A, B, C…)
   with calm styling and one short prompt ("Pick one place").
-- ✅ As a kid, when I tap an option it is spoken aloud (TTS or my parent's
-  recording, per board setting) and confirmed visually.
+- ✅ As a kid, when I tap an option it is spoken aloud (TTS or custom audio,
+  per board setting) and confirmed visually.
 - ✅ As a kid, I can tap again to hear my pick repeated.
 - ✅ As a kid, I never see parent UI; the only way out is the PIN-gated
   "Exit kid mode" button.
@@ -117,6 +126,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   → confirm new).
 - ✅ As a parent who forgot the PIN, I clear it from Settings (with inline
   confirmation) and set a fresh one next time I leave kid mode.
+- ✅ As a parent, wrong PIN entries are throttled with a growing delay, so
+  guessing the PIN by trial is slow. ([#372])
 - ✅ The PIN is a _soft_ gate against kids, stored per device — it is not a
   security boundary and is documented as such.
 
@@ -126,8 +137,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 
 - ✅ As a parent, I pick the TTS voice and adjust rate and pitch in Settings,
   with a "Test voice" button and a reset to defaults.
-- ✅ As a parent, when a recorded voice fails to play (offline, missing
-  file), Talrum falls back rather than staying silent.
+- ✅ As a parent, when a pictogram's audio clip fails to play (offline,
+  missing file), Talrum falls back to TTS rather than staying silent.
 
 ## Epic 9 — Sharing with co-caregivers
 
@@ -136,6 +147,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 - ✅ As a parent, I share a board with another Talrum account; they see it on
   their device but cannot change it.
 - ✅ As a parent, I see who a board is shared with and can remove members.
+- 🔜 Decide whether a co-caregiver can use a shared board in _kid mode_ on
+  their device, or sharing stays view-only by design. Today the kid route
+  can reach a shared board, but the KID button never targets one. ([#447])
 
 ## Epic 10 — Reliability & offline
 
@@ -146,6 +160,11 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   guarded against cross-device overwrites.
 - ✅ As a parent, my data is cached locally (IndexedDB) so the app opens fast
   and works through brief offline gaps.
+- ✅ As a parent, a write that is in flight when the page reloads is not
+  lost. The outbox writes the entry before it tries the write, so a reload
+  finds it and finishes it. ([#445])
+- 🔜 As a parent or kid, the builder draft and the current sequence step
+  survive a reload — a deploy now reloads open tabs. ([#444])
 
 ## Epic 11 — Settings & transparency
 
@@ -188,8 +207,10 @@ Shipped — initially mis-filed as a gap ([#303], closed). The PWA setup in
   works offline natively.
 - ✅ As a parent, I install Talrum to the iPad home screen and it launches
   full-screen landscape (PWA manifest, `display: standalone`).
-- 💭 Document the recommended iPad setup (Add to Home Screen + Guided
-  Access) for parents.
+- 🔜 As a parent, I can read a short guide for the recommended iPad setup
+  (Add to Home Screen + Guided Access). ([#361])
+- 🔜 As a parent, Talrum tells me when offline mode is unavailable, instead
+  of failing quietly later. ([#377])
 
 ### Epic 14 — Language matching ✅
 
@@ -249,19 +270,23 @@ this is the long-term destination implied by "modernised PECS".
 - 💭 As a parent, I see when a board was last used, so stale boards are easy
   to spot and prune.
 
-### Epic 18 — First-run experience 💭
+### Epic 18 — First-run experience ✅
 
 > As a brand-new parent, tired and skeptical, I get from sign-up to a board
 > my kid can use in under ten minutes.
 
-Demo boards exist in the local seed but a fresh production account starts
-empty.
+Largely shipped at the database layer: `handle_new_user()` clones the
+template tables into every new account, in production too (verified in
+[#362]). An earlier version of this epic claimed fresh accounts start
+empty; that was wrong.
 
-- 💭 As a new parent, the empty Boards screen walks me through making my
-  first board (add a kid → pick a kind → add three photos) instead of
-  presenting a blank page.
-- 💭 As a new parent, I can start from a template board (breakfast choice,
-  morning routine) and swap in my own photos.
+- ✅ As a new parent, my account starts with a sample kid, four template
+  boards (sequence and choice), and a starter pictogram library — the first
+  screen is never blank, and I swap in my own photos at my own pace.
+- 💭 As a new parent, a short walkthrough leads me from the templates to my
+  first own board (add a kid → pick a kind → add three photos). Judge this
+  on its own merits — it is not a fix for an empty screen, because an empty
+  screen does not occur.
 
 ### Epic 19 — Production hardening 🔜
 
@@ -276,8 +301,13 @@ Supabase free tier, which blocks some of them:
 - 🔜 Inactivity-triggered account cleanup at ~100 active users. ([#108])
 - 🔜 Leaked-password protection via HaveIBeenPwned — blocked on Supabase Pro
   tier. ([#93])
+- 🔜 RLS policy performance: per-statement `auth.uid()`, deduped SELECT
+  policies, an index on `boards.kid_id`. ([#364])
+- 🔜 Per-user rate limit on voice/image generation, before any paid Azure
+  tier. ([#434])
 
 [#93]: https://github.com/nbhansen/Talrum/issues/93
+[#219]: https://github.com/nbhansen/Talrum/issues/219
 [#98]: https://github.com/nbhansen/Talrum/issues/98
 [#99]: https://github.com/nbhansen/Talrum/issues/99
 [#101]: https://github.com/nbhansen/Talrum/issues/101
@@ -289,3 +319,15 @@ Supabase free tier, which blocks some of them:
 [#302]: https://github.com/nbhansen/Talrum/issues/302
 [#303]: https://github.com/nbhansen/Talrum/issues/303
 [#304]: https://github.com/nbhansen/Talrum/issues/304
+[#361]: https://github.com/nbhansen/Talrum/issues/361
+[#362]: https://github.com/nbhansen/Talrum/issues/362
+[#364]: https://github.com/nbhansen/Talrum/issues/364
+[#372]: https://github.com/nbhansen/Talrum/issues/372
+[#377]: https://github.com/nbhansen/Talrum/issues/377
+[#416]: https://github.com/nbhansen/Talrum/issues/416
+[#422]: https://github.com/nbhansen/Talrum/issues/422
+[#434]: https://github.com/nbhansen/Talrum/issues/434
+[#438]: https://github.com/nbhansen/Talrum/issues/438
+[#444]: https://github.com/nbhansen/Talrum/issues/444
+[#445]: https://github.com/nbhansen/Talrum/issues/445
+[#447]: https://github.com/nbhansen/Talrum/issues/447

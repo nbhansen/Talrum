@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ulid } from 'ulid';
 
+import { captureException } from '@/lib/platform/telemetry';
+
 import {
   drain,
   getStatus,
   type OutboxStatus,
+  reconcileQueue,
   refreshStatus,
   resetRetryDelay,
   startOutbox,
@@ -12,6 +15,7 @@ import {
   withCrossTabLock,
 } from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { getOutboxOwner, setOwnerId } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -19,10 +23,34 @@ export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
 export { startOutbox, UnretryableOutboxError };
 
 /**
- * Distribute the Omit over each member of the union so caller payloads keep
- * their per-kind required fields. A plain `Omit<OutboxEntry, ...>` collapses
- * to the intersection of common props, dropping `boardId`, `pictogramId`,
- * `blob`, etc.
+ * Tell the outbox which account it works for. Draining is gated on a known
+ * owner and `startOutbox` runs before the session resolves, so this call is
+ * what runs the drain the new session is owed.
+ */
+export const setOutboxOwner = (id: string | null): void => {
+  const changed = getOutboxOwner() !== id;
+  setOwnerId(id);
+  if (changed && id !== null) void drain();
+};
+
+/**
+ * Run IDB bookkeeping that must not decide a write's outcome (#446): a device
+ * that cannot write IndexedDB must keep making online writes. Takes a thunk so
+ * a synchronous throw cannot bypass the catch. Reports whether the work ran.
+ */
+const bestEffort = async (op: string, work: () => Promise<void>): Promise<boolean> => {
+  try {
+    await work();
+    return true;
+  } catch (err) {
+    captureException(err, { level: 'warning', tags: { component: 'outbox', op } });
+    return false;
+  }
+};
+
+/**
+ * Distributed over the union so caller payloads keep their per-kind required
+ * fields. A plain `Omit<OutboxEntry, ...>` collapses to the common props.
  */
 type DistributiveOmit<T, K extends keyof OutboxEntry> = T extends OutboxEntry ? Omit<T, K> : never;
 type EntryInput = DistributiveOmit<
@@ -31,116 +59,105 @@ type EntryInput = DistributiveOmit<
 >;
 
 /**
- * The hot path for every mutation. Online: try the handler immediately; on
- * success the optimistic patch in the cache becomes durable with no IDB
- * detour. On a network failure, persist the entry and let the drain loop
- * retry. On a permanent failure (RLS, validation), reject so React Query's
- * onError rolls the optimistic patch back.
- *
- * Offline: skip the immediate attempt — persist the entry and resolve. The
- * UI keeps the optimistic state; the drain loop replays when `online` fires.
- *
- * The fast path requires an empty pending queue: a write that bypasses older
- * queued entries gets overwritten when they replay — stale data wins (#279).
- * In that case the write joins the queue and a drain flushes everything in
- * FIFO order. Failed entries don't count — drain() skips them, so they'd
- * block the fast path forever for nothing.
- *
- * Every enqueue holds the cross-tab lock from the queue observation through
- * its outcome — the handler run on the fast path, the queue append otherwise
- * (#395). Unlocked, two tabs can both observe an empty queue and run handlers
- * concurrently — the exact double-replay the lock exists to prevent (#278).
- * The appends stay under the lock for the same reason, the offline one
- * included: `online`/`offline` events are per-window, so an offline tab's
- * unlocked append could race an online tab's fast path, which would land a
- * younger write ahead of it (#279's shape, cross-tab). The lock is
- * non-reentrant, so the follow-up `drain()` calls stay outside the callback;
- * the callback reports which follow-up is needed instead.
- *
- * Cost: the lock is held across the handler's IO, blob uploads included, so
- * online writes serialize within a tab and across tabs — a slow photo upload
- * in one tab stalls the other tab's drain and fast path until it settles or
- * its tab dies. A hung request cannot stretch that past the per-kind
- * handler timeout (#413, handlers.ts): the run rejects as transient, the
- * entry joins the queue, and the retry schedule (#391) takes over. Accepted: each landed write leaves the queue empty, so the next
- * waiter still fast-paths, and correctness beats burst latency at this
- * app's write volume.
+ * The hot path for every mutation. Online with an empty queue: persist, run the
+ * handler, delete. Otherwise the entry joins the queue and a drain flushes it in
+ * FIFO order, because a write that jumps older ones loses to them (#279).
  */
 export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
-  const newEntry = (): OutboxEntry => ({
-    ...input,
-    id: ulid(),
-    enqueuedAt: Date.now(),
-    attemptCount: 0,
-    status: 'pending',
-  });
-  const outcome = await withCrossTabLock(
-    async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
-      // Read `onLine` inside the lock: an offline pre-check would sit outside
-      // and go seconds stale during the lock wait (same hazard as drain's
-      // in-lock re-check); attempting on a dead network burns a retry attempt
-      // for nothing. Persist unattempted instead — the drain() below no-ops
-      // offline and emits the new pending count.
-      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (offline || (await listEntries()).some((e) => e.status === 'pending')) {
-        await putEntry(newEntry());
-        return 'queued-unattempted';
+  // Read at call time, never inside `run`. `run` executes after the lock wait,
+  // and the auth boundary is what moves during that wait (#446).
+  const owner = getOutboxOwner();
+  const newEntry = (): OutboxEntry => {
+    const base = {
+      ...input,
+      id: ulid(),
+      enqueuedAt: Date.now(),
+      attemptCount: 0,
+      status: 'pending' as const,
+    };
+    // Added rather than set, because `exactOptionalPropertyTypes` forbids an
+    // explicit `undefined`.
+    return owner === null ? base : { ...base, enqueuedBy: owner };
+  };
+  const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+    // The account changed during the lock wait, so this write belongs to a user
+    // who is gone. Abandon it and let React Query roll the patch back.
+    if (getOutboxOwner() !== owner) {
+      throw new Error('Signed-in account changed before the write started.');
+    }
+    // Reconcile before the check below: inside the lock an `attempting` entry
+    // has no live owner, and promoting it must be visible here or this write
+    // fast-paths past an older one (#279).
+    const entries = await reconcileQueue();
+    // Read `onLine` inside the lock. A pre-check goes stale during the wait,
+    // and attempting on a dead network burns a retry attempt for nothing.
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (offline || entries.some((e) => e.status === 'pending')) {
+      await putEntry(newEntry());
+      return 'queued-unattempted';
+    }
+    const entry: OutboxEntry = { ...newEntry(), status: 'attempting' };
+    // Persist before the attempt (#445): the round trip is a window in which
+    // the page can go away, and an entry that lives only in memory goes with
+    // it. `attempting`, not `pending` — this write awaits no drain (#446).
+    const queued = await bestEffort('persist-before-attempt', () => putEntry(entry));
+    try {
+      await runHandler(entry);
+    } catch (err) {
+      if (err instanceof UnretryableOutboxError) {
+        // The mutation rejects and the optimistic patch rolls back, so the
+        // entry must not stay behind.
+        await bestEffort('delete-after-permanent-failure', () => deleteEntry(entry.id));
+        throw err;
       }
-      const entry = newEntry();
-      try {
-        await runHandler(entry);
-        return 'landed';
-      } catch (err) {
-        if (err instanceof UnretryableOutboxError) {
-          throw err;
-        }
-        // Transient — join the queue. We intentionally use the same entry
-        // (with attemptCount = 1 to reflect the just-failed attempt) so the
-        // drain loop respects the retry ceiling.
-        await putEntry({
-          ...entry,
-          attemptCount: 1,
-          lastError: err instanceof Error ? err.message : 'unknown error',
-        });
-        return 'queued-transient';
+      const attempted: OutboxEntry = {
+        ...entry,
+        // Records the burnt attempt so the drain respects the retry ceiling.
+        status: 'pending',
+        attemptCount: 1,
+        lastError: err instanceof Error ? err.message : 'unknown error',
+      };
+      // With the entry already queued this put only records the attempt, which
+      // the drain does not need. Without it, this put is the queue's only
+      // record of the write and must be allowed to fail (#445).
+      if (queued) {
+        await bestEffort('record-transient-attempt', () => putEntry(attempted));
+      } else {
+        await putEntry(attempted);
       }
-    },
-  );
+      return 'queued-transient';
+    }
+    // Outside the try: a failed delete is not a failed handler. Inside, it took
+    // the transient branch and replayed a write the server had accepted (#446).
+    await bestEffort('delete-after-landing', () => deleteEntry(entry.id));
+    return 'landed';
+  };
+
+  const outcome = await withCrossTabLock(run);
   if (outcome === 'queued-transient') {
     void drain();
     return;
   }
   if (outcome === 'queued-unattempted') {
-    // Flush the queue (oldest first, this entry last). Offline, drain()'s
-    // own branch skips the handlers and emits the new pending count instead,
-    // so the indicator updates without waiting for the next online/offline
-    // event.
+    // Offline this skips the handlers and emits the new pending count, so the
+    // indicator updates without waiting for the next online event.
     await drain();
   }
 };
 
 /**
- * Reset every failed entry to pending (fresh retry budget, fresh retry-timer
- * backoff, stale lastError dropped) and drain. The indicator's "Retry" — a
- * plain `drain()` skips failed entries, so without the reset the button is a
- * no-op (#277).
- *
- * The list-then-put loop runs under the cross-tab lock so a Discard in
- * another tab can't land between the list and the put and get resurrected as
- * pending (#289). `drain()` takes the same (non-reentrant) lock, so it must
- * stay outside the callback.
- *
- * Entries that failed the board conflict guard (`failureKind: 'conflict'`)
- * lose their guard here: their baseline is permanently behind the other
- * device's write, so a guarded retry can only re-conflict. Stripping it turns
- * Retry into "apply my version anyway" — the overwrite #281 forbids is the
- * *silent* one, and the user is choosing it explicitly now. Other failures
- * keep their guard.
+ * Reset every failed entry to pending and drain — the indicator's "Retry".
+ * A plain `drain()` skips failed entries, so without the reset the button does
+ * nothing (#277). Under the lock, or a Discard between the list and the put is
+ * resurrected as pending (#289).
  */
 export const retryFailed = async (): Promise<void> => {
   await withCrossTabLock(async () => {
     const failed = (await listEntries()).filter((e) => e.status === 'failed');
     for (const { lastError: _lastError, failureKind, ...entry } of failed) {
+      // A conflicted baseline is permanently behind, so a guarded retry can
+      // only re-conflict. Retry becomes "apply mine anyway": #281 forbids the
+      // silent overwrite, and this one is explicit.
       if (entry.kind === 'updateBoard' && failureKind === 'conflict') {
         delete entry.expectedUpdatedAt;
       }
@@ -152,22 +169,15 @@ export const retryFailed = async (): Promise<void> => {
 };
 
 /**
- * Drop a single failed entry from the queue (the indicator's "Discard").
- * Takes the cross-tab lock: an unlocked delete could land inside another
- * tab's `retryFailed` reset loop, which would re-create the entry (#289).
- *
- * Unlike Retry (which ends in `drain()`, which emits), a discard does no
- * draining, so it must push status itself — otherwise the "N failed" pill
- * keeps its stale count until the next unrelated outbox event (#290).
- * refreshStatus stays outside the lock: it only reads IDB and the lock is
- * non-reentrant.
+ * Drop one failed entry — the indicator's "Discard". Under the lock, or the
+ * delete lands inside another tab's `retryFailed` loop and is re-created
+ * (#289). Pushes status itself because nothing here drains (#290).
  */
 export const discardEntry = async (id: string): Promise<void> => {
   await withCrossTabLock(() => deleteEntry(id));
   await refreshStatus();
 };
 
-/** Inspect the queue (e.g. to render a per-entry error list). */
 export const peekEntries = listEntries;
 
 export const useOutboxStatus = (): OutboxStatus => {

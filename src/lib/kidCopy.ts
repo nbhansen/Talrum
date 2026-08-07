@@ -1,11 +1,7 @@
 /**
- * Single audit point for kid-visible strings, in every supported language.
- * Add new kid-mode copy here — to both tables — before referencing it from a
- * component. Keep generic chrome (Cancel, Delete) out — only strings the kid
- * actually sees, plus the PIN flow that gates kid-mode exit.
- *
- * Components call getKidCopy() during render, so a language change in
- * settings applies on the next render without a reload (#304).
+ * One audit point for every string a kid sees, plus the PIN exit flow. Add copy
+ * to both tables before a component references it. Components call
+ * `getKidCopy()` during render, so a language change needs no reload (#304).
  */
 
 import { type AppLanguage, getAppLanguage } from './language';
@@ -24,9 +20,8 @@ export interface KidCopy {
     letsGoTo: (label: string) => string;
     hearAgain: (label: string) => string;
   };
-  // Verification only. Choosing a PIN is a parent-UI job (Settings → Parent
-  // PIN) and its copy lives there, in English — a kid must never be shown a
-  // way to create the PIN that contains them (#353).
+  // Verification only: a kid must never be shown a way to create the PIN that
+  // contains them, so the setup copy lives in parent UI (#353).
   pin: {
     verifyTitle: string;
     verifySubtitle: string;

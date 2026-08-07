@@ -74,17 +74,18 @@ Supabase Studio is at <http://127.0.0.1:54323>.
 
 ## Commands
 
-| What                 | How                 |
-| -------------------- | ------------------- |
-| Dev server           | `npm run dev`       |
-| Typecheck            | `npm run typecheck` |
-| Lint (zero warnings) | `npm run lint`      |
-| Lint CSS tokens      | `npm run lint:css`  |
-| Tests                | `npm run test`      |
-| DB tests (pgTAP)     | `npm run test:db`   |
-| Format               | `npm run format`    |
-| Reset DB + reseed    | `supabase db reset` |
-| Regenerate DB types  | `npm run types:db`  |
+| What                 | How                    |
+| -------------------- | ---------------------- |
+| Dev server           | `npm run dev`          |
+| Typecheck            | `npm run typecheck`    |
+| Lint (zero warnings) | `npm run lint`         |
+| Lint CSS tokens      | `npm run lint:css`     |
+| Lint comment length  | `npm run lint:comments`|
+| Tests                | `npm run test`         |
+| DB tests (pgTAP)     | `npm run test:db`      |
+| Format               | `npm run format`       |
+| Reset DB + reseed    | `supabase db reset`    |
+| Regenerate DB types  | `npm run types:db`     |
 
 After editing a migration, run `supabase db reset && npm run types:db` and
 commit both the migration and the regenerated `src/types/supabase.ts`.

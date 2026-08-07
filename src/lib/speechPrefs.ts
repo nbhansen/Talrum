@@ -1,12 +1,7 @@
 /**
- * Persisted user preferences for browser TTS playback. `speak()` reads these
- * at call time so changes from the settings page take effect on the next
- * pictogram tap without a page reload.
- *
- * `voiceURI` is null when the user wants the heuristic in pickVoice() to run
- * (system default). When set, we look up the matching SpeechSynthesisVoice
- * by URI on the next speak() call; if it's gone (voice list changed across
- * platforms), the heuristic takes over again silently.
+ * `speak()` reads these at call time, so a settings change lands on the next
+ * tap. A null `voiceURI` means the `pickVoice()` heuristic; a URI that no
+ * longer resolves falls back to it silently.
  */
 
 const STORAGE_KEY = 'talrum:speech-prefs';

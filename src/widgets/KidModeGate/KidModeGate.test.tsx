@@ -7,19 +7,18 @@ import { clearPin, hasPin, setPin } from '@/lib/pin';
 import { KidModeGate } from './KidModeGate';
 import { recordPinFailure, resetPinThrottle } from './pinThrottle';
 
-// `pinGateDisabled()` reads import.meta.env at runtime; tests run with the
-// flag undefined, so the gate is active.
+// `pinGateDisabled()` reads import.meta.env at runtime, and the flag is unset
+// here, so the gate is active.
 
 beforeEach(() => {
-  // Defensive: localStorage is shared across tests in jsdom, and the
-  // throttle counter is module state shared the same way.
+  // Both localStorage and the throttle counter are shared across tests.
   clearPin();
   resetPinThrottle();
 });
 
 afterEach(() => {
-  // Unmount before resetting the throttle: this afterEach runs before RTL's
-  // auto-cleanup, and the reset notifies a still-mounted gate outside act.
+  // Unmount first: this runs before RTL's auto-cleanup, and the reset would
+  // notify a still-mounted gate outside act.
   cleanup();
   clearPin();
   resetPinThrottle();
@@ -56,7 +55,6 @@ describe('KidModeGate', () => {
       const onExit = vi.fn();
       const { user } = renderGate(onExit);
       await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
-      // Modal never mounts; onExitConfirmed fires synchronously.
       expect(screen.queryByText(/Enter PIN to exit/)).not.toBeInTheDocument();
       expect(onExit).toHaveBeenCalledTimes(1);
     } finally {
@@ -64,10 +62,8 @@ describe('KidModeGate', () => {
     }
   });
 
-  // The bug in #353: the gate used to open a two-step *setup* flow here, so
-  // whoever held the tablet could invent a PIN and walk out. Nothing in the
-  // gate may create a PIN — assert on the storage key, not just the copy, so a
-  // renamed heading cannot make this pass while the hole is back.
+  // Assert on the storage key, not just the copy: a renamed heading must not
+  // make this pass with the PIN-creation hole back (#353).
   it('never offers to create a PIN, and stores none, when no PIN is set (#353)', async () => {
     expect(hasPin()).toBe(false);
     const onExit = vi.fn();
@@ -77,15 +73,12 @@ describe('KidModeGate', () => {
 
     expect(screen.queryByText(/Set a parent PIN/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Confirm/i)).not.toBeInTheDocument();
-    // No PIN pad at all: no digit keys to tap.
     expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument();
     expect(hasPin()).toBe(false);
   });
 
-  // Anti-lockout, and the deliberate limit of the fix. The kid routes refuse to
-  // render without a PIN, but clearing it in another tab can strand this one in
-  // kid mode. A PIN pad no entry can satisfy would trap the parent, so the gate
-  // opens instead — the same answer the route guard gives: no PIN, no kid mode.
+  // Clearing the PIN in another tab can strand this one in kid mode, and a pad
+  // no entry can satisfy would trap the parent.
   it('lets the parent out rather than trapping them when the PIN vanished mid-session', async () => {
     const onExit = vi.fn();
     const { user } = renderGate(onExit);
@@ -126,18 +119,15 @@ describe('KidModeGate', () => {
     await tapDigits(user, '1111');
     await screen.findByText('Wrong PIN');
 
-    // Still the verify pad, and the stored PIN is untouched.
     expect(screen.getByText('Enter PIN to exit')).toBeInTheDocument();
     expect(screen.queryByText(/Set a parent PIN/i)).not.toBeInTheDocument();
     await tapDigits(user, '9999');
     await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
   });
 
-  // Throttle (#372): every 5th wrong entry locks the pad with an escalating
-  // cooldown. Fake timers (incl. Date) with fireEvent + hand-driven macrotask
-  // ticks, following VoiceRecorderDialog.test.tsx: RTL's waitFor does not
-  // advance vitest's fake clock, and a real-time countdown interval would
-  // set state outside act and trip the console.error guard.
+  // Fake timers with hand-driven macrotask ticks, as in
+  // VoiceRecorderDialog.test.tsx: RTL's waitFor does not advance vitest's fake
+  // clock, and a real countdown would set state outside act (#372).
   describe('attempt throttling (#372)', () => {
     const realTick = (): Promise<void> =>
       new Promise((resolve) => {
@@ -180,11 +170,9 @@ describe('KidModeGate', () => {
         </KidModeGate>,
       );
       fireEvent.click(screen.getByRole('button', { name: 'Exit kid mode' }));
-      // Pre-seed four failures through the module API — the counting is
-      // pinned by pinThrottle.test.ts, and five full pad round-trips of
-      // hand-driven ticks time out under full-suite load. The fifth entry
-      // goes through the pad, so the lock the UI reacts to is the one a
-      // real wrong entry engages.
+      // Four failures through the module API, because five pad round-trips of
+      // hand-driven ticks time out under load and pinThrottle.test.ts already
+      // pins the counting. The fifth goes through the pad.
       act(() => {
         for (let i = 0; i < 4; i++) recordPinFailure();
       });

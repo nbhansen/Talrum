@@ -46,13 +46,8 @@ export const usePictograms = (): UseQueryResult<Pictogram[]> =>
   useQuery({ queryKey: pictogramsQueryKey, queryFn: fetchPictograms });
 
 /**
- * Convenience: same underlying query as `usePictograms`, but returns a
- * `Map<id, Pictogram>` so callers resolving `board.stepIds → Pictogram`
- * don't keep rebuilding the lookup. Returns an empty map while loading.
- *
- * Memoized on the `data` reference: React Query holds the array identity-
- * stable until it changes, so each consumer recomputes the Map at most
- * once per cache update — not once per render.
+ * Memoised on the `data` reference, which React Query keeps identity-stable,
+ * so each consumer rebuilds the lookup once per cache update, not per render.
  */
 export const usePictogramsById = (): Map<string, Pictogram> => {
   const { data } = usePictograms();

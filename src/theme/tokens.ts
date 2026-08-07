@@ -1,10 +1,6 @@
 /**
- * Typed token names matching the CSS custom properties in tokens.css.
- *
- * Components should prefer applying classes from CSS Modules that already
- * reference these tokens. `cssVar()` is only for the rare case where a value
- * must land in an inline `style` prop — e.g. a pictogram tile whose
- * background is driven by `picto.tint` at runtime.
+ * Typed names for the custom properties in tokens.css. Prefer CSS Module
+ * classes; `cssVar()` is for the rare runtime value that must go inline.
  */
 
 export type ColorToken =
@@ -53,9 +49,8 @@ export const shadowVar = (token: ShadowToken): string => `var(--tal-shadow-${tok
 export const spaceVar = (token: SpaceToken): string => `var(--tal-space-${token})`;
 
 /**
- * The 5 accent backgrounds usable on a Board. Narrower than ColorToken so
- * that callers can't pass non-accent tokens (e.g. `ink`, `photo-stripe-a`)
- * into accent-typed slots, and so `inkForAccent` can be a total function.
+ * Narrower than ColorToken so a non-accent token cannot reach an accent slot,
+ * and so `inkForAccent` can be total.
  */
 export type AccentBg = 'sage' | 'sky' | 'peach' | 'lavender' | 'sun';
 

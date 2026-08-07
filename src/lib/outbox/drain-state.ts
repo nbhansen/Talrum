@@ -14,11 +14,8 @@ export interface OutboxStatus {
   conflictCount: number;
   draining: boolean;
   /**
-   * True while the current drain was started by the retry timer (#391).
-   * The OfflineIndicator keeps its live-region label at "Sync queued · N"
-   * for these instead of flipping to "Syncing…" — a transient outage
-   * re-drains every few seconds, and a polite live region re-announces on
-   * every text change (#409).
+   * The OfflineIndicator holds its label steady for these, because an outage
+   * re-drains every few seconds and each text change re-announces (#409).
    */
   timerDrain: boolean;
 }
@@ -30,15 +27,14 @@ interface DrainState {
   pendingDrain: boolean;
   listenersAttached: boolean;
   lastStatus: OutboxStatus;
-  /** Scheduled re-drain after a transient failure (#391). */
   retryTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Delay for the next scheduled re-drain; doubles per transient pass. */
+  /** Doubles per transient pass, up to RETRY_MAX_DELAY_MS. */
   retryDelayMs: number;
 }
 
-/** First re-drain delay after a transient failure (#391). */
+// The retry schedule (#391). MAX_ATTEMPTS_BEFORE_FAILED in drain.ts is sized
+// against these two, so change them together.
 export const RETRY_BASE_DELAY_MS = 2_000;
-/** Backoff ceiling for the scheduled re-drain (#391). */
 export const RETRY_MAX_DELAY_MS = 30_000;
 
 const initialStatus = (): OutboxStatus => ({

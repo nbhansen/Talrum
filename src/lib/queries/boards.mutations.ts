@@ -9,14 +9,9 @@ import { type Accent } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
 
 /**
- * Generic wrapper for every board write. Applies an optimistic patch to the
- * cached board (so the UI snaps instantly), enqueues the SQL through the
- * outbox so offline edits queue + replay automatically, then invalidates
- * both the per-id and the list caches. On a non-retryable error (RLS,
- * validation) the previous snapshot is rolled back; transient network
- * errors are absorbed by the outbox and the optimistic patch stands.
- *
- * Every public mutation below is a three-line wrapper over this.
+ * Every board write: optimistic patch, outbox enqueue, then invalidate both
+ * caches. A non-retryable error rolls the snapshot back; a transient one is
+ * absorbed by the outbox and the patch stands.
  */
 const useBoardPatch = <Input extends { boardId: string }>(
   patch: (input: Input, current: Board) => Board,
@@ -25,12 +20,9 @@ const useBoardPatch = <Input extends { boardId: string }>(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input) => {
-      // Conflict-guard baseline (#281): the server updated_at of the board
-      // this edit was computed against. This read happens AFTER onMutate
-      // patched the cache — safe only because onMutate reasserts the
-      // pre-patch serverUpdatedAt on the optimistic value. Cache misses and
-      // boards rehydrated from a pre-#281 persisted cache have none — those
-      // writes stay unguarded last-write-wins.
+      // The conflict-guard baseline (#281). This read happens after onMutate
+      // patched the cache, and is safe only because onMutate reasserts the
+      // pre-patch serverUpdatedAt. No baseline means last-write-wins.
       const baseline = qc.getQueryData<Board>(boardQueryKey(input.boardId))?.serverUpdatedAt;
       return enqueueAndDrain({
         kind: 'updateBoard',
@@ -115,11 +107,9 @@ export const useSetVoiceMode = (): UseMutationResult<
   );
 
 /**
- * Step-id mutations always merge against the **current cache**, never a
- * closed-over snapshot — closures captured at render time get clobbered when
- * another tab, an outbox drain, or a long-open picker modal shifts the cache
- * underneath us. Callers pass an updater `(prev) => next` so the read happens
- * inside the hook, at the synchronous boundary of `mutate()`.
+ * The updater form exists so the read happens inside `mutate()`, against the
+ * current cache. A snapshot closed over at render time is clobbered when a
+ * drain, another tab, or a long-open picker shifts the cache underneath it.
  */
 export interface SetStepIdsInput {
   boardId: string;
@@ -128,11 +118,7 @@ export interface SetStepIdsInput {
 
 export interface SetStepIdsResult {
   mutate: (input: SetStepIdsInput) => void;
-  /**
-   * Re-runs the last input against the *current* cache. Re-reads `stepIds`
-   * fresh so a retry after a transient failure doesn't reapply against a
-   * stale snapshot. No-op if `mutate` was never called.
-   */
+  /** Re-runs the last input against the current cache, not a stale snapshot. */
   retry: () => void;
   isError: boolean;
   error: Error | null;
@@ -141,16 +127,9 @@ export interface SetStepIdsResult {
 }
 
 /**
- * Wrapper (not a plain `useBoardPatch` consumer) for two reasons:
- *
- *  1. `useBoardPatch.toRowPatch(input)` doesn't see `current`, so we can't
- *     express `update: (prev) => next` as a closure-form input — the new
- *     `step_ids` array must be computed *before* `mutationFn` runs. The
- *     cache lookup in `run()` bridges that gap.
- *  2. `retry()` must re-derive against the **current** cache, not a saved
- *     snapshot — by the time a user clicks Retry, the outbox drain or
- *     another tab may have shifted `step_ids` further. Storing `lastInput`
- *     (the updater function), not `lastResult`, is what makes that work.
+ * Not a plain `useBoardPatch` consumer: `toRowPatch` cannot see `current`, so
+ * the new array must be computed before `mutationFn` runs. Storing the updater
+ * as `lastInput` is what lets `retry()` re-derive against the current cache.
  */
 export const useSetStepIds = (): SetStepIdsResult => {
   const qc = useQueryClient();
@@ -214,15 +193,9 @@ interface CreateBoardInput {
 const DEFAULT_ACCENT: Accent = { bg: 'sage', ink: 'sage-ink' };
 
 /**
- * Direct Supabase insert (no outbox), matching the `useAddBoardMember` and
- * `useCreateKid` precedents. Outbox would surface RLS denials only at drain
- * time — wrong for create-then-navigate where the caller needs the row to
- * actually exist on the server before routing into the BoardBuilder.
- *
- * Defaults match the new-board column requirements from
- * `20260425000000_real_auth_onboarding.sql`: an empty step list, labels
- * visible, TTS voice, kid-reorderable off. The user can change all of these
- * in the BoardBuilder after creation.
+ * Direct insert, no outbox, like `useCreateKid`. Create-then-navigate needs the
+ * row to exist before routing, and the outbox would surface an RLS denial only
+ * at drain time. See docs/queries.md for the decision rule.
  */
 export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInput> => {
   const qc = useQueryClient();

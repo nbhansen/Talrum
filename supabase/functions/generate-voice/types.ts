@@ -26,13 +26,9 @@ export interface ErrorResponse {
 }
 
 /**
- * Success is a JSON envelope, not raw audio bytes. supabase-js parses a
- * response by an allow-list of content types (json, octet-stream, pdf,
- * event-stream, form-data) and reads everything else — audio/mpeg included
- * — as text, and it exposes no response headers to carry a MIME type beside
- * octet-stream bytes. Base64-in-JSON keeps the clip and its real MIME type
- * in one self-describing shape. Clips are seconds long; the size cost is
- * noise.
+ * A JSON envelope, not raw bytes: supabase-js reads any content type outside
+ * its allow-list as text, and exposes no headers to carry a MIME type beside
+ * octet-stream. Base64-in-JSON is self-describing, and clips are seconds long.
  */
 export interface SuccessResponse {
   ok: true;
@@ -41,11 +37,9 @@ export interface SuccessResponse {
 }
 
 /**
- * The provider seam. A provider turns a label into spoken audio and reports
- * the MIME type of the bytes. `azure.ts` is the only implementation today;
- * to swap providers, implement this signature in a new file and change one
- * import in index.ts. Nothing else — not the HTTP shell, not the client —
- * may know which provider runs.
+ * The provider seam. To swap providers, implement this signature in a new file
+ * and change one import in index.ts. Nothing else — not the HTTP shell, not
+ * the client — may know which provider runs.
  */
 export type Synthesize = (
   label: string,

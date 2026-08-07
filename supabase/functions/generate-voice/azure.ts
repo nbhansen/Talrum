@@ -1,11 +1,7 @@
 /**
- * The Azure implementation of the Synthesize seam. This file is the only
- * place in the repository that knows Azure exists. It sends SSML to Azure
- * AI Speech and returns MP3 bytes.
- *
- * Secrets (set with `supabase secrets set`):
- *   AZURE_SPEECH_KEY    — the key from the Azure Speech service page.
- *   AZURE_SPEECH_REGION — the data center picked at creation (northeurope).
+ * The Azure implementation of the Synthesize seam, and the only file in the
+ * repository that knows Azure exists. Needs two secrets, set with
+ * `supabase secrets set`: AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.
  */
 
 import { SynthesisError, type Synthesize, type VoiceLanguage } from './types.ts';

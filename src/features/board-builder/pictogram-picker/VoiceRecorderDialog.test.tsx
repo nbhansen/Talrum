@@ -213,7 +213,10 @@ describe('VoiceRecorderDialog', () => {
       channel.port2.postMessage(null);
     });
 
-  it('stops and saves automatically at the duration cap (#416)', async () => {
+  // 20 s, not the default 5 s: the loops below can spend 2000 real macrotask
+  // rounds and the save path drains IDB on them. The loop bounds still cap the
+  // test, so a genuine break surfaces as the assertion, not a timeout.
+  it('stops and saves automatically at the duration cap (#416)', { timeout: 20_000 }, async () => {
     // RTL's waitFor does not advance vitest's fake clock, so this test
     // drives the clock and the real macrotask queue by hand.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });

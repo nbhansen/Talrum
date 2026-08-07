@@ -40,8 +40,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Default the mock to the real impl so the PIN/last-board localStorage tests
-// below keep working; individual tests override with mockRejectedValueOnce.
+// The real impl by default, so the localStorage tests below keep working.
 vi.mock('@/lib/queryClient', async (importOriginal) => {
   const actual = (await importOriginal()) as { clearPersistedCache: () => Promise<void> } & Record<
     string,
@@ -118,7 +117,6 @@ describe('AuthGate', () => {
           <div>app body</div>
         </AuthGate>,
       );
-      // Spinner is up before the hung-getSession timer fires.
       expect(screen.getByText('Loading…')).toBeInTheDocument();
       act(() => {
         vi.advanceTimersByTime(5000);
@@ -152,9 +150,6 @@ describe('AuthGate', () => {
     }
   });
 
-  // Belt-and-braces: if a CDN rewrite, copy-pasted URL, or a router quirk
-  // sticks a trailing slash on the path, the public-path lookup must still
-  // match. Without normalization signed-out users would bounce to Login.
   it('renders children (not Login) when out and on a public path with trailing slash', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/account-deleted/');
@@ -174,12 +169,9 @@ describe('AuthGate', () => {
     }
   });
 
-  // Regression for the deletion flow end-to-end behaviour: the user was
-  // signed in, navigated to /account-deleted, and then signOut() fires.
-  // AuthGate's onAuthStateChange listener flips state to 'out' — and at
-  // that moment the PUBLIC_PATHS branch must keep rendering children, not
-  // bounce to <Login />. This test fails if anyone removes the
-  // PUBLIC_PATHS check from the `out` branch.
+  // Fails if the PUBLIC_PATHS check leaves the `out` branch: at the moment
+  // SIGNED_OUT lands, a user already on /account-deleted must keep seeing it
+  // rather than bounce to <Login />.
   it('keeps showing children on /account-deleted when SIGNED_OUT fires after navigation', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/account-deleted');
@@ -191,13 +183,10 @@ describe('AuthGate', () => {
           <div data-testid="public-children">deleted page</div>
         </AuthGate>,
       );
-      // Signed-in: SessionProvider mounts, children render.
       await waitFor(() => {
         expect(screen.getByTestId('public-children')).toBeInTheDocument();
       });
 
-      // signOut() flips state to 'out'. PUBLIC_PATHS catches the path
-      // and we keep rendering children instead of <Login />.
       act(() => {
         lastAuthListener?.('SIGNED_OUT', null);
       });
@@ -229,11 +218,8 @@ describe('AuthGate', () => {
     }
   });
 
-  // Regression cover for cross-user re-auth: signing out and back in as a
-  // different user must propagate the new user.id all the way through
-  // SessionProvider so dependent hooks (mutations, useUserEmail) read the
-  // new user. Verifies AuthGate wires onAuthStateChange → setState →
-  // SessionProvider value without missing a session swap.
+  // Signing back in as a different user must carry the new user.id through
+  // SessionProvider, or dependent hooks keep reading the old one.
   it('propagates a new session.user when onAuthStateChange fires after re-auth', async () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     const sessionB = makeSession('user-b-id', 'b@example.com');
@@ -262,10 +248,8 @@ describe('AuthGate', () => {
     });
   });
 
-  // #178: PIN hash and last-board pointer live in localStorage and were
-  // surviving sign-out, locking the next user out of kid-mode and pointing
-  // their auto-launch at user A's board UUID. The scrub on SIGNED_OUT now
-  // wipes both via clearPersistedCache → clearPin/clearLastBoard.
+  // These survived sign-out, locking the next user out of kid mode and aiming
+  // their auto-launch at user A's board (#178).
   it('clears talrum:pin-hash and talrum:last-board from localStorage on SIGNED_OUT (#178)', async () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
@@ -290,10 +274,8 @@ describe('AuthGate', () => {
     });
   });
 
-  // #179: SIGNED_IN can fire for a different user without an intervening
-  // SIGNED_OUT (close-tab-then-resume, or fast account-switch). Without a
-  // user-id-change scrub, user B briefly sees user A's persisted cache and
-  // localStorage residue.
+  // SIGNED_IN can fire for a different user with no SIGNED_OUT between —
+  // close-tab-then-resume, or a fast account switch (#179).
   it('scrubs PIN + last-board when SIGNED_IN fires for a new user without SIGNED_OUT (#179)', async () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     const sessionB = makeSession('user-b-id', 'b@example.com');
@@ -308,7 +290,6 @@ describe('AuthGate', () => {
       expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
     });
 
-    // User A's residue lands in localStorage during their session.
     localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
     localStorage.setItem('talrum:last-board', '{"id":"a-board","kind":"choice"}');
 
@@ -323,9 +304,8 @@ describe('AuthGate', () => {
     });
   });
 
-  // Token refreshes fire SIGNED_IN with the same user.id. Scrubbing on
-  // every SIGNED_IN would wipe the cache on a routine refresh and cause a
-  // visible reload flicker; the user-id check below avoids that.
+  // A token refresh fires SIGNED_IN with the same id, and scrubbing on every
+  // one would flicker the app on a routine refresh.
   it('does NOT scrub on SIGNED_IN with the same user.id (token refresh)', async () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
@@ -345,18 +325,14 @@ describe('AuthGate', () => {
     await act(async () => {
       lastAuthListener?.('TOKEN_REFRESHED', sessionA);
     });
-    // `act(async)` flushes React updates from the dispatched event; the
-    // same-id branch is synchronous so nothing further needs to settle.
-    // waitFor doesn't fit a negative assertion (it would pass immediately
-    // without ever actually waiting).
+    // waitFor does not fit a negative assertion — it would pass immediately
+    // without waiting. The same-id branch is synchronous, so act is enough.
     expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');
     expect(localStorage.getItem('talrum:last-board')).toBe('{"id":"keep","kind":"sequence"}');
   });
 
-  // #142: clearPersistedCache is fired-and-forgotten on auth boundaries — the
-  // UX is best-effort and we never block sign-out on it. Used to swallow the
-  // rejection silently; now reports a warning to telemetry so persistent IDB
-  // failures don't stay invisible.
+  // The scrub is fire-and-forget, because sign-out must not block on it. It
+  // still reports, or a persistent IDB failure stays invisible (#142).
   it('captures a warning when clearPersistedCache rejects on SIGNED_OUT (#142)', async () => {
     const cacheError = new Error('idb wedged');
     clearPersistedCacheMock.mockRejectedValueOnce(cacheError);
@@ -385,13 +361,10 @@ describe('AuthGate', () => {
     expect(ctx.tags).toMatchObject({ component: 'AuthGate', op: 'clearPersistedCache' });
   });
 
-  // #184: switching VITE_SUPABASE_URL leaves the previous project's
-  // sb-<host>-auth-token in localStorage forever. AuthGate sweeps once on
-  // mount; the current project's key (derived from VITE_SUPABASE_URL) is
-  // preserved.
+  // Switching VITE_SUPABASE_URL strands the previous project's auth token in
+  // localStorage forever (#184).
   it('sweeps stale sb-*-auth-token keys on mount, preserving the current project key (#184)', async () => {
-    // Stub the env var explicitly: CI doesn't load .env.local, so reading
-    // import.meta.env.VITE_SUPABASE_URL would be undefined.
+    // CI does not load .env.local, so the real env var would be undefined.
     vi.stubEnv('VITE_SUPABASE_URL', 'https://testref.supabase.co');
     const currentKey = 'sb-testref-auth-token';
 
