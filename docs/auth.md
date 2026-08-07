@@ -1,4 +1,4 @@
-# Auth — email OTP sign-in
+# Auth — email magic-link sign-in
 
 Real email-based sign-in with uuid-native per-user onboarding. It replaced
 an earlier stubbed single-user auth from the initial build — the "Phase 2" /
@@ -8,24 +8,33 @@ transition.
 ## Flow
 
 - Unauthenticated users see the `Login` screen (`src/features/login/Login.tsx`).
-- The client calls `supabase.auth.signInWithOtp({ email })`. Supabase emails
-  a 6-digit code (plus a magic-link URL we don't use).
-- The user pastes the code; the client calls `supabase.auth.verifyOtp` and
-  gets a session.
+- The client calls `supabase.auth.signInWithOtp({ email, options: {
+  emailRedirectTo } })` via `useMagicLink` (`src/lib/auth/login.ts`).
+  Supabase emails a magic link.
+- The user clicks the link and lands back on the app; supabase-js's
+  `detectSessionInUrl` (on by default) exchanges the URL for a session.
 - `AuthGate` (`src/app/AuthGate.tsx`) subscribes to
   `onAuthStateChange` and swaps the routed app in/out on session changes.
 - Sign-out is the avatar button in the parent sidebar.
 
-## Local dev — how to read the OTP
+Why a link and not a typed 6-digit code (#219): the code only reaches the
+user if the email template renders `{{ .Token }}`, which is
+dashboard-managed and was dropped in prod. The link is present in every
+email regardless of template, so it is the only sign-in path the frontend
+can guarantee works. The doc comment in `src/lib/auth/login.ts` carries the
+same rationale.
 
-Supabase CLI's email catcher exposes Mailpit's API at:
+## Local dev — how to sign in
+
+Supabase CLI's email catcher exposes Mailpit at:
 
 ```
 http://127.0.0.1:54324
 ```
 
-Sign in in the app, switch to that tab, grab the 6-digit code, paste it.
-The token TTL is set in `supabase/config.toml::auth.email.otp_expiry`.
+Sign in in the app, switch to that tab, open the newest email, click the
+magic link. The token TTL is set in
+`supabase/config.toml::auth.email.otp_expiry`.
 
 ## Starter library on signup
 
@@ -46,7 +55,8 @@ mutate them.
 ## Smoke-test RLS isolation
 
 1. `supabase db reset` — empties users.
-2. Boot the app, sign up as `alice@example.com`, verify OTP via Mailpit.
+2. Boot the app, sign up as `alice@example.com`, click the magic link in
+   Mailpit.
 3. Rename a board, add a photo, record audio.
 4. Sign out.
 5. Sign up as `bob@example.com`. His library is a fresh clone of the

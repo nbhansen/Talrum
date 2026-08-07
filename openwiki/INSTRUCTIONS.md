@@ -8,5 +8,6 @@ Hard rules:
 - No exact identifiers pulled from code (storage keys, lock names, config values, function signatures, retry counts, port numbers). Describe the behavior in prose and name the file where the detail lives.
 - Never state a specific fact you have not read directly from the source in this run. If unsure, describe the behavior generally and point to the file.
 - No exhaustive inventories (every feature folder, every test file, every function). Name the two or three most illustrative examples and say where the rest live.
+- No claims about the project backlog or roadmap. `docs/user-stories.md` and the GitHub issue tracker own that; link there instead of asserting "there is no backlog".
 
 Prefer fewer, shorter pages. A page that says less but is entirely true beats a detailed page with invented specifics.
