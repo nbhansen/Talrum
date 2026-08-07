@@ -7,7 +7,8 @@ vi.mock('./telemetry', () => ({ captureMessage: vi.fn() }));
 
 const captureMessageMock = vi.mocked(captureMessage);
 
-const RELOADED_FLAG = 'talrum-preload-reloaded';
+const RELOADED_AT = 'talrum-preload-reloaded';
+const RELOAD_COUNT = 'talrum-preload-reload-count';
 
 const reloadMock = vi.fn();
 
@@ -60,7 +61,8 @@ describe('installPreloadErrorRecovery', () => {
     const event = firePreloadError();
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
-    expect(Number(sessionStorage.getItem(RELOADED_FLAG))).toBeGreaterThan(0);
+    expect(Number(sessionStorage.getItem(RELOADED_AT))).toBeGreaterThan(0);
+    expect(sessionStorage.getItem(RELOAD_COUNT)).toBe('1');
     // Deliberately NOT prevented (#443 review round 2): preventing makes
     // the failed import resolve `undefined`, which the route table turns
     // into an opaque TypeError. The original error stays diagnosable.
@@ -70,7 +72,7 @@ describe('installPreloadErrorRecovery', () => {
 
   it('does not reload again when the failure recurs right after the reload', () => {
     // Simulate the page that loads after the recovery reload: fresh stamp.
-    sessionStorage.setItem(RELOADED_FLAG, String(Date.now()));
+    sessionStorage.setItem(RELOADED_AT, String(Date.now()));
     installPreloadErrorRecovery();
 
     const event = firePreloadError();
@@ -88,12 +90,59 @@ describe('installPreloadErrorRecovery', () => {
   // recovery it must be armed again for the deploy after next (#443
   // review).
   it('reloads again for a failure long after the previous recovery', () => {
-    sessionStorage.setItem(RELOADED_FLAG, String(Date.now() - 60_000));
+    sessionStorage.setItem(RELOADED_AT, String(Date.now() - 60_000));
+    sessionStorage.setItem(RELOAD_COUNT, '1');
     installPreloadErrorRecovery();
 
     firePreloadError();
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
+    // Same burst (under 10 minutes), so the count carries.
+    expect(sessionStorage.getItem(RELOAD_COUNT)).toBe('2');
+    expect(captureMessageMock).not.toHaveBeenCalled();
+  });
+
+  // window.location.reload() does not stop the current document, so a
+  // second failure can arrive before the navigation commits (#443 review
+  // round 3). That is the recovery in flight, not a recovery that failed.
+  it('stays silent for a second failure while the reload is in flight', () => {
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+    firePreloadError();
+
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+    expect(captureMessageMock).not.toHaveBeenCalled();
+  });
+
+  // The timestamp alone only guards a loop whose round trip is under 30s. A
+  // stalling chunk request outlasts that window, so the count caps the burst
+  // (#443 review round 3).
+  it('stops reloading after three reloads when each round trip outlasts the stamp', () => {
+    sessionStorage.setItem(RELOADED_AT, String(Date.now() - 60_000));
+    sessionStorage.setItem(RELOAD_COUNT, '3');
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.stringMatching(/after 3 recovery reloads/i),
+      expect.objectContaining({ level: 'warning' }),
+    );
+  });
+
+  // The cap must not disarm the tab for good: the deploy after next is the
+  // case this feature exists for.
+  it('clears an exhausted count once the burst window has passed', () => {
+    sessionStorage.setItem(RELOADED_AT, String(Date.now() - 11 * 60_000));
+    sessionStorage.setItem(RELOAD_COUNT, '3');
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(RELOAD_COUNT)).toBe('1');
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
