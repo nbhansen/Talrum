@@ -1,15 +1,10 @@
 # The outbox: lifecycle of a write
 
 Mutations that change existing state go through `src/lib/outbox` instead of
-calling Supabase directly. The goal: a parent on a flaky tablet connection
-can rename a pictogram, lose Wi-Fi, close the lid, and the write still lands
-— without the UI ever blocking on the network. A small set of writes
-deliberately bypasses the queue; the decision rule is in
-[queries.md](./queries.md) ("Choosing a write path"). This page carries the
-invariants and the why; the inline doc comments in `src/lib/outbox/*` carry
-the per-decision detail, including every constant and schedule. For the
-_read_ side — the persisted React Query cache and its auth-boundary scrub —
-see [offline-cache.md](./offline-cache.md).
+calling Supabase directly, so a parent on a flaky tablet connection can rename a
+pictogram, lose Wi-Fi, close the lid, and still have the write land. A few
+writes bypass the queue; the decision rule is in [queries.md](./queries.md).
+For the read side, see [offline-cache.md](./offline-cache.md).
 
 ## The shape
 
@@ -31,229 +26,168 @@ runHandler(entry)                 src/lib/outbox/handlers.ts
 ```
 
 Entries are plain objects (plus `Blob`s), discriminated on `kind`, one
-IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
+IndexedDB key per entry; ULID key order is enqueue order, so FIFO is free.
 `handlers.ts` is the only write-path code that talks to Supabase, and
 `runHandler` is the single place errors are classified.
 
 ## The invariants
 
-- **The fast path requires an empty pending queue** (#279). Jumping ahead of
-  older queued entries would let their replay overwrite this newer write
-  with stale data. Offline, the mutation promise resolves as soon as the
-  entry is persisted — the UI keeps its optimistic state and the indicator
-  shows the pending count.
-- **The entry is durable before any attempt** (#445). The fast path persists
-  the entry, runs the handler, then deletes it. The handler's round trip is a
-  window in which the page can go away — the auto-reload after a deploy
-  (#442), a tab close, a crash — and an entry that lived only in memory went
-  with it. The optimistic cache patch does not survive either (the persisted
-  cache is busted by commit), so the write disappeared with no queue entry, no
-  error, and nothing for the user to retry.
+**The fast path requires an empty pending queue** (#279). A write that jumps
+older queued entries gets overwritten when they replay. Offline, the mutation
+promise resolves as soon as the entry is persisted: the UI keeps its optimistic
+state and the indicator shows the pending count.
 
-  The cost is one put and one delete per online write. For the blob-carrying
-  kinds the put copies the whole payload into IndexedDB and deletes it moments
-  later — a few hundred KB for a photo or a recording — and it happens
-  **while the cross-tab lock is held**, so it also stalls the other tab's
-  drain and fast path. Durability needs the blob persisted, so this is the
-  price of the guarantee, not an accident.
+**The entry is durable before any attempt** (#445). The handler's round trip is
+a window in which the page can go away — the auto-reload after a deploy (#442),
+a tab close, a crash — and an entry that lived only in memory went with it. The
+optimistic cache patch does not survive either, because the persisted cache is
+busted by commit, so the write disappeared with no entry, no error, and nothing
+to retry. The cost is one put and one delete per online write, and for the
+blob-carrying kinds that put copies a few hundred KB into IndexedDB while the
+cross-tab lock is held. Durability needs the blob persisted, so that is the
+price of the guarantee.
 
-- **An in-flight entry is `attempting`, not `pending`** (#446 review). The
-  two are different facts: `pending` means a write is waiting for a drain,
-  and the in-flight one is being run right now under the lock. Writing it as
-  `pending` made the pending count name a write that was not waiting, made
-  the drain loop a candidate to double-run it, and made every exit path
-  responsible for emitting a correction afterwards. `attempting` is invisible
-  to `pendingCount`, to the drain loop's filter, and to the fast path's
-  empty-queue check, so none of that is needed.
+**An in-flight entry is `attempting`, not `pending`** (#446). The two are
+different facts: `pending` means a write is waiting for a drain, and this one is
+running right now. `attempting` is invisible to `pendingCount`, to the drain
+loop's filter, and to the fast path's empty-queue check, so no exit path has to
+correct a status afterwards.
 
-  Recovery is exact rather than a timeout. The fast path holds the cross-tab
-  lock for its whole attempt and the browser releases a held lock when its
-  tab dies, so an `attempting` entry seen **from inside the lock** cannot
-  have a live owner. `reconcileQueue` (`drain.ts`) promotes those to `pending`,
-  and both `drain` and the fast path call it first — the fast path so a new
-  write cannot jump an abandoned older one. The attempt is not counted
-  against the retry budget: the abandoned write may well have landed
-  server-side, so its replay is the ordinary at-least-once case.
+Recovery is exact rather than a timeout. The fast path holds the cross-tab lock
+for its whole attempt, and the browser releases a held lock when its tab dies,
+so an `attempting` entry seen *from inside the lock* cannot have a live owner.
+`reconcileQueue` promotes those to `pending`, and both `drain` and the fast path
+call it first — the fast path so a new write cannot jump an abandoned older one.
+The attempt is not counted against the retry budget, because the abandoned write
+may have landed server-side and its replay is the ordinary at-least-once case.
+Residual: an abandoned attempt shows in no count until a drain next takes the
+lock, which offline means waiting for `online`.
 
-  Residual: an abandoned attempt is durable but shows in no count until a
-  drain next takes the lock, which offline means waiting for `online`. It is
-  never *misreported* — the old shape reported a pending write that had
-  already landed.
+**An entry runs only for the account that enqueued it** (#446). Each entry
+carries `enqueuedBy`, and `reconcileQueue` deletes any entry the current session
+did not enqueue. An entry without it predates the stamp — unattributed, not
+foreign, so it is kept. Two rules make this hold:
 
-- **An entry runs only for the account that enqueued it** (#446 review). Each
-  entry carries `enqueuedBy`, and `reconcileQueue` deletes any entry the
-  current session did not enqueue. An entry without it predates the stamp —
-  unattributed, not foreign, so it is kept. The name is deliberately not
-  `ownerId`: `CreatePhotoPictogramEntry.ownerId` is a payload field, written
-  to the row as `owner_id` and used to mint the storage path, and one name for
-  both would let the queue-level stamp overwrite the payload through a spread.
+- `enqueueAndDrain` reads the owner **at call time**, never after the lock wait.
+  A read inside the lock callback happens after the auth boundary has moved, and
+  would label user A's write with user B. If the account changed while the write
+  queued for the lock, the write is abandoned rather than stamped.
+- `drain` does nothing while no account is known. `startOutbox` drains at module
+  load, before AuthGate resolves the session, so without the gate the first
+  drain after every reload would replay the previous account's leftovers.
+  `setOutboxOwner` runs the drain that gate skips.
 
-  Two rules make this hold, and the second is the subtle one:
+The sweep in `clearPersistedCache` is deliberately **not** under the outbox
+lock. The lock would only stop a write landing between the sweep's `keys()`
+snapshot and its deletes, never one already waiting on it, so the sweep was
+never what made this hold. It is held across handler IO, so taking it would
+leave user A's blobs on a shared device for a whole upload.
 
-  - `enqueueAndDrain` reads the owner **at call time**, never after the lock
-    wait. `run` is the lock callback, so a read there happens after the auth
-    boundary has already moved — it would label user A's write with user B and
-    defeat the check. If the account changed while the write queued for the
-    lock, the write is abandoned rather than stamped: the account it belongs
-    to is gone, and the handler would fail under RLS anyway.
-  - `drain` does nothing while no account is known. `startOutbox` drains at
-    module load, before AuthGate has resolved the session, so without this the
-    first drain after every reload would replay a previous account's leftovers
-    before the owner is known. `setOutboxOwner` runs the drain that gate skips
-    once the session resolves.
+**A drain stops at the first transient failure** to preserve FIFO order, but
+marks permanent failures `failed` and moves on, so one bad entry cannot dam the
+queue.
 
-  The sweep in `clearPersistedCache` is deliberately **not** under the outbox
-  lock. The lock would only stop a write landing between the sweep's `keys()`
-  snapshot and its deletes, never one already waiting on it — so the sweep was
-  never what made this hold. Taking the lock would buy the weaker half of the
-  property and cost the stronger one: the lock is held across handler IO, so a
-  sign-out during a photo upload would leave user A's blobs on a shared device
-  for the whole upload instead of wiping them at once.
+**Drains, queue rewrites, and enqueues serialize across tabs** on a
+`navigator.locks` web lock (#278, #289, #395), so a PWA window and a browser tab
+cannot replay the same entry. Every enqueue holds the lock from the queue
+observation through its outcome, so check and outcome are atomic. The cost:
+online writes serialize within and across tabs, and a slow upload in one tab
+stalls the other's drain. `fetch` has no default timeout, so `runHandler` bounds
+each run itself (#413, with a longer bound for blob kinds): a run that outlives
+its bound rejects as transient, releases the lock, and retries.
 
-- **A drain stops at the first transient failure** to preserve FIFO order,
-  but marks permanent failures as `failed` and moves on, so one bad entry
-  can't dam the queue.
-- **Drains, queue rewrites, and enqueues serialize across tabs** on a
-  `navigator.locks` web lock (#278, #289, #395), so a PWA window plus a
-  browser tab can't replay the same entry twice. Every enqueue holds the
-  lock from the queue observation through its outcome — the handler run on
-  the fast path, the queue append otherwise — so check and outcome are
-  atomic and another tab can't slip a write in between. The cost: the lock
-  is held across handler IO, blob uploads included, so online writes
-  serialize within a tab and across tabs — a slow upload in one tab stalls
-  the other tab's drain and fast path until it settles or its tab dies.
-  `fetch` has no default timeout, so `runHandler` bounds each run itself
-  (#413, longer bound for blob-carrying kinds whose transfers are
-  legitimately slow): a run that outlives its handler timeout rejects as
-  transient, releases the lock, and retries on the backoff schedule. Accepted at this
-  app's write volume.
-- **A transient failure schedules its own re-drain** with capped exponential
-  backoff (#391), so an entry that fails while the device stays online never
-  waits for an external trigger. The schedule, its reset rules, and the
-  attempt budget live together in `drain.ts` / `drain-state.ts`; the budget
-  is sized against the schedule, so change them only together.
+**A transient failure schedules its own re-drain** with capped exponential
+backoff (#391), so an entry that fails while the device stays online never waits
+for an external trigger. The schedule, its reset rules, and the attempt budget
+live together in `drain.ts` and `drain-state.ts`; the budget is sized against
+the schedule, so change them only together.
 
 ## Error classification: transient vs permanent
 
-All classification lives in `classifyAndThrow` in `handlers.ts` — handlers
-themselves are happy-path only.
+All classification lives in `classifyAndThrow` in `handlers.ts`.
 
 - **Transient** (network `TypeError`, 5xx, and an allowlist of retryable
-  Postgres codes — serialization, deadlock, connection, pooler capacity,
-  statement timeout; the list lives on `handlers.ts`, #394): the entry stays
-  `pending` and retries on a bounded attempt budget, after which it flips to
-  `failed` so it can't retry forever. On the fast path the same
-  classification queues the write instead of failing it: the mutation
-  promise resolves, the optimistic patch stands, and the retries run in the
-  background.
-- **Permanent** (`UnretryableOutboxError`: other coded Postgres errors such
-  as RLS denials, 4xx storage errors): no retry. On the fast path the mutation
-  promise rejects, so React Query rolls back the optimistic patch and the
-  user sees the error. On the slow path the entry is marked `failed`; the
-  OfflineIndicator surfaces it with **Retry** (fresh attempt budget, #277)
-  and **Discard**.
-
-  Those two buttons exist nowhere else, so where the indicator is mounted is
-  part of the recovery path, not decoration: `ParentShell` mounts it once,
-  above the page header, so it exists on every parent screen including the
-  board builder — the screen where nearly every write is made (#354).
-
+  Postgres codes, #394): the entry stays `pending` and retries on a bounded
+  budget, then flips to `failed` so it cannot retry forever. On the fast path
+  the same classification queues the write instead of failing it — the mutation
+  promise resolves and the optimistic patch stands.
+- **Permanent** (`UnretryableOutboxError`: other coded Postgres errors such as
+  RLS denials, 4xx storage errors): no retry. On the fast path the mutation
+  promise rejects, so React Query rolls the patch back. On the slow path the
+  entry is marked `failed` and the OfflineIndicator offers **Retry** (fresh
+  budget, #277) and **Discard**. Those buttons exist nowhere else, so where the
+  indicator is mounted is part of the recovery path: `ParentShell` mounts it
+  once, above the page header, so it reaches every parent screen (#354).
 - **Conflict** (boards only, #281): `updateBoard` entries carry the server
-  `updated_at` they were computed against and update conditionally; zero
-  rows back means another device wrote the board since, and the entry fails
-  instead of silently overwriting. The indicator's pill names it ("board
-  changed on another device"). Your own queued edits don't trip the guard:
-  every landed replay feeds the produced `updated_at` forward (in-memory
-  board clock + persisted into the remaining queue, see `board-clock.ts`).
-  After a conflict, **Retry** strips the guard — applying your version
-  becomes an explicit choice — and **Discard** keeps the other device's
-  version.
+  `updated_at` they were computed against and update conditionally. Zero rows
+  back means another device wrote the board since, and the entry fails instead
+  of silently overwriting. Your own queued edits do not trip the guard, because
+  every landed replay feeds the produced `updated_at` forward (`board-clock.ts`,
+  plus a persisted copy into the remaining queue). After a conflict **Retry**
+  strips the guard, making your version an explicit choice, and **Discard**
+  keeps the other device's.
 
 ## Rules for writing a handler
 
-New entry kind? Add the interface in `types.ts`, the handler in
-`handlers.ts`, a `dispatch` case, and a mutation hook. Handlers must be:
+New entry kind? Add the interface in `types.ts`, the handler in `handlers.ts`, a
+`dispatch` case, and a mutation hook. Handlers must be:
 
-- **Idempotent.** A drain can replay an entry that already (partially)
-  succeeded — the fast path crashed after the Storage upload but before the
-  table write, or it landed the whole write and the page went away before the
-  entry was deleted (#445). Re-running must converge, not error. Server-side
-  `array_remove`/`ON DELETE CASCADE`/RPC no-ops are the usual tools; see
-  `delete_pictogram` (#280).
+- **Idempotent.** A drain can replay an entry that already partly succeeded, so
+  re-running must converge, not error. Server-side `array_remove`,
+  `ON DELETE CASCADE` and RPC no-ops are the usual tools; see `delete_pictogram`
+  (#280).
 
   Guarded `updateBoard` is the exception, by design. A reload starts with an
-  empty board clock (`board-clock.ts`), so the replay still carries the
-  `expectedUpdatedAt` its own landed write invalidated, `.match` returns zero
-  rows, and the caregiver gets the conflict pill for their own write. Same
-  accepted class as the transient-code replay `handlers.ts` documents, and
-  recoverable — **Retry** strips the guard. A recoverable wrong pill beats
-  the silent loss it replaced.
-- **Authorization-free.** RLS is the security boundary; a handler running
-  against someone else's rows should fail (or no-op) at the database, never
-  by client-side checks.
-- **Order-aware.** Within one entry, put the steps whose failure should
-  _retry the whole entry_ first (e.g. Storage cleanup before the row
-  delete). Best-effort cleanup that must never fail the write uses
-  `.catch(reportCleanupFailure)`, which logs to telemetry instead of
-  throwing.
-- **Happy-path only.** Throw raw Supabase/Storage errors; `runHandler` owns
-  classification. Never catch-and-swallow.
-- **Storage cleanup reads the row, never a client snapshot.** Which object
-  a write supersedes is decided by the row's `image_path`/`audio_path`,
-  read by the handler at replay time (`readRowPaths`, #418 review). Cache
-  snapshots hold `blob:` URLs between an enqueue and the settle refetch,
-  so a snapshot-based `previousPath` misses the cleanup and orphans the
-  superseded versioned object. FIFO replay makes the row read exact for
-  offline chains: each entry sees the path its predecessor landed.
-- **Cancellation-aware when multi-step.** A run abandoned by the handler
-  timeout (#413) keeps executing as a zombie. A handler with more than one
-  side-effecting step must take the `AbortSignal` from `dispatch` and call
-  `throwIfCancelled` between steps, so the zombie starts nothing new after
-  the timeout — its later steps could undo work a causally later entry has
-  done since (see `handleClearPictogramAudio`).
+  empty board clock, so the replay still carries the `expectedUpdatedAt` its own
+  landed write invalidated and the caregiver gets a conflict pill for their own
+  write. Recoverable — Retry strips the guard — and a recoverable wrong pill
+  beats the silent loss it replaced.
+- **Authorization-free.** RLS is the security boundary. A handler running
+  against someone else's rows should fail at the database, never by a
+  client-side check.
+- **Order-aware.** Put the steps whose failure should retry the whole entry
+  first, such as Storage cleanup before a row delete. Best-effort cleanup that
+  must never fail the write uses `.catch(reportCleanupFailure)`.
+- **Happy-path only.** Throw raw Supabase and Storage errors; `runHandler` owns
+  classification. Never catch and swallow.
+- **Storage cleanup reads the row, never a client snapshot.** Which object a
+  write supersedes is decided by the row's `image_path`/`audio_path`, read at
+  replay time (#418). A cache snapshot holds a `blob:` URL between an enqueue
+  and the settle refetch, so a snapshot-based path orphans the superseded
+  object. FIFO replay makes the row read exact for offline chains.
+- **Cancellation-aware when multi-step.** A run abandoned by the handler timeout
+  keeps executing as a zombie, and its later steps could undo work a causally
+  later entry has done. A handler with more than one side-effecting step must
+  take the `AbortSignal` from `dispatch` and call `throwIfCancelled` between
+  steps (see `handleClearPictogramAudio`).
 
 ## Known limits
 
-- Board updates are conflict-guarded (#281), but the guard is column-blind:
-  a rename on one device and a step edit on another touch different columns
-  yet still surface as a conflict prompt rather than merging. Non-board
-  tables (pictogram renames, audio swaps) still replay last-write-wins.
-- Cross-tab serialization (#278, #289) relies on the Web Locks API; in an
-  environment without `navigator.locks` only the per-tab re-entrancy guard
-  applies.
-- Queued entries are not deduped or coalesced, and the queue has no size
-  bound or TTL — acceptable at this app's write volume, revisit if that
-  changes.
-- A run abandoned by the handler timeout (#413) can have a request already
-  in flight, and that request can land after later entries ran. For row
-  writes this is the same last-write-wins class as cross-device replays
-  (boards stay safe via the conflict guard); the between-step cancellation
-  checks stop the zombie from starting anything new. Storage objects are
-  safe by construction: every upload gets a unique versioned path
-  (`mintStoragePath`, #415), minted once per entry, so a late upload or
-  `remove` lands on a path no newer write owns — at worst it leaks one
-  orphaned object. The row's `image_path`/`audio_path` is the single
-  source of truth for which object is current, and handlers derive their
-  cleanup from it (#418 review). Residual orphans are rare, small, and
-  unreferenced — accepted on the free tier's quota until real usage says
-  otherwise. The sources: a failed create's upload; an abandoned run's
-  late upload; cross-device writes interleaving a read with an update; and
-  a crash (or timeout) between the row update landing and the cleanup
-  remove — the replay reads its own path back (or `null`, after a clear)
-  and skips the remove, so the superseded object stays. That last one is
-  the cost of reading the row instead of trusting a snapshot: the replay
-  can no longer tell the superseded object apart from its own.
-- The handler timeout is wall-clock and a retry restarts the transfer from
-  byte zero, so the blob bound is a ceiling on what can sync. Every blob is
-  bounded by construction — photos are re-encoded to 512px JPEG and
-  recordings are capped at `MAX_RECORDING_MS` (#416) — so the ceiling only
-  binds on an uplink too slow to move a few hundred KB inside the bound.
-  The cap and the bound reference each other; change them together.
+- The board conflict guard (#281) is column-blind: a rename on one device and a
+  step edit on another touch different columns yet still surface as a conflict.
+  Non-board tables replay last-write-wins.
+- Cross-tab serialization relies on the Web Locks API. Without
+  `navigator.locks`, only the per-tab re-entrancy guard applies.
+- Queued entries are not deduped or coalesced, and the queue has no size bound
+  or TTL. Acceptable at this app's write volume.
+- A run abandoned by the handler timeout can have a request in flight that lands
+  after later entries ran. For row writes this is the last-write-wins class
+  above. Storage objects are safe by construction: every upload gets a unique
+  versioned path (`mintStoragePath`, #415), minted once per entry, so late IO
+  lands on a path no newer write owns and at worst leaks one orphan. Residual
+  orphans are rare, small and unreferenced — accepted on the free tier. They
+  come from a failed create's upload, an abandoned run's late upload,
+  interleaved cross-device writes, and a crash between a row update landing and
+  its cleanup remove, where the replay reads its own path back and skips the
+  remove. That last one is the cost of reading the row instead of a snapshot.
+- The handler timeout is wall-clock and a retry restarts the transfer from byte
+  zero, so the blob bound is a ceiling on what can sync. Every blob is bounded
+  by construction (512px JPEG photos, `MAX_RECORDING_MS` recordings, #416), so
+  the ceiling binds only on an uplink too slow for a few hundred KB. The cap and
+  the bound reference each other; change them together.
 - A hung request that was delivered but whose response never came commits
-  server-side without the client learning it. For a guarded `updateBoard`
-  the retry then trips its own conflict guard (the board clock never noted
-  the commit's `updated_at`) and the entry fails with the conflict pill for
-  the device's own write. Recoverable — Retry strips the guard — and the
-  same class the `TRANSIENT_DB_CODES` note accepts for connection errors,
-  but a socket stuck open is the shape where the commit most likely did
-  land.
+  server-side without the client learning it. A guarded `updateBoard` retry then
+  trips its own conflict guard and fails with the pill for the device's own
+  write. Recoverable through Retry, and the same class `TRANSIENT_DB_CODES`
+  accepts for connection errors — but a socket stuck open is the shape where the
+  commit most likely did land.
