@@ -50,6 +50,20 @@ const writeRecovery = (reloads: number): boolean => {
   }
 };
 
+// `vite:preloadError` carries the underlying Error on `payload`. Its message
+// names the asset that failed ("Unable to preload CSS for /assets/...") —
+// the detail #442 was diagnosed from — and carries no board or kid content,
+// the same shape as the `reason` extra in serviceWorker.ts. Without it every
+// warning below is a constant string and says nothing about which asset
+// broke (#443 review round 5).
+const warn = (message: string, event: Event): void => {
+  const payload: unknown = (event as Event & { payload?: unknown }).payload;
+  captureMessage(message, {
+    level: 'warning',
+    extra: { reason: payload instanceof Error ? `${payload.name}: ${payload.message}` : 'unknown' },
+  });
+};
+
 let listener: AbortController | null = null;
 
 // window.location.reload() does not stop the current document — it keeps
@@ -91,7 +105,7 @@ export const installPreloadErrorRecovery = (): void => {
 
   window.addEventListener(
     'vite:preloadError',
-    () => {
+    (event) => {
       // The recovery is on its way and stays silent: reporting here would
       // say the fix does not work while it is still working.
       if (reloading) return;
@@ -111,28 +125,27 @@ export const installPreloadErrorRecovery = (): void => {
       const recovery = readRecovery();
       if (recovery === null) {
         // No storage means no loop guard, so never start a reload.
-        captureMessage('Chunk load failed with storage blocked — cannot auto-reload', {
-          level: 'warning',
-        });
+        warn('Chunk load failed with storage blocked — cannot auto-reload', event);
         return;
       }
       if (recovery.age < RELOAD_WINDOW_MS) {
         // Reloading did not fix it — not a stale deploy, so let the error
         // propagate to the route boundary and say what happened.
-        captureMessage('Chunk load still failing after a recovery reload', {
-          level: 'warning',
-        });
+        warn('Chunk load still failing after a recovery reload', event);
         return;
       }
       if (recovery.reloads >= MAX_RELOADS) {
-        captureMessage(`Chunk load still failing after ${MAX_RELOADS} recovery reloads`, {
-          level: 'warning',
-        });
+        warn(`Chunk load still failing after ${MAX_RELOADS} recovery reloads`, event);
         return;
       }
       // Stamp first: reloading without a written loop guard could repeat
-      // forever.
-      if (!writeRecovery(recovery.reloads + 1)) return;
+      // forever. A getItem that works with a setItem that throws (quota, or
+      // Safari's partial restrictions) is the one path with no other signal,
+      // so report it (#443 review round 5).
+      if (!writeRecovery(recovery.reloads + 1)) {
+        warn('Chunk load failed — could not persist the reload guard', event);
+        return;
+      }
       reloading = true;
       window.location.reload();
     },

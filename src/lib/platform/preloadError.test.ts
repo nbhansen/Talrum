@@ -12,8 +12,13 @@ const RELOAD_COUNT = 'talrum-preload-reload-count';
 
 const reloadMock = vi.fn();
 
+const FAILED_ASSET = 'Unable to preload CSS for /assets/BoardBuilderRoute-BdTI5M7_.css';
+
+// Vite puts the underlying Error on the event's `payload`.
 const firePreloadError = (): Event => {
-  const event = new Event('vite:preloadError', { cancelable: true });
+  const event = Object.assign(new Event('vite:preloadError', { cancelable: true }), {
+    payload: new Error(FAILED_ASSET),
+  });
   window.dispatchEvent(event);
   return event;
 };
@@ -187,6 +192,44 @@ describe('installPreloadErrorRecovery', () => {
     expect(captureMessageMock).not.toHaveBeenCalledWith(
       expect.stringMatching(/still failing/i),
       expect.anything(),
+    );
+  });
+
+  // A constant message says nothing about which asset broke — the detail
+  // #442 was diagnosed from (#443 review round 5).
+  it('reports which asset failed', () => {
+    sessionStorage.setItem(RELOADED_AT, String(Date.now()));
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ extra: { reason: `Error: ${FAILED_ASSET}` } }),
+    );
+  });
+
+  // getItem works, setItem throws (quota, or Safari's partial restrictions).
+  // Without a report this path is silent: no reload and no telemetry.
+  it('reports when the reload guard cannot be written', () => {
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+        },
+        removeItem: () => undefined,
+      },
+    });
+    installPreloadErrorRecovery();
+
+    firePreloadError();
+
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.stringMatching(/could not persist the reload guard/i),
+      expect.objectContaining({ level: 'warning' }),
     );
   });
 });
