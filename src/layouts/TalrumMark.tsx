@@ -1,12 +1,8 @@
 import type { JSX } from 'react';
 
 /**
- * Small-size Talrum mark — the wordmark-free version of the brand logo for
- * places where the PNG would be too pixelated to read (sidebar, kid-mode
- * top bar). Scales crisply at any size via SVG.
- *
- * The full brand PNG lives at src/assets/talrum-logo.png and is used where
- * the wordmark is visible and readable (favicon fallback, marketing surfaces).
+ * The wordmark-free mark, for small places where the brand PNG at
+ * src/assets/talrum-logo.png would be too pixelated to read.
  */
 interface TalrumMarkProps {
   size?: number;

@@ -6,12 +6,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 
 // Layer map (#397): app → features → widgets/layouts → ui/lib → theme/types/glyphs.
-// One declaration, one rule. eslint-plugin-boundaries classifies the RESOLVED
-// target file, so alias (`@/lib/supabase`) and relative (`../../lib/supabase`)
-// imports hit the same policy — the bypass the old `no-restricted-imports`
-// blocks had. Policies evaluate top to bottom and the LAST match wins, so the
-// file reads: broad allows first, named bans with messages next, narrow
-// exceptions last.
+// boundaries classifies the resolved target, so alias and relative imports hit
+// the same policy — the bypass `no-restricted-imports` had. The last matching
+// policy wins: broad allows first, named bans next, narrow exceptions last.
 const layerElements = [
   // Order matters: first matching descriptor wins, so the lib sub-folders
   // must come before the `lib` catch-all.

@@ -175,11 +175,9 @@ describe('PictogramGenerate · generate flow', () => {
 
   it('shows the server-failure copy for a generation_failed response', async () => {
     const user = userEvent.setup();
-    // A pre-mapped error, not a real 502 envelope: building a
-    // FunctionsHttpError here would need a value import from
-    // @supabase/supabase-js, which the boundary lint restricts to lib/.
-    // The 502-body → generation_failed mapping is covered in
-    // generateImage.test.ts; this test covers the widget's copy split.
+    // A pre-mapped error, because building a FunctionsHttpError needs a value
+    // import the boundary lint restricts to lib/. generateImage.test.ts covers
+    // the mapping; this covers the widget's copy split.
     invokeMock.mockRejectedValue(new GenerateImageError('generation_failed', 'azure down'));
     renderGenerate();
 

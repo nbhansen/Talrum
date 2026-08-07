@@ -1,11 +1,7 @@
 /**
- * Single audit point for kid-visible strings, in every supported language.
- * Add new kid-mode copy here — to both tables — before referencing it from a
- * component. Keep generic chrome (Cancel, Delete) out — only strings the kid
- * actually sees, plus the PIN flow that gates kid-mode exit.
- *
- * Components call getKidCopy() during render, so a language change in
- * settings applies on the next render without a reload (#304).
+ * One audit point for every string a kid sees, plus the PIN exit flow. Add copy
+ * to both tables before a component references it. Components call
+ * `getKidCopy()` during render, so a language change needs no reload (#304).
  */
 
 import { type AppLanguage, getAppLanguage } from './language';

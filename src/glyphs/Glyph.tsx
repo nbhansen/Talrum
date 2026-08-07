@@ -4,13 +4,9 @@ import { assertNever } from '@/lib/assertNever';
 import type { GlyphName } from '@/types/domain';
 
 /**
- * Pictogram glyph — a tiny shape drawn on a 100×100 viewBox using nothing but
- * circles, rects, lines, ellipses, and paths. Stroke + fill come from CSS
- * variables so a single theme change re-skins every glyph at once.
- *
- * The `check` glyph is the one exception — it uses a sage-tier color pair
- * directly, per the prototype. Same reason: it doubles as a "completion"
- * badge and reads more naturally in green.
+ * A shape on a 100×100 viewBox. Stroke and fill come from CSS variables, so one
+ * theme change re-skins every glyph. `check` is the exception: it doubles as a
+ * completion badge and takes a sage pair directly.
  */
 
 interface GlyphProps {

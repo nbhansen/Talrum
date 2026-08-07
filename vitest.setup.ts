@@ -14,13 +14,9 @@ import { __resetDrainForTests } from './src/lib/outbox/drain-state';
 import { __resetSpeechForTests } from './src/lib/platform/speech';
 import { __resetSignedUrlCache } from './src/lib/storage/storage-cache';
 
-// Default-stub the Supabase client for every test file. #24 was a warm-vs-cold
-// flake: a test seeded the React Query cache but didn't mock @/lib/supabase,
-// so useQuery's mount-time refetch raced against the seeded data and replaced
-// it with []. This floor mock makes that whole class of bug structurally
-// impossible — any new test that mounts a hook + seeds the cache is safe by
-// default. Files that need a richer mock (real `from`, auth surface, etc.)
-// override per-file with their own vi.mock('@/lib/supabase', ...). Tracked: #46.
+// A floor mock for every test file. Without it, a test that seeds the cache
+// but does not mock the client races its own mount-time refetch (#24). Files
+// needing a richer mock override it per file. Tracked: #46.
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 
 // Node 25's experimental `localStorage` global (no `--localstorage-file` passed)
@@ -54,36 +50,10 @@ Object.defineProperty(window, 'sessionStorage', {
 });
 
 /**
- * Fail any test that logs to console.error (#387).
- *
- * React reports its correctness warnings this way — "Cannot update a component
- * while rendering a different component", "not wrapped in act(...)" — and they
- * are bugs wherever they appear, not just where someone thought to look. This
- * replaces a single test that walked the whole set-a-PIN flow purely to assert
- * `console.error` was never called during one transition: slow enough to time
- * out under coverage instrumentation about one run in four, and it pinned the
- * invariant for exactly one component.
- *
- * React deduplicates each warning per process, which is what made the old test
- * order-dependent — anything that tripped the warning first left it passing
- * silently. Checking globally makes that irrelevant: the first occurrence
- * anywhere fails the test it happened in, which is the one worth looking at.
- *
- * Tests that expect React to log — an ErrorBoundary catching a deliberate
- * throw — opt out for free by spying: `vi.spyOn(console, 'error')` replaces
- * this wrapper for the test's duration, so nothing is recorded. The caveat is
- * a spy that is never restored, which silently disables the check for the rest
- * of that *file* — vitest's default `isolate: true` re-executes this module per
- * test file, so the leak stops there rather than reaching the whole worker.
- *
- * The buffer below is per-file for the same reason, but it is shared by every
- * test in the file. That is fine while tests run one at a time, which they all
- * do today; under `it.concurrent` a log from one test would fail whichever
- * sibling happened to finish next, so this needs per-test context before any
- * concurrency is adopted.
- *
- * console.warn is deliberately not covered: `useSetStepIds` logs there on
- * purpose behind an `import.meta.env.DEV` guard.
+ * Fail any test that logs to console.error (#387): React reports its
+ * correctness warnings there, and they are bugs wherever they appear. A test
+ * that expects one opts out by spying. `console.warn` is not covered, because
+ * `useSetStepIds` logs there on purpose.
  */
 const originalConsoleError = console.error;
 const consoleErrorCalls: unknown[][] = [];
@@ -92,20 +62,10 @@ console.error = (...args: unknown[]): void => {
   originalConsoleError(...args);
 };
 
-// #144 / #168: module-level caches in storage, outbox/drain, and speech persist
-// across `it()` blocks within the same worker — a flake class whose failure
-// mode depends on test order. Reset all three globally; pairs with idb-keyval's
-// `clear()`. drain state lives in `./drain-state.ts` (no Supabase deps) for
-// the same tsconfig.node.json reason as `storage-cache.ts`.
-//
-// One hook, not two, and the console check goes last inside it. A separate
-// hook is not equivalent: vitest's default `sequence.hooks: 'stack'` runs
-// afterEach in reverse registration order, and a hook that throws skips the
-// remaining ones — so the console guard as its own hook ran *first* and, on a
-// failure, the resets below never ran at all. That leaves IndexedDB and these
-// module caches dirty for the next test in the file, which is the #144/#168
-// cascade this hook exists to prevent. Sequencing it in the function body
-// instead of relying on hook order makes the config setting irrelevant.
+// Module-level caches in storage, outbox/drain and speech outlive an `it()`
+// block, a flake class whose failure depends on test order (#144, #168). One
+// hook, not two, with the console check last: `sequence.hooks: 'stack'` runs
+// afterEach in reverse, so the guard alone would skip these resets on failure.
 afterEach(async () => {
   await clear();
   __resetSignedUrlCache();

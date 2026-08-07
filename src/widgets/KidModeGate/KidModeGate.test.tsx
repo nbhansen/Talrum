@@ -133,11 +133,9 @@ describe('KidModeGate', () => {
     await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
   });
 
-  // Throttle (#372): every 5th wrong entry locks the pad with an escalating
-  // cooldown. Fake timers (incl. Date) with fireEvent + hand-driven macrotask
-  // ticks, following VoiceRecorderDialog.test.tsx: RTL's waitFor does not
-  // advance vitest's fake clock, and a real-time countdown interval would
-  // set state outside act and trip the console.error guard.
+  // Fake timers with hand-driven macrotask ticks, as in
+  // VoiceRecorderDialog.test.tsx: RTL's waitFor does not advance vitest's fake
+  // clock, and a real countdown would set state outside act (#372).
   describe('attempt throttling (#372)', () => {
     const realTick = (): Promise<void> =>
       new Promise((resolve) => {
@@ -180,11 +178,9 @@ describe('KidModeGate', () => {
         </KidModeGate>,
       );
       fireEvent.click(screen.getByRole('button', { name: 'Exit kid mode' }));
-      // Pre-seed four failures through the module API — the counting is
-      // pinned by pinThrottle.test.ts, and five full pad round-trips of
-      // hand-driven ticks time out under full-suite load. The fifth entry
-      // goes through the pad, so the lock the UI reacts to is the one a
-      // real wrong entry engages.
+      // Four failures through the module API, because five pad round-trips of
+      // hand-driven ticks time out under load and pinThrottle.test.ts already
+      // pins the counting. The fifth goes through the pad.
       act(() => {
         for (let i = 0; i < 4; i++) recordPinFailure();
       });

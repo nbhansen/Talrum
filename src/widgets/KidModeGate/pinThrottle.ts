@@ -1,15 +1,8 @@
 /**
- * Escalating cooldown for wrong PIN entries at the kid-mode exit (#372).
- * Every 5th wrong entry locks the pad: 30s, then 60s, doubling up to a
- * 5-minute cap. The PIN is a soft gate (see src/lib/pin.ts) — the adversary
- * here is an older sibling with ten minutes, not an attacker with devtools.
- *
- * The state is module-scoped and deliberately NOT persisted:
- *   - Module scope, not component state: the counter must survive closing
- *     and reopening the pad (a free reset would defeat the throttle) and is
- *     shared by both exit surfaces (KidModeGate, KidRouteFallback).
- *   - Not persisted: surviving a reload would turn a forgotten PIN into a
- *     device lockout. The parent can always clear the PIN from Settings.
+ * Escalating cooldown for wrong PIN entries at the kid-mode exit (#372). The
+ * adversary is an older sibling with ten minutes, not devtools. Module scope,
+ * so closing the pad is not a free reset; not persisted, so a forgotten PIN
+ * cannot become a device lockout.
  */
 
 const GROUP_SIZE = 5;

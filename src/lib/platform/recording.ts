@@ -16,21 +16,16 @@ const pickMimeType = (): string | undefined => {
 };
 
 /**
- * Hard cap on one recording (#416). Pictogram audio is a spoken label, so
- * ten seconds is generous. The cap also keeps every clip far inside the
- * outbox blob timeout (`BLOB_HANDLER_TIMEOUT_MS`, `src/lib/outbox/
- * handlers.ts`) on any usable uplink: that bound is wall-clock and a retry
- * restarts from byte zero, so an uncapped clip could grow past what the
- * bound lets sync. Change the two together.
+ * Hard cap on one recording (#416), generous for a spoken label. It also keeps
+ * every clip inside `BLOB_HANDLER_TIMEOUT_MS`, which is wall-clock and restarts
+ * a retry from byte zero. Change the two together.
  */
 export const MAX_RECORDING_MS = 10_000;
 
 /**
- * The recorder stops itself at `MAX_RECORDING_MS`; `stop()` after that
- * resolves with the capped clip. A consumer that drives UI from its own
- * recording state must arm its own timer on the same constant — or it shows
- * a live "recording" UI over a recorder that already stopped (see
- * `VoiceRecorderDialog`).
+ * The recorder stops itself at `MAX_RECORDING_MS`. A consumer that drives UI
+ * from its own state must arm its own timer on the same constant, or it shows
+ * a live recording UI over a recorder that already stopped.
  */
 export interface Recording {
   stop: () => Promise<Blob>;

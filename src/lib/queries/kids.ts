@@ -132,13 +132,8 @@ export const setActiveKidId = (id: string | null): void => {
 };
 
 /**
- * Returns the currently-active kid for parent-home filtering. Backed by
- * localStorage (`talrum:active-kid-id`) so the choice survives reloads but
- * stays per-device — appropriate for a single-family-device app.
- *
- * Self-healing: if the stored id no longer matches a kid (deleted, swapped
- * accounts), falls back to the first kid in `useKids()`. Returns `null`
- * only when there are no kids at all.
+ * Backed by localStorage, so the choice survives a reload but stays per-device.
+ * Self-healing: a stored id that matches no kid falls back to the first one.
  */
 export const useActiveKid = (): Kid | null => {
   const { data: kids } = useKids();

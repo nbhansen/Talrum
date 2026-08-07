@@ -9,18 +9,10 @@ import { defineConfig } from 'vitest/config';
 
 import pkg from './package.json' with { type: 'json' };
 
-// Emit + upload + delete source maps in one flag, gated on the Sentry auth
-// token. Any path that emits maps must upload-and-delete them — otherwise
-// CF Pages publishes the unminified bundles as `.map` siblings.
-// package.json's version is never bumped (the app deploys continuously from
-// main), so the Settings "About" readout identifies builds by commit instead —
-// and since #356, so does the persisted-cache buster.
-//
-// That makes the fallback load-bearing rather than cosmetic: a deployed build
-// where this is the constant 'dev' has the constant buster #356 was about, just
-// spelled differently, and nothing downstream could tell. Local builds without
-// git are fine; a CI build without git is a broken checkout, so say so loudly
-// instead of shipping a cache that never invalidates.
+// The package version is never bumped, so both the Settings readout and the
+// persisted-cache buster identify a build by commit (#356). That makes the
+// fallback load-bearing: a deployed build stuck on the constant 'dev' has the
+// constant buster #356 was about, so a CI build without git must fail loudly.
 const commitSha = ((): string => {
   try {
     return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
@@ -36,6 +28,9 @@ const commitSha = ((): string => {
   }
 })();
 
+// Emit, upload and delete source maps on one flag: any path that emits maps
+// must also upload and delete them, or CF Pages publishes the unminified
+// bundles as `.map` siblings.
 const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
 const sentryPlugins = sentryEnabled
   ? [
@@ -50,13 +45,6 @@ const sentryPlugins = sentryEnabled
   : [];
 
 /**
- * Announce which Supabase project the dev server is pointed at. Env files are
- * invisible once written, and Vite prefers `.env.local` over `.env`, so a
- * forgotten file is all it takes for a "local" session to write to production.
- * Printing the target on every boot is the cheap structural guard; `npm run dev`
- * is local by construction and only `dev:cloud` loads Cloud credentials.
- */
-/**
  * Compare the parsed hostname, not a substring: `notlocalhost.example.com`
  * contains "localhost" and must not read as safe. Anything unparseable counts
  * as not-local, so a malformed URL warns rather than reassures.
@@ -70,6 +58,11 @@ const isLocalSupabase = (raw: string): boolean => {
   }
 };
 
+/**
+ * Env files are invisible once written and Vite prefers `.env.local`, so a
+ * forgotten file is all it takes for a "local" session to write to production.
+ * Printing the target on every boot is the cheap structural guard.
+ */
 const supabaseTargetBanner = (): Plugin => ({
   name: 'talrum-supabase-target-banner',
   apply: 'serve',
@@ -93,10 +86,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // We register the worker ourselves (src/lib/platform/serviceWorker.ts). The
-      // script this plugin injects by default was a bare register() call with
-      // no .catch(), so a browser that blocks service workers raised an
-      // unhandled rejection that Sentry reported as a crash (#375).
+      // We register the worker ourselves. The script this plugin injects was a
+      // bare register() with no .catch(), so a browser that blocks service
+      // workers raised an unhandled rejection Sentry reported as a crash
+      // (#375, src/lib/platform/serviceWorker.ts).
       injectRegister: false,
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
@@ -133,41 +126,32 @@ export default defineConfig({
         // stale precache until they manually click "Reload" or close every tab.
         skipWaiting: true,
         clientsClaim: true,
-        // CacheFirst keeps photo bytes on disk so kid mode in the car works
-        // even after the signed-URL token has expired: offline, signedUrlFor
-        // fails to mint and returns the last URL it persisted (see
-        // src/lib/storage/storage.ts), which is exactly the key already in
-        // this cache.
-        // Every clause below is load-bearing — see #355 and the assertion in
-        // scripts/verify-sw-routes.mjs.
+        // CacheFirst keeps photo bytes on disk so kid mode works in the car:
+        // offline, `signedUrlFor` returns the last URL it persisted, which is
+        // the key already in this cache. Every clause below is load-bearing —
+        // see #355 and scripts/verify-sw-routes.mjs.
         runtimeCaching: [
           {
-            // Anchored to the start of the URL. Workbox applies a RegExp route
-            // to a cross-origin request only when the match begins at index 0
-            // (workbox-routing/RegExpRoute.ts), and Supabase Storage is always
-            // cross-origin — so the mid-URL pattern this replaces never fired
-            // at all, and the cache below was never created.
+            // Anchored to the start of the URL: Workbox applies a RegExp route
+            // to a cross-origin request only when the match begins at index 0,
+            // and Supabase Storage is always cross-origin. The mid-URL pattern
+            // this replaces never fired, so the cache was never created.
             urlPattern: /^https?:\/\/[^/]+\/storage\/v1\/object\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'talrum-storage-v1',
-              // Deliberately NO `matchOptions: { ignoreSearch: true }`. It
-              // looks like the way to collapse hourly-rotating signed URLs
-              // onto one entry, but ExpirationPlugin keys its bookkeeping on
-              // the *request* URL while the cache keys on the token that first
-              // stored the bytes. The two diverge, the stored entry is never
-              // touched again, and LRU deletes it while the photo is still in
-              // use. Rotation duplicates are the cheaper problem: they cost a
-              // re-download per hour online and LRU evicts them correctly.
+              // No `matchOptions: { ignoreSearch: true }`: it would collapse
+              // rotating signed URLs onto one entry, but ExpirationPlugin keys
+              // on the request URL while the cache keys on the token, so LRU
+              // deletes bytes still in use.
               expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 30 * 24 * 60 * 60,
               },
-              // 200 only, never 0. An opaque response (a no-cors `<img>` load)
-              // is charged ~6 MB of storage quota apiece regardless of the real
-              // byte count, and its status is unreadable, so a 403 on an
-              // expired token would cache as if it were the photo. The
-              // pictogram <img> sets crossOrigin so these are real CORS 200s.
+              // 200 only, never 0. An opaque response costs ~6 MB of quota
+              // whatever its real size, and its status is unreadable, so a 403
+              // on an expired token would cache as if it were the photo. The
+              // pictogram <img> sets crossOrigin, so these are real CORS 200s.
               cacheableResponse: { statuses: [200] },
             },
           },

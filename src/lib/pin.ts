@@ -1,11 +1,6 @@
 /**
- * Parent PIN stored client-side. The PIN is hashed with SHA-256 before
- * persisting — we never keep the digits themselves in localStorage.
- *
- * Threat model: this is a soft gate so a kid in kid-mode can't exit to
- * parent settings. It is not protection against a determined attacker
- * with devtools access; that would need a server-side check and real
- * auth, which arrive in Phase 3 step 5.
+ * Parent PIN, hashed before it reaches localStorage. A soft gate against a
+ * child leaving kid mode, not against devtools.
  */
 
 const STORAGE_KEY = 'talrum:pin-hash';
@@ -31,12 +26,8 @@ export const hasPin = (): boolean => {
 };
 
 /**
- * Kid mode is a one-way door only while a PIN exists to close it, so a device
- * without one must not enter kid mode at all (#353). Before this, the exit
- * gate offered to *create* a PIN, which let a child pick one and walk out
- * into the board builder. PINs are now set in parent UI only.
- *
- * False in builds with the gate disabled, since hasPin() reports true there.
+ * A device with no PIN must not enter kid mode at all (#353). False in builds
+ * with the gate disabled, where `hasPin()` reports true.
  */
 export const kidModeNeedsPinSetup = (): boolean => !hasPin();
 

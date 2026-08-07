@@ -1,20 +1,7 @@
-// Post-build assertion: the Supabase Storage runtime cache in dist/sw.js is
-// actually reachable, and stores responses it can read. See #355.
-//
-// Both invariants are invisible to the jsdom suite — no test in src/ ever runs
-// a service worker — and both fail silently in production: the cache simply
-// never appears, or fills with opaque responses at ~6 MB of storage quota each.
-//
-// Self-test: drop the leading `^https?://[^/]+` from the urlPattern in
-// vite.config.ts and re-run `npm run build`. The build must fail with
-// `pattern does not match a cross-origin storage URL at index 0`.
-//
-// This reads minified output, so it is coupled to the shape workbox-build
-// emits: `registerRoute(/…/i, new X.CacheFirst({cacheName:"…"}), "GET")`. If a
-// workbox or vite-plugin-pwa upgrade changes that — passing a RegExp reference
-// instead of a literal, say — this fails loudly with `could not read the
-// urlPattern`, which is a stale assertion rather than a real regression. Check
-// `dist/sw.js` before assuming the config broke.
+// Post-build assertion that the Storage runtime cache in dist/sw.js is
+// reachable and stores responses it can read (#355) — invisible to a jsdom
+// suite, and silent in production. It reads minified output, so a urlPattern
+// read failure after a workbox upgrade is a stale assertion, not a regression.
 import { readFileSync } from 'node:fs';
 
 const CACHE_NAME = 'talrum-storage-v1';
@@ -59,14 +46,9 @@ if (!match || match.index !== 0) {
   );
 }
 
-// Opaque responses (status 0) are unreadable and quota-padded; caching them is
-// the bug this route had before it ever fired.
-//
-// Bound the search to this route's own registration — up to wherever the next
-// route starts — rather than a fixed number of characters. A second runtime
-// cache would otherwise be able to satisfy this check on the first one's
-// behalf, and reordering the options object would push `statuses` out of a
-// fixed window.
+// Opaque responses (status 0) are unreadable and quota-padded. The search is
+// bounded by the next route's registration, not a character count: another
+// runtime cache could otherwise satisfy this on the first one's behalf.
 const nextRoute = sw.indexOf('registerRoute(', nameAt);
 const options = sw.slice(nameAt, nextRoute === -1 ? sw.length : nextRoute);
 const statuses = /statuses:\s*\[([^\]]*)\]/.exec(options);

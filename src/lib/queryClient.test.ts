@@ -112,12 +112,9 @@ describe('clearPersistedCache', () => {
     vi.unstubAllGlobals();
   });
 
-  // The sweep must not take the outbox cross-tab lock (#446 review). It would
-  // only stop a write landing between the `keys()` snapshot and the deletes,
-  // never one already waiting on the lock — so it is not what makes the
-  // guarantee hold (`enqueuedBy` is). Meanwhile the lock is held across
-  // handler IO, so taking it would leave user A's blobs on a shared device
-  // for the length of an upload instead of wiping them now.
+  // The lock would not make the guarantee hold — `enqueuedBy` does — and it is
+  // held across handler IO, so taking it would leave user A's blobs on a shared
+  // device for a whole upload (#446).
   it('does not wait on the outbox lock to wipe the stripes', async () => {
     stubCaches([]);
     const lockNames: string[] = [];

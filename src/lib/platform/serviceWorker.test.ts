@@ -72,14 +72,9 @@ describe('registerServiceWorker', () => {
     expect(register).toHaveBeenCalledTimes(1);
   });
 
-  // The bug in #375: vite-plugin-pwa's injected snippet had no .catch(), so a
-  // browser that blocks registration (privacy extensions monkey-patch
-  // `register` and reject with `Error: Rejected`) produced an unhandled
-  // rejection that Sentry reported as a crash.
-  // Note on what proves the "handled" half: Vitest fails a run on any unhandled
-  // rejection, so this test passing at all is the assertion that the rejection
-  // no longer escapes. Reverting the .catch() in serviceWorker.ts turns this
-  // into an unhandled-error failure rather than a silent pass.
+  // The "handled" half has no explicit assertion: Vitest fails a run on any
+  // unhandled rejection, so a passing test is the proof. Reverting the .catch()
+  // turns this into an unhandled-error failure, not a silent pass (#375).
   it('reports a rejected registration as a warning instead of letting it go unhandled', async () => {
     stubServiceWorker(() => Promise.reject(new Error('Rejected')));
 

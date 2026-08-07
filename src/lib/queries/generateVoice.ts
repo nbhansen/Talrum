@@ -5,16 +5,10 @@ import { captureException } from '@/lib/platform/telemetry';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Client side of the generate-voice edge function (#422). The whole
- * provider (Azure today) lives behind the function; this module only knows
- * the wire contract, mirrored byte-for-byte from
- * `supabase/functions/generate-voice/types.ts` — tsconfig does not include
- * supabase/, so a cross-import is not possible. Change one side, change the
- * other.
- *
- * The returned Blob is a preview. Nothing is stored anywhere until the
- * parent accepts and the caller saves it through useSetPictogramAudio —
- * from that point the clip is indistinguishable from a recording.
+ * Client side of the generate-voice edge function (#422). The wire contract is
+ * mirrored from `supabase/functions/generate-voice/types.ts`, because tsconfig
+ * excludes supabase/. Change one side, change the other. The returned Blob is
+ * a preview; nothing is stored until the caller saves it as a recording.
  */
 
 const GENERATE_VOICE_FUNCTION_NAME = 'generate-voice';

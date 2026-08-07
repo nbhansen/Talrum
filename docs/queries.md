@@ -66,6 +66,29 @@ revokes the planted `blob:` URL while it is still in the cache — after the
 rollback the URL is unreachable and would leak — and `settle` sweeps stale
 blob URLs before invalidating.
 
+### Accepted races in the blob sweep
+
+`revokePictogramBlobs` (`pictograms.mutations.ts`) scans every pictogram in the
+cache rather than tracking ids per mutation. Tracking ids exactly would mean
+threading them through the `onSuccess`/`onError` contexts of every blob hook,
+which is not worth it at this app's write volume. Three races follow from the
+scan, and each has a different symptom:
+
+- **Two concurrent uploads.** The earlier sweep revokes the later upload's
+  still-pending blob, so the second tile flashes a broken image until
+  invalidation refetches its real signed URL.
+- **Audio mid-buffer.** Revoking a `blob:` URL while an `<audio>` element is
+  mid-load can stop playback — silence on a tap, not a broken image. Recordings
+  are a few KB and the upload normally beats the user to the play button, so
+  this rarely surfaces.
+- **Error-path double sweep.** `beforeRollback` sweeps before the snapshot
+  restore, because the failed mutation's own planted URL must be revoked while
+  the cache still references it. `settle` then sweeps again, and that second
+  pass can revoke a URL the restore resurrected — one planted by an earlier,
+  not-yet-reconciled mutation. Error paths only run on the online fast path, so
+  the settle invalidation refetches real paths immediately; the cost is the same
+  brief flash as the first case.
+
 ## Choosing a write path
 
 The most important decision when adding a mutation. Four legitimate

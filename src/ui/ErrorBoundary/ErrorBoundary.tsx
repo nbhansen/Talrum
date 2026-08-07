@@ -12,11 +12,8 @@ interface State {
 }
 
 /**
- * The only class component in the repo — React's error-boundary API is
- * class-only. Catches render-time exceptions in the descendant subtree and
- * hands the consumer a `reset()` so the fallback can clear the error and
- * retry. Forwards the caught error to Sentry via `captureException` with
- * the React component stack as context (#45, #142).
+ * The only class component in the repo, because React's error-boundary API is
+ * class-only. Reports to Sentry with the component stack (#45, #142).
  */
 export class ErrorBoundary extends Component<Props, State> {
   override state: State = { error: null };

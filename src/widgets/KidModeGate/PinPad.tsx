@@ -37,10 +37,8 @@ export const PinPad = ({
   const locked = lockedUntil > now;
 
   // Tick while locked so the countdown moves and the keys re-enable on their
-  // own — a parent staring at a locked pad must see when it opens again. The
-  // zero-delay tick covers a `now` gone stale while the pad sat open (a bare
-  // setState in the effect body trips react-hooks/set-state-in-effect); the
-  // lockedUntil dep restarts the countdown when the lock escalates.
+  // own. The zero-delay tick refreshes a `now` gone stale while the pad sat
+  // open, because a bare setState in the effect body trips the lint rule.
   useEffect(() => {
     if (!locked) return;
     const tick = (): void => setNow(Date.now());

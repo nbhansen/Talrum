@@ -1,10 +1,6 @@
 /**
- * Typed token names matching the CSS custom properties in tokens.css.
- *
- * Components should prefer applying classes from CSS Modules that already
- * reference these tokens. `cssVar()` is only for the rare case where a value
- * must land in an inline `style` prop — e.g. a pictogram tile whose
- * background is driven by `picto.tint` at runtime.
+ * Typed names for the custom properties in tokens.css. Prefer CSS Module
+ * classes; `cssVar()` is for the rare runtime value that must go inline.
  */
 
 export type ColorToken =

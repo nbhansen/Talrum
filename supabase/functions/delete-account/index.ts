@@ -50,14 +50,10 @@ const logSuccess = (
   );
 };
 
-// Exported so handler.test.ts can drive it directly without a live server.
-// In production, serve() wraps it (see bottom of file).
-//
-// deleteFn is the deletion implementation. The default uses the real
-// deleteAccount() against the admin client; tests pass a stub to simulate
-// failures or skip the work entirely. Keeping the seam as an explicit
-// parameter (instead of a magic field on the admin object) means a buggy or
-// hostile admin shape can't silently bypass deletion.
+// Exported so handler.test.ts can drive it without a live server; serve()
+// wraps it at the bottom of the file. `deleteFn` is an explicit parameter
+// rather than a field on the admin object, so a buggy or hostile admin shape
+// cannot silently bypass deletion.
 export const handleRequest = async (
   req: Request,
   admin: AdminLike,
@@ -76,17 +72,10 @@ export const handleRequest = async (
       return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
     }
 
-    // Body must be empty string or "{}" (the exact serialization supabase-js
-    // produces for `functions.invoke('...', { body: {} })`). We do byte
-    // equality, not JSON parsing, because:
-    //   1. user_id comes from the verified JWT, never the body — there is
-    //      nothing to read out of a non-empty body that we'd trust.
-    //   2. JSON.parse would tolerate `{"user_id":"someone-else"}` as
-    //      well-formed input that we would then have to explicitly reject.
-    //      Byte equality eliminates the entire class of "what fields are
-    //      we accepting?" review questions.
-    //   3. supabase-js controls both ends of this contract; the byte
-    //      shape is stable.
+    // Byte equality, not JSON parsing: the user id comes from the verified
+    // JWT, so there is nothing in a body worth trusting, and parsing would
+    // accept `{"user_id":"someone-else"}` as well-formed input this would then
+    // have to reject explicitly. supabase-js controls both ends of the shape.
     const raw = (await req.text()).trim();
     if (raw !== '' && raw !== '{}') {
       return errorResponse('bad_request', 'request body must be empty or {}', 400);

@@ -20,12 +20,9 @@ export interface ImagePicker {
 }
 
 /**
- * Pick-a-photo flow shared by UploadTab and PictogramSheet: hidden file
- * input, `cropToSquareJpeg`, and — the part worth centralizing — the
- * `blob:` preview-URL lifecycle. The effect below is the single revocation
- * point: whenever `processed` is replaced (new pick, reset) or the consumer
- * unmounts, the outgoing preview URL is revoked, so no caller has to
- * remember to.
+ * The pick-a-photo flow, centralised for the `blob:` preview-URL lifecycle:
+ * the effect below is the single revocation point, so no caller has to
+ * remember one.
  */
 export const useImagePicker = (): ImagePicker => {
   const fileInputRef = useRef<HTMLInputElement>(null);

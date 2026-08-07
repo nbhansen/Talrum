@@ -14,15 +14,10 @@ import {
 } from './types.ts';
 
 /**
- * Turns a pictogram label into a pictogram image (#422). The HTTP shell
- * below owns auth, validation and error codes; prompt.ts owns the one fixed
- * style template; the provider behind the GenerateImage seam owns everything
- * vendor-specific. See types.ts for the contract and azure.ts for the one
- * Azure-aware file.
- *
- * The client previews the returned bytes and saves them through the normal
- * pictogram-image upload path only when the parent accepts — this function
- * writes nothing to Storage or the database.
+ * Turns a pictogram label into an image (#422). The shell below owns auth,
+ * validation and error codes; prompt.ts owns the style template; the provider
+ * owns everything vendor-specific. This function writes nothing: the client
+ * previews the bytes and saves them through the normal upload path.
  */
 
 interface AuthLike {

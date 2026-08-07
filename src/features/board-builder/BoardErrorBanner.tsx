@@ -3,11 +3,9 @@ import type { JSX } from 'react';
 import styles from './BoardErrorBanner.module.css';
 
 /**
- * Structurally compatible with every `useBoardPatch`-derived mutation
- * (rename, kind, labels, voice, kid-reorderable, set-step-ids), so this
- * banner can surface errors from any of them without widening the type.
- * The optional `retry` is provided by `useSetStepIds`; mutations without
- * a retry mechanism simply omit it.
+ * Structurally compatible with every `useBoardPatch`-derived mutation, so the
+ * banner surfaces any of them without widening the type. Only `useSetStepIds`
+ * supplies `retry`.
  */
 interface MutationLike {
   isError: boolean;

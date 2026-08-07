@@ -4,12 +4,9 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// supabase-js wire shape:
-//   2xx → { data, error: null }
-//   4xx/5xx → { data: null, error: FunctionsHttpError } where error.context
-//             holds the original Response. Tests must mirror this — mocking
-//             a fictional `{ data: { ok: false, ... }, error: null }` shape
-//             made the closed-set error mapping unreachable in production.
+// Mirror the real supabase-js shape: an error body is reachable only through
+// `error.context`. Mocking a `{ data: { ok: false } }` shape once made the
+// closed-set error mapping unreachable in production.
 const invokeMock = vi.fn<
   (
     name: string,
@@ -101,11 +98,9 @@ describe('useDeleteMyAccount', () => {
     expect(qc.getQueryData(['boards'])).toBeUndefined();
   });
 
-  // Pins the contract DeleteAccountSection relies on: onPreSignOut MUST run
-  // between cache clear and signOut. supabase-js fires SIGNED_OUT
-  // synchronously from inside signOut(), and AuthGate's listener will
-  // unmount the dialog the moment the event lands — so any navigation has
-  // to happen before signOut is awaited.
+  // DeleteAccountSection relies on this order: signOut fires SIGNED_OUT
+  // synchronously, and AuthGate unmounts the dialog the moment it lands, so
+  // any navigation has to happen before it.
   it('on success with onPreSignOut: runs clear, onPreSignOut, signOut in that order', async () => {
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -1,8 +1,6 @@
 /**
- * Device-local app language (#304). Drives kid-facing copy (kidCopy) and
- * default TTS voice selection (speech). Stored per device like speechPrefs
- * and pin — nothing in the app is per-account yet; if settings ever move to
- * the DB, migrate this alongside the other prefs.
+ * Device-local app language (#304), stored per device like speechPrefs and pin.
+ * Move it with them if settings ever become per-account.
  */
 
 const STORAGE_KEY = 'talrum:language';
@@ -48,10 +46,8 @@ export const getAppLanguage = (): AppLanguage => {
 };
 
 /**
- * Target language for TTS voice matching: explicit pref, else the device
- * locale's primary subtag. Unlike getAppLanguage this is not clamped to
- * APP_LANGUAGES — we can match a voice for any device locale even when we
- * have no copy for it.
+ * Not clamped to APP_LANGUAGES, unlike `getAppLanguage`: a voice can match any
+ * device locale even where there is no copy for it.
  */
 export const getVoiceLanguage = (): string =>
   getLanguagePref() ?? primarySubtag(navigator.language);

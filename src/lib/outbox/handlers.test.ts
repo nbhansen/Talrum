@@ -767,11 +767,9 @@ describe('runHandler · handler IO timeout (#413)', () => {
   });
 
   it('a hung upload gets the longer blob bound, not the row-write bound', async () => {
-    // The upload is the IO an abort-based bound could not cover: storage-js
-    // upload() takes no AbortSignal. It is also the one transfer that can be
-    // legitimately slow (uncapped voice clips on a slow uplink), so cutting
-    // it at 30 s would turn "slow" into six doomed attempts and a permanent
-    // `failed` (#414 review).
+    // storage-js upload() takes no AbortSignal, and it is the one transfer
+    // that can be legitimately slow, so cutting it at 30 s would turn "slow"
+    // into six doomed attempts and a permanent `failed` (#414).
     uploadMock.mockReturnValue(new Promise<{ error: Error | null }>(() => undefined));
     let settled = false;
     const outcome = runHandler(photoEntry()).then(
@@ -803,11 +801,10 @@ describe('runHandler · handler IO timeout (#413)', () => {
     );
     await vi.advanceTimersByTimeAsync(BLOB_HANDLER_TIMEOUT_MS);
     expect(await outcome).toMatch(/timed out/);
-    // The zombie request fails long after the entry was re-queued. Today the
-    // Promise.race inside runHandler subscribes to the run when it starts,
-    // which is what keeps this from being an unhandled rejection; this test
-    // pins that guarantee across refactors. Vitest fails the run on
-    // unhandled rejections, so this test passing clean is the assertion.
+    // The zombie fails long after the entry was re-queued. runHandler's race
+    // subscribed to the run when it started, which is what keeps that from
+    // being an unhandled rejection — and Vitest failing on one is the
+    // assertion.
     rejectLate(new TypeError('Failed to fetch'));
     await vi.advanceTimersByTimeAsync(0);
   });

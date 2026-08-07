@@ -1,13 +1,8 @@
 /**
- * The Azure implementation of the GenerateImage seam. This file is the only
- * place in the repository that knows Azure exists. It sends the prompt to an
- * image model deployed on Azure OpenAI and returns JPEG bytes.
- *
- * Secrets (set with `supabase secrets set`):
- *   AZURE_OPENAI_KEY              — the key from the Azure OpenAI resource page.
- *   AZURE_OPENAI_ENDPOINT         — the resource URL (https://<name>.openai.azure.com).
- *   AZURE_OPENAI_IMAGE_DEPLOYMENT — the deployment name typed when deploying
- *                                   the image model (gpt-image-1).
+ * The Azure implementation of the GenerateImage seam, and the only file in the
+ * repository that knows Azure exists. Needs three secrets, set with
+ * `supabase secrets set`: AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT and
+ * AZURE_OPENAI_IMAGE_DEPLOYMENT (the deployment name, gpt-image-1).
  */
 
 import { type GenerateImage, GenerationError } from './types.ts';
@@ -15,11 +10,9 @@ import { type GenerateImage, GenerationError } from './types.ts';
 const API_VERSION = '2025-04-01-preview';
 
 /**
- * Fixed request shape, on purpose: a generated pictogram becomes part of a
- * learned symbol system, so every generation must come from the same model
- * settings. Square is the shape the client crops to anyway; medium quality
- * is enough for flat 512px pictograms; JPEG because the client re-encodes
- * to JPEG and the transfer is smaller.
+ * Fixed on purpose: a generated pictogram joins a learned symbol system, so
+ * every generation must come from the same model settings. Square is what the
+ * client crops to, and JPEG is what it re-encodes to.
  */
 const IMAGE_REQUEST = {
   size: '1024x1024',

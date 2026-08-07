@@ -63,11 +63,9 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
   // clip instead of layering voices, and discard can stop it.
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Closing the dialog mid-generation must not leak: a blob URL created for
-  // a dropped setPreview would never reach the cleanup effect below. The
-  // setup body must re-assert true — StrictMode runs setup → cleanup →
-  // setup on a dev mount, and a cleanup-only version leaves the guard
-  // permanently closed there (#433 review).
+  // A blob URL created for a dropped setPreview never reaches the cleanup
+  // effect below. The setup body must re-assert true, or StrictMode's
+  // setup → cleanup → setup leaves the guard permanently closed (#433).
   const openRef = useRef(true);
   useEffect(() => {
     openRef.current = true;
@@ -118,11 +116,9 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     }
   }, [rec, saveAudio, picto.id]);
 
-  // Save automatically when the duration cap fires (#416). The recorder
-  // stops itself at MAX_RECORDING_MS either way; without this timer the
-  // dialog would keep showing "Recording…" over a recorder that already
-  // stopped, and a later Stop press would save a clip the user thinks is
-  // longer than it is.
+  // The recorder stops itself at MAX_RECORDING_MS either way. Without this
+  // timer the dialog keeps showing "Recording…" over a stopped recorder, and a
+  // later Stop saves a clip the user thinks is longer than it is (#416).
   useEffect(() => {
     if (mode !== 'recording') return undefined;
     const timer = setTimeout(() => {

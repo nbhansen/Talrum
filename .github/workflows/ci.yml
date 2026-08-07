@@ -48,6 +48,9 @@ jobs:
       # known violation still errors.
       - run: npm run lint:boundaries
       - run: npm run lint:css
+      # Caps comment length (AGENTS.md §4, #450). Nothing else stops an agent
+      # writing more prose about the code than code.
+      - run: npm run lint:comments
       # Nothing enforced prettier before (#382): lint-staged's glob was
       # root-only, so anything under src/ or .github/ drifted unnoticed and
       # then surfaced as unrelated churn in whichever PR next touched the file.

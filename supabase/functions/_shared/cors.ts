@@ -1,12 +1,8 @@
 /**
- * CORS headers for browser calls to edge functions. The Supabase gateway
- * does NOT answer preflight for you: without an OPTIONS branch the browser
- * sends OPTIONS, the handler answers 405 with no CORS headers, and the
- * browser kills the real request as net::ERR_FAILED — which the client
- * cannot tell apart from being offline (#435).
- *
- * The wildcard origin is safe here: every function requires a caller JWT in
- * the Authorization header, so CORS is not the access control — auth is.
+ * The Supabase gateway does not answer preflight, so without an OPTIONS branch
+ * the browser kills the real request as net::ERR_FAILED, which the client
+ * cannot tell apart from being offline (#435). The wildcard origin is safe:
+ * every function requires a caller JWT, so auth is the access control.
  */
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
