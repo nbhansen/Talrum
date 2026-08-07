@@ -54,4 +54,11 @@ describe('findLongComments', () => {
       { line: 1, length: 7 },
     ]);
   });
+
+  // Known and accepted gap. Joining across a truly blank line was tried and
+  // reverted: two comments on adjacent declarations are two comments, and the
+  // false positives cost more than the evasion this leaves open.
+  it('lets a truly blank line end the run, so a split comment passes', () => {
+    expect(findLongComments(`${lines(4, '//')}\n\n${lines(4, '//')}`)).toEqual([]);
+  });
 });

@@ -5,7 +5,12 @@ import { globSync, readFileSync } from 'node:fs';
 
 const MAX_LINES = 4;
 
-const SOURCE_GLOBS = ['src/**/*.{ts,tsx}', 'scripts/**/*.{ts,mjs}', 'supabase/functions/**/*.ts'];
+const SOURCE_GLOBS = [
+  '*.{ts,mjs}',
+  'src/**/*.{ts,tsx}',
+  'scripts/**/*.{ts,mjs}',
+  'supabase/functions/**/*.ts',
+];
 
 // A marker line counts as prose whenever it carries any, so `/* one` and
 // `* five */` are not free.
@@ -19,6 +24,9 @@ export function findLongComments(source) {
   for (let i = 0; i < lines.length; i++) {
     const text = lines[i].trim();
     if (text.startsWith('//')) {
+      // A blank line ends the run: two comments on adjacent declarations are
+      // two comments. That leaves splitting one comment with a blank line as a
+      // way under the cap — deliberate evasion, and visible in review.
       let j = i;
       while (j + 1 < lines.length && lines[j + 1].trim().startsWith('//')) j++;
       const length = j - i + 1;
