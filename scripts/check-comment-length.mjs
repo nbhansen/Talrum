@@ -18,7 +18,10 @@ const SOURCE_GLOBS = [
 const BARE_OPEN = /^\/\*+$/;
 const BARE_CLOSE = /^\*\/$/;
 
-// Returns [{ line, length }] for every comment block over the cap.
+// Returns [{ line, length }] for every comment block over the cap. Only
+// comments that start a line are inspected: telling `// x` apart from a `//`
+// inside a string needs a lexer, and a false positive on a URL costs more than
+// the trailing-comment case is worth. Pinned by tests.
 export function findLongComments(source) {
   const lines = source.split('\n');
   const out = [];
@@ -53,13 +56,17 @@ const invokedDirectly =
   realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
 
 if (invokedDirectly) {
-  const files = SOURCE_GLOBS.flatMap((g) => globSync(g));
-  // A glob that stops matching would otherwise pass green while enforcing
-  // nothing — the silent no-op verify-boundaries.mjs exists to prevent.
-  if (files.length === 0) {
-    console.error('check-comment-length: the globs matched no files, so nothing was checked.');
-    process.exit(1);
-  }
+  // Per glob, not on the total: one tree dropping out of enforcement would
+  // otherwise stay green behind the others — the silent no-op
+  // verify-boundaries.mjs exists to prevent.
+  const files = SOURCE_GLOBS.flatMap((g) => {
+    const matched = globSync(g);
+    if (matched.length === 0) {
+      console.error(`check-comment-length: the glob ${g} matched no files.`);
+      process.exit(1);
+    }
+    return matched;
+  });
   const failures = files.flatMap((file) =>
     findLongComments(readFileSync(file, 'utf8')).map(
       (f) => `${file}:${f.line} — ${f.length} lines`,

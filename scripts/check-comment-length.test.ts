@@ -64,6 +64,14 @@ describe('findLongComments', () => {
     expect(findLongComments(`/* one\n${lines(5, ' ')}`)).toEqual([{ line: 1, length: 6 }]);
   });
 
+  // Known and accepted gap: a comment that starts after code on the same line
+  // is not inspected, so the run below is counted from its second line.
+  // Telling these apart from a `//` inside a string needs a lexer.
+  it('only inspects comments that start a line', () => {
+    expect(findLongComments(`foo(); // one\n${lines(4, '//')}`)).toEqual([]);
+    expect(findLongComments(`const x = f(); /* one\n${lines(4, ' *')}\n */`)).toEqual([]);
+  });
+
   // Known and accepted gap. Joining across a truly blank line was tried and
   // reverted: two comments on adjacent declarations are two comments, and the
   // false positives cost more than the evasion this leaves open.

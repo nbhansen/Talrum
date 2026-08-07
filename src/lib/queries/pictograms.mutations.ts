@@ -20,9 +20,9 @@ const patchPictogramInList = (
 
 /**
  * Revoke every `blob:` URL an optimistic mutation planted, before the settle
- * refetch replaces the rows with signed URLs. Scanning all blobs instead of
- * tracking ids per mutation costs a brief broken-image flash when two uploads
- * overlap; the wiring for the exact version is not worth it at this volume.
+ * refetch replaces the rows with signed URLs. Scanning all blobs rather than
+ * tracking ids per mutation costs three accepted races — one of them silent
+ * audio. They are named in docs/queries.md, "Accepted races in the blob sweep".
  */
 const revokePictogramBlobs = (qc: QueryClient): void => {
   const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
