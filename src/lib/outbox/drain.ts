@@ -49,10 +49,15 @@ const emit = async (): Promise<void> => {
 };
 
 /**
- * Recompute status from the current IDB state and notify subscribers. Sole
- * caller is `discardEntry` — a discard does no draining (drain() is what
- * normally emits), so it must push the updated counts itself or the
- * OfflineIndicator waits for the next unrelated outbox event.
+ * Recompute status from the current IDB state and notify subscribers. For
+ * the paths that do no draining, because drain() is what normally emits:
+ *
+ * - `discardEntry` — otherwise the OfflineIndicator keeps the discarded
+ *   entry in its counts until the next unrelated outbox event.
+ * - `enqueueAndDrain`, once a fast-path write lands or fails permanently
+ *   (#445, #446 review). The entry is in the queue for the handler's round
+ *   trip, so an emit in that window counts it as pending, and neither
+ *   outcome drains afterwards to correct it.
  */
 export const refreshStatus = (): Promise<void> => emit();
 

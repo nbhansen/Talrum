@@ -24,14 +24,22 @@ export { startOutbox, UnretryableOutboxError };
  * IDB bookkeeping that must never decide the outcome of a write. The queue
  * is how a write survives a crash, not how it succeeds: a device that cannot
  * write IndexedDB must keep making online writes exactly as it did before
- * (#446 review). Every one of these failures is recoverable — a lost entry
- * costs the crash window, a lost delete costs one idempotent replay — so
- * they go to telemetry and the write carries on.
+ * (#446 review). These failures are all recoverable — a lost pre-attempt
+ * entry costs the crash window, a lost delete costs one idempotent replay,
+ * lost retry bookkeeping costs an attempt count — so they go to telemetry
+ * and the write carries on. Returns whether the work succeeded, because one
+ * caller has to know: a put that is the queue's *only* record of the write
+ * is not bookkeeping, and must be allowed to fail the mutation.
  */
-const bestEffort = (op: string, work: Promise<void>): Promise<void> =>
-  work.catch((err: unknown) => {
+const bestEffort = async (op: string, work: Promise<void>): Promise<boolean> => {
+  try {
+    await work;
+    return true;
+  } catch (err) {
     captureException(err, { level: 'warning', tags: { component: 'outbox', op } });
-  });
+    return false;
+  }
+};
 
 /**
  * Distribute the Omit over each member of the union so caller payloads keep
@@ -109,60 +117,81 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
-  const outcome = await withCrossTabLock(
-    async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
-      // Read `onLine` inside the lock: an offline pre-check would sit outside
-      // and go seconds stale during the lock wait (same hazard as drain's
-      // in-lock re-check); attempting on a dead network burns a retry attempt
-      // for nothing. Persist unattempted instead — the drain() below no-ops
-      // offline and emits the new pending count.
-      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (offline || (await listEntries()).some((e) => e.status === 'pending')) {
-        await putEntry(newEntry());
-        return 'queued-unattempted';
+  const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+    // Read `onLine` inside the lock: an offline pre-check would sit outside
+    // and go seconds stale during the lock wait (same hazard as drain's
+    // in-lock re-check); attempting on a dead network burns a retry attempt
+    // for nothing. Persist unattempted instead — the drain() below no-ops
+    // offline and emits the new pending count.
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (offline || (await listEntries()).some((e) => e.status === 'pending')) {
+      await putEntry(newEntry());
+      return 'queued-unattempted';
+    }
+    const entry = newEntry();
+    // Persist before the attempt (#445). The handler's round trip is a
+    // window in which the page can go away — a reload, a tab close — and
+    // an entry that lives only in memory goes with it. The optimistic
+    // cache patch does not survive either, so the write vanishes with no
+    // queue entry, no error, and nothing for the user to retry.
+    //
+    // Best effort, deliberately. A device that cannot write IndexedDB
+    // (quota, most likely on the blob-carrying kinds) must keep making
+    // online writes exactly as it did before. Rejecting every online write
+    // on a full disk is a certain outage traded for a possible crash — the
+    // wrong way round. Without the entry the attempt is what it always was.
+    const queued = await bestEffort('persist-before-attempt', putEntry(entry));
+    try {
+      await runHandler(entry);
+    } catch (err) {
+      if (err instanceof UnretryableOutboxError) {
+        // The mutation rejects and React Query rolls the patch back, so
+        // the entry must not stay behind as a queued write.
+        await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
+        throw err;
       }
-      const entry = newEntry();
-      // Persist before the attempt (#445). The handler's round trip is a
-      // window in which the page can go away — a reload, a tab close — and
-      // an entry that lives only in memory goes with it. The optimistic
-      // cache patch does not survive either, so the write vanishes with no
-      // queue entry, no error, and nothing for the user to retry.
-      //
-      // Best effort, deliberately. A device that cannot write IndexedDB
-      // (quota, most likely on the blob-carrying kinds) must keep making
-      // online writes exactly as it did before. Rejecting every online write
-      // on a full disk is a certain outage traded for a possible crash — the
-      // wrong way round. Without the entry the attempt is what it always was.
-      await bestEffort('persist-before-attempt', putEntry(entry));
-      try {
-        await runHandler(entry);
-      } catch (err) {
-        if (err instanceof UnretryableOutboxError) {
-          // The mutation rejects and React Query rolls the patch back, so
-          // the entry must not stay behind as a queued write.
-          await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
-          throw err;
-        }
-        // Transient — join the queue. We intentionally use the same entry
-        // (with attemptCount = 1 to reflect the just-failed attempt) so the
-        // drain loop respects the retry ceiling.
-        await putEntry({
-          ...entry,
-          attemptCount: 1,
-          lastError: err instanceof Error ? err.message : 'unknown error',
-        });
-        return 'queued-transient';
+      // Transient — join the queue. We intentionally use the same entry
+      // (with attemptCount = 1 to reflect the just-failed attempt) so the
+      // drain loop respects the retry ceiling.
+      const attempted = {
+        ...entry,
+        attemptCount: 1,
+        lastError: err instanceof Error ? err.message : 'unknown error',
+      };
+      // Which of the two this put is depends on whether the pre-attempt one
+      // landed (#446 review). With the entry already queued this only
+      // records the burnt attempt, so a failure must not fail the write —
+      // the drain replays it either way. Without it, this put *is* the
+      // queue entry, and swallowing a failure would resolve the mutation as
+      // "queued" while the write vanished: the silent loss #445 is about.
+      if (queued) {
+        await bestEffort('record-transient-attempt', putEntry(attempted));
+      } else {
+        await putEntry(attempted);
       }
-      // Outside the try: a failed delete is not a failed handler. Inside, an
-      // IDB error after a landed write took the transient branch, which
-      // replayed a write the server had accepted and put the IndexedDB error
-      // text in the entry's lastError (#446 review). Best effort here leaves
-      // the entry queued instead, which the drain replays — the same
-      // at-least-once contract handlers are already idempotent for.
-      await bestEffort('delete-after-landing', deleteEntry(entry.id));
-      return 'landed';
-    },
-  );
+      return 'queued-transient';
+    }
+    // Outside the try: a failed delete is not a failed handler. Inside, an
+    // IDB error after a landed write took the transient branch, which
+    // replayed a write the server had accepted and put the IndexedDB error
+    // text in the entry's lastError (#446 review). Best effort here leaves
+    // the entry queued instead, which the drain replays — the same
+    // at-least-once contract handlers are already idempotent for.
+    await bestEffort('delete-after-landing', deleteEntry(entry.id));
+    return 'landed';
+  };
+
+  let outcome: 'landed' | 'queued-transient' | 'queued-unattempted';
+  try {
+    outcome = await withCrossTabLock(run);
+  } catch (err) {
+    // A permanent failure rethrows past the refresh at the bottom, and an
+    // emit during the round trip counted this entry as pending. Without the
+    // correction the indicator keeps showing it for a write that was rejected
+    // and rolled back (#446 review).
+    await refreshStatus();
+    throw err;
+  }
   if (outcome === 'queued-transient') {
     void drain();
     return;

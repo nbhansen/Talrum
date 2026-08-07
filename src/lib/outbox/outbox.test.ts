@@ -894,6 +894,32 @@ describe('enqueueAndDrain', () => {
     expect(getStatus().pendingCount).toBe(0);
   });
 
+  // Same window, but the write is rejected: the throw skips the landed path's
+  // correction, so it needs its own (#446 review).
+  it('online: a permanent failure also corrects the status it left behind', async () => {
+    let denyHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        denyHandler = () =>
+          resolve({
+            data: null,
+            error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+          });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(1);
+
+    denyHandler();
+    await expect(write).rejects.toThrow();
+    expect(getStatus().pendingCount).toBe(0);
+  });
+
   it('online + non-retryable: rejects without enqueueing', async () => {
     unguardedSelectMock.mockResolvedValue({
       data: null,

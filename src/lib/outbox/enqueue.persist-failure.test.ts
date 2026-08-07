@@ -100,4 +100,35 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
       expect.objectContaining({ tags: { component: 'outbox', op: 'delete-after-landing' } }),
     );
   });
+
+  // With the entry already queued, the retry bookkeeping is only bookkeeping:
+  // the drain replays the write whether or not the attempt count landed.
+  it('keeps a transient write queued when only the retry bookkeeping fails', async () => {
+    selectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    putEntryMock.mockImplementationOnce(realStore.putEntry as (e: never) => Promise<void>);
+    putEntryMock.mockRejectedValueOnce(new DOMException('Closed', 'InvalidStateError'));
+
+    await expect(
+      enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
+    ).resolves.toBeUndefined();
+
+    expect(await listEntries()).toHaveLength(1);
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(DOMException),
+      expect.objectContaining({ tags: { component: 'outbox', op: 'record-transient-attempt' } }),
+    );
+  });
+
+  // Both puts failed, so nothing is queued. Resolving here would report the
+  // write as saved while it vanished — the silent loss #445 is about.
+  it('rejects a transient write when no put lands, rather than claiming it is queued', async () => {
+    selectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
+
+    await expect(
+      enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
+    ).rejects.toThrow(DOMException);
+
+    expect(await listEntries()).toEqual([]);
+  });
 });
