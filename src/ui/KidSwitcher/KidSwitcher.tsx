@@ -10,12 +10,7 @@ interface KidSwitcherProps {
   onSelect: (kidId: string) => void;
 }
 
-/**
- * Pill row of kids — used in parent home when more than one kid exists, so
- * the parent can flip the boards filter without leaving the page. Hidden
- * entirely for single-kid families (the caller decides; this component
- * always renders if mounted).
- */
+/** Always renders if mounted — hiding it for one-kid families is the caller's. */
 export const KidSwitcher = ({ kids, activeKidId, onSelect }: KidSwitcherProps): JSX.Element => (
   <div className={styles.row} role="tablist" aria-label="Switch active kid">
     {kids.map((kid) => {

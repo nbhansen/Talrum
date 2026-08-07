@@ -13,8 +13,7 @@ interface TalrumLogoProps {
    * connector on KidChoice). */
   tile?: ColorToken;
   tileInk?: ColorToken;
-  /** Custom content rendered inside an override tile. Ignored when no
-   * override is requested. */
+  /** Ignored unless an override tile is requested. */
   children?: ReactNode;
 }
 

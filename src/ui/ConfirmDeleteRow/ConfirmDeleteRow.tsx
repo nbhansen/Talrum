@@ -12,11 +12,7 @@ interface ConfirmDeleteRowProps {
   disabled?: boolean;
 }
 
-/**
- * Two-step destructive action shared by the edit sheets: a ghost button
- * that arms the row, then Cancel / "Delete forever". Arming is local UI
- * state — closing the dialog discards it.
- */
+/** Arming is local state, so closing the dialog discards it. */
 export const ConfirmDeleteRow = ({
   label,
   onConfirm,
