@@ -132,7 +132,7 @@ describe('installPreloadErrorRecovery', () => {
 
     expect(reloadMock).not.toHaveBeenCalled();
     expect(captureMessageMock).toHaveBeenCalledWith(
-      expect.stringMatching(/after 3 recovery reloads/i),
+      expect.stringMatching(/reload cap reached/i),
       expect.objectContaining({ level: 'warning' }),
     );
   });

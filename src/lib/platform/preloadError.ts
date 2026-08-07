@@ -135,7 +135,11 @@ export const installPreloadErrorRecovery = (): void => {
         return;
       }
       if (recovery.reloads >= MAX_RELOADS) {
-        warn(`Chunk load still failing after ${MAX_RELOADS} recovery reloads`, event);
+        // The count cannot tell a slow loop from a run of deploys that each
+        // recovered, so the message says only what is known: the cap was
+        // reached. "Still failing" would be wrong in the second case (#443
+        // review round 6).
+        warn(`Chunk load reload cap reached — ${MAX_RELOADS} inside the burst window`, event);
         return;
       }
       // Stamp first: reloading without a written loop guard could repeat
