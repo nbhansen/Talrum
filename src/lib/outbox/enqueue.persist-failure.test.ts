@@ -20,7 +20,13 @@ vi.mock('./store', async (importOriginal) => {
   return { ...actual, putEntry: putEntryMock, deleteEntry: deleteEntryMock };
 });
 
-const selectMock = vi.fn<() => Promise<{ data: unknown; error: null }>>();
+interface MockPostgrestError {
+  code: string;
+  message: string;
+  details: string;
+  hint: string;
+}
+const selectMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
 const eqMock = vi.fn((_c: string, _v: string) => ({ select: selectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 
@@ -124,6 +130,26 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
       expect.any(DOMException),
       expect.objectContaining({ tags: { component: 'outbox', op: 'record-transient-attempt' } }),
     );
+  });
+
+  // The entry outlived a write the UI rolled back. Left pending it would sit
+  // in the count and ambush the next unrelated drain (#446 review).
+  it('drains an entry a permanent failure could not clear', async () => {
+    selectMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+    });
+    deleteEntryMock.mockRejectedValue(new DOMException('Closed', 'InvalidStateError'));
+
+    await expect(
+      enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
+    ).rejects.toThrow();
+
+    // The drain replays it, hits the same permanent error, and marks it
+    // failed — a state the indicator can show and the user can discard.
+    await vi.waitFor(async () => {
+      expect((await listEntries())[0]?.status).toBe('failed');
+    });
   });
 
   // Both puts failed, so nothing is queued. Resolving here would report the

@@ -47,9 +47,16 @@ IndexedDB key per entry; ULID key order = enqueue order, so FIFO is free.
   (#442), a tab close, a crash — and an entry that lived only in memory went
   with it. The optimistic cache patch does not survive either (the persisted
   cache is busted by commit), so the write disappeared with no queue entry, no
-  error, and nothing for the user to retry. The cost: one put and one delete
-  per online write, and a status emit during the round trip counts the
-  in-flight entry as pending, which is what it is.
+  error, and nothing for the user to retry. The cost, and it is not free: one
+  put and one delete per online write, plus a status refresh once it lands.
+  For the blob-carrying kinds the put copies the whole payload into IndexedDB
+  and deletes it moments later — a few hundred KB for a photo or a recording
+  — and it happens **while the cross-tab lock is held**, so it also stalls
+  the other tab's drain and fast path. Durability needs the blob persisted,
+  so this is the price of the guarantee, not an accident. The status refresh
+  reads whole entries too, so failed blob entries waiting on Retry/Discard
+  are deserialized on every online write. A status emit during the round trip
+  counts the in-flight entry as pending, which is what it is.
 - **A drain stops at the first transient failure** to preserve FIFO order,
   but marks permanent failures as `failed` and moves on, so one bad entry
   can't dam the queue.

@@ -117,6 +117,10 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
+  // Set when a permanent failure could not clear its entry. That path throws,
+  // so it cannot report an outcome, and the lock callback must not call
+  // drain() itself.
+  let orphaned = false;
   const run = async (): Promise<
     'landed' | 'landed-still-queued' | 'queued-transient' | 'queued-unattempted'
   > => {
@@ -149,7 +153,15 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       if (err instanceof UnretryableOutboxError) {
         // The mutation rejects and React Query rolls the patch back, so
         // the entry must not stay behind as a queued write.
-        await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
+        const cleared = await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
+        // If it did stay behind, nothing on this path would pick it up, so it
+        // would sit in the count as a pending write the UI already discarded
+        // and then ambush the next unrelated drain — which replays a write
+        // the user saw rejected, and for a conflict offers a Retry that
+        // applies the patch they believe was rolled back (#446 review). Drain
+        // instead, so it converges to `failed`, where the indicator's Discard
+        // is the way out.
+        orphaned = !cleared;
         throw err;
       }
       // Transient — join the queue. We intentionally use the same entry
@@ -198,8 +210,9 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // A permanent failure rethrows past the refresh at the bottom, and an
     // emit during the round trip counted this entry as pending. Without the
     // correction the indicator keeps showing it for a write that was rejected
-    // and rolled back (#446 review).
-    await refreshStatus();
+    // and rolled back (#446 review). A drain emits for itself.
+    if (orphaned) void drain();
+    else await refreshStatus();
     throw err;
   }
   if (outcome === 'queued-transient' || outcome === 'landed-still-queued') {
@@ -219,8 +232,9 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   // path, so without this the correction waits for the next emitter — and an
   // `offline` event that lands mid-round-trip has none until the device comes
   // back, leaving "1 pending" on screen for a write that succeeded (#446
-  // review). The queue is empty of pending entries by this path's own
-  // precondition, so the read is small.
+  // review). Not a free read: the precondition only excludes *pending*
+  // entries, and `listEntries` deserializes whole entries, so a caregiver
+  // sitting on failed blob-carrying entries pays for those blobs here.
   await refreshStatus();
 };
 
