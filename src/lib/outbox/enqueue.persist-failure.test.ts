@@ -81,23 +81,30 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
   // write the server had accepted and put the IndexedDB error text in the
   // entry's lastError (#446 review).
   it('does not treat a failed delete as a failed write', async () => {
-    deleteEntryMock.mockRejectedValue(new DOMException('Closed', 'InvalidStateError'));
+    // Only the first delete fails, so the replay can clear the entry and the
+    // end state is deterministic.
+    deleteEntryMock.mockRejectedValueOnce(new DOMException('Closed', 'InvalidStateError'));
 
     await expect(
       enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
     ).resolves.toBeUndefined();
 
-    // The handler ran once. A transient re-queue would replay it.
-    expect(eqMock).toHaveBeenCalledTimes(1);
-    // The entry the fast path wrote is still there, with no attempt burned
-    // and no IDB error text as its lastError. A drain replays it, and
-    // handlers are idempotent for exactly this.
-    const [left] = await listEntries();
-    expect(left?.attemptCount).toBe(0);
-    expect(left?.lastError).toBeUndefined();
     expect(captureExceptionMock).toHaveBeenCalledWith(
       expect.any(DOMException),
       expect.objectContaining({ tags: { component: 'outbox', op: 'delete-after-landing' } }),
+    );
+    // Something has to clear the entry: the landed path neither drains nor
+    // arms the retry timer, so without the follow-up drain the indicator sits
+    // at one queued write until an unrelated event (#446 review).
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toEqual([]);
+    });
+    // Twice: the fast path, then the replay that cleared it.
+    expect(eqMock).toHaveBeenCalledTimes(2);
+    // The signature of the bug: classifying the delete failure as a handler
+    // failure re-queued the entry with the IndexedDB error as its lastError.
+    expect(putEntryMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ lastError: expect.stringContaining('Closed') }),
     );
   });
 

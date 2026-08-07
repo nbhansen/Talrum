@@ -120,6 +120,14 @@ New entry kind? Add the interface in `types.ts`, the handler in
   entry was deleted (#445). Re-running must converge, not error. Server-side
   `array_remove`/`ON DELETE CASCADE`/RPC no-ops are the usual tools; see
   `delete_pictogram` (#280).
+
+  Guarded `updateBoard` is the exception, by design. A reload starts with an
+  empty board clock (`board-clock.ts`), so the replay still carries the
+  `expectedUpdatedAt` its own landed write invalidated, `.match` returns zero
+  rows, and the caregiver gets the conflict pill for their own write. Same
+  accepted class as the transient-code replay `handlers.ts` documents, and
+  recoverable — **Retry** strips the guard. A recoverable wrong pill beats
+  the silent loss it replaced.
 - **Authorization-free.** RLS is the security boundary; a handler running
   against someone else's rows should fail (or no-op) at the database, never
   by client-side checks.

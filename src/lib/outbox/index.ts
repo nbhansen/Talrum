@@ -117,7 +117,9 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     attemptCount: 0,
     status: 'pending',
   });
-  const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
+  const run = async (): Promise<
+    'landed' | 'landed-still-queued' | 'queued-transient' | 'queued-unattempted'
+  > => {
     // Read `onLine` inside the lock: an offline pre-check would sit outside
     // and go seconds stale during the lock wait (same hazard as drain's
     // in-lock re-check); attempting on a dead network burns a retry attempt
@@ -177,11 +179,19 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // text in the entry's lastError (#446 review). Best effort here leaves
     // the entry queued instead, which the drain replays — the same
     // at-least-once contract handlers are already idempotent for.
-    await bestEffort('delete-after-landing', deleteEntry(entry.id));
+    if (!(await bestEffort('delete-after-landing', deleteEntry(entry.id)))) {
+      // The write landed but its entry did not clear. Nothing on the landed
+      // path would pick it up — it neither drains nor arms the retry timer —
+      // so the indicator would sit at "Sync queued · 1" until an unrelated
+      // event, the stuck-count class of #290 and #391 (#446 review). Say so,
+      // and let the follow-up drain replay it: the handler is idempotent and
+      // the replay is what clears the entry.
+      return 'landed-still-queued';
+    }
     return 'landed';
   };
 
-  let outcome: 'landed' | 'queued-transient' | 'queued-unattempted';
+  let outcome: 'landed' | 'landed-still-queued' | 'queued-transient' | 'queued-unattempted';
   try {
     outcome = await withCrossTabLock(run);
   } catch (err) {
@@ -192,7 +202,7 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     await refreshStatus();
     throw err;
   }
-  if (outcome === 'queued-transient') {
+  if (outcome === 'queued-transient' || outcome === 'landed-still-queued') {
     void drain();
     return;
   }
