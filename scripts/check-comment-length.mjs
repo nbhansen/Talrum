@@ -2,11 +2,12 @@
 // lines is where narration creeps in: LLM agents write the code, then write
 // twice as many words about it, and every one of those words can go stale.
 import { globSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const MAX_LINES = 4;
 
 const SOURCE_GLOBS = [
-  '*.{ts,mjs}',
+  '*.{ts,mjs,js}',
   'src/**/*.{ts,tsx}',
   'scripts/**/*.{ts,mjs}',
   'supabase/functions/**/*.ts',
@@ -35,9 +36,10 @@ export function findLongComments(source) {
     } else if (text.startsWith('/*')) {
       let j = i;
       while (j < lines.length && !lines[j].includes('*/')) j++;
-      let length = j - i + 1;
+      const closed = j < lines.length;
+      let length = (closed ? j : lines.length - 1) - i + 1;
       if (BARE_OPEN.test(text)) length--;
-      if (j > i && BARE_CLOSE.test(lines[j].trim())) length--;
+      if (closed && j > i && BARE_CLOSE.test(lines[j].trim())) length--;
       if (length > MAX_LINES) out.push({ line: i + 1, length });
       i = j;
     }
@@ -46,7 +48,7 @@ export function findLongComments(source) {
 }
 
 // Only run the check when invoked as a script, never when a test imports it.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const files = SOURCE_GLOBS.flatMap((g) => globSync(g));
   const failures = files.flatMap((file) =>
     findLongComments(readFileSync(file, 'utf8')).map(

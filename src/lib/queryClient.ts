@@ -89,10 +89,10 @@ const clearStorageCaches = async (): Promise<void> => {
   await Promise.all(
     names.filter((n) => n.startsWith('talrum-storage')).map((n) => caches.delete(n)),
   );
-  // The ExpirationPlugin index holds one row per cached entry, each with a
-  // full signed URL — the same per-user residue, one store over. It can settle
-  // late (the SW holds a connection); every cache hit re-stamps its row, so a
-  // delete that takes the next user's fresh rows self-heals.
+  // Only the caches deleted above use this database, so it goes whole. Its rows
+  // hold one full signed URL each — the same per-user residue, one store over.
+  // The delete can settle late, and one that takes the next user's fresh rows
+  // self-heals, because every cache hit re-stamps its row.
   await new Promise<void>((resolve, reject) => {
     const req = indexedDB.deleteDatabase('workbox-expiration');
     req.onsuccess = () => {

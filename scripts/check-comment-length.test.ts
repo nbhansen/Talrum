@@ -55,6 +55,15 @@ describe('findLongComments', () => {
     ]);
   });
 
+  // An unterminated `/*` — reachable from a string literal like
+  // `const s = '/* not a comment';` — used to walk past the last line and
+  // crash the linter with a raw TypeError instead of a lint result.
+  it('does not crash on a block comment that is never closed', () => {
+    const inTemplate = ['const t = `', '/* looks like a comment', '`;'].join('\n');
+    expect(findLongComments(inTemplate)).toEqual([]);
+    expect(findLongComments(`/* one\n${lines(5, ' ')}`)).toEqual([{ line: 1, length: 6 }]);
+  });
+
   // Known and accepted gap. Joining across a truly blank line was tried and
   // reverted: two comments on adjacent declarations are two comments, and the
   // false positives cost more than the evasion this leaves open.
