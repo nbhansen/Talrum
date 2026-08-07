@@ -867,6 +867,33 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
+  // A status push during the round trip counts the in-flight entry as
+  // pending, and nothing else emits on the landed path. An `offline` event in
+  // that window has no later emitter until the device comes back, so the
+  // indicator would show "1 pending" for a write that succeeded (#446
+  // review).
+  it('online: a status push during the round trip is corrected once the write lands', async () => {
+    let landHandler!: () => void;
+    unguardedSelectMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        landHandler = () =>
+          resolve({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
+      }),
+    );
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    await vi.waitFor(async () => {
+      expect(await listEntries()).toHaveLength(1);
+    });
+    // Stand in for the `offline` listener's unlocked emit.
+    await refreshStatus();
+    expect(getStatus().pendingCount).toBe(1);
+
+    landHandler();
+    await write;
+    expect(getStatus().pendingCount).toBe(0);
+  });
+
   it('online + non-retryable: rejects without enqueueing', async () => {
     unguardedSelectMock.mockResolvedValue({
       data: null,

@@ -4,16 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as StoreModule from './store';
 
 /**
- * A device that cannot write IndexedDB (quota) must keep making online writes
- * (#446 review). The pre-attempt put added for #445 is best effort, so it
- * needs its own file: `./store` is mocked here, and outbox.test.ts uses the
- * real one.
+ * The IDB bookkeeping around a fast-path write is best effort: it must never
+ * decide the outcome (#446 review). Proving that needs `putEntry`/
+ * `deleteEntry` to fail on demand, so `./store` is mocked here and this lives
+ * in its own file — outbox.test.ts uses the real store throughout.
+ *
+ * Both mocks run the real implementation by default, so every test that does
+ * not force a failure still reads and writes a real fake-indexeddb store.
  */
-const putEntryMock = vi.fn<(entry: unknown) => Promise<void>>();
+const putEntryMock = vi.fn<(entry: never) => Promise<void>>();
+const deleteEntryMock = vi.fn<(id: string) => Promise<void>>();
 
 vi.mock('./store', async (importOriginal) => {
   const actual = await importOriginal<typeof StoreModule>();
-  return { ...actual, putEntry: putEntryMock };
+  return { ...actual, putEntry: putEntryMock, deleteEntry: deleteEntryMock };
 });
 
 const selectMock = vi.fn<() => Promise<{ data: unknown; error: null }>>();
@@ -29,6 +33,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
   captureMessage: vi.fn(),
 }));
 
+const realStore = await vi.importActual<typeof StoreModule>('./store');
 const { enqueueAndDrain } = await import('./index');
 const { listEntries } = await import('./store');
 const { captureException } = await import('@/lib/platform/telemetry');
@@ -38,7 +43,8 @@ const captureExceptionMock = vi.mocked(captureException);
 beforeEach(async () => {
   await clear();
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
-  putEntryMock.mockReset();
+  putEntryMock.mockReset().mockImplementation(realStore.putEntry as (e: never) => Promise<void>);
+  deleteEntryMock.mockReset().mockImplementation(realStore.deleteEntry);
   eqMock.mockClear();
   captureExceptionMock.mockClear();
   selectMock.mockResolvedValue({
@@ -68,6 +74,30 @@ describe('enqueueAndDrain when IndexedDB cannot be written', () => {
     expect(captureExceptionMock).toHaveBeenCalledWith(
       expect.any(DOMException),
       expect.objectContaining({ tags: { component: 'outbox', op: 'persist-before-attempt' } }),
+    );
+  });
+
+  // A failed delete is not a failed handler. Classifying it as one replayed a
+  // write the server had accepted and put the IndexedDB error text in the
+  // entry's lastError (#446 review).
+  it('does not treat a failed delete as a failed write', async () => {
+    deleteEntryMock.mockRejectedValue(new DOMException('Closed', 'InvalidStateError'));
+
+    await expect(
+      enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
+    ).resolves.toBeUndefined();
+
+    // The handler ran once. A transient re-queue would replay it.
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    // The entry the fast path wrote is still there, with no attempt burned
+    // and no IDB error text as its lastError. A drain replays it, and
+    // handlers are idempotent for exactly this.
+    const [left] = await listEntries();
+    expect(left?.attemptCount).toBe(0);
+    expect(left?.lastError).toBeUndefined();
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(DOMException),
+      expect.objectContaining({ tags: { component: 'outbox', op: 'delete-after-landing' } }),
     );
   });
 });

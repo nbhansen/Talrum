@@ -21,6 +21,19 @@ export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
 export { startOutbox, UnretryableOutboxError };
 
 /**
+ * IDB bookkeeping that must never decide the outcome of a write. The queue
+ * is how a write survives a crash, not how it succeeds: a device that cannot
+ * write IndexedDB must keep making online writes exactly as it did before
+ * (#446 review). Every one of these failures is recoverable — a lost entry
+ * costs the crash window, a lost delete costs one idempotent replay — so
+ * they go to telemetry and the write carries on.
+ */
+const bestEffort = (op: string, work: Promise<void>): Promise<void> =>
+  work.catch((err: unknown) => {
+    captureException(err, { level: 'warning', tags: { component: 'outbox', op } });
+  });
+
+/**
  * Distribute the Omit over each member of the union so caller payloads keep
  * their per-kind required fields. A plain `Omit<OutboxEntry, ...>` collapses
  * to the intersection of common props, dropping `boardId`, `pictogramId`,
@@ -47,11 +60,14 @@ type EntryInput = DistributiveOmit<
  * IndexedDB keeps the availability it had before, and the failure goes to
  * telemetry.
  *
- * The cost is one IDB put and one delete on every online write. The entry is
- * also visible in the queue for the length of the round trip: the cross-tab
- * lock keeps every drain and every other enqueue from acting on it, but
- * `emit()` and `refreshStatus()` read the queue unlocked, so a status push
- * that lands in that window counts it as pending — which is what it is.
+ * The cost is one IDB put and one delete on every online write, plus a
+ * status refresh once it lands. The entry is visible in the queue for the
+ * length of the round trip: the cross-tab lock keeps every drain and every
+ * other enqueue from acting on it, but `emit()` and `refreshStatus()` read
+ * the queue unlocked, so a status push in that window counts it as pending —
+ * which is what it is. The refresh on the landed path is what corrects that
+ * push; without it the correction would wait for the next emitter, and an
+ * `offline` event mid-round-trip has none until the device comes back.
  * Where `navigator.locks` is missing, `withCrossTabLock` runs unlocked and a
  * concurrent drain can replay the in-flight entry; handlers are idempotent
  * for exactly this class (see drain.ts and docs/outbox.md).
@@ -117,21 +133,14 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       // online writes exactly as it did before. Rejecting every online write
       // on a full disk is a certain outage traded for a possible crash — the
       // wrong way round. Without the entry the attempt is what it always was.
-      await putEntry(entry).catch((err: unknown) => {
-        captureException(err, {
-          level: 'warning',
-          tags: { component: 'outbox', op: 'persist-before-attempt' },
-        });
-      });
+      await bestEffort('persist-before-attempt', putEntry(entry));
       try {
         await runHandler(entry);
-        await deleteEntry(entry.id);
-        return 'landed';
       } catch (err) {
         if (err instanceof UnretryableOutboxError) {
           // The mutation rejects and React Query rolls the patch back, so
           // the entry must not stay behind as a queued write.
-          await deleteEntry(entry.id);
+          await bestEffort('delete-after-permanent-failure', deleteEntry(entry.id));
           throw err;
         }
         // Transient — join the queue. We intentionally use the same entry
@@ -144,6 +153,14 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
         });
         return 'queued-transient';
       }
+      // Outside the try: a failed delete is not a failed handler. Inside, an
+      // IDB error after a landed write took the transient branch, which
+      // replayed a write the server had accepted and put the IndexedDB error
+      // text in the entry's lastError (#446 review). Best effort here leaves
+      // the entry queued instead, which the drain replays — the same
+      // at-least-once contract handlers are already idempotent for.
+      await bestEffort('delete-after-landing', deleteEntry(entry.id));
+      return 'landed';
     },
   );
   if (outcome === 'queued-transient') {
@@ -156,7 +173,16 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // so the indicator updates without waiting for the next online/offline
     // event.
     await drain();
+    return;
   }
+  // Landed. The entry was in the queue for the length of the round trip, and
+  // an emit in that window counted it as pending. Nothing else emits on this
+  // path, so without this the correction waits for the next emitter — and an
+  // `offline` event that lands mid-round-trip has none until the device comes
+  // back, leaving "1 pending" on screen for a write that succeeded (#446
+  // review). The queue is empty of pending entries by this path's own
+  // precondition, so the read is small.
+  await refreshStatus();
 };
 
 /**
