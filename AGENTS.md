@@ -68,7 +68,32 @@ The test: every changed line traces directly to the user's request. If a line fa
 
 ---
 
-## 4. Goal-driven execution
+## 4. Comments and documentation
+
+**Goal: the code carries the meaning. Words are only for what the code cannot say.**
+
+Each comment and each document is a second copy of the truth. The copy goes stale, and a stale copy is worse than no copy. LLM agents produce this failure constantly: they write the code, then write twice as many words to describe it.
+
+**Comments**
+
+- The default is no comment. Names carry the meaning. A comment must not repeat a name.
+- Write a comment only for what the code cannot say: a non-obvious *why*, a constraint from outside the file, or a correct choice that reads as a mistake.
+- Three lines is the maximum. If a comment needs more, the design is unclear, or the text belongs in `docs/`.
+- Never narrate a review round, a bug history, or a PR discussion. Cite the issue instead: `// FIFO by ULID, not enqueue time (#445).`
+- No file-header essays. A module docblock is one sentence, or none.
+- In a test, do not restate the test name in the body.
+
+**Documentation**
+
+- A document exists only if a developer must read it before a code change. Write one document for each subsystem.
+- A document must not repeat what the code and the types already say.
+- When you change code, delete the document lines your change made false. Do not append.
+
+The test: delete the comment. If the next reader can still make the change correctly, the comment was babble.
+
+---
+
+## 5. Goal-driven execution
 
 **Goal: define success as something you can verify, then loop until verified.**
 
@@ -88,7 +113,7 @@ For every task:
 
 ---
 
-## 5. Tool use and verification
+## 6. Tool use and verification
 
 - Prefer running the code to guessing about the code. If a test suite exists, run it. If a linter exists, run it. If a type checker exists, run it.
 - Never report "done" based on a plausible-looking diff alone. Plausibility is not correctness.
@@ -99,7 +124,7 @@ For every task:
 
 ---
 
-## 6. Session hygiene
+## 7. Session hygiene
 
 - Context is the constraint. Long sessions with accumulated failed attempts perform worse than fresh sessions with a better prompt.
 - After two failed corrections on the same issue, stop. Summarize what you learned and ask the user to reset the session with a sharper prompt.
@@ -108,7 +133,7 @@ For every task:
 
 ---
 
-## 7. Communication style
+## 8. Communication style
 
 - Direct, not diplomatic. "This won't scale because X" beats "That's an interesting approach, but have you considered...".
 - Concise by default. Two or three short paragraphs unless the user asks for depth. No padding, no restating the question, no ceremonial closings.
@@ -119,7 +144,7 @@ For every task:
 
 ---
 
-## 8. When to ask, when to proceed
+## 9. When to ask, when to proceed
 
 **Ask before proceeding when:**
 
@@ -136,7 +161,7 @@ For every task:
 
 ---
 
-## 9. Self-improvement loop
+## 10. Self-improvement loop
 
 **This file is living. Keep it short by keeping it honest.**
 
@@ -149,7 +174,7 @@ After every session where the agent did something wrong:
 
 ---
 
-## 10. Project context
+## 11. Project context
 
 ### Stack
 
@@ -195,7 +220,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 
 ---
 
-## 11. Project Learnings
+## 12. Project Learnings
 
 **Accumulated corrections. This section is for the agent to maintain, not just the human.**
 

@@ -53,7 +53,7 @@ export function formatOrphanError(orphans: readonly string[]): string {
     '',
     'Likely cause: a migration was applied via the Supabase MCP server',
     '(apply_migration stamps the apply-time timestamp instead of the filename',
-    'prefix). See CLAUDE.md §11.',
+    'prefix). See CLAUDE.md §12.',
     'Fix: identify the offending migration, rename the local file to match the',
     'remote stamp, or re-stamp the remote row. Do NOT use MCP for schema work.',
   ].join('\n');
