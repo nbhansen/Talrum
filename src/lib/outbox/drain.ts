@@ -135,7 +135,12 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
  * same entries concurrently (#278). Serialize cross-tab via the Web Locks API
  * (held locks are released automatically if the tab dies). jsdom and SSR have
  * no `navigator.locks`; fall back to running unlocked — the per-tab guard
- * still covers the single-context case.
+ * still covers drains in the single-context case, but not the fast path:
+ * `enqueueAndDrain` never sets `drainState.draining`, so a drain can start
+ * mid-round-trip, list the entry the fast path persisted before attempting
+ * (#445), and run its handler a second time. Handlers are idempotent for
+ * exactly this class. Web Locks needs a secure context, so this is jsdom and
+ * plain-HTTP origins only.
  *
  * Also wraps the queue rewrites in `retryFailed`/`discardEntry` (#289) and
  * the fast path in `enqueueAndDrain` (#395) — without it, two tabs can both

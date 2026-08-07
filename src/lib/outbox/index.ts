@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ulid } from 'ulid';
 
+import { captureException } from '@/lib/platform/telemetry';
+
 import {
   drain,
   getStatus,
@@ -41,9 +43,18 @@ type EntryInput = DistributiveOmit<
  * which the page can go away (#445). Before, the fast path ran the handler
  * with nothing in IDB, so a reload or a tab close during that round trip
  * dropped the entry and the optimistic patch together and the write was
- * gone without a trace. The cost is one IDB put and one delete on every
- * online write, and a concurrent status emit can count the in-flight entry
- * as pending for the length of the round trip — which is what it is.
+ * gone without a trace. The put is best effort: a device that cannot write
+ * IndexedDB keeps the availability it had before, and the failure goes to
+ * telemetry.
+ *
+ * The cost is one IDB put and one delete on every online write. The entry is
+ * also visible in the queue for the length of the round trip: the cross-tab
+ * lock keeps every drain and every other enqueue from acting on it, but
+ * `emit()` and `refreshStatus()` read the queue unlocked, so a status push
+ * that lands in that window counts it as pending — which is what it is.
+ * Where `navigator.locks` is missing, `withCrossTabLock` runs unlocked and a
+ * concurrent drain can replay the in-flight entry; handlers are idempotent
+ * for exactly this class (see drain.ts and docs/outbox.md).
  *
  * Offline: skip the immediate attempt — persist the entry and resolve. The
  * UI keeps the optimistic state; the drain loop replays when `online` fires.
@@ -99,10 +110,19 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
       // window in which the page can go away — a reload, a tab close — and
       // an entry that lives only in memory goes with it. The optimistic
       // cache patch does not survive either, so the write vanishes with no
-      // queue entry, no error, and nothing for the user to retry. Nothing
-      // observes the queue in between: the cross-tab lock is held, so every
-      // drain and every other enqueue waits.
-      await putEntry(entry);
+      // queue entry, no error, and nothing for the user to retry.
+      //
+      // Best effort, deliberately. A device that cannot write IndexedDB
+      // (quota, most likely on the blob-carrying kinds) must keep making
+      // online writes exactly as it did before. Rejecting every online write
+      // on a full disk is a certain outage traded for a possible crash — the
+      // wrong way round. Without the entry the attempt is what it always was.
+      await putEntry(entry).catch((err: unknown) => {
+        captureException(err, {
+          level: 'warning',
+          tags: { component: 'outbox', op: 'persist-before-attempt' },
+        });
+      });
       try {
         await runHandler(entry);
         await deleteEntry(entry.id);
