@@ -14,8 +14,8 @@ import { useParentNav } from '@/layouts/useParentNav';
 export const SettingsRoute = (): JSX.Element => {
   const onNav = useParentNav();
   const onKidMode = useKidModeNav();
-  // The kid routes redirect here with ?pin=required when no PIN exists (#353),
-  // so the section can say why the parent was sent back.
+  // The kid routes redirect here with ?pin=required (#353), so the section can
+  // say why the parent was sent back.
   const [searchParams] = useSearchParams();
   const pinRequiredForKidMode = searchParams.get('pin') === 'required';
   return (

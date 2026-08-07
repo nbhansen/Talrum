@@ -38,9 +38,7 @@ describe('PictogramMedia', () => {
     );
   });
 
-  // Not cosmetic: without crossOrigin the browser issues a no-cors request and
-  // the service worker caches an opaque response, which costs ~6 MB of storage
-  // quota apiece and whose status can't be checked (#355).
+  // Not cosmetic — see the crossOrigin note in PictogramMedia.tsx (#355).
   it('requests photos as CORS so the service worker can cache a readable response', () => {
     useSignedUrlMock.mockReturnValue('https://signed.example/park.jpg?token=x');
     render(<PictogramMedia picto={photoPicto('owner-id/path.jpg')} size={120} />);

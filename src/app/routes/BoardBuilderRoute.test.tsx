@@ -55,14 +55,13 @@ describe('BoardBuilderRoute', () => {
     await waitFor(() => {
       expect(screen.getByText('Board not found')).toBeInTheDocument();
     });
-    // No Retry button on the not-found variant — retrying a 404 is pointless.
+    // Retrying a 404 is pointless.
     expect(screen.queryByText('Retry')).not.toBeInTheDocument();
   });
 
   it('renders the error variant with Retry for non-PGRST116 errors', async () => {
-    // useBoard's retry policy retries non-PGRST116 errors up to 3× with
-    // default backoff. Speed that up with retryDelay: 0 and persist the
-    // mock response so every attempt sees the same failure.
+    // useBoard retries a non-PGRST116 error 3× with backoff, so the delay is
+    // zeroed and the mock persists across attempts.
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, retryDelay: 0 } },
     });

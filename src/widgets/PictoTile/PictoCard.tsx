@@ -15,10 +15,8 @@ interface PictoCardProps {
 }
 
 /**
- * Non-interactive pictogram card: media + label, no `<button>`. Use this
- * inside an existing interactive ancestor (e.g. the preview strip on a
- * BoardCard, where the card itself is the button). For a standalone
- * tappable tile, use `<PictoTile>` instead.
+ * The non-interactive half: use it inside an existing interactive ancestor,
+ * where `<PictoTile>`'s nested button would be invalid HTML.
  */
 export const PictoCard = ({
   picto,

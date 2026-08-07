@@ -47,10 +47,8 @@ const tapDigits = async (
 };
 
 describe('KidRouteFallback (#371)', () => {
-  // The bug: this screen used to be a single full-screen <Link to="/">, so a
-  // crash in kid mode handed the child a one-tap route into the board builder.
-  // Assert on the absence of any link, not on the old label — renaming the
-  // button must not be able to make this pass with the hole reopened.
+  // The absence of any link, not the old label: renaming the button must not
+  // make this pass with the one-tap route into parent UI reopened.
   it('offers no way into parent UI that a tap alone can reach', async () => {
     await setPin('9999');
     renderFallback();
@@ -111,9 +109,8 @@ describe('KidRouteFallback (#371)', () => {
     expect(screen.queryByTestId('parent-home')).not.toBeInTheDocument();
   });
 
-  // Anti-lockout, same rule as KidModeGate: a PIN cleared in another tab means
-  // there is nothing to verify against, and a pad no entry can satisfy would
-  // strand the parent on a broken screen.
+  // Same rule as KidModeGate: with no PIN to verify against, a pad would strand
+  // the parent on a broken screen.
   it('lets the parent out without a pad when no PIN is stored', async () => {
     const { user } = renderFallback();
 

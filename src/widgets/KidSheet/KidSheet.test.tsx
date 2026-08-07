@@ -90,10 +90,8 @@ describe('KidSheet', () => {
     const onClose = vi.fn();
     render(<KidSheet kid={liam} boardCount={2} onClose={onClose} />);
     expect(screen.getByText(/also deletes 2 boards/i)).toBeInTheDocument();
-    // First click → confirm pill.
     fireEvent.click(screen.getByRole('button', { name: /^delete kid$/i }));
     expect(deleteMock).not.toHaveBeenCalled();
-    // Second click confirms.
     fireEvent.click(screen.getByRole('button', { name: /delete forever/i }));
     await waitFor(() => {
       expect(deleteMock).toHaveBeenCalledWith({ kidId: 'k1' });

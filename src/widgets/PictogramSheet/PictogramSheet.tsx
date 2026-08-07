@@ -139,8 +139,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
               accept="image/jpeg,image/png,image/webp"
               className={styles.fileInput}
               onChange={(e) => {
-                // Picking a file starts a fresh attempt — clear stale
-                // rename/replace/delete errors like the pre-hook code did.
+                // Picking a file starts a fresh attempt, so stale errors go.
                 setError(null);
                 onInputChange(e);
               }}

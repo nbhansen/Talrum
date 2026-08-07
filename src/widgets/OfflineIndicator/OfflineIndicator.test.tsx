@@ -82,10 +82,8 @@ describe('OfflineIndicator', () => {
   });
 
   it('keeps the live-region text steady across a timer-driven re-drain (#409)', () => {
-    // Walk one backoff cycle of a transient outage: queued (timer armed) →
-    // timer drain running → transient again, queued. The polite live region
-    // re-announces on any text change, so all three must render the same
-    // text — only a user- or event-driven drain may say "Syncing…".
+    // One backoff cycle. The polite live region re-announces on any text
+    // change, so all three emits must render the same text.
     const cycle = [
       { draining: false, timerDrain: false },
       { draining: true, timerDrain: true },

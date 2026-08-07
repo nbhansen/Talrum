@@ -16,10 +16,8 @@ interface MockResult {
   error: MockError | null;
 }
 
-// Boundary mock: useCreatePhotoPictogram runs for real through the outbox
-// (enqueueAndDrain → createPhotoPicto handler → storage upload, then row
-// upsert). usePictograms' queryFn finds no `select` here, rejects, and the
-// seeded cache survives — same floor-mock philosophy as vitest.setup.ts.
+// A boundary mock: the create runs for real through the outbox, and
+// usePictograms' queryFn rejects so the seeded cache survives.
 const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 const removeMock = vi.fn<(paths: string[]) => Promise<MockResult>>();
 const upsertMock = vi.fn<(row: Record<string, unknown>, opts?: unknown) => Promise<MockResult>>();
@@ -135,8 +133,6 @@ describe('PictogramUpload · upload flow', () => {
       },
       { ignoreDuplicates: true },
     );
-    // Success returns to the dropzone for the next photo, and the optimistic
-    // row from the create mutation shows up under "Your uploads".
     expect(await screen.findByText('Tap to choose a photo')).toBeInTheDocument();
     expect(container.querySelector('img[src="blob:preview"]')).not.toBeInTheDocument();
     expect(screen.getByText('Your uploads')).toBeInTheDocument();
@@ -153,9 +149,8 @@ describe('PictogramUpload · upload flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add to library' }));
 
     expect(await screen.findByText(/42501/)).toBeInTheDocument();
-    // The orphan blob stays: the failed-insert rollback was removed (#414
-    // review) because a timed-out run could fire it concurrently with its
-    // own retry and delete the blob the retry just re-uploaded.
+    // The orphan stays: a rollback here could fire concurrently with its own
+    // retry and delete the blob that retry just re-uploaded (#414).
     expect(removeMock).not.toHaveBeenCalled();
     // The preview stays so the user can retry without re-picking.
     expect(container.querySelector('img[src="blob:preview"]')).toBeInTheDocument();

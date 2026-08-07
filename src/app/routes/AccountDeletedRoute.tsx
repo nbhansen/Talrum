@@ -1,10 +1,9 @@
 import type { JSX } from 'react';
 
 /**
- * Post-deletion landing, reached through AuthGate's PUBLIC_PATHS allowlist.
- * "Sign up again" must stay a plain `<a>`: AuthGate does not watch URL
- * changes, so a History API push would keep the signed-out branch mounted and
- * render the protected home route.
+ * "Sign up again" must stay a plain `<a>`: AuthGate does not watch URL changes,
+ * so a History API push would keep the signed-out branch mounted and render the
+ * protected home route.
  */
 export const AccountDeletedRoute = (): JSX.Element => (
   <main role="main" data-testid="account-deleted-route">

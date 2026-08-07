@@ -9,9 +9,8 @@ import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { AuthGate } from './AuthGate';
 import { router } from './routes';
 
-// Last-resort fallback if anything escapes a route boundary or fires before
-// any route mounts. Lives outside RouterProvider so it can't use router hooks
-// — `window.location.reload()` is the only viable recovery.
+// Outside RouterProvider, so it cannot use router hooks — a reload is the only
+// recovery available here.
 const AppRootFallback = (): JSX.Element => (
   <div role="alert" className={styles.appRootFallback}>
     <p className={styles.appRootFallbackTitle}>Something went wrong.</p>

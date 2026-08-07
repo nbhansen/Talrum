@@ -58,8 +58,7 @@ describe('KidSequenceRoute stale-board recovery', () => {
       'talrum:last-board',
       JSON.stringify({ id: '00000000-0000-0000-0000-000000000000', kind: 'sequence' }),
     );
-    // Pre-set the session-flag so the / route doesn't try to redirect us
-    // back into the (now-missing) board on landing.
+    // Or the / route redirects back into the now-missing board on landing.
     sessionStorage.setItem('talrum:auto-launched', '1');
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

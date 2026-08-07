@@ -21,10 +21,9 @@ export const PictogramGenerate = (): JSX.Element => {
   const genMut = useGenerateImage();
   const createPhoto = useCreatePhotoPictogram();
 
-  // Leaving the tab mid-generation must not leak: a blob URL created for a
-  // dropped setPreview would never reach the cleanup effect below. The
-  // setup body must re-assert true — StrictMode runs setup → cleanup →
-  // setup on a dev mount (#433 review).
+  // A blob URL from a dropped setPreview never reaches the cleanup below. The
+  // setup body must re-assert true, or StrictMode's setup → cleanup → setup
+  // leaves the guard permanently closed (#433).
   const openRef = useRef(true);
   useEffect(() => {
     openRef.current = true;
@@ -52,7 +51,6 @@ export const PictogramGenerate = (): JSX.Element => {
         URL.revokeObjectURL(processed.previewUrl);
         return;
       }
-      // The state swap revokes the previous preview's URL via the effect above.
       setPreview(processed);
     } catch (err) {
       // Only a request that got no response blames the connection. Telling a

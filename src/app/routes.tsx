@@ -8,10 +8,8 @@ import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Spinner } from '@/ui/Spinner/Spinner';
 import { KidRouteFallback } from '@/widgets/KidModeGate/KidRouteFallback';
 
-// This is the router manifest, not a fast-refresh component module: it
-// deliberately exports the lazy route components alongside non-component
-// helpers (`wrap`, the fallbacks, `router`). react-refresh's HMR-boundary
-// rule doesn't apply here.
+// A router manifest, not a component module: the HMR-boundary rule does not
+// apply to it.
 /* eslint-disable react-refresh/only-export-components */
 
 const ParentHomeRoute = lazy(() =>
@@ -59,8 +57,8 @@ export const parentRouteFallback = (reset: () => void): ReactNode => (
         type="button"
         className={`${styles.routeFallbackBtn} ${styles.routeFallbackBtnPrimary}`}
         onClick={() => {
-          // Flush any cached query that might have produced bad data, then
-          // clear the boundary's error so the subtree renders fresh.
+          // Flush the cache before clearing the error, or the subtree renders
+          // the same bad data again.
           void queryClient.invalidateQueries();
           reset();
         }}
@@ -74,9 +72,8 @@ export const parentRouteFallback = (reset: () => void): ReactNode => (
   </div>
 );
 
-// Standalone — intentionally NOT wrapped in KidModeLayout. If the original
-// crash came from KidModeLayout itself, re-rendering it would re-throw. The
-// screen itself is PIN-gated; see KidRouteFallback for why (#371).
+// Not wrapped in KidModeLayout: if the crash came from the layout,
+// re-rendering it would re-throw.
 export const kidRouteFallback = (): ReactNode => <KidRouteFallback />;
 
 const parentSuspenseFallback = (

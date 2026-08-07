@@ -15,10 +15,8 @@ interface MockResult {
   error: MockError | null;
 }
 
-// Boundary mock, same floor as PictogramUpload.test.tsx: the create-photo
-// mutation runs for real through the outbox (enqueueAndDrain → handler →
-// storage upload, then row upsert); the generate mutation runs for real
-// through functions.invoke.
+// A boundary mock, so both mutations run for real — the create through the
+// outbox and its handler, the generate through functions.invoke.
 const invokeMock = vi.fn<(name: string, opts: unknown) => Promise<unknown>>();
 const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 const upsertMock = vi.fn<(row: Record<string, unknown>, opts?: unknown) => Promise<MockResult>>();
@@ -109,7 +107,6 @@ describe('PictogramGenerate · generate flow', () => {
     const cropInput = cropMock.mock.calls[0]?.[0] as Blob;
     expect(cropInput.type).toBe('image/jpeg');
     expect(await cropInput.text()).toBe('generated-jpeg');
-    // Preview writes nothing: no storage upload, no row.
     expect(uploadMock).not.toHaveBeenCalled();
     expect(upsertMock).not.toHaveBeenCalled();
   });
@@ -138,7 +135,6 @@ describe('PictogramGenerate · generate flow', () => {
       },
       { ignoreDuplicates: true },
     );
-    // Back to the form for the next pictogram.
     expect(await screen.findByText('Generate a pictogram image')).toBeInTheDocument();
     expect(container.querySelector('img[src="blob:preview"]')).not.toBeInTheDocument();
   });
@@ -168,7 +164,7 @@ describe('PictogramGenerate · generate flow', () => {
     await screen.findByRole('alert');
     await user.click(screen.getByRole('button', { name: 'Discard' }));
 
-    // Back on the form, with no stale error next to an empty preview.
+    // No stale error next to an empty preview.
     expect(await screen.findByText('Generate a pictogram image')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
