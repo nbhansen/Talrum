@@ -8,7 +8,7 @@ import {
   type OutboxStatus,
   reconcileQueue,
   refreshStatus,
-  resetRetryDelay,
+  resetRetrySchedule,
   startOutbox,
   subscribeStatus,
   withCrossTabLock,
@@ -72,11 +72,17 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // Reconcile before the check below: inside the lock an `attempting` entry
     // has no live owner, and promoting it must be visible here or this write
     // fast-paths past an older one (#279).
-    const entries = await reconcileQueue();
+    let entries: OutboxEntry[] | undefined;
+    await bestEffort('reconcile-before-write', async () => {
+      entries = await reconcileQueue();
+    });
     // Read `onLine` inside the lock. A pre-check goes stale during the wait,
     // and attempting on a dead network burns a retry attempt for nothing.
     const offline = typeof navigator !== 'undefined' && !navigator.onLine;
-    if (offline || entries.some((e) => e.status === 'pending')) {
+    // An unreadable queue is not an empty queue: the fast path would run this
+    // write ahead of entries it cannot see, and they overwrite it on replay
+    // (#279, #458). The put below stays unguarded — #445 needs it to reject.
+    if (offline || entries === undefined || entries.some((e) => e.status === 'pending')) {
       await putEntry(newEntry());
       return 'queued-unattempted';
     }
@@ -148,7 +154,7 @@ export const retryFailed = async (): Promise<void> => {
       await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
     }
   });
-  resetRetryDelay();
+  resetRetrySchedule();
   await drain();
 };
 

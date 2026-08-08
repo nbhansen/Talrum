@@ -1,3 +1,5 @@
+import { captureException } from '@/lib/platform/telemetry';
+
 import { bestEffort } from './best-effort';
 import { resolveExpectedUpdatedAt } from './board-clock';
 import {
@@ -20,22 +22,42 @@ import type { OutboxEntry } from './types';
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
+/** Drains in a row that achieved nothing before the retry timer stops (#458). */
+const MAX_STALLED_DRAINS = 6;
+
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
 
+type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
+
 const emit = async (): Promise<void> => {
-  const entries = await listEntries();
-  const failed = entries.filter((e) => e.status === 'failed');
+  let counts: StatusCounts | undefined;
+  // `drain` awaits this outside its try, with `draining` already set, so a
+  // throw here left the flag set and the tab never drained again (#458).
+  await bestEffort('emit-list-entries', async () => {
+    const entries = await listEntries();
+    const failed = entries.filter((e) => e.status === 'failed');
+    counts = {
+      pendingCount: entries.filter((e) => e.status === 'pending').length,
+      failedCount: failed.length,
+      conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
+    };
+  });
   const next: OutboxStatus = {
+    // A read that failed keeps its last counts rather than reporting zero,
+    // which would clear the pill for writes that are still queued (#458).
+    ...drainState.lastStatus,
+    ...(counts ?? {}),
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
-    pendingCount: entries.filter((e) => e.status === 'pending').length,
-    failedCount: failed.length,
-    conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
     draining: drainState.draining,
     timerDrain: drainState.timerDrain,
   };
   drainState.lastStatus = next;
-  drainSubscribers.forEach((fn) => fn(next));
+  // `drain` clears `draining` after this, so one throwing subscriber would
+  // leave the flag set and the tab would never drain again (#458).
+  for (const fn of drainSubscribers) {
+    await bestEffort('emit-subscriber', async () => fn(next));
+  }
 };
 
 /** For `discardEntry`, which does no draining and so must push counts (#290). */
@@ -176,15 +198,20 @@ const scheduleRetry = (): void => {
 
 const cancelRetryOnOffline = (): void => {
   clearRetryTimer();
-  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+  // Runs as the network goes away, and leaves a fresh budget for the drain the
+  // later `online` event triggers. That event is the only escape from a
+  // give-up: the entries are `pending`, so no Retry button reaches them.
+  resetRetrySchedule();
 };
 
 /**
- * A Retry needs a fresh backoff as well as a fresh budget: after a long outage
- * the delay sits at the cap, and silence right after a button press is worst.
+ * A Retry needs a fresh backoff as well as a fresh attempt budget: after a long
+ * outage the delay sits at the cap, and silence right after a button press is
+ * worst. The give-up count is the other half of the schedule, so it goes too.
  */
-export const resetRetryDelay = (): void => {
+export const resetRetrySchedule = (): void => {
   drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+  drainState.stalledDrains = 0;
 };
 
 /**
@@ -211,14 +238,16 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     await emit();
     return;
   }
-  drainState.draining = true;
-  drainState.timerDrain = fromTimer;
-  clearRetryTimer();
-  await emit();
   let sawTransient = false;
   let sawProgress = false;
   let sawUncleared = false;
+  let passThrew = false;
+  // Inside the try, so the finally owns `draining` whatever throws (#458).
   try {
+    drainState.draining = true;
+    drainState.timerDrain = fromTimer;
+    clearRetryTimer();
+    await emit();
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
       // attempting on a dropped network burns the retry budget for nothing.
@@ -250,6 +279,13 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
         queue = await listEntries();
       }
     });
+  } catch (err) {
+    // `enqueueAndDrain` awaits a drain for a write it has already persisted,
+    // and a rejection rolls that patch back (#458). `sawTransient`, not
+    // `bestEffort`: the failure decides the retry, so it changes something.
+    captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'drain-pass' } });
+    sawTransient = true;
+    passThrew = true;
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
     // start during the emit() await and get a stray timer armed under it.
@@ -264,7 +300,17 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // An uncleared entry needs the timer too: nothing else clears a landed
     // write the delete left `pending`, and the delete usually works next
     // time — the IDB connection another tab closed reopens on reuse (#449).
-    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online) {
+
+    // A drain that IndexedDB stopped from running the queue may never heal, so
+    // the timer would wake for the rest of an idle session. `online` stays a
+    // trigger; Retry does not, because it needs a `failed` entry.
+    const stalled = passThrew && !sawProgress && !sawUncleared;
+    if (!stalled) drainState.stalledDrains = 0;
+    // Only a timer wake spends the budget. The bound exists for the timer, and
+    // a burst of writes drains once each, so it would empty it in a second.
+    else if (fromTimer) drainState.stalledDrains += 1;
+    const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
+    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {
       scheduleRetry();
     }
     drainState.draining = false;
