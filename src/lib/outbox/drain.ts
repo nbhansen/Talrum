@@ -53,8 +53,9 @@ export const getStatus = (): OutboxStatus => drainState.lastStatus;
 
 /**
  * A landed updateBoard stales the guard on every queued entry for the same
- * board (#281). The board clock covers this tab; persisting the baseline
- * covers the tab that picks the queue up later with an empty clock.
+ * board (#281), `done` itself included when its delete failed (#449). The board
+ * clock covers this tab; persisting the baseline covers the tab that picks the
+ * queue up later with an empty clock.
  */
 const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
   if (done.kind !== 'updateBoard') return;

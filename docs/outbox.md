@@ -52,8 +52,10 @@ write paths. The residual is one uncleared entry: `attempting` on the fast path,
 so no count names it and the next lock holder adopts it; `pending` on the drain
 path, where it counts as queued and the retry schedule replays the write until a
 delete works, at the backoff cap of 30 s on a device whose IndexedDB stays
-broken. That beats the `failed` pill the entry reached before, for a write the
-server had accepted.
+broken. Nothing bounds that replay, where the old behaviour stopped after six
+attempts because the delete failure burnt them, and a blob kind re-uploads its
+blob every time. The trade is deliberate: the alternative was a `failed` pill
+for a write the server had accepted.
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is
