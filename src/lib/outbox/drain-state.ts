@@ -30,6 +30,8 @@ interface DrainState {
   retryTimer: ReturnType<typeof setTimeout> | undefined;
   /** Doubles per transient pass, up to RETRY_MAX_DELAY_MS. */
   retryDelayMs: number;
+  /** Consecutive passes that threw before they could run any entry. */
+  failedPasses: number;
 }
 
 // The retry schedule (#391). MAX_ATTEMPTS_BEFORE_FAILED in drain.ts is sized
@@ -54,6 +56,7 @@ export const drainState: DrainState = {
   lastStatus: initialStatus(),
   retryTimer: undefined,
   retryDelayMs: RETRY_BASE_DELAY_MS,
+  failedPasses: 0,
 };
 
 export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
@@ -67,5 +70,6 @@ export const __resetDrainForTests = (): void => {
   drainState.lastStatus = initialStatus();
   drainState.retryTimer = undefined;
   drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+  drainState.failedPasses = 0;
   drainSubscribers.clear();
 };

@@ -22,6 +22,9 @@ import type { OutboxEntry } from './types';
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
+/** Consecutive unreadable passes before a drain stops arming its own retry. */
+const MAX_FAILED_PASSES = 6;
+
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
 
@@ -265,12 +268,14 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
         queue = await listEntries();
       }
     });
+    drainState.failedPasses = 0;
   } catch (err) {
     // `enqueueAndDrain` awaits a drain for a write it has already persisted,
     // and a rejection rolls that patch back (#458). `sawTransient`, not
     // `bestEffort`: the failure decides the retry, so it changes something.
     captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'drain-pass' } });
     sawTransient = true;
+    drainState.failedPasses += 1;
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
     // start during the emit() await and get a stray timer armed under it.
@@ -285,7 +290,12 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // An uncleared entry needs the timer too: nothing else clears a landed
     // write the delete left `pending`, and the delete usually works next
     // time — the IDB connection another tab closed reopens on reuse (#449).
-    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online) {
+
+    // A queue that cannot be read at all does not heal on a timer, so waking
+    // forever only spends telemetry quota. `online`, a new write and Retry
+    // stay as triggers (#458).
+    const giveUp = drainState.failedPasses >= MAX_FAILED_PASSES;
+    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {
       scheduleRetry();
     }
     drainState.draining = false;

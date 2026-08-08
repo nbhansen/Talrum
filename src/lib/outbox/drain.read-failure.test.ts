@@ -57,6 +57,11 @@ const setOnline = (value: boolean): void => {
   Object.defineProperty(navigator, 'onLine', { value, configurable: true });
 };
 
+const failingDrains = async (count: number): Promise<void> => {
+  listEntriesMock.mockRejectedValue(closed());
+  for (let i = 0; i < count; i++) await drain();
+};
+
 beforeEach(async () => {
   await clear();
   setOnline(true);
@@ -113,6 +118,39 @@ describe('drain when IndexedDB cannot be read', () => {
         expect.objectContaining({ tags: { component: 'outbox', op: 'drain-pass' } }),
       );
       expect(updateMock).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A record that cannot be deserialized rejects every read, so the timer
+  // would wake every 30 s for the rest of the session and spend telemetry
+  // quota on a queue that cannot heal without an external trigger.
+  it('stops arming the retry after six passes it cannot read', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await failingDrains(5);
+      expect(vi.getTimerCount()).toBe(1);
+
+      await drain();
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('arms the retry again once a pass completes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await failingDrains(6);
+      listEntriesMock.mockImplementation(realStore.listEntries);
+      await drain();
+
+      listEntriesMock.mockRejectedValue(closed());
+      await drain();
+
       expect(vi.getTimerCount()).toBe(1);
     } finally {
       vi.useRealTimers();
