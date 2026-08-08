@@ -194,7 +194,9 @@ const scheduleRetry = (): void => {
 
 const cancelRetryOnOffline = (): void => {
   clearRetryTimer();
-  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+  // A network that came back is as strong a signal of a changed device as the
+  // Retry button, and these entries are `pending`, so no button reaches them.
+  resetRetrySchedule();
 };
 
 /**
@@ -293,10 +295,10 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // write the delete left `pending`, and the delete usually works next
     // time — the IDB connection another tab closed reopens on reuse (#449).
 
-    // A drain that IndexedDB stopped from doing anything may never heal, and
-    // waking forever then only spends telemetry quota. The `online` event
-    // stays a trigger; Retry does not, because it needs a `failed` entry.
-    const stalled = passThrew && !sawProgress;
+    // A drain that IndexedDB stopped from running the queue may never heal, so
+    // the timer would wake for the rest of an idle session. `online` stays a
+    // trigger; Retry does not, because it needs a `failed` entry.
+    const stalled = passThrew && !sawProgress && !sawUncleared;
     drainState.stalledDrains = stalled ? drainState.stalledDrains + 1 : 0;
     const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
     if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {

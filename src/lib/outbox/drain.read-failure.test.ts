@@ -12,10 +12,16 @@ import type { OutboxEntry, UpdateBoardEntry } from './types';
  */
 const listEntriesMock = vi.fn<() => Promise<OutboxEntry[]>>();
 const putEntryMock = vi.fn<(entry: never) => Promise<void>>();
+const deleteEntryMock = vi.fn<(id: string) => Promise<void>>();
 
 vi.mock('./store', async (importOriginal) => {
   const actual = await importOriginal<typeof StoreModule>();
-  return { ...actual, listEntries: listEntriesMock, putEntry: putEntryMock };
+  return {
+    ...actual,
+    listEntries: listEntriesMock,
+    putEntry: putEntryMock,
+    deleteEntry: deleteEntryMock,
+  };
 });
 
 const selectMock = vi.fn<() => Promise<{ data: { updated_at: string }[]; error: null }>>();
@@ -70,6 +76,7 @@ beforeEach(async () => {
   setOwnerId('user-a');
   listEntriesMock.mockReset().mockImplementation(realStore.listEntries);
   putEntryMock.mockReset().mockImplementation(realStore.putEntry as (e: never) => Promise<void>);
+  deleteEntryMock.mockReset().mockImplementation(realStore.deleteEntry);
   eqMock.mockClear();
   matchMock.mockClear();
   updateMock.mockClear();
@@ -192,6 +199,51 @@ describe('drain when IndexedDB cannot be read', () => {
       expect(vi.getTimerCount()).toBe(0);
 
       await retryFailed();
+
+      expect(vi.getTimerCount()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A landed write is progress even when the queue keeps its entry, so it must
+  // not spend the budget. #459 owns the bound on that replay.
+  it('keeps arming the retry for a landed write it could not clear', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA' }));
+      deleteEntryMock.mockRejectedValue(closed());
+
+      for (let i = 0; i < 8; i++) {
+        // The entry lands and stays queued, then the end-of-pass re-read throws.
+        listEntriesMock
+          .mockImplementationOnce(realStore.listEntries)
+          .mockImplementationOnce(realStore.listEntries)
+          .mockImplementationOnce(realStore.listEntries)
+          .mockRejectedValueOnce(closed());
+        await drain();
+      }
+
+      expect(vi.getTimerCount()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Otherwise the give-up lasts the session: the entries are `pending`, so the
+  // indicator renders no Retry, and only this cycle is left.
+  it('gives an offline-to-online cycle a fresh give-up budget', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
+      putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
+      for (let i = 0; i < 8; i++) await drain();
+      expect(vi.getTimerCount()).toBe(0);
+
+      setOnline(false);
+      await drain();
+      setOnline(true);
+      await drain();
 
       expect(vi.getTimerCount()).toBe(1);
     } finally {
