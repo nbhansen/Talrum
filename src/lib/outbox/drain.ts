@@ -254,7 +254,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // start during the emit() await and get a stray timer armed under it.
     // Progress resets the backoff: a queue that lands entries each pass is not
     // the sustained-failure case the doubling exists for (#391).
-    if (sawProgress || (!sawTransient && !sawUncleared)) {
+    if (!sawUncleared && (sawProgress || !sawTransient)) {
       drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
     // A timer set after the device dropped would wake once, hit the offline

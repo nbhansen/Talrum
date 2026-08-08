@@ -19,13 +19,7 @@ vi.mock('./store', async (importOriginal) => {
 });
 
 const selectMock = vi.fn<() => Promise<{ data: { updated_at: string }[]; error: null }>>();
-// The select is the terminal of the chain and carries no board, so a test that
-// needs one board to land and another to fail reads the id from here.
-let lastBoardId = '';
-const eqMock = vi.fn((_c: string, v: string) => {
-  lastBoardId = v;
-  return { select: selectMock };
-});
+const eqMock = vi.fn((_c: string, _v: string) => ({ select: selectMock }));
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: selectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 
@@ -84,7 +78,6 @@ beforeEach(async () => {
   deleteEntryMock.mockReset().mockImplementation(realStore.deleteEntry);
   eqMock.mockClear();
   updateMock.mockClear();
-  lastBoardId = '';
   captureExceptionMock.mockClear();
   selectMock
     .mockReset()
@@ -148,26 +141,39 @@ describe('drain when IndexedDB cannot be written', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The backoff doubles only while a pass makes no progress, and the same
-  // write re-landing every pass is not progress: it reset the delay to 2 s
-  // forever, so an entry queued behind burnt its six attempts in ~10 s rather
-  // than the ~60 s MAX_ATTEMPTS_BEFORE_FAILED is sized against.
-  it('does not count a landed entry it could not clear as queue progress', async () => {
+  // The same write re-landing every pass is not queue progress. Counted as
+  // progress it reset the delay to 2 s forever, so the retry hammered the
+  // server at the base delay for as long as the delete kept failing.
+  it('walks the backoff up while it cannot clear an entry', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       await realStore.putEntry(baseEntry({ id: '01HZZA' }));
-      await realStore.putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2' }));
       deleteEntryMock.mockRejectedValue(closed());
-      selectMock.mockImplementation(async () => {
-        if (lastBoardId === 'board-2') throw new TypeError('Failed to fetch');
-        return { data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null };
-      });
 
       await drain();
       await drain();
 
       // Two passes each armed a retry: 2 s then 4 s, leaving 8 s next.
       expect(drainState.retryDelayMs).toBe(8_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // `sawProgress` short-circuited the uncleared guard, so a pass that cleared
+  // one entry and not another still reset the delay to its base.
+  it('keeps the backoff when a pass clears one entry but not another', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      drainState.retryDelayMs = 16_000; // as if earlier passes walked it up
+      await realStore.putEntry(baseEntry({ id: '01HZZA' }));
+      await realStore.putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2' }));
+      deleteEntryMock.mockImplementationOnce(realStore.deleteEntry).mockRejectedValue(closed());
+
+      await drain();
+
+      // Armed at 16 s, so the next delay is the 30 s cap, not the 2 s base.
+      expect(drainState.retryDelayMs).toBe(30_000);
     } finally {
       vi.useRealTimers();
     }
