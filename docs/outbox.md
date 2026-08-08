@@ -57,6 +57,11 @@ attempts because the delete failure burnt them, and a blob kind re-uploads its
 blob every time. The trade is deliberate: the alternative was a `failed` pill
 for a write the server had accepted.
 
+**A drain never rejects** (#458). `enqueueAndDrain` awaits one for a write it has already
+persisted, so a rejection rolled a durable write back. The status read and the whole drain pass
+report and continue instead: the last counts stay on screen and a retry is armed. An unreadable
+queue counts as occupied, or a new write jumps entries it cannot see.
+
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is
 running right now. `attempting` is invisible to `pendingCount`, to the drain

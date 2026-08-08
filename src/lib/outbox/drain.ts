@@ -1,3 +1,5 @@
+import { captureException } from '@/lib/platform/telemetry';
+
 import { bestEffort } from './best-effort';
 import { resolveExpectedUpdatedAt } from './board-clock';
 import {
@@ -23,14 +25,27 @@ const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
 
+type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
+
 const emit = async (): Promise<void> => {
-  const entries = await listEntries();
-  const failed = entries.filter((e) => e.status === 'failed');
+  let counts: StatusCounts | undefined;
+  // `drain` awaits this outside its try, with `draining` already set, so a
+  // throw here left the flag set and the tab never drained again (#458).
+  await bestEffort('emit-list-entries', async () => {
+    const entries = await listEntries();
+    const failed = entries.filter((e) => e.status === 'failed');
+    counts = {
+      pendingCount: entries.filter((e) => e.status === 'pending').length,
+      failedCount: failed.length,
+      conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
+    };
+  });
   const next: OutboxStatus = {
+    // A read that failed keeps its last counts rather than reporting zero,
+    // which would clear the pill for writes that are still queued (#458).
+    ...drainState.lastStatus,
+    ...(counts ?? {}),
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
-    pendingCount: entries.filter((e) => e.status === 'pending').length,
-    failedCount: failed.length,
-    conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
     draining: drainState.draining,
     timerDrain: drainState.timerDrain,
   };
@@ -250,6 +265,12 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
         queue = await listEntries();
       }
     });
+  } catch (err) {
+    // `enqueueAndDrain` awaits a drain for a write it has already persisted,
+    // and a rejection rolls that patch back (#458). `sawTransient`, not
+    // `bestEffort`: the failure decides the retry, so it changes something.
+    captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'drain-pass' } });
+    sawTransient = true;
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
     // start during the emit() await and get a stray timer armed under it.
