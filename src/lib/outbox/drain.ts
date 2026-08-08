@@ -224,17 +224,20 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       let queue = await reconcileQueue();
       let stop = false;
-      // A landed entry whose delete failed stays `pending`, so the re-read
-      // below hands it back and the pass replays it without bound (#449).
-      const ran = new Set<string>();
       while (!stop) {
-        const entries = queue.filter((e) => e.status === 'pending' && !ran.has(e.id));
+        const entries = queue.filter((e) => e.status === 'pending');
         if (entries.length === 0) break;
         for (const entry of entries) {
-          ran.add(entry.id);
           const outcome = await runOne(entry);
           if (outcome === 'ok') sawProgress = true;
-          if (outcome === 'ok-uncleared') sawUncleared = true;
+          // An uncleared entry is still queued for replay, so anything behind
+          // it must wait: landing the newer write first lets the replay put the
+          // older one back on top of it (#449).
+          if (outcome === 'ok-uncleared') {
+            sawUncleared = true;
+            stop = true;
+            break;
+          }
           if (outcome === 'transient') {
             sawTransient = true;
             stop = true;

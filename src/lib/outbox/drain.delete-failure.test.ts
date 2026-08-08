@@ -121,30 +121,31 @@ describe('drain when IndexedDB cannot be written', () => {
     );
   });
 
-  // The pass re-reads the queue, so an entry that landed but stayed `pending`
-  // would come back and replay for as long as the delete keeps failing.
-  it('runs each landed entry once even when no delete clears it', async () => {
-    await realStore.putEntry(baseEntry({ id: '01HZZA' }));
-    await realStore.putEntry(baseEntry({ id: '01HZZB' }));
+  // An entry still queued for replay must not be overtaken. Running the later
+  // write first leaves the earlier one to replay on top of it: the board ends
+  // at the older name on the server while the cache shows the newer one.
+  it('stops the pass at an entry it could not clear', async () => {
+    await realStore.putEntry(baseEntry({ id: '01HZZA', patch: { name: 'X' } }));
+    await realStore.putEntry(baseEntry({ id: '01HZZB', patch: { name: 'Y' } }));
     deleteEntryMock.mockRejectedValue(closed());
 
     await drain();
 
-    expect(eqMock).toHaveBeenCalledTimes(2);
+    expect(eqMock).toHaveBeenCalledTimes(1);
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZA', '01HZZB']);
   });
 
-  it('drains a later entry after one it could not clear', async () => {
+  it('drains the entry behind it once a delete works', async () => {
     await realStore.putEntry(baseEntry({ id: '01HZZA' }));
     await realStore.putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2' }));
-    deleteEntryMock.mockImplementation(async (id) => {
-      if (id === '01HZZA') throw closed();
-      await realStore.deleteEntry(id);
-    });
+    deleteEntryMock.mockRejectedValueOnce(closed());
 
+    await drain();
     await drain();
 
     expect(eqMock).toHaveBeenCalledWith('id', 'board-2');
-    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZA']);
+    expect(await listEntries()).toEqual([]);
   });
 
   // The backoff doubles only while a pass makes no progress, and the same

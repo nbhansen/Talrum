@@ -51,8 +51,8 @@ price of the guarantee.
 The residual is one uncleared entry: `attempting` on the fast path, so no count names it and
 the next lock holder adopts it; `pending` on the drain path, where it counts as queued and the
 retry schedule replays the write until a delete works. It burns no attempt, so a device whose
-IndexedDB stays broken replays that one write every 30 s rather than reaching a `failed` pill
-it does not deserve.
+IndexedDB stays broken replays that one write every 30 s and holds the queue behind it, rather
+than reaching a `failed` pill it does not deserve.
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is
@@ -92,7 +92,9 @@ leave user A's blobs on a shared device for a whole upload.
 
 **A drain stops at the first transient failure** to preserve FIFO order, but
 marks permanent failures `failed` and moves on, so one bad entry cannot dam the
-queue.
+queue. It stops the same way at a landed entry its delete could not clear: that
+entry is still queued, so a write behind it would land first and then be
+overwritten by the replay.
 
 **Drains, queue rewrites, and enqueues serialize across tabs** on a
 `navigator.locks` web lock (#278, #289, #395), so a PWA window and a browser tab
