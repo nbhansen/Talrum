@@ -11,10 +11,11 @@ import type { OutboxEntry, UpdateBoardEntry } from './types';
  * implementation, so a test that forces no failure hits fake-indexeddb.
  */
 const listEntriesMock = vi.fn<() => Promise<OutboxEntry[]>>();
+const putEntryMock = vi.fn<(entry: never) => Promise<void>>();
 
 vi.mock('./store', async (importOriginal) => {
   const actual = await importOriginal<typeof StoreModule>();
-  return { ...actual, listEntries: listEntriesMock };
+  return { ...actual, listEntries: listEntriesMock, putEntry: putEntryMock };
 });
 
 const selectMock = vi.fn<() => Promise<{ data: { updated_at: string }[]; error: null }>>();
@@ -68,6 +69,7 @@ beforeEach(async () => {
   __resetOutboxOwnerForTests();
   setOwnerId('user-a');
   listEntriesMock.mockReset().mockImplementation(realStore.listEntries);
+  putEntryMock.mockReset().mockImplementation(realStore.putEntry as (e: never) => Promise<void>);
   eqMock.mockClear();
   matchMock.mockClear();
   updateMock.mockClear();
@@ -136,6 +138,24 @@ describe('drain when IndexedDB cannot be read', () => {
       await drain();
 
       expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Only the read counts toward the give-up. A queue that reads back is not
+  // the unhealable case: an IndexedDB write fails while another tab holds the
+  // connection closed, and it works again on reuse (#449).
+  it('keeps arming the retry while the queue is readable', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
+      // `reconcileQueue` promotes the abandoned attempt, and that put throws.
+      putEntryMock.mockRejectedValue(closed());
+
+      for (let i = 0; i < 8; i++) await drain();
+
+      expect(vi.getTimerCount()).toBe(1);
     } finally {
       vi.useRealTimers();
     }

@@ -59,9 +59,10 @@ for a write the server had accepted.
 
 **A drain never rejects** (#458). `enqueueAndDrain` awaits one for a write it has already
 persisted, so a rejection rolled a durable write back. The status read and the whole drain pass
-report and continue instead: the last counts stay on screen and a retry is armed, for six passes.
-A queue that stays unreadable does not heal on a timer, so after that the drain waits for
-`online`, a new write or Retry. An unreadable queue also counts as occupied, or a new write jumps
+report and continue instead: the last counts stay on screen and a retry is armed. After six drains
+whose queue read failed the timer stops, because that queue does not heal on a timer, and the
+`online` event becomes the only reliable trigger — the stuck entries are `pending`, so no failure
+pill and no Retry button. An unreadable queue also counts as occupied, or a new write jumps
 entries it cannot see.
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
