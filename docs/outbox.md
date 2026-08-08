@@ -60,9 +60,10 @@ for a write the server had accepted.
 **A drain never rejects** (#458). `enqueueAndDrain` awaits one for a write it has already
 persisted, so a rejection rolled a durable write back. The status read and the whole drain pass
 report and continue instead, and an unreadable queue counts as occupied, or a new write jumps
-entries it cannot see. Six drains in a row that IndexedDB stopped from doing anything then stop
+entries it cannot see. Six drains in a row that IndexedDB stopped from running the queue then stop
 the retry timer, and `online` becomes the only reliable trigger: the stuck entries are `pending`,
-so there is no pill and no Retry. The counts hold their last values, which on a cold start are
+so there is no pill and no Retry. A landed entry whose delete failed is not one of those, and
+keeps its unbounded replay (#459). The counts hold their last values, which on a cold start are
 zero — a queue unreadable from boot reports as synced (#462).
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are

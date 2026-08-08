@@ -8,7 +8,7 @@ import {
   type OutboxStatus,
   reconcileQueue,
   refreshStatus,
-  resetRetryDelay,
+  resetRetrySchedule,
   startOutbox,
   subscribeStatus,
   withCrossTabLock,
@@ -154,7 +154,7 @@ export const retryFailed = async (): Promise<void> => {
       await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
     }
   });
-  resetRetryDelay();
+  resetRetrySchedule();
   await drain();
 };
 

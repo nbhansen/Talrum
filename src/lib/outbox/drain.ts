@@ -30,8 +30,7 @@ export { __resetDrainForTests } from './drain-state';
 
 type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
 
-/** Reports whether the queue could be read, which `drain` bounds its retry on. */
-const emit = async (): Promise<boolean> => {
+const emit = async (): Promise<void> => {
   let counts: StatusCounts | undefined;
   // `drain` awaits this outside its try, with `draining` already set, so a
   // throw here left the flag set and the tab never drained again (#458).
@@ -55,13 +54,10 @@ const emit = async (): Promise<boolean> => {
   };
   drainState.lastStatus = next;
   drainSubscribers.forEach((fn) => fn(next));
-  return counts !== undefined;
 };
 
 /** For `discardEntry`, which does no draining and so must push counts (#290). */
-export const refreshStatus = async (): Promise<void> => {
-  await emit();
-};
+export const refreshStatus = (): Promise<void> => emit();
 
 export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => {
   drainSubscribers.add(fn);
@@ -202,11 +198,13 @@ const cancelRetryOnOffline = (): void => {
 };
 
 /**
- * A Retry needs a fresh backoff as well as a fresh budget: after a long outage
- * the delay sits at the cap, and silence right after a button press is worst.
+ * A Retry needs a fresh backoff as well as a fresh attempt budget: after a long
+ * outage the delay sits at the cap, and silence right after a button press is
+ * worst. The give-up count is the other half of the schedule, so it goes too.
  */
-export const resetRetryDelay = (): void => {
+export const resetRetrySchedule = (): void => {
   drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
+  drainState.stalledDrains = 0;
 };
 
 /**
@@ -236,7 +234,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   drainState.draining = true;
   drainState.timerDrain = fromTimer;
   clearRetryTimer();
-  const readOk = await emit();
+  await emit();
   let sawTransient = false;
   let sawProgress = false;
   let sawUncleared = false;
@@ -298,7 +296,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // A drain that IndexedDB stopped from doing anything may never heal, and
     // waking forever then only spends telemetry quota. The `online` event
     // stays a trigger; Retry does not, because it needs a `failed` entry.
-    const stalled = !sawProgress && (!readOk || passThrew);
+    const stalled = passThrew && !sawProgress;
     drainState.stalledDrains = stalled ? drainState.stalledDrains + 1 : 0;
     const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
     if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {

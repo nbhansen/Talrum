@@ -35,7 +35,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 const realStore = await vi.importActual<typeof StoreModule>('./store');
 const { drain, getStatus, refreshStatus } = await import('./drain');
 const { drainState } = await import('./drain-state');
-const { enqueueAndDrain } = await import('./index');
+const { enqueueAndDrain, retryFailed } = await import('./index');
 const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
 const { captureException } = await import('@/lib/platform/telemetry');
 
@@ -156,6 +156,44 @@ describe('drain when IndexedDB cannot be read', () => {
       for (let i = 0; i < 8; i++) await drain();
 
       expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A failed status read does not prove the pass was blocked, because
+  // `reconcileQueue` reads again. Spending the budget on one would end the
+  // #391 ladder for a network outage.
+  it('keeps the give-up budget for a pass that only failed its status read', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      for (let i = 0; i < 3; i++) await realStore.putEntry(baseEntry({ id: `01HZZ${i}` }));
+      selectMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      for (let i = 0; i < 8; i++) {
+        listEntriesMock.mockRejectedValueOnce(closed());
+        await drain();
+      }
+
+      expect(vi.getTimerCount()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The backoff and the give-up count are two halves of one schedule, so a
+  // Retry that reset only the delay would still get no ladder.
+  it('gives a Retry a fresh give-up budget', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
+      putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
+      for (let i = 0; i < 8; i++) await drain();
+      expect(vi.getTimerCount()).toBe(0);
+
+      await retryFailed();
+
+      expect(vi.getTimerCount()).toBe(1);
     } finally {
       vi.useRealTimers();
     }
