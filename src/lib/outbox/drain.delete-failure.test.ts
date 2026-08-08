@@ -19,7 +19,13 @@ vi.mock('./store', async (importOriginal) => {
 });
 
 const selectMock = vi.fn<() => Promise<{ data: { updated_at: string }[]; error: null }>>();
-const eqMock = vi.fn((_c: string, _v: string) => ({ select: selectMock }));
+// The select is the terminal of the chain and carries no board, so a test that
+// needs one board to land and another to fail reads the id from here.
+let lastBoardId = '';
+const eqMock = vi.fn((_c: string, v: string) => {
+  lastBoardId = v;
+  return { select: selectMock };
+});
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: selectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
 
@@ -34,6 +40,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 
 const realStore = await vi.importActual<typeof StoreModule>('./store');
 const { drain } = await import('./drain');
+const { drainState } = await import('./drain-state');
 const { listEntries } = await import('./store');
 const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
 const { captureException } = await import('@/lib/platform/telemetry');
@@ -53,6 +60,21 @@ const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
 
 const closed = (): DOMException => new DOMException('Closed', 'InvalidStateError');
 
+/**
+ * One real macrotask round, for the tests that fake setTimeout. MessageChannel,
+ * not setTimeout: fake-indexeddb settles its work on real macrotasks that a
+ * fake clock would never reach.
+ */
+const realTick = (): Promise<void> =>
+  new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+
 beforeEach(async () => {
   await clear();
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
@@ -62,6 +84,7 @@ beforeEach(async () => {
   deleteEntryMock.mockReset().mockImplementation(realStore.deleteEntry);
   eqMock.mockClear();
   updateMock.mockClear();
+  lastBoardId = '';
   captureExceptionMock.mockClear();
   selectMock
     .mockReset()
@@ -122,6 +145,52 @@ describe('drain when IndexedDB cannot be written', () => {
 
     expect(eqMock).toHaveBeenCalledWith('id', 'board-2');
     expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZA']);
+  });
+
+  // The backoff doubles only while a pass makes no progress, and the same
+  // write re-landing every pass is not progress: it reset the delay to 2 s
+  // forever, so an entry queued behind burnt its six attempts in ~10 s rather
+  // than the ~60 s MAX_ATTEMPTS_BEFORE_FAILED is sized against.
+  it('does not count a landed entry it could not clear as queue progress', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA' }));
+      await realStore.putEntry(baseEntry({ id: '01HZZB', boardId: 'board-2' }));
+      deleteEntryMock.mockRejectedValue(closed());
+      selectMock.mockImplementation(async () => {
+        if (lastBoardId === 'board-2') throw new TypeError('Failed to fetch');
+        return { data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null };
+      });
+
+      await drain();
+      await drain();
+
+      // Two passes each armed a retry: 2 s then 4 s, leaving 8 s next.
+      expect(drainState.retryDelayMs).toBe(8_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Nothing else would clear it: `retryFailed` only resets `failed` entries and
+  // the indicator offers no button for a pending one, so without this timer the
+  // "queued" pill sits there for a landed write until an unrelated drain (#449).
+  it('schedules the re-drain that clears an entry it could not delete', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await realStore.putEntry(baseEntry({ id: '01HZZA' }));
+      deleteEntryMock.mockRejectedValueOnce(closed());
+
+      await drain();
+
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(2_000);
+      for (let i = 0; i < 200 && (await listEntries()).length > 0; i++) await realTick();
+      expect(await listEntries()).toEqual([]);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // Forwarding the conflict baseline is the same class of bookkeeping as the

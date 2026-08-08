@@ -48,9 +48,11 @@ cross-tab lock is held. Durability needs the blob persisted, so that is the
 price of the guarantee.
 
 **IDB bookkeeping after a landed handler is best effort** (#446, #449), on both write paths.
-The residual is one uncleared entry: `attempting` on the fast path, so no count names it,
-but `pending` on the drain path, so the indicator shows a pending write that in fact landed
-until a later drain clears it.
+The residual is one uncleared entry: `attempting` on the fast path, so no count names it and
+the next lock holder adopts it; `pending` on the drain path, where it counts as queued and the
+retry schedule replays the write until a delete works. It burns no attempt, so a device whose
+IndexedDB stays broken replays that one write every 30 s rather than reaching a `failed` pill
+it does not deserve.
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is

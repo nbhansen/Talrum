@@ -93,7 +93,9 @@ export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
   return kept;
 };
 
-const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
+type RunOutcome = 'ok' | 'ok-uncleared' | 'transient' | 'failed';
+
+const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
   try {
     await runHandler(entry);
   } catch (err) {
@@ -133,9 +135,11 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
   }
   // Outside the try: a failed delete is not a failed handler. Inside, it took
   // the transient branch and replayed a write the server had accepted (#449).
-  await bestEffort('drain-delete-after-landing', () => deleteEntry(entry.id));
+  const cleared = await bestEffort('drain-delete-after-landing', () => deleteEntry(entry.id));
   await bestEffort('drain-forward-board-guards', () => forwardBoardGuards(entry));
-  return 'ok';
+  // An uncleared entry re-lands every pass. Reported apart from `ok` so it
+  // cannot pass for queue progress and hold the backoff at its base (#449).
+  return cleared ? 'ok' : 'ok-uncleared';
 };
 
 /**
@@ -212,6 +216,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   await emit();
   let sawTransient = false;
   let sawProgress = false;
+  let sawUncleared = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
@@ -229,6 +234,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
           ran.add(entry.id);
           const outcome = await runOne(entry);
           if (outcome === 'ok') sawProgress = true;
+          if (outcome === 'ok-uncleared') sawUncleared = true;
           if (outcome === 'transient') {
             sawTransient = true;
             stop = true;
@@ -245,13 +251,16 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // start during the emit() await and get a stray timer armed under it.
     // Progress resets the backoff: a queue that lands entries each pass is not
     // the sustained-failure case the doubling exists for (#391).
-    if (sawProgress || !sawTransient) {
+    if (sawProgress || (!sawTransient && !sawUncleared)) {
       drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
     // A timer set after the device dropped would wake once, hit the offline
     // branch, and cancel itself. The `online` event is the next trigger.
     const online = typeof navigator === 'undefined' || navigator.onLine;
-    if (sawTransient && !drainState.pendingDrain && online) {
+    // An uncleared entry needs the timer too: nothing else clears a landed
+    // write the delete left `pending`, and the delete usually works next
+    // time — the IDB connection another tab closed reopens on reuse (#449).
+    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online) {
       scheduleRetry();
     }
     drainState.draining = false;
