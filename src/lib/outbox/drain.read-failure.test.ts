@@ -64,9 +64,14 @@ const setOnline = (value: boolean): void => {
   Object.defineProperty(navigator, 'onLine', { value, configurable: true });
 };
 
+/** The give-up counts timer wakes, so a test that spends it must pass one. */
+const timerDrains = async (count: number): Promise<void> => {
+  for (let i = 0; i < count; i++) await drain({ fromTimer: true });
+};
+
 const failingDrains = async (count: number): Promise<void> => {
   listEntriesMock.mockRejectedValue(closed());
-  for (let i = 0; i < count; i++) await drain();
+  await timerDrains(count);
 };
 
 beforeEach(async () => {
@@ -142,7 +147,7 @@ describe('drain when IndexedDB cannot be read', () => {
       await failingDrains(5);
       expect(vi.getTimerCount()).toBe(1);
 
-      await drain();
+      await drain({ fromTimer: true });
 
       expect(vi.getTimerCount()).toBe(0);
     } finally {
@@ -160,9 +165,24 @@ describe('drain when IndexedDB cannot be read', () => {
       // `reconcileQueue` promotes the abandoned attempt, and that put throws.
       putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
 
-      for (let i = 0; i < 8; i++) await drain();
+      await timerDrains(8);
 
       expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Every write drains, and an unreadable queue sends each one down the
+  // queued-unattempted branch, so a burst would empty the budget in a second.
+  it('keeps the give-up budget for drains a write triggered', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      listEntriesMock.mockRejectedValue(closed());
+
+      for (let i = 0; i < 8; i++) await drain();
+
+      expect(vi.getTimerCount()).toBe(1);
     } finally {
       vi.useRealTimers();
     }
@@ -179,7 +199,7 @@ describe('drain when IndexedDB cannot be read', () => {
 
       for (let i = 0; i < 8; i++) {
         listEntriesMock.mockRejectedValueOnce(closed());
-        await drain();
+        await drain({ fromTimer: true });
       }
 
       expect(vi.getTimerCount()).toBe(1);
@@ -195,7 +215,7 @@ describe('drain when IndexedDB cannot be read', () => {
     try {
       await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
       putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
-      for (let i = 0; i < 8; i++) await drain();
+      await timerDrains(8);
       expect(vi.getTimerCount()).toBe(0);
 
       await retryFailed();
@@ -221,7 +241,7 @@ describe('drain when IndexedDB cannot be read', () => {
           .mockImplementationOnce(realStore.listEntries)
           .mockImplementationOnce(realStore.listEntries)
           .mockRejectedValueOnce(closed());
-        await drain();
+        await drain({ fromTimer: true });
       }
 
       expect(vi.getTimerCount()).toBe(1);
@@ -237,7 +257,7 @@ describe('drain when IndexedDB cannot be read', () => {
     try {
       await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
       putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
-      for (let i = 0; i < 8; i++) await drain();
+      await timerDrains(8);
       expect(vi.getTimerCount()).toBe(0);
 
       setOnline(false);
@@ -264,7 +284,7 @@ describe('drain when IndexedDB cannot be read', () => {
           .mockImplementationOnce(realStore.listEntries)
           .mockImplementationOnce(realStore.listEntries)
           .mockRejectedValueOnce(closed());
-        await drain();
+        await drain({ fromTimer: true });
       }
 
       expect(vi.getTimerCount()).toBe(1);

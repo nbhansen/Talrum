@@ -194,8 +194,9 @@ const scheduleRetry = (): void => {
 
 const cancelRetryOnOffline = (): void => {
   clearRetryTimer();
-  // A network that came back is as strong a signal of a changed device as the
-  // Retry button, and these entries are `pending`, so no button reaches them.
+  // Runs as the network goes away, and leaves a fresh budget for the drain the
+  // later `online` event triggers. That event is the only escape from a
+  // give-up: the entries are `pending`, so no Retry button reaches them.
   resetRetrySchedule();
 };
 
@@ -299,7 +300,10 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // the timer would wake for the rest of an idle session. `online` stays a
     // trigger; Retry does not, because it needs a `failed` entry.
     const stalled = passThrew && !sawProgress && !sawUncleared;
-    drainState.stalledDrains = stalled ? drainState.stalledDrains + 1 : 0;
+    if (!stalled) drainState.stalledDrains = 0;
+    // Only a timer wake spends the budget. The bound exists for the timer, and
+    // a burst of writes drains once each, so it would empty it in a second.
+    else if (fromTimer) drainState.stalledDrains += 1;
     const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
     if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {
       scheduleRetry();
