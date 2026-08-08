@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ulid } from 'ulid';
 
-import { captureException } from '@/lib/platform/telemetry';
-
+import { bestEffort } from './best-effort';
 import {
   drain,
   getStatus,
@@ -31,21 +30,6 @@ export const setOutboxOwner = (id: string | null): void => {
   const changed = getOutboxOwner() !== id;
   setOwnerId(id);
   if (changed && id !== null) void drain();
-};
-
-/**
- * Run IDB bookkeeping that must not decide a write's outcome (#446): a device
- * that cannot write IndexedDB must keep making online writes. Takes a thunk so
- * a synchronous throw cannot bypass the catch. Reports whether the work ran.
- */
-const bestEffort = async (op: string, work: () => Promise<void>): Promise<boolean> => {
-  try {
-    await work();
-    return true;
-  } catch (err) {
-    captureException(err, { level: 'warning', tags: { component: 'outbox', op } });
-    return false;
-  }
 };
 
 /**

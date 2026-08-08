@@ -1,3 +1,4 @@
+import { bestEffort } from './best-effort';
 import { resolveExpectedUpdatedAt } from './board-clock';
 import {
   drainState,
@@ -95,9 +96,6 @@ export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
 const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
   try {
     await runHandler(entry);
-    await deleteEntry(entry.id);
-    await forwardBoardGuards(entry);
-    return 'ok';
   } catch (err) {
     // Another tab's drain may have completed this entry and deleted it while
     // our attempt was in flight (our duplicate write then fails, e.g. on a
@@ -133,6 +131,11 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
     await putEntry({ ...current, attemptCount, status: 'pending', lastError: message });
     return 'transient';
   }
+  // Outside the try: a failed delete is not a failed handler. Inside, it took
+  // the transient branch and replayed a write the server had accepted (#449).
+  await bestEffort('drain-delete-after-landing', () => deleteEntry(entry.id));
+  await bestEffort('drain-forward-board-guards', () => forwardBoardGuards(entry));
+  return 'ok';
 };
 
 /**
@@ -216,10 +219,14 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       let queue = await reconcileQueue();
       let stop = false;
+      // A landed entry whose delete failed stays `pending`, so the re-read
+      // below hands it back and the pass replays it without bound (#449).
+      const ran = new Set<string>();
       while (!stop) {
-        const entries = queue.filter((e) => e.status === 'pending');
+        const entries = queue.filter((e) => e.status === 'pending' && !ran.has(e.id));
         if (entries.length === 0) break;
         for (const entry of entries) {
+          ran.add(entry.id);
           const outcome = await runOne(entry);
           if (outcome === 'ok') sawProgress = true;
           if (outcome === 'transient') {

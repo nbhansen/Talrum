@@ -47,6 +47,11 @@ blob-carrying kinds that put copies a few hundred KB into IndexedDB while the
 cross-tab lock is held. Durability needs the blob persisted, so that is the
 price of the guarantee.
 
+**IDB bookkeeping after a landed handler is best effort** (#446, #449), on both write paths.
+The residual is one uncleared entry: `attempting` on the fast path, so no count names it,
+but `pending` on the drain path, so the indicator shows a pending write that in fact landed
+until a later drain clears it.
+
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is
 running right now. `attempting` is invisible to `pendingCount`, to the drain
