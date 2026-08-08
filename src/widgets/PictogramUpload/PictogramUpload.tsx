@@ -17,7 +17,6 @@ export const PictogramUpload = (): JSX.Element => {
     fileInputRef,
     processed,
     processing,
-    fileName,
     error: pickError,
     pickFile,
     onInputChange,
@@ -121,8 +120,7 @@ export const PictogramUpload = (): JSX.Element => {
             {processing ? 'Preparing photo…' : 'Tap to choose a photo'}
           </div>
           <div className={styles.hint}>
-            Real photos of {fileName ?? 'cereal, shoes, or bed'} work best. We crop to a square
-            automatically.
+            Real photos of cereal, shoes, or bed work best. We crop to a square automatically.
           </div>
           {shownError && <div className={styles.error}>{shownError}</div>}
         </button>

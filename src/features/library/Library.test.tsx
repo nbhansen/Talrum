@@ -39,6 +39,10 @@ describe('Library', () => {
     usePictogramsMock.mockReturnValue({ data: [], isPending: false });
     render(<Library />);
     expect(screen.getByRole('heading', { name: /no pictograms yet/i })).toBeInTheDocument();
+    // No generate feature exists (#358); the body must not promise one.
+    expect(
+      screen.getByText('Pictograms you upload or pick from the library will show up here.'),
+    ).toBeInTheDocument();
   });
 
   it('empty-state CTA calls onAdd', () => {

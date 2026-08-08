@@ -30,7 +30,7 @@ export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
     return (
       <EmptyState
         title="No pictograms yet"
-        body="Pictograms you upload, generate, or pick from the library will show up here."
+        body="Pictograms you upload or pick from the library will show up here."
         action={
           <Button variant="primary" icon={<PlusIcon />} onClick={onAdd}>
             Add your first pictogram
