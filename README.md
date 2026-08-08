@@ -233,6 +233,37 @@ builds and any build missing `VITE_SENTRY_DSN` no-op silently. Posture:
   from `dist/` before deploy, so unminified traces appear in the Sentry
   dashboard but `.map` files are never served from Pages.
 
+## Handing an iPad to a family
+
+Do these steps in this order, on the family's iPad, before you hand it over.
+
+1. **Sign in first, in Safari.** Open the app URL, enter the parent's email,
+   and open the magic link from the email on the iPad. The link must be
+   opened on the iPad — it signs in the browser that opens it.
+2. **Add to Home Screen.** In Safari: Share → _Add to Home Screen_. Launch
+   from the new icon: the app runs full screen in landscape.
+3. **Verify the icon is signed in.** iOS gives a Home Screen web app its own
+   storage, separate from Safari. If the installed app shows the login
+   screen, stop: a magic link cannot sign it in, because the link always
+   opens in Safari. Run the test from Safari instead, and file an issue.
+4. **Set the parent PIN.** Settings → Parent PIN → _Set a PIN_. Without a
+   PIN the device cannot enter kid mode at all. The PIN is per device, and
+   signing out erases it.
+5. **Load everything once while online.** Open every board and tap every
+   pictogram so each photo shows and each sound plays. Only content never
+   loaded on this device is unavailable offline.
+6. **Prove offline works.** Turn on Airplane Mode, close and reopen the app,
+   and open a board. If boards do not open, offline mode is not working on
+   this device — the app does not warn about this itself (#377).
+7. **Turn on Guided Access.** iPad Settings → Accessibility → Guided Access.
+   Set a passcode that is different from the parent PIN. In the app,
+   triple-click the top button to start it. Guided Access is what actually
+   keeps a child inside the app; the parent PIN is a soft gate, not a lock
+   (see [docs/kid-mode.md](./docs/kid-mode.md)).
+8. **Agree on how to report problems.** Ask the family to note what
+   happened and the time of day. Telemetry records errors without personal
+   data, so the time is what connects their report to a stack trace.
+
 ## Conventions
 
 Strict TypeScript. Edit existing files before adding new ones. Delete dead
