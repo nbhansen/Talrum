@@ -53,7 +53,11 @@ const emit = async (): Promise<void> => {
     timerDrain: drainState.timerDrain,
   };
   drainState.lastStatus = next;
-  drainSubscribers.forEach((fn) => fn(next));
+  // `drain` clears `draining` after this, so one throwing subscriber would
+  // leave the flag set and the tab would never drain again (#458).
+  for (const fn of drainSubscribers) {
+    await bestEffort('emit-subscriber', async () => fn(next));
+  }
 };
 
 /** For `discardEntry`, which does no draining and so must push counts (#290). */
@@ -234,15 +238,16 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     await emit();
     return;
   }
-  drainState.draining = true;
-  drainState.timerDrain = fromTimer;
-  clearRetryTimer();
-  await emit();
   let sawTransient = false;
   let sawProgress = false;
   let sawUncleared = false;
   let passThrew = false;
+  // Inside the try, so the finally owns `draining` whatever throws (#458).
   try {
+    drainState.draining = true;
+    drainState.timerDrain = fromTimer;
+    clearRetryTimer();
+    await emit();
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
       // attempting on a dropped network burns the retry budget for nothing.
