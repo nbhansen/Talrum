@@ -15,7 +15,13 @@ Talrum is split into two distinct environments: a configuration interface for ca
 
 ## Kid Mode Interface
 
-The child interface is built to occupy the entire screen, optimized for a tablet in landscape orientation. It is entirely tap-driven and devoid of complex navigation, spinners, or extraneous badges to prevent sensory overstimulation, relying on the [Offline Synchronization Model](offline-sync.md) to instantly resolve interactions. 
+The child interface is built to occupy the entire screen, optimized for a tablet in landscape orientation. It is entirely tap-driven and devoid of complex navigation, spinners, or extraneous badges to prevent sensory overstimulation, relying on the [Offline Synchronization Model](offline-sync.md) to instantly resolve interactions.
+
+### Board Types
+
+The interface adapts depending on the type of board a caregiver has created:
+*   **Choice Boards** (`KidChoice`): Present a set of pictograms side-by-side. Tapping a card registers a choice visually and speaks the associated word.
+*   **Sequence Boards** (`KidSequence`): Guide a child through a linear task (like washing hands). Children can interact with the steps as they progress.
 
 ### The Soft PIN Gate
 
