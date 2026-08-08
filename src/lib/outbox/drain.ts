@@ -1,3 +1,4 @@
+import { bestEffort } from './best-effort';
 import { resolveExpectedUpdatedAt } from './board-clock';
 import {
   drainState,
@@ -52,8 +53,9 @@ export const getStatus = (): OutboxStatus => drainState.lastStatus;
 
 /**
  * A landed updateBoard stales the guard on every queued entry for the same
- * board (#281). The board clock covers this tab; persisting the baseline
- * covers the tab that picks the queue up later with an empty clock.
+ * board (#281), `done` itself included when its delete failed (#449). The board
+ * clock covers this tab; persisting the baseline covers the tab that picks the
+ * queue up later with an empty clock.
  */
 const forwardBoardGuards = async (done: OutboxEntry): Promise<void> => {
   if (done.kind !== 'updateBoard') return;
@@ -92,12 +94,11 @@ export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
   return kept;
 };
 
-const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'> => {
+type RunOutcome = 'ok' | 'ok-uncleared' | 'transient' | 'failed';
+
+const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
   try {
     await runHandler(entry);
-    await deleteEntry(entry.id);
-    await forwardBoardGuards(entry);
-    return 'ok';
   } catch (err) {
     // Another tab's drain may have completed this entry and deleted it while
     // our attempt was in flight (our duplicate write then fails, e.g. on a
@@ -133,6 +134,13 @@ const runOne = async (entry: OutboxEntry): Promise<'ok' | 'transient' | 'failed'
     await putEntry({ ...current, attemptCount, status: 'pending', lastError: message });
     return 'transient';
   }
+  // Outside the try: a failed delete is not a failed handler. Inside, it took
+  // the transient branch and replayed a write the server had accepted (#449).
+  const cleared = await bestEffort('drain-delete-after-landing', () => deleteEntry(entry.id));
+  await bestEffort('drain-forward-board-guards', () => forwardBoardGuards(entry));
+  // An uncleared entry re-lands every pass. Reported apart from `ok` so it
+  // cannot pass for queue progress and hold the backoff at its base (#449).
+  return cleared ? 'ok' : 'ok-uncleared';
 };
 
 /**
@@ -209,6 +217,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   await emit();
   let sawTransient = false;
   let sawProgress = false;
+  let sawUncleared = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
@@ -222,6 +231,14 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
         for (const entry of entries) {
           const outcome = await runOne(entry);
           if (outcome === 'ok') sawProgress = true;
+          // An uncleared entry is still queued for replay, so anything behind
+          // it must wait: landing the newer write first lets the replay put the
+          // older one back on top of it (#449).
+          if (outcome === 'ok-uncleared') {
+            sawUncleared = true;
+            stop = true;
+            break;
+          }
           if (outcome === 'transient') {
             sawTransient = true;
             stop = true;
@@ -238,13 +255,16 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // start during the emit() await and get a stray timer armed under it.
     // Progress resets the backoff: a queue that lands entries each pass is not
     // the sustained-failure case the doubling exists for (#391).
-    if (sawProgress || !sawTransient) {
+    if (!sawUncleared && (sawProgress || !sawTransient)) {
       drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
     }
     // A timer set after the device dropped would wake once, hit the offline
     // branch, and cancel itself. The `online` event is the next trigger.
     const online = typeof navigator === 'undefined' || navigator.onLine;
-    if (sawTransient && !drainState.pendingDrain && online) {
+    // An uncleared entry needs the timer too: nothing else clears a landed
+    // write the delete left `pending`, and the delete usually works next
+    // time — the IDB connection another tab closed reopens on reuse (#449).
+    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online) {
       scheduleRetry();
     }
     drainState.draining = false;
