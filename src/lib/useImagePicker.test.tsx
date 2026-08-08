@@ -46,7 +46,6 @@ describe('useImagePicker', () => {
     await pick(result, 'cereal.jpg');
 
     expect(result.current.processed?.previewUrl).toBe('blob:1');
-    expect(result.current.fileName).toBe('cereal.jpg');
     expect(result.current.processing).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -84,7 +83,6 @@ describe('useImagePicker', () => {
 
     expect(revokeMock).toHaveBeenCalledWith('blob:1');
     expect(result.current.processed).toBeNull();
-    expect(result.current.fileName).toBeNull();
   });
 
   it('reports an unreadable image and keeps no stale pick', async () => {
@@ -95,7 +93,6 @@ describe('useImagePicker', () => {
 
     expect(result.current.error).toBe('Could not read that image. Try a JPG or PNG.');
     expect(result.current.processed).toBeNull();
-    expect(result.current.fileName).toBeNull();
     expect(result.current.processing).toBe(false);
   });
 });

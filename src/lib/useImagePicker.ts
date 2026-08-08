@@ -8,8 +8,6 @@ export interface ImagePicker {
   /** The cropped image, ready to upload, with a `blob:` preview URL. */
   processed: ProcessedImage | null;
   processing: boolean;
-  /** Name of the file being (or last successfully) processed. */
-  fileName: string | null;
   error: string | null;
   /** Opens the file chooser. */
   pickFile: () => void;
@@ -28,7 +26,6 @@ export const useImagePicker = (): ImagePicker => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [processed, setProcessed] = useState<ProcessedImage | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(
@@ -46,14 +43,12 @@ export const useImagePicker = (): ImagePicker => {
     e.target.value = '';
     if (!file) return;
     setError(null);
-    setFileName(file.name);
     setProcessed(null);
     setProcessing(true);
     cropToSquareJpeg(file)
       .then(setProcessed)
       .catch(() => {
         setError('Could not read that image. Try a JPG or PNG.');
-        setFileName(null);
       })
       .finally(() => {
         setProcessing(false);
@@ -62,9 +57,8 @@ export const useImagePicker = (): ImagePicker => {
 
   const reset = (): void => {
     setProcessed(null);
-    setFileName(null);
     setError(null);
   };
 
-  return { fileInputRef, processed, processing, fileName, error, pickFile, onInputChange, reset };
+  return { fileInputRef, processed, processing, error, pickFile, onInputChange, reset };
 };
