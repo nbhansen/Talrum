@@ -78,6 +78,16 @@ jobs:
             - Post as `COMMENT` review (`gh pr review --comment`) with inline comments for everything that is a judgment call: speculative abstractions, borderline SRP ("feels like two responsibilities"), DRY-extraction suggestions, naming, or any finding where you are not certain it is a real defect. When unsure whether something blocks, COMMENT — do not block.
             - NEVER post `APPROVE` — leave that to the human.
 
+            ADVISORY SCOPE:
+            - An advisory comment must be about behavior this diff changes. A hazard the diff does not touch — pre-existing, adjacent, or theoretical — gets at most one line in the summary: "Out of scope, consider an issue: ...".
+            - Never propose a new mechanism (a counter, a budget, a guard, a cap, a fallback) that the diff does not already contain. If the diff is safe and correct at its stated scope, say so and stop.
+            - Advisory comments address the human maintainer, not the coding agent. Write them as input to a merge decision, not as change requests.
+
+            RE-REVIEW ROUNDS:
+            - Check for your own earlier reviews on this PR (`gh pr view` with reviews). If none exist, this is round one: do the full review above.
+            - On every later round, do only two things: (a) verify that each earlier REQUEST_CHANGES finding is fixed; (b) check the newly pushed commits for blocking findings per the verdict rules.
+            - Post no new advisory comments after round one. Do not re-argue a judgment call the author read and declined. Do not raise fresh judgment calls on reworked code — if the rework has a provable defect, that is a blocking finding; otherwise stay silent.
+
             OUTPUT DISCIPLINE:
             - Inline comments anchored to specific lines via `mcp__github_inline_comment__create_inline_comment`.
             - One top-level summary in the review body: 1–3 sentences max. Start with the verdict (e.g., "No blocking concerns." or "Requesting changes: RLS regression on `boards` table.").
