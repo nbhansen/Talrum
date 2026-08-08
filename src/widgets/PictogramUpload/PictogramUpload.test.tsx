@@ -169,6 +169,27 @@ describe('PictogramUpload · upload flow', () => {
     ).toBeInTheDocument();
     expect(container.querySelector('img')).not.toBeInTheDocument();
   });
+
+  it('keeps the hint examples while the photo is preparing (#358)', async () => {
+    const user = userEvent.setup();
+    let finish: (v: ProcessedImage) => void = () => undefined;
+    cropMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { container } = renderUpload();
+
+    await pickPhoto(user, container);
+
+    expect(screen.getByText('Preparing photo…')).toBeInTheDocument();
+    expect(screen.getByText(/Real photos of cereal, shoes, or bed work best/)).toBeInTheDocument();
+    finish(cropped);
+    await waitFor(() => {
+      expect(container.querySelector('img[src="blob:preview"]')).toBeInTheDocument();
+    });
+  });
 });
 
 describe('PictogramUpload · YOUR UPLOADS section', () => {
