@@ -22,8 +22,8 @@ import type { OutboxEntry } from './types';
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
-/** Unreadable drains in a row before the retry timer stops (#458). */
-const MAX_UNREADABLE_DRAINS = 6;
+/** Drains in a row that achieved nothing before the retry timer stops (#458). */
+const MAX_STALLED_DRAINS = 6;
 
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
@@ -236,12 +236,11 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   drainState.draining = true;
   drainState.timerDrain = fromTimer;
   clearRetryTimer();
-  // Only the read counts toward the give-up below: an IndexedDB write fails
-  // while another tab holds the connection closed, and works again on reuse.
-  drainState.unreadableDrains = (await emit()) ? 0 : drainState.unreadableDrains + 1;
+  const readOk = await emit();
   let sawTransient = false;
   let sawProgress = false;
   let sawUncleared = false;
+  let passThrew = false;
   try {
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
@@ -280,6 +279,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // `bestEffort`: the failure decides the retry, so it changes something.
     captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'drain-pass' } });
     sawTransient = true;
+    passThrew = true;
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
     // start during the emit() await and get a stray timer armed under it.
@@ -295,10 +295,12 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     // write the delete left `pending`, and the delete usually works next
     // time — the IDB connection another tab closed reopens on reuse (#449).
 
-    // A queue that cannot be read does not heal on a timer, so waking forever
-    // only spends telemetry quota. The `online` event stays a trigger; Retry
-    // does not, because the stuck entries are `pending` and it needs a pill.
-    const giveUp = drainState.unreadableDrains >= MAX_UNREADABLE_DRAINS;
+    // A drain that IndexedDB stopped from doing anything may never heal, and
+    // waking forever then only spends telemetry quota. The `online` event
+    // stays a trigger; Retry does not, because it needs a `failed` entry.
+    const stalled = !sawProgress && (!readOk || passThrew);
+    drainState.stalledDrains = stalled ? drainState.stalledDrains + 1 : 0;
+    const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
     if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {
       scheduleRetry();
     }

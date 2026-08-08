@@ -143,17 +143,39 @@ describe('drain when IndexedDB cannot be read', () => {
     }
   });
 
-  // Only the read counts toward the give-up. A queue that reads back is not
-  // the unhealable case: an IndexedDB write fails while another tab holds the
-  // connection closed, and it works again on reuse (#449).
-  it('keeps arming the retry while the queue is readable', async () => {
+  // A full disk fails every write, so the read alone cannot bound the timer.
+  // What the give-up counts is a drain that achieved nothing, whichever
+  // IndexedDB call failed.
+  it('stops arming the retry when a write fails every pass', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'attempting' }));
       // `reconcileQueue` promotes the abandoned attempt, and that put throws.
-      putEntryMock.mockRejectedValue(closed());
+      putEntryMock.mockRejectedValue(new DOMException('Quota', 'QuotaExceededError'));
 
       for (let i = 0; i < 8; i++) await drain();
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A pass that lands entries is not stalled, whatever else failed in it, so
+  // it must not spend the give-up budget.
+  it('keeps arming the retry for a pass that drained something', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      for (let i = 0; i < 8; i++) {
+        await realStore.putEntry(baseEntry({ id: `01HZZ${i}` }));
+        // The entry lands and clears, then the end-of-pass re-read throws.
+        listEntriesMock
+          .mockImplementationOnce(realStore.listEntries)
+          .mockImplementationOnce(realStore.listEntries)
+          .mockImplementationOnce(realStore.listEntries)
+          .mockRejectedValueOnce(closed());
+        await drain();
+      }
 
       expect(vi.getTimerCount()).toBe(1);
     } finally {
