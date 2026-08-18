@@ -91,11 +91,18 @@ export const BoardBuilder = ({
   const queueTitleWrite = (next: string): void => {
     setTitleDraft(next);
     if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current.timer);
+    pendingTitleWrite.current = null;
+    // Same rule as NewBoardModal: a blank name is never written (#480).
+    const name = next.trim();
+    if (name === '') return;
     const write = (): void => {
       pendingTitleWrite.current = null;
-      renameBoard.mutate({ boardId: board.id, name: next });
+      renameBoard.mutate({ boardId: board.id, name });
     };
     pendingTitleWrite.current = { timer: setTimeout(write, TITLE_DEBOUNCE_MS), write };
+  };
+  const restoreTitleIfBlank = (): void => {
+    if (titleDraft.trim() === '') setTitleDraft(board.name);
   };
   // Flush, not cancel: a back tap inside the debounce window dropped the last
   // edit (#444).
@@ -159,6 +166,7 @@ export const BoardBuilder = ({
         className={styles.titleInput}
         value={titleDraft}
         onChange={(e) => queueTitleWrite(e.target.value)}
+        onBlur={restoreTitleIfBlank}
       />
 
       <SettingsRow
