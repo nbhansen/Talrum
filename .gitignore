@@ -16,9 +16,11 @@ coverage
 CLAUDE.md
 GEMINI.md
 
-# Local agent / MCP harness state — per-machine, may contain secrets
+# Local agent / MCP harness state — per-machine, may contain secrets.
+# .claude/settings.json is the shared exception: it holds the repo hooks.
 .agents/
-.claude/
+.claude/*
+!.claude/settings.json
 .mcp.json
 skills-lock.json
 

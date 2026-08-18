@@ -33,10 +33,11 @@ Use the table below to find the correct architecture overview, entry points, and
 | **Kid Mode UI & PIN Gate** | [Kid Mode & Speech](kid-mode-speech.md) | `src/widgets/KidModeGate/`, `src/lib/kidCopy.ts` | `KidModeGate`, `pinThrottle` | `KidModeGate.test.tsx` | `npm run test -- KidModeGate` |
 | **Speech & Audio (TTS/Recording)** | [Kid Mode & Speech](kid-mode-speech.md) | `src/lib/platform/speech.ts`, `src/lib/platform/audio.ts` | `speakPictogram`, AI generated functions | `src/lib/platform/audio.test.ts` | `npm run test -- platform` |
 | **Database & RLS Policies** | [Operations & Testing](operations-testing.md) | `supabase/migrations/`, `supabase/tests/` | RLS triggers, `pgTAP` files | `supabase/tests/*.sql` | `supabase test db` |
+| **Data Access & Auth** | [Data Access](data-access.md) | `src/lib/queries/`, `src/lib/auth/` | `useMagicLink`, `rowToBoard` | `login.test.tsx`, `boards.read.test.ts` | `npm run test -- queries` |
 | **Backend Edge Functions** | [Operations & Testing](operations-testing.md) | `supabase/functions/` | `generate-image`, `generate-voice` | `supabase/functions/*/handler.test.ts` | `deno test` inside function dir |
 
 To understand the deeper architecture, workflows, and operational procedures of Talrum, explore the linked canonical sections of this OpenWiki above.
 
 ## Backlog
 
-All identified domains and subsystems are currently documented. There are no deferred backlog items.
+For project backlog and roadmap items, refer to `docs/user-stories.md` and the GitHub issue tracker.
