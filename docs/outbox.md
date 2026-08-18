@@ -63,8 +63,10 @@ report and continue instead, and an unreadable queue counts as occupied, or a ne
 entries it cannot see. Six drains in a row that IndexedDB stopped from running the queue then stop
 the retry timer, and `online` becomes the only reliable trigger: the stuck entries are `pending`,
 so there is no pill and no Retry. A landed entry whose delete failed is not one of those, and
-keeps its unbounded replay (#459). The counts hold their last values, which on a cold start are
-zero — a queue unreadable from boot reports as synced (#462).
+keeps its unbounded replay (#459). The counts hold their last values, and the status names the
+failed read as `queueUnreadable`, which the indicator shows ahead of every other state — the last
+good counts may be zero, and "synced" would be a lie (#462). Retry's own read is guarded the same
+way, and the drain it kicks feeds the same state.
 
 **An in-flight entry is `attempting`, not `pending`** (#446). The two are
 different facts: `pending` means a write is waiting for a drain, and this one is

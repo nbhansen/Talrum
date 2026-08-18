@@ -18,6 +18,11 @@ export interface OutboxStatus {
    * re-drains every few seconds and each text change re-announces (#409).
    */
   timerDrain: boolean;
+  /**
+   * The last queue read failed, so the counts are the last good ones. A queue
+   * whose last good read was clean would otherwise report as synced (#462).
+   */
+  queueUnreadable: boolean;
 }
 
 interface DrainState {
@@ -45,6 +50,7 @@ const initialStatus = (): OutboxStatus => ({
   conflictCount: 0,
   draining: false,
   timerDrain: false,
+  queueUnreadable: false,
 });
 
 export const drainState: DrainState = {

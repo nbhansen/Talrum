@@ -14,8 +14,27 @@ const discardAllFailed = async (): Promise<void> => {
  * screen (#354). Renders nothing when online with a clean outbox.
  */
 export const OfflineIndicator = (): JSX.Element | null => {
-  const { online, pendingCount, failedCount, conflictCount, draining, timerDrain } =
-    useOutboxStatus();
+  const {
+    online,
+    pendingCount,
+    failedCount,
+    conflictCount,
+    draining,
+    timerDrain,
+    queueUnreadable,
+  } = useOutboxStatus();
+
+  // Before every other branch: the counts are stale, and a Retry could not
+  // read the entries it would reset (#462).
+  if (queueUnreadable) {
+    return (
+      <div role="status" className={`${styles.pill} ${styles.pillFailed}`}>
+        <span className={styles.label}>
+          Sync is not working on this device · recent changes may not be saved
+        </span>
+      </div>
+    );
+  }
 
   if (online && pendingCount === 0 && failedCount === 0 && !draining) return null;
 

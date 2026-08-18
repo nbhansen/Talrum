@@ -375,4 +375,46 @@ describe('drain when IndexedDB cannot be read', () => {
     expect(getStatus().pendingCount).toBe(1);
     expect(getStatus().online).toBe(false);
   });
+
+  // The counts a failed read keeps are the last good ones, and after a clean
+  // drain those are zero. Without a state for the read itself, a write that
+  // queues durably behind an unreadable queue reports as synced (#462).
+  it('names the unreadable queue after a clean drain', async () => {
+    await drain();
+    expect(getStatus()).toMatchObject({ pendingCount: 0, queueUnreadable: false });
+    listEntriesMock.mockRejectedValue(closed());
+
+    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+
+    expect(getStatus().queueUnreadable).toBe(true);
+    expect(await realStore.listEntries()).toHaveLength(1);
+  });
+
+  it('clears the unreadable state once a read succeeds', async () => {
+    listEntriesMock.mockRejectedValue(closed());
+    await drain();
+    expect(getStatus().queueUnreadable).toBe(true);
+    listEntriesMock.mockImplementation(realStore.listEntries);
+
+    await drain();
+
+    expect(getStatus().queueUnreadable).toBe(false);
+  });
+
+  // The Retry button's only caller drops the promise, so a rejection here
+  // reached nobody: no telemetry, no state change, a button that did nothing
+  // (#461, folded into #462).
+  it('reports a Retry it cannot read the queue for and names the state', async () => {
+    await realStore.putEntry(baseEntry({ id: '01HZZA', status: 'failed' }));
+    listEntriesMock.mockRejectedValue(closed());
+
+    await expect(retryFailed()).resolves.toBeUndefined();
+
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(DOMException),
+      expect.objectContaining({ tags: { component: 'outbox', op: 'retry-list-entries' } }),
+    );
+    expect(getStatus().queueUnreadable).toBe(true);
+    expect((await realStore.listEntries())[0]?.status).toBe('failed');
+  });
 });
