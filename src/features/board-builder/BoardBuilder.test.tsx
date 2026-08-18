@@ -87,6 +87,66 @@ describe('BoardBuilder title', () => {
   });
 });
 
+describe('BoardBuilder blank title', () => {
+  const renderBuilder = (): ReturnType<typeof render> =>
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onKidMode={noop}
+      />,
+    );
+
+  // A blank name reached the row on a 300 ms pause or a back tap, and the
+  // create path refuses one (#480).
+  it('never writes a blank name, and cancels the write it replaces', () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = renderBuilder();
+      const input = screen.getByDisplayValue('Morning routine');
+      fireEvent.change(input, { target: { value: 'Evening routine' } });
+      fireEvent.change(input, { target: { value: '   ' } });
+
+      vi.runAllTimers();
+      unmount();
+
+      expect(renameBoardMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('trims the name it writes, like the create path', () => {
+    vi.useFakeTimers();
+    try {
+      renderBuilder();
+      fireEvent.change(screen.getByDisplayValue('Morning routine'), {
+        target: { value: '  Evening routine  ' },
+      });
+
+      vi.runAllTimers();
+
+      expect(renameBoardMock).toHaveBeenCalledWith({ boardId: 'board-1', name: 'Evening routine' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('puts the saved name back when a blank field loses focus', () => {
+    renderBuilder();
+    const input = screen.getByDisplayValue('Morning routine');
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input).toHaveValue('');
+
+    fireEvent.blur(input);
+
+    expect(input).toHaveValue('Morning routine');
+  });
+});
+
 describe('BoardBuilder Share button', () => {
   it('renders the Share button when isOwner=true', () => {
     render(
