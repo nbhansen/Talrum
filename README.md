@@ -264,6 +264,41 @@ Do these steps in this order, on the family's iPad, before you hand it over.
    happened and the time of day. Telemetry records errors without personal
    data, so the time is what connects their report to a stack trace.
 
+## Harness
+
+A rule in text does not stop a wrong change. A check does. The harness is the
+set of checks that run between an edit and a merge. Each check is silent when
+it passes. Only a failure gives output. When a check enforces a rule, we delete
+the rule from [AGENTS.md](./AGENTS.md); the text keeps only the rules that no
+check can enforce.
+
+```mermaid
+flowchart LR
+    edit["Edit a file"] --> hook["Hook: eslint / stylelint on the file"]
+    hook --> turn["Hook at turn end: vitest --changed"]
+    turn --> commit["Commit: lint-staged + tsc"]
+    commit --> push["Push: migration drift guard"]
+    push --> pr["PR: pr-hygiene · verify · ai-review"]
+    pr --> merge["Merge: ruleset requires verify + pr-hygiene"]
+```
+
+| When                    | Check                                                                                                          | Stops                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Each edit (Claude Code) | `scripts/hooks/lint-edited-file.mjs`: eslint or stylelint on the edited file                                   | Wrong layer imports, direct supabase-client use, raw colors and `px`                        |
+| Turn end (Claude Code)  | `scripts/hooks/test-changed.mjs`: `vitest --changed` when `src/` or `scripts/` is dirty                        | A change that breaks a related test                                                         |
+| Commit (husky)          | lint-staged (eslint, stylelint, prettier on staged files), then `tsc -b`                                       | Lint and type errors, format drift                                                          |
+| Push (husky)            | `npm run migrations:check-drift` when a migration changed and the linked project is reachable                  | Migrations applied outside the CLI                                                          |
+| PR: `pr-hygiene`        | Base branch is `main`; PR body and commits carry no AI-session attribution                                     | Stacked PRs, session links, AI co-author trailers                                           |
+| PR: `verify`            | local-only `config.toml`, typecheck, lint, boundary canary, css lint, comment length, format, coverage floors, build, Deno tests, pgTAP, generated-types drift, edge-function e2e | Everything the tools above stop, plus DB contracts and a stale `src/types/supabase.ts` |
+| PR: `ai-review`         | Claude reviews the diff against the rubric in `.github/workflows/ai-review.yml`                                | SRP breaks, security regressions, broken invariants that a linter cannot see                |
+| Merge                   | GitHub ruleset on `main`: `verify` and `pr-hygiene` must pass, branch must be up to date                        | A merge that skipped a check                                                                |
+
+The two hooks are wired in `.claude/settings.json`, which is committed; the
+rest of `.claude/` is local. They run only inside Claude Code. A developer
+without Claude Code gets the same checks at commit time and in CI, later.
+`ai-review` does not gate the merge; by project rule a `REQUEST_CHANGES`
+review is fixed in the PR and a `COMMENT` review permits merge.
+
 ## Conventions
 
 Strict TypeScript. Edit existing files before adding new ones. Delete dead
