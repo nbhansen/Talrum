@@ -1,9 +1,8 @@
 // Claude Code PostToolUse hook (Edit|Write): eslint/stylelint the edited
 // file. Silent on success; exit 2 sends the failure back to the agent.
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
-
-const quietNpm = { ...process.env, npm_config_loglevel: 'error' };
 
 const input = JSON.parse(await readStdin());
 const filePath = input.tool_input?.file_path;
@@ -17,9 +16,15 @@ if (/\.(ts|tsx)$/.test(rel)) cmd = ['eslint', '--max-warnings', '0', '--no-warn-
 else if (/\.module\.css$/.test(rel)) cmd = ['stylelint', rel];
 else process.exit(0);
 
-const result = spawnSync('npx', ['--no-install', ...cmd], { encoding: 'utf8', env: quietNpm });
+const [tool, ...args] = cmd;
+const bin = `node_modules/.bin/${tool}`;
+if (!existsSync(bin)) {
+  process.stderr.write(`${bin} is missing - run npm install; ${rel} was not linted.\n`);
+  process.exit(2);
+}
+const result = spawnSync(bin, args, { encoding: 'utf8' });
 if (result.status === 0) process.exit(0);
-process.stderr.write(`${cmd[0]} failed for ${rel}:\n${result.stdout}${result.stderr}`);
+process.stderr.write(`${tool} failed for ${rel}:\n${result.stdout}${result.stderr}`);
 process.exit(2);
 
 function readStdin() {

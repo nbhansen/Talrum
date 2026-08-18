@@ -1,8 +1,7 @@
 // Claude Code Stop hook: run the tests related to uncommitted src/ or scripts/ changes.
 // Silent on success; exit 2 sends the failures back to the agent.
 import { spawnSync } from 'node:child_process';
-
-const quietNpm = { ...process.env, npm_config_loglevel: 'error' };
+import { existsSync } from 'node:fs';
 
 const input = JSON.parse(await readStdin());
 if (input.stop_hook_active) process.exit(0);
@@ -12,11 +11,14 @@ const dirty = spawnSync('git', ['status', '--porcelain', '--', 'src', 'scripts']
 });
 if (dirty.stdout.trim() === '') process.exit(0);
 
-const result = spawnSync(
-  'npx',
-  ['--no-install', 'vitest', 'run', '--changed', '--passWithNoTests', '--reporter=dot'],
-  { encoding: 'utf8', env: quietNpm },
-);
+const bin = 'node_modules/.bin/vitest';
+if (!existsSync(bin)) {
+  process.stderr.write(`${bin} is missing - run npm install; related tests were not run.\n`);
+  process.exit(2);
+}
+const result = spawnSync(bin, ['run', '--changed', '--passWithNoTests', '--reporter=dot'], {
+  encoding: 'utf8',
+});
 if (result.status === 0) process.exit(0);
 process.stderr.write(`vitest --changed failed:\n${result.stdout}${result.stderr}`);
 process.exit(2);
