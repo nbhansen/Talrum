@@ -84,17 +84,26 @@ export const BoardBuilder = ({
   // board.id, not board.name) — see the note above. The sync write is intended.
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => setTitleDraft(board.name), [board.id]);
-  const pendingTitleWrite = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTitleWrite = useRef<{
+    timer: ReturnType<typeof setTimeout>;
+    write: () => void;
+  } | null>(null);
   const queueTitleWrite = (next: string): void => {
     setTitleDraft(next);
-    if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current);
-    pendingTitleWrite.current = setTimeout(() => {
+    if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current.timer);
+    const write = (): void => {
+      pendingTitleWrite.current = null;
       renameBoard.mutate({ boardId: board.id, name: next });
-    }, TITLE_DEBOUNCE_MS);
+    };
+    pendingTitleWrite.current = { timer: setTimeout(write, TITLE_DEBOUNCE_MS), write };
   };
+  // Flush, not cancel: a back tap inside the debounce window dropped the last
+  // edit (#444).
   useEffect(
     () => () => {
-      if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current);
+      if (!pendingTitleWrite.current) return;
+      clearTimeout(pendingTitleWrite.current.timer);
+      pendingTitleWrite.current.write();
     },
     [],
   );

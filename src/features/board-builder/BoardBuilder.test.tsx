@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,9 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Board } from '@/types/domain';
 
 const setBoardKindMock = vi.fn();
+const renameBoardMock = vi.fn();
 
 vi.mock('@/lib/queries/boards', () => ({
-  useRenameBoard: () => ({ mutate: vi.fn() }),
+  useRenameBoard: () => ({ mutate: renameBoardMock }),
   useSetBoardKind: () => ({ mutate: setBoardKindMock }),
   useSetKidReorderable: () => ({ mutate: vi.fn() }),
   useSetLabelsVisible: () => ({ mutate: vi.fn() }),
@@ -52,6 +53,38 @@ const noop = (): void => undefined;
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('BoardBuilder title', () => {
+  // The rename is debounced, and the unmount cleanup cleared the timer, so a
+  // back tap inside the debounce window dropped the last edit (#444).
+  it('flushes a pending rename when it unmounts', () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(
+        <BoardBuilder
+          board={baseBoard}
+          isOwner
+          onBack={noop}
+          onOpenPicker={noop}
+          onOpenShare={noop}
+          onKidMode={noop}
+        />,
+      );
+      fireEvent.change(screen.getByDisplayValue('Morning routine'), {
+        target: { value: 'Evening routine' },
+      });
+      expect(renameBoardMock).not.toHaveBeenCalled();
+
+      unmount();
+
+      expect(renameBoardMock).toHaveBeenCalledWith({ boardId: 'board-1', name: 'Evening routine' });
+      vi.runAllTimers();
+      expect(renameBoardMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('BoardBuilder Share button', () => {
