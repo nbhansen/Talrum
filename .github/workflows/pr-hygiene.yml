@@ -1,0 +1,34 @@
+name: pr-hygiene
+# Stacked PRs cannot be retargeted after the base squash-merges, and
+# AI-session links in commits or PR bodies are banned (AGENTS.md §11).
+# Both were text-only rules that got broken; now they fail here. Separate
+# from ci.yml so a body edit re-runs it without a full CI round.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+jobs:
+  pr-hygiene:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BASE: ${{ github.base_ref }}
+      PR: ${{ github.event.pull_request.number }}
+      BODY: ${{ github.event.pull_request.body }}
+    steps:
+      - name: PR base is main
+        run: |
+          if [ "$BASE" != "main" ]; then
+            echo "::error::PR base is '$BASE'. Branch every PR off main - no stacked PRs."
+            exit 1
+          fi
+      - name: No AI-session attribution in body or commits
+        run: |
+          pattern='claude\.ai/code/session|Claude-Session:|Co-Authored-By: Claude|Generated with \[Claude Code\]'
+          if printf '%s' "$BODY" | grep -qE "$pattern"; then
+            echo "::error::PR body contains AI-session attribution. Remove it."
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --paginate --jq '.[].commit.message' | grep -qE "$pattern"; then
+            echo "::error::A commit message contains AI-session attribution. Amend it."
+            exit 1
+          fi
