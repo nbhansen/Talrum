@@ -110,6 +110,22 @@ describe('OfflineIndicator', () => {
     }
   });
 
+  // The counts a failed read keeps are stale, so a Retry cannot act on them
+  // and "synced" would be a lie (#462).
+  it('names an unreadable queue ahead of every other state', () => {
+    useOutboxStatusMock.mockReturnValue({
+      online: true,
+      pendingCount: 0,
+      failedCount: 1,
+      conflictCount: 0,
+      draining: false,
+      queueUnreadable: true,
+    });
+    render(<OfflineIndicator />);
+    expect(screen.getByRole('status')).toHaveTextContent(/Sync is not working on this device/);
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('shows a failure pill with Retry + Discard', () => {
     useOutboxStatusMock.mockReturnValue({
       online: true,

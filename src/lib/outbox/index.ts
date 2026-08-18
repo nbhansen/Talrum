@@ -142,18 +142,22 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
  * resurrected as pending (#289).
  */
 export const retryFailed = async (): Promise<void> => {
-  await withCrossTabLock(async () => {
-    const failed = (await listEntries()).filter((e) => e.status === 'failed');
-    for (const { lastError: _lastError, failureKind, ...entry } of failed) {
-      // A conflicted baseline is permanently behind, so a guarded retry can
-      // only re-conflict. Retry becomes "apply mine anyway": #281 forbids the
-      // silent overwrite, and this one is explicit.
-      if (entry.kind === 'updateBoard' && failureKind === 'conflict') {
-        delete entry.expectedUpdatedAt;
+  // The button's only caller drops the promise, so a rejection here reached
+  // nobody (#462). The drain below reads again and feeds the status.
+  await bestEffort('retry-list-entries', () =>
+    withCrossTabLock(async () => {
+      const failed = (await listEntries()).filter((e) => e.status === 'failed');
+      for (const { lastError: _lastError, failureKind, ...entry } of failed) {
+        // A conflicted baseline is permanently behind, so a guarded retry can
+        // only re-conflict. Retry becomes "apply mine anyway": #281 forbids the
+        // silent overwrite, and this one is explicit.
+        if (entry.kind === 'updateBoard' && failureKind === 'conflict') {
+          delete entry.expectedUpdatedAt;
+        }
+        await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
       }
-      await putEntry({ ...entry, status: 'pending', attemptCount: 0 });
-    }
-  });
+    }),
+  );
   resetRetrySchedule();
   await drain();
 };

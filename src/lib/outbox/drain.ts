@@ -51,6 +51,7 @@ const emit = async (): Promise<void> => {
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     draining: drainState.draining,
     timerDrain: drainState.timerDrain,
+    queueUnreadable: counts === undefined,
   };
   drainState.lastStatus = next;
   // `drain` clears `draining` after this, so one throwing subscriber would
