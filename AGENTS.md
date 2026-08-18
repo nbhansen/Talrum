@@ -201,19 +201,17 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 - Source lives in: `src/` — layered `app → routes → features → widgets → lib/ui/layouts → theme/types`; ESLint forbids upward imports. See the README architecture section.
 - Tests live in: colocated `*.test.ts(x)` next to source; pgTAP SQL tests in `supabase/tests/`.
 - Do not modify: `src/types/supabase.ts` (generated — regenerate with `npm run types:db`).
+- Checks, not text, enforce the rest: ESLint (layer imports, cross-feature imports, supabase-client plumbing), Stylelint (theme tokens), pgTAP (REST surface, grants, `search_path`), CI (generated-types drift, migration drift, PR base, AI-session attribution). Claude Code hooks in `.claude/settings.json` run ESLint/Stylelint on each edit and the related tests at turn end.
 
 ### Conventions specific to this repo
 
-- DB reads go through `src/lib/queries/*` react-query hooks; writes go through the `src/lib/outbox` queue (`enqueueAndDrain`) — see `docs/outbox.md`; storage URL minting through `src/lib/storage`. All ESLint-enforced (`@/lib/supabase` is import-restricted outside `lib/`; AuthGate is the sole exception). Documented exception to "writes via outbox": creates (`useCreateBoard`, `useCreateKid`, board members) write directly — create-then-navigate needs the row to exist and RLS should fail loudly at call time; pictogram creates still go through the outbox because file uploads must survive going offline. Decision rule in `docs/queries.md`.
-- `features/` never import each other — compose at the route layer.
+- DB reads go through `src/lib/queries/*` react-query hooks; writes go through the `src/lib/outbox` queue (`enqueueAndDrain`) — see `docs/outbox.md`; storage URL minting through `src/lib/storage`. Documented exception to "writes via outbox": creates (`useCreateBoard`, `useCreateKid`, board members) write directly — create-then-navigate needs the row to exist and RLS should fail loudly at call time; pictogram creates still go through the outbox because file uploads must survive going offline. Decision rule in `docs/queries.md`.
 - Widget vs feature placement is decided by capability, not consumer count: a self-contained, query-aware component that would make sense on another screen (dialogs, sheets, tiles) goes in `src/widgets/`, even with one consumer today. Feature folders keep only what is meaningless without that screen (e.g. `KindSwitchConfirm` belongs to board-builder). Rationale: features can't cross-import, so a feature-local dialog that gains a second consumer must move anyway — place it in `widgets/` from day one.
-- Colors and spacing in `*.module.css` must use theme tokens; stylelint blocks raw hex/rgb/hsl and raw `px` in padding/margin/gap.
 - Testing: Vitest + Testing Library; assert what users see, not internal state.
-- Migrations: `supabase migration new <snake_case_name>`; SQL functions pin `set search_path = public`; follow the grant pattern in `20260427000000_tighten_grants.sql` (revoke anon/PUBLIC, grant authenticated/service_role).
+- Migrations: `supabase migration new <snake_case_name>`; follow the grant pattern in `20260427000000_tighten_grants.sql` (revoke anon/PUBLIC, grant authenticated/service_role).
 
 ### Forbidden
 
-- Hand-editing `src/types/supabase.ts`.
 - SECURITY DEFINER functions in the `public` schema (pinned by `supabase/tests/rest_surface_contract_test.sql`).
 - Stacked PRs — branch every PR off `main`; squash-merge with `--delete-branch`.
 - Pro-tier Supabase features (HIBP password checks, PITR, …) — the project runs on the free tier.
