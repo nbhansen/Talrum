@@ -1,9 +1,9 @@
 // Claude Code PostToolUse hook (Edit|Write): eslint/stylelint the edited
 // file. Silent on success; exit 2 sends the failure back to the agent.
 import { spawnSync } from 'node:child_process';
+import { relative, resolve } from 'node:path';
 
 const quietNpm = { ...process.env, npm_config_loglevel: 'error' };
-import { relative, resolve } from 'node:path';
 
 const input = JSON.parse(await readStdin());
 const filePath = input.tool_input?.file_path;
