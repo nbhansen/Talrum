@@ -106,49 +106,6 @@ flowchart TD
     lib --> supa[(Supabase)]
 ```
 
-Top layer to bottom:
-
-| Directory          | Role                                                                                                                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`             | Composition root: router, AuthGate, SessionProvider. `app/routes/` holds one file per route, composed from features.                                                                    |
-| `features/`        | One folder per screen (parent-home, board-builder, kid-mode, …). Never import each other — composed at the route layer. Kid-mode PIN soft-gate: [docs/kid-mode.md](./docs/kid-mode.md). |
-| `widgets/`         | Shared, query-aware, feature-agnostic components (PictogramSheet, KidSheet, NewKidModal, OfflineIndicator).                                                                             |
-| `layouts/`         | ParentShell, KidModeLayout, TalrumLogo. Same tier as `widgets/` and may render them.                                                                                                    |
-| `ui/`              | Domain-agnostic primitives (Button, Modal, TextField, …). No data access — a component that needs `lib/queries` or `lib/outbox` belongs in `widgets/`.                                  |
-| `lib/`             | Queries (reads), outbox (writes), storage URL minting, auth helpers, speech/TTS + app-language helpers ([docs/speech.md](./docs/speech.md)).                                            |
-| `glyphs/`          | Hand-drawn inline-SVG glyph set (`GlyphName` → SVG, theme-var strokes). Same tier as `lib/`; distinct from photo pictograms, which live in Supabase Storage.                            |
-| `theme/`, `types/` | CSS design tokens; domain types + generated `supabase.ts` (regenerate with `npm run types:db`, never edit).                                                                             |
-| `supabase/`        | Outside `src/`: config, migrations, seed.sql, pgTAP tests, edge functions.                                                                                                              |
-
-Data-access rules — pinned by the `boundaries/dependencies` layer policies in
-`eslint.config.js` (one declared layer map; it covers alias and relative
-imports, and test files):
-
-- DB reads go through `src/lib/queries/*` (react-query hooks) — conventions
-  and the write-pattern decision guide are in
-  [docs/queries.md](./docs/queries.md).
-- Writes go through `src/lib/outbox` (offline-tolerant queue) — the full
-  write-path lifecycle is in [docs/outbox.md](./docs/outbox.md); the
-  read-side persisted cache and its auth-boundary wipe are in
-  [docs/offline-cache.md](./docs/offline-cache.md).
-- Storage URL minting goes through `src/lib/storage`
-  ([docs/storage.md](./docs/storage.md)).
-- Auth subscription is centralized in `src/app/AuthGate`; sign-in/out helpers
-  live in `src/lib/auth/`.
-- The service worker is registered by `src/lib/platform/serviceWorker.ts`, not by
-  vite-plugin-pwa's injected snippet (`injectRegister: false`) — that snippet
-  had no `.catch()`, so a browser that blocks service workers raised an
-  unhandled rejection (#375). A failed registration means no offline mode, so
-  it is reported to Sentry as a warning rather than swallowed. Updates still
-  apply automatically, via `skipWaiting` + `clientsClaim` in the worker.
-
-Colors in `*.module.css` outside `src/theme/` must come from theme tokens —
-hex/rgb/hsl literals are blocked by `npm run lint:css` (stylelint). The same
-guard blocks raw `px` in `padding`, `margin`, `gap`, and their longhand
-variants — use `--tal-space-N` tokens instead. Documented holdouts (negative
-pulls, border-compensated paddings, sub-scale 2px hairlines) carry an
-inline `stylelint-disable-next-line` comment naming the reason.
-
 ## Auth
 
 Email-OTP via Supabase. The full flow and how to read OTPs locally are in
@@ -182,7 +139,7 @@ self-hosted Supabase on a VPS is in [docs/self-hosting.md](./docs/self-hosting.m
    - `SENTRY_ORG` / `SENTRY_PROJECT` (org slug + project slug for source-map upload)
 
    These are the **only** place production's Supabase URL and key are
-   configured. No env file in this repo feeds production.
+   configured.
 
 4. Create the Cloudflare Pages project (`talrum`). Leave its build settings
    empty — Pages is used purely as static hosting. CI runs `npm run build`
