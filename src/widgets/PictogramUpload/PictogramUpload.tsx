@@ -12,7 +12,12 @@ import styles from './PictogramUpload.module.css';
 
 const RECENT_LIMIT = 6;
 
-export const PictogramUpload = (): JSX.Element => {
+interface PictogramUploadProps {
+  /** Library to create in; omitted means the signed-in user's own (#490). */
+  ownerId?: string;
+}
+
+export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element => {
   const {
     fileInputRef,
     processed,
@@ -50,6 +55,7 @@ export const PictogramUpload = (): JSX.Element => {
         label: trimmed,
         blob: processed.blob,
         extension: processed.extension,
+        ...(ownerId ? { ownerId } : {}),
       });
       reset();
     } catch (err) {

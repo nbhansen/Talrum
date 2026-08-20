@@ -16,6 +16,7 @@ export const rowToPictogram = (row: PictogramRow): Pictogram => {
   if (row.style === 'illus') {
     return {
       id: row.id,
+      ownerId: row.owner_id,
       label: row.label,
       style: 'illus',
       glyph: row.glyph as GlyphName,
@@ -26,6 +27,7 @@ export const rowToPictogram = (row: PictogramRow): Pictogram => {
   }
   return {
     id: row.id,
+    ownerId: row.owner_id,
     label: row.label,
     style: 'photo',
     ...(row.slug ? { slug: row.slug } : {}),
