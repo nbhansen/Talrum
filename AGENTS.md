@@ -214,6 +214,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 
 - SECURITY DEFINER functions in the `public` schema (pinned by `supabase/tests/rest_surface_contract_test.sql`).
 - Stacked PRs — branch every PR off `main`; squash-merge with `--delete-branch`.
+- AI-session attribution in commit messages or PR bodies — `Co-Authored-By: Claude`, `Claude-Session:`, `Generated with [Claude Code]`, `claude.ai/code/session` links. `pr-hygiene` rejects the PR. Agent harnesses add these trailers by default; drop them before you commit.
 - Pro-tier Supabase features (HIBP password checks, PITR, …) — the project runs on the free tier.
 
 ---
