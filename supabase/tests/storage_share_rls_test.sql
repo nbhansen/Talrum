@@ -35,7 +35,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(12);
+SELECT plan(14);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -86,6 +86,22 @@ INSERT INTO storage.objects (bucket_id, name, owner) VALUES
   ('pictogram-images',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid);
+
+-- Bob (member) uploaded a photo under his own prefix for a pictogram that
+-- sits on Alice's shared board (#490). The bytes follow the row.
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+  ('pictogram-images',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/onboard.jpg',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid);
+INSERT INTO public.pictograms (id, owner_id, label, style, image_path) VALUES
+  ('11111111-1111-4111-8111-111111111111',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bob on board', 'photo',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/onboard.jpg');
+UPDATE public.boards
+   SET step_ids = step_ids || '11111111-1111-4111-8111-111111111111'::uuid
+ WHERE id = (SELECT id FROM public.boards
+              WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+              ORDER BY id LIMIT 1);
 
 -- ── Policy through SELECT, four roles, audio ───────────────────────────────
 -- SET LOCAL applies for the rest of the transaction; subsequent SET LOCALs
@@ -203,6 +219,28 @@ SELECT throws_ok(
   '42501',
   NULL,
   'policy: member cannot INSERT into owner prefix'
+);
+
+-- ── Bytes of a member pictogram follow the board (#490) ───────────────────
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
+SELECT is(
+  (SELECT count(*)::int FROM storage.objects
+    WHERE bucket_id = 'pictogram-images'
+      AND name = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/onboard.jpg'),
+  1,
+  'policy: board owner SELECT returns the member upload the board lists'
+);
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}';
+SELECT is(
+  (SELECT count(*)::int FROM storage.objects
+    WHERE bucket_id = 'pictogram-images'
+      AND name = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/onboard.jpg'),
+  0,
+  'policy: non-member SELECT returns 0 rows for the member upload'
 );
 
 SELECT * FROM finish();

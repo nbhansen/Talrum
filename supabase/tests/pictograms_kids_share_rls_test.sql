@@ -27,7 +27,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(8);
+SELECT plan(11);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -47,6 +47,20 @@ SELECT id, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'viewer'
   FROM public.boards
  WHERE owner_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
  ORDER BY id LIMIT 1;
+
+-- Bob (member) owns two photo pictograms. One sits on Alice's shared board
+-- (#490); the other is on no board and stays private to Bob.
+INSERT INTO public.pictograms (id, owner_id, label, style) VALUES
+  ('11111111-1111-4111-8111-111111111111',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bob on board', 'photo'),
+  ('22222222-2222-4222-8222-222222222222',
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bob off board', 'photo');
+
+UPDATE public.boards
+   SET step_ids = step_ids || '11111111-1111-4111-8111-111111111111'::uuid
+ WHERE id = (SELECT id FROM public.boards
+              WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+              ORDER BY id LIMIT 1);
 
 -- Capture Alice's row counts BEFORE role switching, while still postgres.
 -- Used as the expected count under owner + member sessions, so the test
@@ -151,6 +165,35 @@ SELECT is(
   (SELECT count(*)::int FROM upd),
   0,
   'policy: member cannot UPDATE owner pictograms (RLS-filtered)'
+);
+
+-- ── 9-11. A member's pictogram is visible through the board it sits on ────
+-- `is_pictogram_on_my_board` (#490): the board owner sees the member's
+-- pictogram that the shared board lists, not the one on no board; a
+-- cross-owner member sees neither.
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
+SELECT is(
+  (SELECT count(*)::int FROM public.pictograms
+    WHERE id = '11111111-1111-4111-8111-111111111111'),
+  1,
+  'policy: board owner sees a member pictogram listed in step_ids'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.pictograms
+    WHERE id = '22222222-2222-4222-8222-222222222222'),
+  0,
+  'policy: board owner does not see a member pictogram on no board'
+);
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
+SELECT is(
+  (SELECT count(*)::int FROM public.pictograms
+    WHERE owner_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+  0,
+  'policy: cross-owner member sees zero of the member pictograms'
 );
 
 SELECT * FROM finish();
