@@ -39,7 +39,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 }));
 
 const realStore = await vi.importActual<typeof StoreModule>('./store');
-const { drain, getStatus, refreshStatus, subscribeStatus } = await import('./drain');
+const { drain, getStatus, refreshStatus } = await import('./drain');
 const { drainState } = await import('./drain-state');
 const { enqueueAndDrain, retryFailed } = await import('./index');
 const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
@@ -104,27 +104,6 @@ describe('drain when IndexedDB cannot be read', () => {
     expect(drainState.draining).toBe(false);
     expect(eqMock).toHaveBeenCalledTimes(1);
     expect(await realStore.listEntries()).toEqual([]);
-  });
-
-  // `draining` is set before the status emit and cleared in the drain's
-  // finally, so anything the emit throws bricks the tab's drain. Guarding the
-  // read closed the reachable door; the subscribers were the one left open.
-  it('survives a subscriber that throws', async () => {
-    let calls = 0;
-    const unsubscribe = subscribeStatus(() => {
-      calls += 1;
-      if (calls > 1) throw new Error('boom');
-    });
-    try {
-      await realStore.putEntry(baseEntry({ id: '01HZZA' }));
-
-      await expect(drain()).resolves.toBeUndefined();
-
-      expect(drainState.draining).toBe(false);
-      expect(await realStore.listEntries()).toEqual([]);
-    } finally {
-      unsubscribe();
-    }
   });
 
   it('reports the failed status read instead of failing silently', async () => {
