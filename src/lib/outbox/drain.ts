@@ -54,11 +54,10 @@ const emit = async (): Promise<void> => {
     queueUnreadable: counts === undefined,
   };
   drainState.lastStatus = next;
-  // `drain` clears `draining` after this, so one throwing subscriber would
-  // leave the flag set and the tab would never drain again (#458).
-  for (const fn of drainSubscribers) {
-    await bestEffort('emit-subscriber', async () => fn(next));
-  }
+  // Synchronous on purpose: an awaited loop here widened the window in
+  // `drain`'s finally where `draining` is false but `pendingDrain` is not yet
+  // consumed. Subscribers are trusted not to throw (#465).
+  drainSubscribers.forEach((fn) => fn(next));
 };
 
 /** For `discardEntry`, which does no draining and so must push counts (#290). */
