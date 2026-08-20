@@ -33,7 +33,11 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
       <div className={styles.wrap}>
         <DialogHeader
           title="Share this board"
-          subtitle="People you share with see this board on their own iPad and can change it like you. Only you can share or delete it."
+          subtitle={
+            isOwner
+              ? 'People you share with see this board on their own iPad and can change it like you. Only you can share or delete it.'
+              : 'This board is shared with you. You can change it; only its owner can share or delete it.'
+          }
           titleId={TITLE_ID}
           onClose={onClose}
         />
