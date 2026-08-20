@@ -54,9 +54,9 @@ const emit = async (): Promise<void> => {
     queueUnreadable: counts === undefined,
   };
   drainState.lastStatus = next;
-  // Synchronous on purpose: an awaited loop here widened the window in
-  // `drain`'s finally where `draining` is false but `pendingDrain` is not yet
-  // consumed. Subscribers are trusted not to throw (#465).
+  // Unguarded on purpose: the only subscriber is a React `setState`, which
+  // cannot throw here, so a guard was error handling for an unreachable case
+  // (#465). `subscribeStatus` calls `fn` unguarded too.
   drainSubscribers.forEach((fn) => fn(next));
 };
 
