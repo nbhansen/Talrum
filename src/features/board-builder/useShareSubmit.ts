@@ -51,7 +51,7 @@ export const useShareSubmit = ({ boardId, meId }: Args): ShareSubmitState => {
     }
     setSubmitError(null);
     addMember.mutate(
-      { boardId, userId: trimmed, role: 'viewer' },
+      { boardId, userId: trimmed, role: 'editor' },
       {
         onSuccess: () => {
           setDraftIdState('');

@@ -79,7 +79,7 @@ describe('useShareSubmit', () => {
     expect(addMutateMock).toHaveBeenCalledWith({
       boardId: BOARD_ID,
       userId: OTHER_ID,
-      role: 'viewer',
+      role: 'editor',
     });
     act(() => {
       lastAddOptions?.onSuccess?.();
