@@ -83,12 +83,12 @@ jobs:
       - run: npm run test:db
       - name: Serve function in background
         run: |
-          mkdir -p supabase/functions
-          cat > supabase/functions/.env.local <<EOF
-          SUPABASE_URL=$(supabase status -o json | jq -r '.API_URL')
-          SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')
-          EOF
-          nohup supabase functions serve delete-account --env-file supabase/functions/.env.local &>/tmp/funcs.log &
+          # Captured before the backgrounded serve starts — a concurrent
+          # `supabase status` is the telemetry race that emptied API_URL and
+          # failed this step on 2026-06-11. The runtime injects SUPABASE_URL
+          # and SUPABASE_SERVICE_ROLE_KEY itself, so no env file is passed.
+          API_URL="$(supabase status -o json | jq -r '.API_URL')"
+          nohup supabase functions serve delete-account &>/tmp/funcs.log &
           SERVE_PID=$!
           # `supabase start` already runs an edge runtime, and it answers 401
           # to an unauthenticated POST exactly like the one `functions serve`
@@ -118,11 +118,6 @@ jobs:
           # but does not reach the runtime yet — accepting it lets the e2e
           # step run against a stalled runtime with no useful diagnostics.
           # Require a 4xx instead.
-          # Reuse the URL captured into .env.local above — another
-          # `supabase status` here would run concurrently with the
-          # backgrounded serve, the exact telemetry race that emptied
-          # API_URL and failed this step on 2026-06-11.
-          API_URL="$(grep '^SUPABASE_URL=' supabase/functions/.env.local | cut -d= -f2-)"
           ready=0
           for i in {1..30}; do
             STATUS=$(curl -sS --max-time 2 -o /dev/null -w '%{http_code}' \
