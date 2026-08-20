@@ -9,10 +9,9 @@
 #
 # Prerequisites:
 #   - `supabase start` is running.
-#   - `supabase functions serve delete-account --env-file supabase/functions/.env.local`
-#     is running in another shell. The .env.local file (gitignored) must contain:
-#         SUPABASE_URL=http://127.0.0.1:54321
-#         SUPABASE_SERVICE_ROLE_KEY=<value from `supabase status -o json`>
+#   - `supabase functions serve delete-account` is running in another shell.
+#     The runtime injects SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY itself;
+#     no env file is needed.
 #   - `jq`, `curl`, `psql` available on PATH.
 #
 # Note on seeding: the `private.handle_new_user` trigger seeds 1 kid + 17
