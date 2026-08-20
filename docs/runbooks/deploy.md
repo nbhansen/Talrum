@@ -126,22 +126,28 @@ Expected: `HTTP 401`.
 
 ### Local development
 
-`supabase functions serve` does **not** auto-inject default secrets.
-For local invocation, populate `supabase/functions/.env.local` (gitignored)
-with values from `supabase status -o env`:
+`supabase functions serve` injects `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` into every function by
+itself, and it drops any `SUPABASE_*` name it finds in an env file
+(`Env name cannot start with SUPABASE_, skipping`). `delete-account` uses
+only these, so it needs no env file:
+
+```sh
+supabase functions serve delete-account
+```
+
+This is what `npm run test:e2e:delete-account` and CI rely on.
+
+`generate-voice` and `generate-image` need custom secrets. Put them in
+`supabase/functions/.env.local` (gitignored) and pass the file:
 
 ```
-SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_SERVICE_ROLE_KEY=<from supabase status>
+AZURE_SPEECH_KEY=…
+AZURE_SPEECH_REGION=northeurope
 ```
 
-Then: `supabase functions serve delete-account --env-file supabase/functions/.env.local`.
-This is what `npm run test:e2e:delete-account` and CI both rely on.
-
-For `generate-voice`, add the Azure secrets to the same file
-(`AZURE_SPEECH_KEY=…`, `AZURE_SPEECH_REGION=northeurope`), then
-`supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
-Without them the function boots but every call returns
+Then: `supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
+Without the secrets the function boots but every call returns
 `synthesis_failed`. `generate-image` works the same way with its three
 secrets; without them every call returns `generation_failed`.
 
