@@ -19,6 +19,14 @@ const patchPictogramInList = (
 ): Pictogram[] | undefined => list?.map((p) => (p.id === id ? patch(p) : p));
 
 /**
+ * The library a pictogram's bytes belong to. A pictogram on a shared board is
+ * the board owner's, so a member's upload goes under the owner's prefix (#490).
+ */
+const ownerOf = (qc: QueryClient, pictogramId: string, fallback: string): string =>
+  qc.getQueryData<Pictogram[]>(pictogramsQueryKey)?.find((p) => p.id === pictogramId)?.ownerId ??
+  fallback;
+
+/**
  * Revoke every `blob:` URL an optimistic mutation planted, before the settle
  * refetch replaces the rows with signed URLs. Scanning all blobs rather than
  * tracking ids per mutation costs three accepted races — one of them silent
@@ -67,7 +75,7 @@ export const useSetPictogramAudio = (): UseMutationResult<
   OptimisticListContext
 > => {
   const qc = useQueryClient();
-  const ownerId = useSessionUser().id;
+  const me = useSessionUser().id;
   return useOptimisticListMutation({
     caches: [
       listCache<Pictogram, SetAudioInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
@@ -87,7 +95,7 @@ export const useSetPictogramAudio = (): UseMutationResult<
         // Minted here, once per entry (#415): replays reuse the path, and no
         // two entries ever share one, so an abandoned run's late IO cannot
         // touch a newer recording.
-        path: mintStoragePath(ownerId, pictogramId, extension),
+        path: mintStoragePath(ownerOf(qc, pictogramId, me), pictogramId, extension),
       }),
     // Revoke while the blob URL is still in the cache — the sweep walks
     // current cache state, and the rollback below removes the URL from it.
@@ -104,6 +112,8 @@ interface CreatePhotoInput {
   label: string;
   blob: Blob;
   extension: string;
+  /** Library to create in. From a shared board this is the board owner (#490). */
+  ownerId?: string;
 }
 
 interface CreatedPhotoPictogram {
@@ -121,7 +131,7 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
   OptimisticListContext
 > => {
   const qc = useQueryClient();
-  const ownerId = useSessionUser().id;
+  const me = useSessionUser().id;
   const inner = useOptimisticListMutation<CreatePhotoQueuedInput, CreatedPhotoPictogram>({
     caches: [
       listCache<Pictogram, CreatePhotoQueuedInput>(
@@ -132,7 +142,7 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
         ],
       ),
     ],
-    mutationFn: async ({ id, label, blob, extension }) => {
+    mutationFn: async ({ id, label, blob, extension, ownerId = me }) => {
       const path = mintStoragePath(ownerId, id, extension);
       await enqueueAndDrain({
         kind: 'createPhotoPicto',
@@ -195,7 +205,7 @@ export const useReplacePictogramImage = (): UseMutationResult<
   OptimisticListContext
 > => {
   const qc = useQueryClient();
-  const ownerId = useSessionUser().id;
+  const me = useSessionUser().id;
   return useOptimisticListMutation({
     caches: [
       listCache<Pictogram, ReplaceImageInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
@@ -211,7 +221,7 @@ export const useReplacePictogramImage = (): UseMutationResult<
         kind: 'replacePictoImage',
         pictogramId,
         blob,
-        path: mintStoragePath(ownerId, pictogramId, extension),
+        path: mintStoragePath(ownerOf(qc, pictogramId, me), pictogramId, extension),
       }),
     // Revoke while the blob URL is still in the cache (revoke walks current
     // cache state); restoring the snapshot first would orphan the URL — it'd

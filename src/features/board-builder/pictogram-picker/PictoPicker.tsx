@@ -21,13 +21,15 @@ interface TabDef {
 }
 
 interface PictoPickerProps {
+  /** Owner of the board being edited; new pictograms join their library (#490). */
+  ownerId?: string;
   onClose: () => void;
   onConfirm?: (selectedIds: readonly string[]) => void;
 }
 
 const TITLE_ID = 'tal-picker-title';
 
-export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Element => {
+export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): JSX.Element => {
   const [tab, setTab] = useState<PickerTab>('library');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -98,8 +100,8 @@ export const PictoPicker = ({ onClose, onConfirm }: PictoPickerProps): JSX.Eleme
             onEditVoice={setEditingVoice}
           />
         )}
-        {tab === 'upload' && <PictogramUpload />}
-        {tab === 'generate' && <PictogramGenerate />}
+        {tab === 'upload' && <PictogramUpload {...(ownerId ? { ownerId } : {})} />}
+        {tab === 'generate' && <PictogramGenerate {...(ownerId ? { ownerId } : {})} />}
       </div>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>

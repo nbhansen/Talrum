@@ -35,7 +35,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(12);
+SELECT plan(13);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -44,7 +44,16 @@ VALUES
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'alice@test.local'),
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bob@test.local'),
   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'charlie@test.local'),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dana@test.local');
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dana@test.local'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'erin@test.local');
+
+-- Erin is an editor on Alice's first board. Editors write the owner's
+-- prefix (#490).
+INSERT INTO public.board_members (board_id, user_id, role)
+SELECT id, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'editor'
+  FROM public.boards
+ WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+ ORDER BY id LIMIT 1;
 
 -- Bob is a viewer on Alice's first seeded board.
 INSERT INTO public.board_members (board_id, user_id, role)
@@ -203,6 +212,23 @@ SELECT throws_ok(
   '42501',
   NULL,
   'policy: member cannot INSERT into owner prefix'
+);
+
+-- ── Editor writes into the owner's prefix (#490) ──────────────────────────
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated"}';
+WITH ins AS (
+  INSERT INTO storage.objects (bucket_id, name, owner)
+  VALUES ('pictogram-images',
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/by-erin.jpg',
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid)
+  RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM ins),
+  1,
+  'policy: editor CAN INSERT into owner prefix'
 );
 
 SELECT * FROM finish();

@@ -152,6 +152,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   Only the owner shares or deletes a board.
 - ✅ As a co-caregiver, I open a shared board in _kid mode_ on my own device.
   The PIN is per device, so I set my own.
+- ✅ As a co-caregiver, I add a photo to a shared board, and the owner and the
+  other members see it. The photo joins the owner's library ([#490]).
 
 ## Epic 10 — Reliability & offline
 
@@ -333,3 +335,4 @@ Supabase free tier, which blocks some of them:
 [#444]: https://github.com/nbhansen/Talrum/issues/444
 [#445]: https://github.com/nbhansen/Talrum/issues/445
 [#447]: https://github.com/nbhansen/Talrum/issues/447
+[#490]: https://github.com/nbhansen/Talrum/issues/490

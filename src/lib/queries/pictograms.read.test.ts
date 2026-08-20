@@ -38,6 +38,7 @@ describe('rowToPictogram', () => {
     const p = rowToPictogram(illusRow());
     expect(p).toEqual({
       id: 'wakeup',
+      ownerId: illusRow().owner_id,
       label: 'Wake up',
       style: 'illus',
       glyph: 'sun',
@@ -59,6 +60,7 @@ describe('rowToPictogram', () => {
     const p = rowToPictogram(photoRow({ image_path: 'photos/park.jpg' }));
     expect(p).toEqual({
       id: 'park',
+      ownerId: photoRow().owner_id,
       label: 'Park',
       style: 'photo',
       imagePath: 'photos/park.jpg',
