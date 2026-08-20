@@ -47,6 +47,26 @@ create policy pictograms_write on public.pictograms
   using (private.is_editor_for_owner(owner_id))
   with check (private.is_editor_for_owner(owner_id));
 
+-- As on boards (20260820120000): WITH CHECK accepts the row once owner_id is
+-- the caller, so an editor could move a pictogram into their own library and
+-- take it from the owner. RLS cannot compare NEW with OLD; a trigger can.
+create or replace function public.pictograms_owner_immutable()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.owner_id is distinct from old.owner_id then
+    raise exception 'pictograms.owner_id cannot change' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pictograms_owner_immutable
+  before update of owner_id on public.pictograms
+  for each row execute function public.pictograms_owner_immutable();
+
 drop policy pictogram_audio_owner_insert on storage.objects;
 drop policy pictogram_audio_owner_update on storage.objects;
 drop policy pictogram_audio_owner_delete on storage.objects;

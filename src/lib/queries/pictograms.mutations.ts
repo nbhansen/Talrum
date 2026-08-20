@@ -136,9 +136,17 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
     caches: [
       listCache<Pictogram, CreatePhotoQueuedInput>(
         pictogramsQueryKey,
-        (list, { id, label, blob }) => [
+        (list, { id, label, blob, ownerId = me }) => [
           ...(list ?? []),
-          { id, label: label.trim(), style: 'photo', imagePath: URL.createObjectURL(blob) },
+          {
+            id,
+            // A voice recorded before the settle refetch reads this to mint
+            // its path under the right prefix (#490).
+            ownerId,
+            label: label.trim(),
+            style: 'photo',
+            imagePath: URL.createObjectURL(blob),
+          },
         ],
       ),
     ],

@@ -27,7 +27,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -185,6 +185,17 @@ SELECT is(
   (SELECT count(*)::int FROM ins),
   1,
   'policy: editor CAN INSERT a pictogram into the owner library'
+);
+
+SELECT throws_ok(
+  $$
+    UPDATE public.pictograms
+       SET owner_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+     WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  $$,
+  '42501',
+  'pictograms.owner_id cannot change',
+  'policy: editor cannot move owner pictograms into their own library (trigger)'
 );
 
 SET LOCAL "request.jwt.claims" TO
