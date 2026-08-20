@@ -121,6 +121,12 @@ describe('ShareModal — non-owner', () => {
     expect(screen.queryByText('Shared with')).not.toBeInTheDocument();
     expect(screen.queryByText('Add someone')).not.toBeInTheDocument();
   });
+
+  it('does not claim the member can share or delete (#496)', () => {
+    renderModal([], false, OTHER_ID);
+    expect(screen.getByText(/only its owner can share or delete it/)).toBeInTheDocument();
+    expect(screen.queryByText(/Only you can share or delete it/)).not.toBeInTheDocument();
+  });
 });
 
 describe('ShareModal — members loading state (#35)', () => {
