@@ -81,6 +81,8 @@ describe('Login', () => {
     await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
     await userEvent.click(screen.getByRole('button', { name: 'I have a code' }));
     expect(signInWithOtpMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/we sent a code/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Type the code for/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Code'), '85396471');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(verifyOtpMock).toHaveBeenCalledWith({
