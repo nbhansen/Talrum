@@ -1,4 +1,4 @@
-# Auth — email magic-link sign-in
+# Auth — email code sign-in
 
 Real email-based sign-in with uuid-native per-user onboarding. It replaced
 an earlier stubbed single-user auth from the initial build — the "Phase 2" /
@@ -8,21 +8,21 @@ transition.
 ## Flow
 
 - Unauthenticated users see the `Login` screen (`src/features/login/Login.tsx`).
-- The client calls `supabase.auth.signInWithOtp({ email, options: {
-  emailRedirectTo } })` via `useMagicLink` (`src/lib/auth/login.ts`).
-  Supabase emails a magic link.
-- The user clicks the link and lands back on the app; supabase-js's
-  `detectSessionInUrl` (on by default) exchanges the URL for a session.
+- The client calls `supabase.auth.signInWithOtp({ email })` via
+  `useEmailCode` (`src/lib/auth/login.ts`). Supabase emails a 6-digit code.
+- The user types the code into the app, which calls
+  `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
 - `AuthGate` (`src/app/AuthGate.tsx`) subscribes to
   `onAuthStateChange` and swaps the routed app in/out on session changes.
 - Sign-out is the avatar button in the parent sidebar.
 
-Why a link and not a typed 6-digit code (#219): the code only reaches the
-user if the email template renders `{{ .Token }}`, which is
-dashboard-managed and was dropped in prod. The link is present in every
-email regardless of template, so it is the only sign-in path the frontend
-can guarantee works. The doc comment in `src/lib/auth/login.ts` carries the
-same rationale.
+Why a code and not a link (#498): a link signs in the browser that opens it.
+On iOS that is always Safari, and a Home Screen web app has its own storage,
+so a link can never sign in the installed app. The code reaches the user only
+while the dashboard-managed Magic Link email template renders `{{ .Token }}`;
+prod dropped it once (#219). Keep `{{ .Token }}` in the template and remove
+`{{ .ConfirmationURL }}`. The code field accepts any length, so prod's OTP
+length (8) and local's (6) can differ.
 
 ## Local dev — how to sign in
 
@@ -32,8 +32,8 @@ Supabase CLI's email catcher exposes Mailpit at:
 http://127.0.0.1:54324
 ```
 
-Sign in in the app, switch to that tab, open the newest email, click the
-magic link. The token TTL is set in
+Sign in in the app, switch to that tab, open the newest email, and type
+the code. The token TTL is set in
 `supabase/config.toml::auth.email.otp_expiry`.
 
 ## Starter library on signup
@@ -55,7 +55,7 @@ mutate them.
 ## Smoke-test RLS isolation
 
 1. `supabase db reset` — empties users.
-2. Boot the app, sign up as `alice@example.com`, click the magic link in
+2. Boot the app, sign up as `alice@example.com`, type the code from
    Mailpit.
 3. Rename a board, add a photo, record audio.
 4. Sign out.

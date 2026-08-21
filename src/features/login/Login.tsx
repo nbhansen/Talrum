@@ -1,7 +1,7 @@
 import { type FormEvent, type JSX, useState } from 'react';
 
 import talrumLogo from '@/assets/talrum-logo.png';
-import { useMagicLink } from '@/lib/auth/login';
+import { useEmailCode } from '@/lib/auth/login';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
 import { TextField } from '@/ui/TextField/TextField';
@@ -11,22 +11,29 @@ import styles from './Login.module.css';
 type Stage = 'email' | 'sent';
 
 /**
- * Magic-link sign-in. In local dev the email lands in Mailpit at
+ * Email code sign-in. In local dev the email lands in Mailpit at
  * http://localhost:54324. A new address triggers `handle_new_user()`, which
  * clones the starter library.
  */
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const online = useOnline();
-  const { sendLink, busy, error, resetError } = useMagicLink();
+  const { sendCode, verifyCode, busy, error, resetError } = useEmailCode();
 
-  const onSendLink = async (e: FormEvent): Promise<void> => {
+  const onSendCode = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
-    const ok = await sendLink(trimmed);
+    const ok = await sendCode(trimmed);
     if (ok) setStage('sent');
+  };
+
+  const onVerify = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!code) return;
+    await verifyCode(email.trim().toLowerCase(), code);
   };
 
   return (
@@ -35,7 +42,7 @@ export const Login = (): JSX.Element => {
         <div className={styles.brand}>
           <img src={talrumLogo} alt="" width={72} height={72} className={styles.mark} />
           <h1 className={styles.title}>Talrum</h1>
-          <p className={styles.subtitle}>Sign in with a magic link.</p>
+          <p className={styles.subtitle}>Sign in with your email.</p>
         </div>
         {!online && (
           <div role="status" className={styles.offline}>
@@ -43,7 +50,7 @@ export const Login = (): JSX.Element => {
           </div>
         )}
         {stage === 'email' ? (
-          <form className={styles.form} onSubmit={(e) => void onSendLink(e)}>
+          <form className={styles.form} onSubmit={(e) => void onSendCode(e)}>
             <TextField
               label="Email"
               type="email"
@@ -57,27 +64,46 @@ export const Login = (): JSX.Element => {
             />
             {error && <div className={styles.error}>{error}</div>}
             <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
-              {busy ? 'Sending…' : 'Send link'}
+              {busy ? 'Sending…' : 'Send code'}
             </Button>
           </form>
         ) : (
-          <div className={styles.form}>
+          <form className={styles.form} onSubmit={(e) => void onVerify(e)}>
             <div role="status" className={styles.hint}>
-              Check your email — we sent a sign-in link to <strong>{email}</strong>. Open it on this
-              device to sign in. (In dev, see Mailpit.)
+              Check your email — we sent a code to <strong>{email}</strong>. Type it here. (In dev,
+              see Mailpit.)
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setStage('email');
-                resetError();
-              }}
-              disabled={busy}
-            >
-              Use a different email
-            </Button>
-          </div>
+            <TextField
+              label="Code"
+              type="text"
+              name="otp"
+              autoFocus
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••"
+              inputClassName={styles.otp}
+            />
+            {error && <div className={styles.error}>{error}</div>}
+            <div className={styles.row}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setStage('email');
+                  setCode('');
+                  resetError();
+                }}
+                disabled={busy}
+              >
+                Use a different email
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy || !code || !online}>
+                {busy ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </div>
+          </form>
         )}
       </div>
     </main>
