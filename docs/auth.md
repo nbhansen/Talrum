@@ -9,20 +9,20 @@ transition.
 
 - Unauthenticated users see the `Login` screen (`src/features/login/Login.tsx`).
 - The client calls `supabase.auth.signInWithOtp({ email })` via
-  `useEmailCode` (`src/lib/auth/login.ts`). Supabase emails a 6-digit code.
+  `useEmailCode` (`src/lib/auth/login.ts`). Supabase emails a code.
 - The user types the code into the app, which calls
   `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
 - `AuthGate` (`src/app/AuthGate.tsx`) subscribes to
   `onAuthStateChange` and swaps the routed app in/out on session changes.
 - Sign-out is the avatar button in the parent sidebar.
 
-Why a code and not a link (#498): a link signs in the browser that opens it.
-On iOS that is always Safari, and a Home Screen web app has its own storage,
-so a link can never sign in the installed app. The code reaches the user only
-while the dashboard-managed Magic Link email template renders `{{ .Token }}`;
-prod dropped it once (#219). Keep `{{ .Token }}` in the template and remove
-`{{ .ConfirmationURL }}`. The code field accepts any length, so prod's OTP
-length (8) and local's (6) can differ.
+The code reaches the user only while the dashboard-managed email templates
+render `{{ .Token }}` (#219, #498). Two templates send it: **Magic Link** for
+a known address, and **Confirm signup** for a new address, because prod has
+`enable_confirmations = true` (#500). Keep `{{ .Token }}` in both and remove
+`{{ .ConfirmationURL }}` from both. Local has `enable_confirmations = false`,
+so a local sign-in never exercises Confirm signup. The code field accepts any
+length, so prod's OTP length (8) and local's (6) can differ.
 
 ## Local dev — how to sign in
 
