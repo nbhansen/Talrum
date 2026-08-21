@@ -27,14 +27,22 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(8);
+SELECT plan(12);
 
 INSERT INTO auth.users (id, email)
 VALUES
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'alice@test.local'),
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bob@test.local'),
   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'charlie@test.local'),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dana@test.local');
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dana@test.local'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'erin@test.local');
+
+-- Erin: editor on Alice's first board. Editors write the owner's library (#490).
+INSERT INTO public.board_members (board_id, user_id, role)
+SELECT id, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'editor'
+  FROM public.boards
+ WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+ ORDER BY id LIMIT 1;
 
 INSERT INTO public.board_members (board_id, user_id, role)
 SELECT id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'viewer'
@@ -151,6 +159,55 @@ SELECT is(
   (SELECT count(*)::int FROM upd),
   0,
   'policy: member cannot UPDATE owner pictograms (RLS-filtered)'
+);
+
+-- ── 9-11. An editor writes the owner's library; a stranger does not (#490) ─
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated"}';
+WITH upd AS (
+  UPDATE public.pictograms SET label = label
+   WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM upd),
+  (SELECT pictograms FROM expected),
+  'policy: editor CAN UPDATE owner pictograms'
+);
+
+WITH ins AS (
+  INSERT INTO public.pictograms (owner_id, label, style)
+  VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'by erin', 'photo')
+  RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM ins),
+  1,
+  'policy: editor CAN INSERT a pictogram into the owner library'
+);
+
+SELECT throws_ok(
+  $$
+    UPDATE public.pictograms
+       SET owner_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+     WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  $$,
+  '42501',
+  'pictograms.owner_id cannot change',
+  'policy: editor cannot move owner pictograms into their own library (trigger)'
+);
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
+SELECT throws_ok(
+  $$
+    INSERT INTO public.pictograms (owner_id, label, style)
+    VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'by dana', 'photo')
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "pictograms"',
+  'policy: cross-owner member cannot INSERT into the owner library'
 );
 
 SELECT * FROM finish();

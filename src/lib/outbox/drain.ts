@@ -54,11 +54,10 @@ const emit = async (): Promise<void> => {
     queueUnreadable: counts === undefined,
   };
   drainState.lastStatus = next;
-  // `drain` clears `draining` after this, so one throwing subscriber would
-  // leave the flag set and the tab would never drain again (#458).
-  for (const fn of drainSubscribers) {
-    await bestEffort('emit-subscriber', async () => fn(next));
-  }
+  // Unguarded on purpose: the only subscriber is a React `setState`, which
+  // cannot throw here, so a guard was error handling for an unreachable case
+  // (#465). `subscribeStatus` calls `fn` unguarded too.
+  drainSubscribers.forEach((fn) => fn(next));
 };
 
 /** For `discardEntry`, which does no draining and so must push counts (#290). */

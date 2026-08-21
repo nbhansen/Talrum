@@ -26,7 +26,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -158,6 +158,21 @@ SELECT is(
   (SELECT count(*)::int FROM del),
   0,
   'boards: editor cannot DELETE the shared board (owner-only)'
+);
+
+-- ── 8b. An editor cannot take the board by rewriting owner_id ───────────────
+-- `boards_update`'s WITH CHECK accepts the new row once owner_id is the
+-- caller; the `boards_owner_immutable` trigger is what refuses it (#447).
+
+SELECT throws_ok(
+  $$
+    UPDATE public.boards
+       SET owner_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+     WHERE id = (SELECT shared_board FROM ctx)
+  $$,
+  '42501',
+  'boards.owner_id cannot change',
+  'boards: editor cannot UPDATE owner_id to themselves (trigger)'
 );
 
 -- ── 9. boards_insert rejects rows claiming someone else''s owner_id ──────────

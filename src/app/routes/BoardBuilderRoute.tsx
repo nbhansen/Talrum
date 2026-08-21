@@ -84,6 +84,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
       />
       {pickerOpen && (
         <PictoPicker
+          ownerId={board.ownerId}
           onClose={closePicker}
           onConfirm={(ids) => {
             if (ids.length === 0) return;

@@ -30,6 +30,8 @@ export type GlyphName =
 
 interface IllustratedPictogram {
   id: string;
+  /** Library the row belongs to; absent on an optimistic row (#490). */
+  ownerId?: string;
   /** Stable text slug present on seed-cloned rows; absent for user uploads. */
   slug?: string;
   label: string;
@@ -41,6 +43,7 @@ interface IllustratedPictogram {
 
 interface PhotoPictogram {
   id: string;
+  ownerId?: string;
   slug?: string;
   label: string;
   style: 'photo';

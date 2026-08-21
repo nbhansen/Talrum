@@ -13,7 +13,12 @@ import styles from './PictogramGenerate.module.css';
  * Save writes: the generated image goes through the same crop pipeline as an
  * upload, and Save hands that blob to the normal create-photo path.
  */
-export const PictogramGenerate = (): JSX.Element => {
+interface PictogramGenerateProps {
+  /** Library to create in; omitted means the signed-in user's own (#490). */
+  ownerId?: string;
+}
+
+export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Element => {
   const [label, setLabel] = useState('');
   const [preview, setPreview] = useState<ProcessedImage | null>(null);
   const [busy, setBusy] = useState<'generating' | 'saving' | null>(null);
@@ -75,6 +80,7 @@ export const PictogramGenerate = (): JSX.Element => {
         label: label.trim(),
         blob: preview.blob,
         extension: preview.extension,
+        ...(ownerId ? { ownerId } : {}),
       });
       setPreview(null);
       setLabel('');

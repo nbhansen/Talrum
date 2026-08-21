@@ -18,7 +18,8 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
   pictograms to choose or to follow a sequence. Must never land in parent UI
   or be read confusing text aloud.
 - **Co-caregiver** — grandparent, teacher, or second parent with their own
-  account. Views boards shared with them, read-only, on their own device.
+  account. Edits and uses boards shared with them on their own device, with
+  the same rights as the owner except sharing and deleting.
 
 ---
 
@@ -142,14 +143,17 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 
 ## Epic 9 — Sharing with co-caregivers
 
-> As a parent I let grandma or school see the same boards on their own iPad.
+> As a parent I let grandma or school use the same boards on their own iPad.
 
 - ✅ As a parent, I share a board with another Talrum account; they see it on
-  their device but cannot change it.
+  their device and can change it like I can. There are no per-person
+  permissions by design ([#447]).
 - ✅ As a parent, I see who a board is shared with and can remove members.
-- 🔜 Decide whether a co-caregiver can use a shared board in _kid mode_ on
-  their device, or sharing stays view-only by design. Today the kid route
-  can reach a shared board, but the KID button never targets one. ([#447])
+  Only the owner shares or deletes a board.
+- ✅ As a co-caregiver, I open a shared board in _kid mode_ on my own device.
+  The PIN is per device, so I set my own.
+- ✅ As a co-caregiver, I add a photo to a shared board, and the owner and the
+  other members see it. The photo joins the owner's library ([#490]).
 
 ## Epic 10 — Reliability & offline
 
@@ -330,4 +334,5 @@ Supabase free tier, which blocks some of them:
 [#444]: https://github.com/nbhansen/Talrum/issues/444
 [#445]: https://github.com/nbhansen/Talrum/issues/445
 [#447]: https://github.com/nbhansen/Talrum/issues/447
+[#490]: https://github.com/nbhansen/Talrum/issues/490
 [#498]: https://github.com/nbhansen/Talrum/issues/498
