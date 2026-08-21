@@ -8,7 +8,7 @@ import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './Login.module.css';
 
-type Stage = 'email' | 'sent';
+type Stage = 'email' | 'sent' | 'code';
 
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
@@ -58,15 +58,36 @@ export const Login = (): JSX.Element => {
               placeholder="parent@example.com"
             />
             {error && <div className={styles.error}>{error}</div>}
-            <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
-              {busy ? 'Sending…' : 'Send code'}
-            </Button>
+            <div className={styles.row}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setStage('code');
+                  resetError();
+                }}
+                disabled={busy || !email.trim()}
+              >
+                I have a code
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy || !email.trim() || !online}>
+                {busy ? 'Sending…' : 'Send code'}
+              </Button>
+            </div>
           </form>
         ) : (
           <form className={styles.form} onSubmit={(e) => void onVerify(e)}>
             <div role="status" className={styles.hint}>
-              Check your email — we sent a code to <strong>{email}</strong>. Type it here. (In dev,
-              see Mailpit.)
+              {stage === 'sent' ? (
+                <>
+                  Check your email — we sent a code to <strong>{email}</strong>. Type it here. (In
+                  dev, see Mailpit.)
+                </>
+              ) : (
+                <>
+                  Type the code for <strong>{email}</strong>.
+                </>
+              )}
             </div>
             <TextField
               label="Code"
