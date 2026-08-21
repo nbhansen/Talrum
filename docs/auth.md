@@ -19,10 +19,13 @@ transition.
 Why a code and not a link (#498): a link signs in the browser that opens it.
 On iOS that is always Safari, and a Home Screen web app has its own storage,
 so a link can never sign in the installed app. The code reaches the user only
-while the dashboard-managed Magic Link email template renders `{{ .Token }}`;
-prod dropped it once (#219). Keep `{{ .Token }}` in the template and remove
-`{{ .ConfirmationURL }}`. The code field accepts any length, so prod's OTP
-length (8) and local's (6) can differ.
+while the dashboard-managed email templates render `{{ .Token }}`; prod
+dropped it once (#219). Two templates send it: **Magic Link** for a known
+address, and **Confirm signup** for a new address, because prod has
+`enable_confirmations = true` (#500). Keep `{{ .Token }}` in both and remove
+`{{ .ConfirmationURL }}` from both. Local has `enable_confirmations = false`,
+so a local sign-in never exercises the Confirm signup template. The code field
+accepts any length, so prod's OTP length (8) and local's (6) can differ.
 
 ## Local dev — how to sign in
 

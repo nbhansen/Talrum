@@ -201,8 +201,9 @@ Do these steps in this order, on the family's iPad, before you hand it over.
    reach the icon: iOS gives a Home Screen web app its own storage (#498).
 3. **Verify the icon is signed in.** Close the app from the app switcher and
    launch it again from the icon. It must open on the parent home, not the
-   login screen. If the email has no code, stop: the prod email template
-   has lost `{{ .Token }}` (#219). Fix the template before the handover.
+   login screen. If the email has no code, stop: a prod email template has
+   lost `{{ .Token }}`. A new address gets the _Confirm signup_ email, a
+   known one _Magic Link_ (#500). Fix the template before the handover.
 4. **Set the parent PIN.** Settings → Parent PIN → _Set a PIN_. Without a
    PIN the device cannot enter kid mode at all. The PIN is per device, and
    signing out erases it.
