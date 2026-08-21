@@ -27,9 +27,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 > As a parent I can get in and out of Talrum safely, with no password to
 > forget, and I stay in control of my data.
 
-- ✅ As a parent, I sign in with my email and a magic link (no password), so
-  there is nothing for me to forget or for anyone to leak. ([#219] explains
-  why a link and not a typed code.)
+- ✅ As a parent, I sign in with my email and a typed code (no password), so
+  there is nothing for me to forget or for anyone to leak. A link cannot
+  sign in the installed Home Screen app ([#498]).
 - ✅ As a parent, I can sign out from Settings.
 - ✅ As a parent, I can read the privacy policy without signing in.
 - ✅ As a parent, I can delete my account and all my data from Settings
@@ -307,7 +307,6 @@ Supabase free tier, which blocks some of them:
   tier. ([#434])
 
 [#93]: https://github.com/nbhansen/Talrum/issues/93
-[#219]: https://github.com/nbhansen/Talrum/issues/219
 [#98]: https://github.com/nbhansen/Talrum/issues/98
 [#99]: https://github.com/nbhansen/Talrum/issues/99
 [#101]: https://github.com/nbhansen/Talrum/issues/101
@@ -331,3 +330,4 @@ Supabase free tier, which blocks some of them:
 [#444]: https://github.com/nbhansen/Talrum/issues/444
 [#445]: https://github.com/nbhansen/Talrum/issues/445
 [#447]: https://github.com/nbhansen/Talrum/issues/447
+[#498]: https://github.com/nbhansen/Talrum/issues/498

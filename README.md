@@ -237,15 +237,15 @@ builds and any build missing `VITE_SENTRY_DSN` no-op silently. Posture:
 
 Do these steps in this order, on the family's iPad, before you hand it over.
 
-1. **Sign in first, in Safari.** Open the app URL, enter the parent's email,
-   and open the magic link from the email on the iPad. The link must be
-   opened on the iPad — it signs in the browser that opens it.
-2. **Add to Home Screen.** In Safari: Share → _Add to Home Screen_. Launch
-   from the new icon: the app runs full screen in landscape.
-3. **Verify the icon is signed in.** iOS gives a Home Screen web app its own
-   storage, separate from Safari. If the installed app shows the login
-   screen, stop: a magic link cannot sign it in, because the link always
-   opens in Safari. Run the test from Safari instead, and file an issue.
+1. **Add to Home Screen.** Open the app URL in Safari: Share → _Add to Home
+   Screen_. Launch from the new icon: the app runs full screen in landscape.
+2. **Sign in from the icon.** Enter the parent's email, open the email on
+   the iPad, and type the code into the app. A Safari sign-in does not
+   reach the icon: iOS gives a Home Screen web app its own storage (#498).
+3. **Verify the icon is signed in.** Close the app from the app switcher and
+   launch it again from the icon. It must open on the parent home, not the
+   login screen. If the email has no code, stop: the prod email template
+   has lost `{{ .Token }}` (#219). Fix the template before the handover.
 4. **Set the parent PIN.** Settings → Parent PIN → _Set a PIN_. Without a
    PIN the device cannot enter kid mode at all. The PIN is per device, and
    signing out erases it.
