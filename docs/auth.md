@@ -20,9 +20,9 @@ Why a code and not a link (#498): a link signs in the browser that opens it.
 On iOS that is always Safari, and a Home Screen web app has its own storage,
 so a link can never sign in the installed app. The code reaches the user only
 while the dashboard-managed Magic Link email template renders `{{ .Token }}`;
-prod dropped it once (#219). Keep `{{ .Token }}` in the template, remove
-`{{ .ConfirmationURL }}`, and keep the dashboard OTP length equal to
-`otp_length` in `supabase/config.toml`.
+prod dropped it once (#219). Keep `{{ .Token }}` in the template and remove
+`{{ .ConfirmationURL }}`. The code field accepts any length, so prod's OTP
+length (8) and local's (6) can differ.
 
 ## Local dev — how to sign in
 
