@@ -75,6 +75,21 @@ describe('Login', () => {
     expect(screen.getByLabelText('Code')).toBeInTheDocument();
   });
 
+  it('I have a code opens the code step without sending an email', async () => {
+    verifyOtpMock.mockResolvedValueOnce({ error: null });
+    render(<Login />);
+    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'I have a code' }));
+    expect(signInWithOtpMock).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByLabelText('Code'), '85396471');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(verifyOtpMock).toHaveBeenCalledWith({
+      email: 'parent@example.com',
+      token: '85396471',
+      type: 'email',
+    });
+  });
+
   it('Use a different email returns to the email step', async () => {
     signInWithOtpMock.mockResolvedValueOnce({ error: null });
     render(<Login />);
