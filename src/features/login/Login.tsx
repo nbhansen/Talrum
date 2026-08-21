@@ -8,7 +8,7 @@ import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './Login.module.css';
 
-type Stage = 'email' | 'sent';
+type Stage = 'email' | 'sent' | 'code';
 
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
@@ -63,7 +63,7 @@ export const Login = (): JSX.Element => {
                 type="button"
                 variant="ghost"
                 onClick={() => {
-                  setStage('sent');
+                  setStage('code');
                   resetError();
                 }}
                 disabled={busy || !email.trim()}
@@ -78,8 +78,16 @@ export const Login = (): JSX.Element => {
         ) : (
           <form className={styles.form} onSubmit={(e) => void onVerify(e)}>
             <div role="status" className={styles.hint}>
-              Check your email — we sent a code to <strong>{email}</strong>. Type it here. (In dev,
-              see Mailpit.)
+              {stage === 'sent' ? (
+                <>
+                  Check your email — we sent a code to <strong>{email}</strong>. Type it here. (In
+                  dev, see Mailpit.)
+                </>
+              ) : (
+                <>
+                  Type the code for <strong>{email}</strong>.
+                </>
+              )}
             </div>
             <TextField
               label="Code"
