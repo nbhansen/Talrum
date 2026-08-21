@@ -10,8 +10,22 @@ const captureMessageMock = vi.mocked(captureMessage);
 // jsdom reports readyState 'complete', so registerServiceWorker registers
 // immediately and these tests need no load event. The deferred path is covered
 // separately by stubbing readyState.
-const stubServiceWorker = (register: () => Promise<unknown>): void => {
-  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register } });
+const stubServiceWorker = (
+  register: () => Promise<unknown>,
+  controller: object | null = null,
+): EventTarget => {
+  const target = new EventTarget();
+  Object.defineProperty(navigator, 'serviceWorker', {
+    configurable: true,
+    value: Object.assign(target, { register, controller }),
+  });
+  return target;
+};
+
+const stubReload = (): ReturnType<typeof vi.fn> => {
+  const reload = vi.fn();
+  Object.defineProperty(window, 'location', { configurable: true, value: { reload } });
+  return reload;
 };
 
 const removeServiceWorker = (): void => {
@@ -34,6 +48,27 @@ afterEach(() => {
 });
 
 describe('registerServiceWorker', () => {
+  it('reloads once when a new worker replaces the one that served the page', () => {
+    const reload = stubReload();
+    const target = stubServiceWorker(() => Promise.resolve({}), {});
+
+    registerServiceWorker();
+    target.dispatchEvent(new Event('controllerchange'));
+    target.dispatchEvent(new Event('controllerchange'));
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload when the first worker takes control of a fresh page', () => {
+    const reload = stubReload();
+    const target = stubServiceWorker(() => Promise.resolve({}), null);
+
+    registerServiceWorker();
+    target.dispatchEvent(new Event('controllerchange'));
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it('registers /sw.js at the root scope', () => {
     const register = vi.fn(() => Promise.resolve({}));
     stubServiceWorker(register);

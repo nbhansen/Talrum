@@ -15,6 +15,17 @@ export const registerServiceWorker = (): void => {
   // Silent: no support is a static fact, and reporting it mostly logs crawlers.
   if (!('serviceWorker' in navigator)) return;
 
+  // The old worker already served this page; reload once so the new build shows (#502).
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      () => {
+        window.location.reload();
+      },
+      { once: true },
+    );
+  }
+
   const register = (): void => {
     void navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE }).catch((error: unknown) => {
       captureMessage('Service worker registration failed — offline mode unavailable', {
