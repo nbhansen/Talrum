@@ -10,12 +10,7 @@ export interface UseEmailCode {
   resetError: () => void;
 }
 
-/**
- * Email code sign-in. A typed code signs in the app that asked for it; a link
- * signs in only the browser that opens it, never an installed Home Screen app
- * (#498). The code renders only while the dashboard-managed email template
- * keeps `{{ .Token }}` (#219).
- */
+// A typed code, not a link: a link never reaches an installed Home Screen app (#498).
 export const useEmailCode = (): UseEmailCode => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -10,11 +10,6 @@ import styles from './Login.module.css';
 
 type Stage = 'email' | 'sent';
 
-/**
- * Email code sign-in. In local dev the email lands in Mailpit at
- * http://localhost:54324. A new address triggers `handle_new_user()`, which
- * clones the starter library.
- */
 export const Login = (): JSX.Element => {
   const [stage, setStage] = useState<Stage>('email');
   const [email, setEmail] = useState('');
