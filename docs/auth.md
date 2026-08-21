@@ -9,7 +9,7 @@ transition.
 
 - Unauthenticated users see the `Login` screen (`src/features/login/Login.tsx`).
 - The client calls `supabase.auth.signInWithOtp({ email })` via
-  `useEmailCode` (`src/lib/auth/login.ts`). Supabase emails a 6-digit code.
+  `useEmailCode` (`src/lib/auth/login.ts`). Supabase emails a code.
 - The user types the code into the app, which calls
   `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
 - `AuthGate` (`src/app/AuthGate.tsx`) subscribes to
@@ -19,9 +19,10 @@ transition.
 The code reaches the user only while the dashboard-managed email templates
 render `{{ .Token }}` (#219, #498). Two templates send it: **Magic Link** for
 a known address, and **Confirm signup** for a new address, because prod has
-`enable_confirmations = true` (#500). Local has it `false`, so a local sign-in
-never exercises Confirm signup. The code field accepts any length, so prod's
-OTP length (8) and local's (6) can differ.
+`enable_confirmations = true` (#500). Keep `{{ .Token }}` in both and remove
+`{{ .ConfirmationURL }}` from both. Local has `enable_confirmations = false`,
+so a local sign-in never exercises Confirm signup. The code field accepts any
+length, so prod's OTP length (8) and local's (6) can differ.
 
 ## Local dev — how to sign in
 

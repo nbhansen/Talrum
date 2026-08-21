@@ -200,7 +200,8 @@ Do these steps in this order, on the family's iPad, before you hand it over.
    the iPad, and type the code into the app.
 3. **Verify the icon is signed in.** Close the app from the app switcher and
    launch it again from the icon. It must open on the parent home, not the
-   login screen.
+   login screen. If the email has no code, stop: a prod email template has
+   lost `{{ .Token }}`. Fix it before the handover (#500).
 4. **Set the parent PIN.** Settings → Parent PIN → _Set a PIN_. Without a
    PIN the device cannot enter kid mode at all. The PIN is per device, and
    signing out erases it.
