@@ -82,7 +82,8 @@ describe('Login', () => {
     await userEvent.click(screen.getByRole('button', { name: 'I have a code' }));
     expect(signInWithOtpMock).not.toHaveBeenCalled();
     expect(screen.queryByText(/we sent a code/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Type the code for/)).toBeInTheDocument();
+    // The typed email carries over into an editable field on the code step.
+    expect(screen.getByLabelText('Email')).toHaveValue('parent@example.com');
     await userEvent.type(screen.getByLabelText('Code'), '85396471');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(verifyOtpMock).toHaveBeenCalledWith({
@@ -90,6 +91,30 @@ describe('Login', () => {
       token: '85396471',
       type: 'email',
     });
+  });
+
+  it('I have a code works before an email is typed', async () => {
+    verifyOtpMock.mockResolvedValueOnce({ error: null });
+    render(<Login />);
+    await userEvent.click(screen.getByRole('button', { name: 'I have a code' }));
+    await userEvent.type(screen.getByLabelText('Email'), 'Parent@Example.com ');
+    await userEvent.type(screen.getByLabelText('Code'), '85396471');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(verifyOtpMock).toHaveBeenCalledWith({
+      email: 'parent@example.com',
+      token: '85396471',
+      type: 'email',
+    });
+  });
+
+  it('Sign in stays disabled on the code step until both fields are filled', async () => {
+    render(<Login />);
+    await userEvent.click(screen.getByRole('button', { name: 'I have a code' }));
+    await userEvent.type(screen.getByLabelText('Code'), '85396471');
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+    expect(verifyOtpMock).not.toHaveBeenCalled();
   });
 
   it('Use a different email returns to the email step', async () => {
