@@ -58,4 +58,6 @@ When an outbox handler executes, the database row acts as the single source of t
 
 To prevent silent overwrites when multiple devices edit the same board concurrently, updates are guarded by checking the backend's last known update timestamp. If a patch attempts to modify a board that has been changed on the server since the local device last synced, the mutation will intentionally fail. 
 
-Failed entries remain in the outbox queue and surface in the UI as errors. The optimistic state is rolled back for permanent errors (like validation rejections or concurrency conflicts enforced by the backend policies defined in the [Architecture Overview](architecture.md)), requiring the user to explicitly retry or discard their changes.
+Failed entries remain in the outbox queue. The system distinguishes between transient and permanent errors:
+*   **Transient Errors**: Network failures, 5xx server errors, or PostgreSQL coordination codes (e.g., deadlocks, connection drops, statement timeouts) leave the entry pending for automatic retry on the next drain loop.
+*   **Permanent Errors**: For unretryable coded database errors (like RLS denial or validation violations), 4xx storage errors, or a concurrency conflict (the backend timestamp has changed since the local device last synced), the outbox marks the entry as failed and surfaces it in the UI. The optimistic state is rolled back, requiring the user to explicitly retry or discard their changes.
