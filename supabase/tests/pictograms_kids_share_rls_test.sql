@@ -16,7 +16,9 @@
 --                   non-member and the cross-owner-member.
 --   write floor   — a member cannot UPDATE the owner's pictograms
 --                   (the existing `pictograms_owner_write` policy
---                   still gates writes).
+--                   still gates writes). Kids stay owner-only for
+--                   EVERY non-owner, including editors — #490 widened
+--                   pictogram writes, not kid writes (#508).
 --
 -- Helper-layer assertions previously here called `is_owner_shared_with_me`
 -- directly under role-switched sessions — that pinned the wrong contract.
@@ -27,7 +29,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(12);
+SELECT plan(14);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -208,6 +210,34 @@ SELECT throws_ok(
   '42501',
   'new row violates row-level security policy for table "pictograms"',
   'policy: cross-owner member cannot INSERT into the owner library'
+);
+
+-- ── 12-13. kids_owner_write negative path (#508) ──────────────────────────
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
+WITH upd AS (
+  UPDATE public.kids SET name = name
+   WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM upd),
+  0,
+  'policy: member cannot UPDATE owner kids (RLS-filtered)'
+);
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated"}';
+WITH upd AS (
+  UPDATE public.kids SET name = name
+   WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM upd),
+  0,
+  'policy: editor cannot UPDATE owner kids (write widening stops at pictograms)'
 );
 
 SELECT * FROM finish();
