@@ -1,7 +1,7 @@
 {
-  "updatedAt": "2026-08-08T08:48:30.958Z",
+  "updatedAt": "2026-08-22T08:35:53.620Z",
   "command": "update",
-  "gitHead": "495a479b88482f141267d0f49dabb900ace08e42",
+  "gitHead": "5a591da1a5992d569f9465fa0595cb86e1800594",
   "model": "gemini-3.1-pro-preview",
   "status": "complete",
   "language": "en"
