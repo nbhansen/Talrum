@@ -222,11 +222,8 @@ Do these steps in this order, on the family's iPad, before you hand it over.
 
 ## Harness
 
-A rule in text does not stop a wrong change. A check does. The harness is the
-set of checks that run between an edit and a merge. Each check is silent when
-it passes. Only a failure gives output. When a check enforces a rule, we delete
-the rule from [AGENTS.md](./AGENTS.md); the text keeps only the rules that no
-check can enforce.
+The harness is a set of checks that run between an edit and a merge. When a check enforces a rule, we delete
+the rule from [AGENTS.md](./AGENTS.md); the text keeps only the rules that no check can enforce.
 
 ```mermaid
 flowchart LR
