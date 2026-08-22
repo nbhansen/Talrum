@@ -27,7 +27,7 @@ export const Login = (): JSX.Element => {
 
   const onVerify = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!code) return;
+    if (!code || !email.trim()) return;
     await verifyCode(email.trim().toLowerCase(), code);
   };
 
@@ -66,7 +66,7 @@ export const Login = (): JSX.Element => {
                   setStage('code');
                   resetError();
                 }}
-                disabled={busy || !email.trim()}
+                disabled={busy}
               >
                 I have a code
               </Button>
@@ -84,16 +84,27 @@ export const Login = (): JSX.Element => {
                   dev, see Mailpit.)
                 </>
               ) : (
-                <>
-                  Type the code for <strong>{email}</strong>.
-                </>
+                <>Type your email and the code from the sign-in email.</>
               )}
             </div>
+            {stage === 'code' && (
+              <TextField
+                label="Email"
+                type="email"
+                name="email"
+                required
+                autoFocus={!email.trim()}
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="parent@example.com"
+              />
+            )}
             <TextField
               label="Code"
               type="text"
               name="otp"
-              autoFocus
+              autoFocus={stage === 'sent' || Boolean(email.trim())}
               autoComplete="one-time-code"
               inputMode="numeric"
               value={code}
@@ -115,7 +126,11 @@ export const Login = (): JSX.Element => {
               >
                 Use a different email
               </Button>
-              <Button type="submit" variant="primary" disabled={busy || !code || !online}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={busy || !code || !email.trim() || !online}
+              >
                 {busy ? 'Signing in…' : 'Sign in'}
               </Button>
             </div>
