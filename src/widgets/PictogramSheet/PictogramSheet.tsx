@@ -90,7 +90,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Edit pictogram"

@@ -31,7 +31,7 @@ export const KindSwitchConfirm = ({
   onConfirm,
   onCancel,
 }: KindSwitchConfirmProps): JSX.Element => (
-  <Modal onClose={onCancel} labelledBy={TITLE_ID}>
+  <Modal onClose={onCancel} labelledBy={TITLE_ID} size="sm">
     <div className={styles.wrap}>
       <DialogHeader
         title={`Switch to ${kindLabel(next)}?`}

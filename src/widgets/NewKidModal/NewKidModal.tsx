@@ -37,7 +37,7 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm">
       <div className={styles.wrap}>
         <DialogHeader
           title="Add a kid"

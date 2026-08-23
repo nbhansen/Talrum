@@ -147,7 +147,7 @@ export const PinManagementSection = ({
         </p>
       )}
       {modal.kind === 'pin' && (
-        <Modal onClose={close}>
+        <Modal onClose={close} size="sm">
           {modal.stage === 'verify' && (
             <PinPad
               title="Enter current PIN"

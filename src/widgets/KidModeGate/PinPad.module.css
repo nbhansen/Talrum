@@ -1,6 +1,7 @@
 .wrap {
   padding: var(--tal-space-8) var(--tal-space-7) var(--tal-space-7);
   min-width: 340px;
+  margin: 0 auto;
   text-align: center;
 }
 

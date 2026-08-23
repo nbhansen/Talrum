@@ -62,7 +62,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm">
       <div className={styles.wrap}>
         <DialogHeader
           title="New board"

@@ -61,7 +61,7 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="full">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Add pictograms"
