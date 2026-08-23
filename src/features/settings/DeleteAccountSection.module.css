@@ -1,0 +1,5 @@
+.line {
+  margin: 0 0 var(--tal-space-3);
+  font-size: 14px;
+  color: var(--tal-ink-soft);
+}

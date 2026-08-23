@@ -1,7 +1,11 @@
 import { type JSX, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { Button } from '@/ui/Button/Button';
+import { TrashIcon } from '@/ui/icons';
+
 import { DeleteAccountDialog } from './DeleteAccountDialog';
+import styles from './DeleteAccountSection.module.css';
 
 /**
  * Separated from the benign preferences above it, because the action is
@@ -14,15 +18,14 @@ export const DeleteAccountSection = (): JSX.Element => {
 
   return (
     <section>
-      <hr />
       <h2>Account</h2>
-      <p>
+      <p className={styles.line}>
         Talrum keeps your data until you delete your account.{' '}
         <Link to="/privacy-policy">Read the privacy policy.</Link>
       </p>
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button variant="ghost" icon={<TrashIcon size={14} />} onClick={() => setOpen(true)}>
         Delete my account
-      </button>
+      </Button>
       {open && (
         <DeleteAccountDialog
           onCancel={() => setOpen(false)}
