@@ -23,7 +23,12 @@ const deleteMock =
   >();
 const useBoardsMock = vi.fn<() => { data: Board[] | undefined }>();
 
+const usePictogramsMock = vi.fn<() => { data: Pictogram[] | undefined }>(() => ({
+  data: undefined,
+}));
+
 vi.mock('@/lib/queries/pictograms', () => ({
+  usePictograms: () => usePictogramsMock(),
   useRenamePictogram: () => ({ mutateAsync: renameMock, isPending: false }),
   useReplacePictogramImage: () => ({ mutateAsync: replaceMock, isPending: false }),
   useDeletePictogram: () => ({ mutateAsync: deleteMock, isPending: false }),
@@ -97,6 +102,7 @@ beforeEach(() => {
   replaceMock.mockResolvedValue(undefined);
   deleteMock.mockResolvedValue(undefined);
   useBoardsMock.mockReturnValue({ data: [] });
+  usePictogramsMock.mockReturnValue({ data: undefined });
 });
 
 afterEach(() => {
@@ -180,6 +186,16 @@ describe('PictogramSheet', () => {
     render(
       <PictogramSheet picto={{ ...illusPicto, audioPath: 'audio/p1.webm' }} onClose={vi.fn()} />,
     );
+    expect(screen.getByRole('button', { name: /edit recording/i })).toBeInTheDocument();
+  });
+
+  it('reads the voice state from the query cache, not the prop snapshot', () => {
+    // The hosts capture `picto` at tap time. A recording saved while the
+    // sheet is open lands in the pictograms cache; the sheet must follow it.
+    usePictogramsMock.mockReturnValue({
+      data: [{ ...illusPicto, audioPath: 'audio/p1.webm' }],
+    });
+    render(<PictogramSheet picto={illusPicto} onClose={vi.fn()} />);
     expect(screen.getByRole('button', { name: /edit recording/i })).toBeInTheDocument();
   });
 });

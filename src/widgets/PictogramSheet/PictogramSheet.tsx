@@ -4,6 +4,7 @@ import { useBoards } from '@/lib/queries/boards.read';
 import {
   referencingBoardIds,
   useDeletePictogram,
+  usePictograms,
   useRenamePictogram,
   useReplacePictogramImage,
 } from '@/lib/queries/pictograms';
@@ -30,6 +31,9 @@ const LABEL_MAX = 40;
 export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   const [label, setLabel] = useState(picto.label);
   const [recordingVoice, setRecordingVoice] = useState(false);
+  // The hosts capture `picto` at tap time; audio saved while the sheet is
+  // open lands in the pictograms cache, so the voice section follows that.
+  const livePicto = usePictograms().data?.find((p) => p.id === picto.id) ?? picto;
   const [error, setError] = useState<string | null>(null);
   const {
     fileInputRef,
@@ -186,7 +190,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
               onClick={() => setRecordingVoice(true)}
               disabled={busy}
             >
-              {picto.audioPath ? 'Edit recording' : 'Record voice'}
+              {livePicto.audioPath ? 'Edit recording' : 'Record voice'}
             </Button>
           </div>
         </section>
@@ -212,7 +216,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
         {shownError && <div className={styles.error}>{shownError}</div>}
       </div>
       {recordingVoice && (
-        <VoiceRecorderDialog picto={picto} onClose={() => setRecordingVoice(false)} />
+        <VoiceRecorderDialog picto={livePicto} onClose={() => setRecordingVoice(false)} />
       )}
     </Modal>
   );
