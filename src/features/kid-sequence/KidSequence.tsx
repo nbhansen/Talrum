@@ -1,13 +1,14 @@
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, type PointerEvent, useEffect, useRef, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
 import { getKidCopy } from '@/lib/kidCopy';
 import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
+import { useLongPress } from '@/lib/useLongPress';
 import { speakPictogram } from '@/lib/voiceOut';
 import type { Board, Pictogram } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
-import { SpeakerIcon } from '@/ui/icons';
+import { CheckIcon, SpeakerIcon } from '@/ui/icons';
 import { type DragBindings, Reorderable } from '@/ui/Reorderable/Reorderable';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
@@ -19,6 +20,9 @@ interface KidSequenceProps {
 }
 
 const SPEAK_FLASH_MS = 600;
+// Tile inner widths: .tile is 140px and .tileCurrent 320px, minus 16px padding each side.
+const MEDIA_SIZE = 108;
+const CURRENT_MEDIA_SIZE = 288;
 
 interface Step {
   key: string;
@@ -27,22 +31,99 @@ interface Step {
   id: string; // alias of key for Reorderable's Identified constraint
 }
 
+const slotKey = (pictoId: string, index: number): string => `${pictoId}-${index}`;
+
 const buildSteps = (stepIds: readonly string[], byId: Map<string, Pictogram>): Step[] =>
   stepIds.flatMap((pictoId, index) => {
     const picto = byId.get(pictoId);
     if (!picto) return [];
-    const key = `${pictoId}-${index}`;
+    const key = slotKey(pictoId, index);
     return [{ key, id: key, pictoId, picto }];
   });
+
+interface SequenceTileProps {
+  step: Step;
+  labelsVisible: boolean;
+  isSpeaking: boolean;
+  isDone: boolean;
+  isCurrent: boolean;
+  onTap: () => void;
+  onToggleDone: () => void;
+  drag?: DragBindings | undefined;
+}
+
+const SequenceTile = ({
+  step,
+  labelsVisible,
+  isSpeaking,
+  isDone,
+  isCurrent,
+  onTap,
+  onToggleDone,
+  drag,
+}: SequenceTileProps): JSX.Element => {
+  const press = useLongPress({
+    onLongPress: onToggleDone,
+    onTap,
+    disabled: drag?.isDragging ?? false,
+  });
+  // dnd-kit's listener is only onPointerDown; merge it with the hold start.
+  const onPointerDown = (e: PointerEvent<HTMLButtonElement>): void => {
+    press.onPointerDown(e);
+    drag?.listeners?.onPointerDown?.(e);
+  };
+  return (
+    <button
+      ref={drag?.setNodeRef}
+      type="button"
+      className={[
+        styles.tile,
+        isSpeaking && styles.tileActive,
+        isDone && styles.tileDone,
+        isCurrent && styles.tileCurrent,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={drag?.style}
+      {...(drag?.attributes ?? {})}
+      {...press}
+      onPointerDown={onPointerDown}
+      aria-label={labelsVisible ? undefined : step.picto.label}
+      aria-pressed={isDone}
+    >
+      <div className={styles.mediaWrap}>
+        <PictogramMedia
+          picto={step.picto}
+          size={isCurrent ? CURRENT_MEDIA_SIZE : MEDIA_SIZE}
+          className={styles.media}
+        />
+        <div
+          className={[styles.speakBadge, isSpeaking && styles.speakBadgeActive]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <SpeakerIcon size={20} />
+        </div>
+        {isDone && (
+          <div className={styles.doneBadge}>
+            <CheckIcon size={20} />
+          </div>
+        )}
+      </div>
+      {labelsVisible && <span className={styles.label}>{step.picto.label}</span>}
+    </button>
+  );
+};
 
 export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element => {
   const kidCopy = getKidCopy();
   const pictogramsById = usePictogramsById();
   const steps = buildSteps(board.stepIds, pictogramsById);
-  // Track the speaking flash by slot key, not pictogram id: a sequence may
-  // repeat the same pictogram ("jump, jump, jump"), and an id-keyed flash
-  // would light up every identical tile at once (#273).
+  // Track the speaking flash and done state by slot key, not pictogram id: a
+  // sequence may repeat the same pictogram ("jump, jump, jump"), and an
+  // id-keyed flash would light up every identical tile at once (#273).
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [doneKeys, setDoneKeys] = useState<ReadonlySet<string>>(() => new Set());
   const setStepIds = useSetStepIds();
 
   // Tracked so unmount cancels it, or a stray setState runs on a torn-down
@@ -66,44 +147,62 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     void speakPictogram(step.picto, board.voiceMode);
   };
 
+  const toggleDone = (key: string): void =>
+    setDoneKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
   const handleReorder = (nextKeys: string[]): void => {
     const byKey = new Map(steps.map((s) => [s.key, s.pictoId]));
     const nextIds = nextKeys
       .map((k) => byKey.get(k))
       .filter((id): id is string => typeof id === 'string');
+    // Done state follows the pictogram into its new slot.
+    setDoneKeys(
+      (prev) =>
+        new Set(
+          nextKeys.flatMap((k, i) => {
+            const id = byKey.get(k);
+            return prev.has(k) && id ? [slotKey(id, i)] : [];
+          }),
+        ),
+    );
     setStepIds.mutate({ boardId: board.id, update: () => nextIds });
   };
 
-  const renderTile = (step: Step, drag?: DragBindings): JSX.Element => {
-    const isSpeaking = speakingKey === step.key;
-    return (
-      <button
-        ref={drag?.setNodeRef}
-        type="button"
-        onClick={() => announce(step)}
-        className={[styles.tile, isSpeaking && styles.tileActive].filter(Boolean).join(' ')}
-        style={drag?.style}
-        {...(drag?.attributes ?? {})}
-        {...(drag?.listeners ?? {})}
-        aria-label={board.labelsVisible ? undefined : step.picto.label}
-      >
-        <div className={styles.mediaWrap}>
-          <PictogramMedia picto={step.picto} size={200} className={styles.media} />
-          <div
-            className={[styles.speakBadge, isSpeaking && styles.speakBadgeActive]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <SpeakerIcon size={20} />
-          </div>
-        </div>
-        {board.labelsVisible && <span className={styles.label}>{step.picto.label}</span>}
-      </button>
-    );
-  };
+  const currentIndex = steps.findIndex((s) => !doneKeys.has(s.key));
+  const current = currentIndex === -1 ? null : steps[currentIndex];
+  const title = current
+    ? kidCopy.sequence.progress(currentIndex + 1, steps.length)
+    : kidCopy.sequence.allDone;
+  const allDone = steps.length > 0 && !current;
+
+  const renderTile = (step: Step, drag?: DragBindings): JSX.Element => (
+    <SequenceTile
+      step={step}
+      labelsVisible={board.labelsVisible}
+      isSpeaking={speakingKey === step.key}
+      isDone={doneKeys.has(step.key)}
+      isCurrent={current?.key === step.key}
+      onTap={() => announce(step)}
+      onToggleDone={() => toggleDone(step.key)}
+      drag={drag}
+    />
+  );
 
   return (
-    <KidModeLayout eyebrow={board.name.toUpperCase()} title="" onExit={onExit}>
+    <KidModeLayout
+      eyebrow={board.name.toUpperCase()}
+      title={steps.length === 0 ? '' : title}
+      titleSize="large"
+      {...(allDone
+        ? { logoTint: 'sage', logoTintInk: 'sage-ink', logoContent: <CheckIcon size={22} /> }
+        : {})}
+      onExit={onExit}
+    >
       {steps.length === 0 ? (
         <EmptyState title={kidCopy.emptyBoard.title} body={kidCopy.emptyBoard.body} />
       ) : (

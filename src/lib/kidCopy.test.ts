@@ -32,6 +32,14 @@ describe('getKidCopy', () => {
     expect(getKidCopy().choice.letsGoTo('Park')).toBe('Lad os gå til Park');
   });
 
+  it('interpolates step progress and the all-done banner in both languages', () => {
+    expect(getKidCopy().sequence.progress(2, 6)).toBe('Step 2 of 6');
+    expect(getKidCopy().sequence.allDone).toBe('All done!');
+    setLanguagePref('da');
+    expect(getKidCopy().sequence.progress(2, 6)).toBe('Trin 2 af 6');
+    expect(getKidCopy().sequence.allDone).toBe('Færdig!');
+  });
+
   it('interpolates the picked label into the re-speak aria label in both languages', () => {
     expect(getKidCopy().choice.hearAgain('Park')).toBe('Hear Park again');
     setLanguagePref('da');

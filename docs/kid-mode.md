@@ -4,6 +4,9 @@ Kid mode is the full-screen surface a child actually uses (kid-choice, kid-
 sequence). The design goal is that a kid can tap anything on screen without
 ever landing in parent UI — the only way out is the PIN gate.
 
+On a sequence board a tap only speaks the step. A 600 ms long-press marks it
+done; that progress is in-memory for the visit ([#519]).
+
 ## The soft-gate threat model
 
 The PIN is a **soft gate**, not security. It stops a kid in kid mode from
@@ -116,3 +119,5 @@ reliably the fastest way into the board builder (#371).
 If the crash is deterministic, reloading loops back to this screen. That is
 the intended failure mode: the child stays contained and the parent leaves
 through the PIN, rather than the app resolving a crash by opening the door.
+
+[#519]: https://github.com/nbhansen/Talrum/issues/519
