@@ -19,7 +19,7 @@ export const LibraryRoute = (): JSX.Element => {
         onNav={onNav}
         {...(onKidMode ? { onKidMode } : {})}
         title="Library"
-        subtitle="Every pictogram in your library — tap one to rename, replace its photo, or delete."
+        subtitle="Every pictogram in your library — tap one to rename, replace its photo, record a voice, or delete."
         right={
           <Button variant="primary" icon={<PlusIcon />} onClick={() => setAddOpen(true)}>
             New pictogram

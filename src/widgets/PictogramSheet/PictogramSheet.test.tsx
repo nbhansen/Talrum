@@ -47,6 +47,16 @@ vi.mock('@/lib/storage/useSignedUrl', () => ({
   useSignedUrl: () => null,
 }));
 
+vi.mock('@/widgets/VoiceRecorderDialog/VoiceRecorderDialog', () => ({
+  VoiceRecorderDialog: ({ onClose }: { onClose: () => void }) => (
+    <div role="dialog" aria-label="Voice recorder">
+      <button type="button" onClick={onClose}>
+        Done
+      </button>
+    </div>
+  ),
+}));
+
 const { PictogramSheet } = await import('./PictogramSheet');
 
 const illusPicto: Pictogram = {
@@ -158,5 +168,16 @@ describe('PictogramSheet', () => {
     expect(
       screen.getByText(/used on 2 boards\. deleting removes it from those boards too\./i),
     ).toBeInTheDocument();
+  });
+
+  it('has a Voice section that opens the recorder (#524)', () => {
+    render(<PictogramSheet picto={illusPicto} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /record voice/i }));
+    expect(screen.getByRole('dialog', { name: /voice recorder/i })).toBeInTheDocument();
+  });
+
+  it('labels the voice action as editing when a recording exists', () => {
+    render(<PictogramSheet picto={{ ...illusPicto, audioPath: 'audio/p1.webm' }} onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /edit recording/i })).toBeInTheDocument();
   });
 });

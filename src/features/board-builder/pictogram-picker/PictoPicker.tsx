@@ -8,10 +8,10 @@ import { Modal } from '@/ui/Modal/Modal';
 import { type TabItem, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
+import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 import styles from './PictoPicker.module.css';
 import { LibraryTab } from './tabs/LibraryTab';
-import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
 type PickerTab = 'library' | 'upload' | 'generate';
 
