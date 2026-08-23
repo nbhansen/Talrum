@@ -12,6 +12,7 @@ import {
 } from '@/lib/queries/boards';
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
 import type { Board, BoardKind, Pictogram } from '@/types/domain';
+import { Button } from '@/ui/Button/Button';
 import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
 import { Reorderable } from '@/ui/Reorderable/Reorderable';
 import { PictogramSheet } from '@/widgets/PictogramSheet/PictogramSheet';
@@ -19,6 +20,7 @@ import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './BoardBuilder.module.css';
 import { BoardErrorBanner } from './BoardErrorBanner';
+import { DeleteBoardConfirm } from './DeleteBoardConfirm';
 import { KindSwitchConfirm } from './KindSwitchConfirm';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
@@ -33,6 +35,7 @@ interface BoardBuilderProps {
   onBack: () => void;
   onOpenPicker: () => void;
   onOpenShare: () => void;
+  onDeleted: () => void;
   onKidMode: () => void;
   onNav?: (id: ParentNavKey) => void;
 }
@@ -61,6 +64,7 @@ export const BoardBuilder = ({
   onBack,
   onOpenPicker,
   onOpenShare,
+  onDeleted,
   onKidMode,
   onNav,
 }: BoardBuilderProps): JSX.Element => {
@@ -80,6 +84,7 @@ export const BoardBuilder = ({
   // previous debounced write lands.
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [titleDraft, setTitleDraft] = useState(board.name);
   // Re-sync the title draft only when navigating to a different board (keyed on
   // board.id, not board.name) — see the note above. The sync write is intended.
@@ -157,11 +162,24 @@ export const BoardBuilder = ({
         <span className={styles.crumbSep}>/</span>
         <span className={styles.crumbPath}>Editing</span>
         {isOwner && (
-          <button type="button" onClick={onOpenShare} className={styles.shareBtn}>
-            Share
-          </button>
+          <div className={styles.crumbActions}>
+            <Button variant="pill" onClick={() => setConfirmingDelete(true)}>
+              Delete board
+            </Button>
+            <Button variant="pill" onClick={onOpenShare}>
+              Share
+            </Button>
+          </div>
         )}
       </div>
+      {confirmingDelete && (
+        <DeleteBoardConfirm
+          boardId={board.id}
+          boardName={board.name}
+          onCancel={() => setConfirmingDelete(false)}
+          onDeleted={onDeleted}
+        />
+      )}
 
       <input
         className={styles.titleInput}

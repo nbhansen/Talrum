@@ -26,7 +26,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(16);
+SELECT plan(18);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -263,6 +263,31 @@ SELECT is(
   (SELECT count(*)::int FROM del),
   1,
   'board_members: owner can remove a member'
+);
+
+-- ── 16-17. Owner can DELETE the shared board; board_members cascade ─────────
+-- Last on purpose: it destroys shared_board. Bob's viewer row is still
+-- present here, so the cascade assertion has a row to remove.
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
+WITH del AS (
+  DELETE FROM public.boards
+   WHERE id = (SELECT shared_board FROM ctx)
+   RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM del),
+  1,
+  'boards_delete: owner can delete the shared board'
+);
+
+RESET ROLE;
+SELECT is(
+  (SELECT count(*)::int FROM public.board_members
+    WHERE board_id = (SELECT shared_board FROM ctx)),
+  0,
+  'board_members: rows cascade when the board is deleted'
 );
 
 SELECT * FROM finish();

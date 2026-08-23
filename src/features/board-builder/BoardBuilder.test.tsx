@@ -7,6 +7,7 @@ import type { Board } from '@/types/domain';
 
 const setBoardKindMock = vi.fn();
 const renameBoardMock = vi.fn();
+const deleteBoardMock = vi.fn();
 
 vi.mock('@/lib/queries/boards', () => ({
   useRenameBoard: () => ({ mutate: renameBoardMock }),
@@ -22,6 +23,7 @@ vi.mock('@/lib/queries/boards', () => ({
     reset: vi.fn(),
   }),
   useSetVoiceMode: () => ({ mutate: vi.fn() }),
+  useDeleteBoard: () => ({ mutateAsync: deleteBoardMock, isPending: false }),
 }));
 
 vi.mock('@/lib/queries/pictograms', () => ({
@@ -68,6 +70,7 @@ describe('BoardBuilder title', () => {
           onBack={noop}
           onOpenPicker={noop}
           onOpenShare={noop}
+          onDeleted={noop}
           onKidMode={noop}
         />,
       );
@@ -96,6 +99,7 @@ describe('BoardBuilder blank title', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -156,6 +160,7 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -170,6 +175,7 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -185,11 +191,45 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={onOpenShare}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
     screen.getByRole('button', { name: 'Share' }).click();
     expect(onOpenShare).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('BoardBuilder Delete board (#520)', () => {
+  const renderOwner = (isOwner: boolean): void => {
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner={isOwner}
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onDeleted={noop}
+        onKidMode={noop}
+      />,
+    );
+  };
+
+  it('renders the Delete board button when isOwner=true', () => {
+    renderOwner(true);
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument();
+  });
+
+  it('hides the Delete board button when isOwner=false', () => {
+    renderOwner(false);
+    expect(screen.queryByRole('button', { name: 'Delete board' })).not.toBeInTheDocument();
+  });
+
+  it('opens the confirm dialog without deleting', async () => {
+    renderOwner(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Delete board' }));
+    expect(screen.getByRole('dialog', { name: /delete "morning routine"/i })).toBeInTheDocument();
+    expect(deleteBoardMock).not.toHaveBeenCalled();
   });
 });
 
@@ -202,6 +242,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -219,6 +260,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -237,6 +279,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -254,6 +297,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -272,6 +316,7 @@ describe('BoardBuilder track (#522)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
@@ -305,6 +350,7 @@ describe('BoardBuilder Quick add section (#234)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );

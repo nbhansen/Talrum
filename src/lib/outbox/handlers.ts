@@ -13,6 +13,7 @@ import { noteBoardUpdatedAt, resolveExpectedUpdatedAt } from './board-clock';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeleteBoardEntry,
   DeleteKidEntry,
   DeletePictogramEntry,
   OutboxEntry,
@@ -306,6 +307,13 @@ const handleDeleteKid = async (entry: DeleteKidEntry): Promise<void> => {
   if (error) throw error;
 };
 
+// RLS turns a non-owner's delete into a silent 0-row no-op, so the owner
+// gate in the builder is the only guard. board_members cascade server-side.
+const handleDeleteBoard = async (entry: DeleteBoardEntry): Promise<void> => {
+  const { error } = await supabase.from('boards').delete().eq('id', entry.boardId);
+  if (error) throw error;
+};
+
 /**
  * Handlers carry only their happy path. Classification lives here so a new
  * handler cannot forget the wrapper and leak retry-forever transients.
@@ -330,6 +338,8 @@ const dispatch = (entry: OutboxEntry, signal: AbortSignal): Promise<void> => {
       return handleRenameKid(entry);
     case 'deleteKid':
       return handleDeleteKid(entry);
+    case 'deleteBoard':
+      return handleDeleteBoard(entry);
   }
 };
 

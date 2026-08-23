@@ -117,6 +117,11 @@ export interface DeleteKidEntry extends OutboxEntryBase {
   kidId: string;
 }
 
+export interface DeleteBoardEntry extends OutboxEntryBase {
+  kind: 'deleteBoard';
+  boardId: string;
+}
+
 export type OutboxEntry =
   | UpdateBoardEntry
   | CreatePhotoPictogramEntry
@@ -126,6 +131,7 @@ export type OutboxEntry =
   | ReplacePictogramImageEntry
   | DeletePictogramEntry
   | RenameKidEntry
-  | DeleteKidEntry;
+  | DeleteKidEntry
+  | DeleteBoardEntry;
 
 export type OutboxEntryKind = OutboxEntry['kind'];

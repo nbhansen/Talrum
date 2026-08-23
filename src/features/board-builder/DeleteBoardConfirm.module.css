@@ -1,0 +1,9 @@
+.wrap {
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
+}
+
+.error {
+  margin: var(--tal-space-3) 0 0;
+  font-size: 14px;
+  color: var(--tal-danger);
+}
