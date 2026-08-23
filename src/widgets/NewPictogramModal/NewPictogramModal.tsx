@@ -16,14 +16,12 @@ export const NewPictogramModal = ({ onClose }: NewPictogramModalProps): JSX.Elem
   <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
     <div className={styles.headerWrap}>
       <DialogHeader
-        title="Add a pictogram"
+        title="New pictogram"
         subtitle="Upload a photo — it lands in your library, ready for any board."
         titleId={TITLE_ID}
         onClose={onClose}
       />
     </div>
-    <div className={styles.body}>
-      <PictogramUpload />
-    </div>
+    <PictogramUpload />
   </Modal>
 );

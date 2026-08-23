@@ -3,7 +3,7 @@ import type { JSX, ReactNode } from 'react';
 import { getKidCopy } from '@/lib/kidCopy';
 import { Modal } from '@/ui/Modal/Modal';
 
-import { PinPad } from './PinPad';
+import { PIN_PAD_TITLE_ID, PinPad } from './PinPad';
 import { usePinExit } from './usePinExit';
 
 interface KidModeGateProps {
@@ -25,7 +25,7 @@ export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JS
     <>
       {children(requestExit)}
       {verifying && (
-        <Modal onClose={cancel} size="sm">
+        <Modal onClose={cancel} labelledBy={PIN_PAD_TITLE_ID} size="sm">
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}

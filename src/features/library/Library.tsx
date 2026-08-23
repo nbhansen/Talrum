@@ -11,7 +11,7 @@ import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 import styles from './Library.module.css';
 
 interface LibraryProps {
-  /** Opens the Add pictogram modal (owned by the route, like KidsRoute). */
+  /** Opens the New pictogram modal (owned by the route, like KidsRoute). */
   onAdd?: () => void;
 }
 

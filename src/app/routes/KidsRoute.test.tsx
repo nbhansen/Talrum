@@ -73,12 +73,12 @@ describe('KidsRoute', () => {
 
   it('clicking the header New kid opens the modal', async () => {
     renderRoute();
-    expect(screen.queryByRole('heading', { name: /add a kid/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /new kid/i })).not.toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /new kid/i }));
 
-    expect(screen.getByRole('heading', { name: /add a kid/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /new kid/i })).toBeInTheDocument();
   });
 
   it('clicking KID navigates into the most recent non-empty board (regression: #71, #301)', async () => {

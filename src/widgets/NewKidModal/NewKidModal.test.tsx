@@ -31,7 +31,7 @@ afterEach(() => {
 describe('NewKidModal', () => {
   it('renders an empty form with Save disabled', () => {
     renderModal();
-    expect(screen.getByRole('heading', { name: /add a kid/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /new kid/i })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /name/i })).toHaveValue('');
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeEnabled();

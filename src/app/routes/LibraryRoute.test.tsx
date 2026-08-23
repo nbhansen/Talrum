@@ -69,13 +69,13 @@ describe('LibraryRoute', () => {
     expect(screen.getByText('Apple')).toBeInTheDocument();
   });
 
-  it('Add pictogram opens the upload modal and Close dismisses it (#339)', async () => {
+  it('New pictogram opens the upload modal and Close dismisses it (#339)', async () => {
     renderRoute();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /add pictogram/i }));
+    await user.click(screen.getByRole('button', { name: /new pictogram/i }));
 
-    expect(screen.getByRole('dialog', { name: /add a pictogram/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /new pictogram/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^close$/i }));
     expect(screen.queryByRole('dialog')).toBeNull();

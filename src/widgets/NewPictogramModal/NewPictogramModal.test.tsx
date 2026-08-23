@@ -20,7 +20,7 @@ const { NewPictogramModal } = await import('./NewPictogramModal');
 describe('NewPictogramModal', () => {
   it('renders the upload flow inside a labelled dialog', () => {
     render(<NewPictogramModal onClose={vi.fn()} />);
-    expect(screen.getByRole('dialog', { name: /add a pictogram/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /new pictogram/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /tap to choose a photo/i })).toBeInTheDocument();
   });
 

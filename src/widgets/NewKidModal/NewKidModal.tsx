@@ -40,7 +40,7 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
     <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm">
       <div className={styles.wrap}>
         <DialogHeader
-          title="Add a kid"
+          title="New kid"
           subtitle="Each kid has their own boards. You can add more later."
           titleId={TITLE_ID}
           onClose={onClose}

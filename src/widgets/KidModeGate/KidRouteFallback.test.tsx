@@ -103,7 +103,7 @@ describe('KidRouteFallback (#371)', () => {
     const { user } = renderFallback();
 
     await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.getByRole('button', { name: 'Tap to try again' })).toBeInTheDocument();
     expect(screen.queryByTestId('parent-home')).not.toBeInTheDocument();

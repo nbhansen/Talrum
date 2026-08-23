@@ -22,7 +22,7 @@ export const LibraryRoute = (): JSX.Element => {
         subtitle="Every pictogram in your library — tap one to rename, replace its photo, or delete."
         right={
           <Button variant="primary" icon={<PlusIcon />} onClick={() => setAddOpen(true)}>
-            Add pictogram
+            New pictogram
           </Button>
         }
       >
