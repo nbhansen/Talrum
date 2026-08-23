@@ -35,7 +35,9 @@ describe('NewPictogramModal', () => {
     expect(screen.getByRole('tab', { name: /upload/i })).toHaveAttribute('aria-selected', 'true');
     await user.click(screen.getByRole('tab', { name: /generate/i }));
     expect(screen.getByRole('button', { name: /generate image/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /tap to choose a photo/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /tap to choose a photo/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('Close calls onClose', async () => {

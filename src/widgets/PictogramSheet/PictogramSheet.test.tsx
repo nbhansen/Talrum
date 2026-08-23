@@ -177,7 +177,9 @@ describe('PictogramSheet', () => {
   });
 
   it('labels the voice action as editing when a recording exists', () => {
-    render(<PictogramSheet picto={{ ...illusPicto, audioPath: 'audio/p1.webm' }} onClose={vi.fn()} />);
+    render(
+      <PictogramSheet picto={{ ...illusPicto, audioPath: 'audio/p1.webm' }} onClose={vi.fn()} />,
+    );
     expect(screen.getByRole('button', { name: /edit recording/i })).toBeInTheDocument();
   });
 });
