@@ -42,6 +42,11 @@ textarea {
   font-family: inherit;
 }
 
+a {
+  color: var(--tal-sky-ink);
+  text-underline-offset: 2px;
+}
+
 ::selection {
   background: var(--tal-sun);
 }
