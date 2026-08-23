@@ -12,6 +12,30 @@
   position: relative;
 }
 
+.row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: var(--tal-space-3);
+  font-size: 14px;
+  color: var(--tal-ink);
+  position: relative;
+}
+
+.row .native {
+  min-height: var(--tal-tap-min);
+  padding: var(--tal-space-2) var(--tal-space-8) var(--tal-space-2) var(--tal-space-3);
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-surface);
+  border: 1px solid var(--tal-line);
+  width: 100%;
+}
+
+.row .chevron {
+  position: absolute;
+  right: var(--tal-space-3);
+}
+
 .label {
   color: var(--tal-ink-soft);
 }

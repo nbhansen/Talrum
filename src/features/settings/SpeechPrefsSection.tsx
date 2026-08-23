@@ -14,11 +14,14 @@ import {
   SPEECH_PREFS_DEFAULTS,
   type SpeechPrefs,
 } from '@/lib/speechPrefs';
+import { Button } from '@/ui/Button/Button';
+import { Select } from '@/ui/Select/Select';
+import { Slider } from '@/ui/Slider/Slider';
 
 import styles from './SpeechPrefsSection.module.css';
 
 interface VoiceOption {
-  uri: string;
+  value: string;
   label: string;
 }
 
@@ -33,7 +36,7 @@ const toVoiceOptions = (voices: readonly SpeechSynthesisVoice[]): VoiceOption[] 
     if (byRank !== 0) return byRank;
     return a.name.localeCompare(b.name);
   });
-  return sorted.map((v) => ({ uri: v.voiceURI, label: `${v.name} (${v.lang})` }));
+  return sorted.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` }));
 };
 
 export const SpeechPrefsSection = (): JSX.Element => {
@@ -53,17 +56,8 @@ export const SpeechPrefsSection = (): JSX.Element => {
     setSpeechPrefs(next);
   };
 
-  const onVoice = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    const value = e.target.value;
+  const onVoice = (value: string): void => {
     update({ ...prefs, voiceURI: value === '' ? null : value });
-  };
-
-  const onRate = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    update({ ...prefs, rate: Number(e.target.value) });
-  };
-
-  const onPitch = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    update({ ...prefs, pitch: Number(e.target.value) });
   };
 
   const onReset = (): void => {
@@ -87,66 +81,41 @@ export const SpeechPrefsSection = (): JSX.Element => {
         How pictograms sound when tapped. Changes apply on the next tap.
       </p>
       <div className={styles.row}>
-        <label htmlFor="speech-voice" className={styles.label}>
-          Voice
-        </label>
-        <select
-          id="speech-voice"
-          className={styles.select}
+        <Select
+          label="Voice"
+          layout="row"
           value={prefs.voiceURI ?? ''}
           onChange={onVoice}
-        >
-          <option value="">Default (auto-pick)</option>
-          {voices.map((v) => (
-            <option key={v.uri} value={v.uri}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+          options={[{ value: '', label: 'Default (auto-pick)' }, ...voices]}
+        />
       </div>
       <div className={styles.row}>
-        <label htmlFor="speech-rate" className={styles.label}>
-          Rate
-        </label>
-        <input
-          id="speech-rate"
-          type="range"
-          min={0.5}
-          max={1.5}
-          step={0.05}
+        <Slider
+          label="Rate"
           value={prefs.rate}
-          onChange={onRate}
-          className={styles.slider}
-        />
-        <span className={styles.value}>{prefs.rate.toFixed(2)}</span>
-      </div>
-      <div className={styles.row}>
-        <label htmlFor="speech-pitch" className={styles.label}>
-          Pitch
-        </label>
-        <input
-          id="speech-pitch"
-          type="range"
           min={0.5}
           max={1.5}
           step={0.05}
-          value={prefs.pitch}
-          onChange={onPitch}
-          className={styles.slider}
+          onChange={(rate) => update({ ...prefs, rate })}
         />
-        <span className={styles.value}>{prefs.pitch.toFixed(2)}</span>
+      </div>
+      <div className={styles.row}>
+        <Slider
+          label="Pitch"
+          value={prefs.pitch}
+          min={0.5}
+          max={1.5}
+          step={0.05}
+          onChange={(pitch) => update({ ...prefs, pitch })}
+        />
       </div>
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.button}
-          onClick={() => speak('Hello, this is a test.')}
-        >
+        <Button variant="ghost" onClick={() => speak('Hello, this is a test.')}>
           Test voice
-        </button>
-        <button type="button" className={styles.linkButton} onClick={onReset}>
+        </Button>
+        <Button variant="ghost" onClick={onReset}>
           Reset to defaults
-        </button>
+        </Button>
       </div>
     </section>
   );
