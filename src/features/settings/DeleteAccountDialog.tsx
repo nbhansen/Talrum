@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { type DeleteAccountError, useDeleteMyAccount } from '@/lib/queries/account';
+import { Button } from '@/ui/Button/Button';
 import { DialogActions } from '@/ui/DialogActions/DialogActions';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
@@ -86,25 +87,18 @@ export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Elem
           </div>
         )}
         <DialogActions>
-          <button
-            type="button"
-            ref={cancelRef}
-            onClick={onCancel}
-            disabled={disabled}
-            className={styles.cancel}
-          >
+          <Button variant="ghost" ref={cancelRef} onClick={onCancel} disabled={disabled}>
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="danger"
             onClick={() => mutation.mutate()}
             disabled={disabled || !matches}
-            className={styles.destructive}
             aria-label="Delete forever"
           >
             {mutation.isPending && <Spinner label="Deleting" size={16} />}
             <span aria-hidden={mutation.isPending}>Delete forever</span>
-          </button>
+          </Button>
         </DialogActions>
       </div>
     </Modal>

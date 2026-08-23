@@ -3,9 +3,3 @@
   justify-content: flex-end;
   gap: var(--tal-space-2);
 }
-
-.dangerBtn {
-  background: var(--tal-danger);
-  color: var(--tal-on-accent);
-  border-color: var(--tal-danger);
-}

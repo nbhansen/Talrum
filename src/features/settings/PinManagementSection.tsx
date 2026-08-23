@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { clearPin, hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
+import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
 import { PinPad } from '@/widgets/KidModeGate/PinPad';
 
@@ -103,41 +104,29 @@ export const PinManagementSection = ({
       )}
       <div className={styles.actions}>
         {!hasPinNow && (
-          <button
-            type="button"
-            className={styles.button}
-            onClick={() => setModal({ kind: 'pin', stage: 'enter-new' })}
-          >
+          <Button variant="ghost" onClick={() => setModal({ kind: 'pin', stage: 'enter-new' })}>
             Set a PIN
-          </button>
+          </Button>
         )}
         {hasPinNow && (
-          <button
-            type="button"
-            className={styles.button}
-            onClick={() => setModal({ kind: 'pin', stage: 'verify' })}
-          >
+          <Button variant="ghost" onClick={() => setModal({ kind: 'pin', stage: 'verify' })}>
             Change PIN
-          </button>
+          </Button>
         )}
         {hasPinNow && !confirmingClear && (
-          <button type="button" className={styles.button} onClick={() => setConfirmingClear(true)}>
+          <Button variant="ghost" onClick={() => setConfirmingClear(true)}>
             Clear PIN
-          </button>
+          </Button>
         )}
         {hasPinNow && confirmingClear && (
           <span className={styles.confirm}>
             Clear the PIN? Kid mode stays locked until you set a new one.
-            <button type="button" className={styles.danger} onClick={handleClear}>
+            <Button variant="danger" onClick={handleClear}>
               Yes, clear
-            </button>
-            <button
-              type="button"
-              className={styles.button}
-              onClick={() => setConfirmingClear(false)}
-            >
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmingClear(false)}>
               Cancel
-            </button>
+            </Button>
           </span>
         )}
       </div>

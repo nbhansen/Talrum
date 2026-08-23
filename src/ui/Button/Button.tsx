@@ -1,13 +1,14 @@
-import type { ButtonHTMLAttributes, JSX, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, JSX, ReactNode, Ref } from 'react';
 
 import styles from './Button.module.css';
 
-export type ButtonVariant = 'primary' | 'ghost' | 'pill';
+export type ButtonVariant = 'primary' | 'ghost' | 'pill' | 'danger';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant: ButtonVariant;
   icon?: ReactNode | undefined;
   children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export const Button = ({
