@@ -180,12 +180,12 @@ describe('ParentHomeRoute create flows', () => {
   it('clicking New kid opens the kid modal', async () => {
     const Wrap = makeWrap('/');
     render(<Wrap />);
-    expect(screen.queryByRole('heading', { name: /add a kid/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /new kid/i })).not.toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /new kid/i }));
 
-    expect(screen.getByRole('heading', { name: /add a kid/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /new kid/i })).toBeInTheDocument();
   });
 
   it('shows the empty state when there are no boards', () => {
