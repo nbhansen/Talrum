@@ -29,7 +29,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
   });
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
       <div className={styles.wrap}>
         <DialogHeader
           title="Share this board"

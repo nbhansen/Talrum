@@ -13,7 +13,7 @@ interface NewPictogramModalProps {
 }
 
 export const NewPictogramModal = ({ onClose }: NewPictogramModalProps): JSX.Element => (
-  <Modal onClose={onClose} labelledBy={TITLE_ID}>
+  <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
     <div className={styles.headerWrap}>
       <DialogHeader
         title="Add a pictogram"

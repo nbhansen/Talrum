@@ -26,7 +26,7 @@ export const KidRouteFallback = (): JSX.Element => {
   return (
     <div role="alert" className={styles.kidFallback}>
       {verifying ? (
-        <Modal onClose={cancel}>
+        <Modal onClose={cancel} size="sm">
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}

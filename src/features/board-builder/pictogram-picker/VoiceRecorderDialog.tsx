@@ -229,7 +229,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
     clearMut.isPending;
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID}>
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Record voice"

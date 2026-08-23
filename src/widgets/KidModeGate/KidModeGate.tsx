@@ -25,7 +25,7 @@ export const KidModeGate = ({ onExitConfirmed, children }: KidModeGateProps): JS
     <>
       {children(requestExit)}
       {verifying && (
-        <Modal onClose={cancel}>
+        <Modal onClose={cancel} size="sm">
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}
