@@ -8,9 +8,8 @@ import { DeleteAccountDialog } from './DeleteAccountDialog';
 import styles from './DeleteAccountSection.module.css';
 
 /**
- * Separated from the benign preferences above it, because the action is
- * destructive. The navigation runs through `onPreSignOut` so it happens before
- * signOut unmounts the dialog, and `replace` keeps Back off a 401 page.
+ * The navigation runs through `onPreSignOut` so it happens before signOut
+ * unmounts the dialog, and `replace` keeps Back off a 401 page.
  */
 export const DeleteAccountSection = (): JSX.Element => {
   const [open, setOpen] = useState(false);
