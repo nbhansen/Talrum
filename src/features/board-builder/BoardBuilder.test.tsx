@@ -316,6 +316,7 @@ describe('BoardBuilder track (#522)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
+        onDeleted={noop}
         onKidMode={noop}
       />,
     );
