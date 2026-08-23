@@ -42,7 +42,7 @@
   position: absolute;
   top: -7px;
   right: -7px;
-  color: var(--tal-ink-muted);
+  --tal-iconbtn-ink: var(--tal-ink-muted);
 }
 
 .micBtnHasAudio {
