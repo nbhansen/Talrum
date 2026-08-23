@@ -263,6 +263,39 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
   });
 });
 
+describe('BoardBuilder track (#522)', () => {
+  const renderKind = (kind: Board['kind'], stepIds: string[]): void => {
+    render(
+      <BoardBuilder
+        board={{ ...baseBoard, kind, stepIds }}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onKidMode={noop}
+      />,
+    );
+  };
+
+  it('shows the step count hint for sequence boards', () => {
+    renderKind('sequence', ['a', 'b', 'c']);
+    expect(screen.getByText(/3 steps · drag to reorder/)).toBeInTheDocument();
+  });
+
+  it('shows the option count hint for choice boards', () => {
+    renderKind('choice', ['a']);
+    expect(screen.getByText(/1 option · drag to reorder/)).toBeInTheDocument();
+  });
+
+  it('keeps the Add picto tile outside the scrolling rail', () => {
+    renderKind('sequence', ['a', 'b']);
+    const rail = document.querySelector('.tal-scroll');
+    expect(rail).not.toBeNull();
+    const addTile = screen.getByRole('button', { name: /add picto/i });
+    expect(rail?.contains(addTile)).toBe(false);
+  });
+});
+
 describe('BoardBuilder Quick add section (#234)', () => {
   it('hides the "Quick add from library" section when no slugs resolve', () => {
     render(
