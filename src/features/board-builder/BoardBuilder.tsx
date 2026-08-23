@@ -1,6 +1,7 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
+import { kindUnit } from '@/lib/boardKindVocab';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -180,37 +181,41 @@ export const BoardBuilder = ({
         onKidReorderableChange={(reorderable) =>
           setKidReorderable.mutate({ boardId: board.id, reorderable })
         }
-        stepCount={board.stepIds.length}
       />
 
       <div className={styles.track}>
-        <div className={`${styles.rail} tal-scroll`}>
-          <Reorderable
-            items={steps.map((s) => ({ ...s, id: s.key }))}
-            onReorder={reorder}
-            renderItem={(step, i, drag) => (
-              <Fragment key={step.id}>
-                <StepTile
-                  picto={step.picto}
-                  index={i}
-                  kind={board.kind}
-                  labelsVisible={board.labelsVisible}
-                  onRemove={() => removeAt(i)}
-                  onEdit={() => setEditTarget(step.picto)}
-                  drag={drag}
-                />
-                {i < steps.length - 1 && (
-                  <div className={styles.connector}>
-                    {board.kind === 'sequence' ? (
-                      <StepArrowIcon size={22} />
-                    ) : (
-                      <span className={styles.orPill}>OR</span>
-                    )}
-                  </div>
-                )}
-              </Fragment>
-            )}
-          />
+        <div className={styles.trackHint}>
+          {board.stepIds.length} {kindUnit(board.kind, board.stepIds.length)} · drag to reorder
+        </div>
+        <div className={styles.trackRow}>
+          <div className={`${styles.rail} tal-scroll`}>
+            <Reorderable
+              items={steps.map((s) => ({ ...s, id: s.key }))}
+              onReorder={reorder}
+              renderItem={(step, i, drag) => (
+                <Fragment key={step.id}>
+                  <StepTile
+                    picto={step.picto}
+                    index={i}
+                    kind={board.kind}
+                    labelsVisible={board.labelsVisible}
+                    onRemove={() => removeAt(i)}
+                    onEdit={() => setEditTarget(step.picto)}
+                    drag={drag}
+                  />
+                  {i < steps.length - 1 && (
+                    <div className={styles.connector}>
+                      {board.kind === 'sequence' ? (
+                        <StepArrowIcon size={22} />
+                      ) : (
+                        <span className={styles.orPill}>OR</span>
+                      )}
+                    </div>
+                  )}
+                </Fragment>
+              )}
+            />
+          </div>
           <button type="button" className={styles.addTile} onClick={onOpenPicker}>
             <PlusIcon size={22} />
             Add picto

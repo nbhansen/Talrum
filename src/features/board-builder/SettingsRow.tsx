@@ -1,6 +1,5 @@
 import type { JSX } from 'react';
 
-import { kindUnit } from '@/lib/boardKindVocab';
 import type { BoardKind, VoiceMode } from '@/types/domain';
 import { Segmented } from '@/ui/Segmented/Segmented';
 import { Select } from '@/ui/Select/Select';
@@ -17,7 +16,6 @@ interface SettingsRowProps {
   onVoiceModeChange: (next: VoiceMode) => void;
   kidReorderable: boolean;
   onKidReorderableChange: (next: boolean) => void;
-  stepCount: number;
 }
 
 const KIND_OPTIONS = [
@@ -40,7 +38,6 @@ export const SettingsRow = ({
   onVoiceModeChange,
   kidReorderable,
   onKidReorderableChange,
-  stepCount,
 }: SettingsRowProps): JSX.Element => (
   <div className={styles.row}>
     <Segmented value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
@@ -49,9 +46,5 @@ export const SettingsRow = ({
       <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
     )}
     <Select label="Voice" value={voiceMode} onChange={onVoiceModeChange} options={VOICE_OPTIONS} />
-    <div className={styles.spacer} />
-    <div className={styles.count}>
-      {stepCount} {kindUnit(kind, stepCount)} · drag to reorder
-    </div>
   </div>
 );

@@ -5,14 +5,3 @@
   margin-top: var(--tal-space-3);
   margin-bottom: var(--tal-space-7);
 }
-
-.spacer {
-  flex: 1;
-}
-
-.count {
-  align-self: center;
-  font-size: 13px;
-  color: var(--tal-ink-muted);
-  font-weight: 600;
-}
