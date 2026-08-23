@@ -20,9 +20,10 @@ interface KidSequenceProps {
 }
 
 const SPEAK_FLASH_MS = 600;
-// Tile inner widths: .tile is 140px and .tileCurrent 320px, minus 16px padding each side.
-const MEDIA_SIZE = 108;
-const CURRENT_MEDIA_SIZE = 288;
+// Tile content widths: 140px and 320px minus 16px padding each side and the
+// 2px borders (border-box).
+const MEDIA_SIZE = 104;
+const CURRENT_MEDIA_SIZE = 284;
 
 interface Step {
   key: string;

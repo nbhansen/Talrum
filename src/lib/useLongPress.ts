@@ -62,8 +62,17 @@ export const useLongPress = ({
       if (Math.hypot(dx, dy) > MOVE_TOLERANCE_PX) clear();
     },
     onPointerUp: clear,
-    onPointerCancel: clear,
-    onPointerLeave: clear,
+    // Leaving or losing the pointer also drops a fired hold: the click will
+    // not land on this element, and a stale flag would swallow the next
+    // keyboard activation.
+    onPointerCancel: () => {
+      fired.current = false;
+      clear();
+    },
+    onPointerLeave: () => {
+      fired.current = false;
+      clear();
+    },
     onClick: () => {
       if (fired.current) {
         fired.current = false;
