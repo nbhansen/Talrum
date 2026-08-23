@@ -5,6 +5,7 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
+import { type TabItem, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 
@@ -13,12 +14,6 @@ import { LibraryTab } from './tabs/LibraryTab';
 import { VoiceRecorderDialog } from './VoiceRecorderDialog';
 
 type PickerTab = 'library' | 'upload' | 'generate';
-
-interface TabDef {
-  value: PickerTab;
-  label: string;
-  sub: string;
-}
 
 interface PictoPickerProps {
   /** Owner of the board being edited; new pictograms join their library (#490). */
@@ -35,10 +30,10 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
   const [query, setQuery] = useState('');
   const [editingVoice, setEditingVoice] = useState<Pictogram | null>(null);
   const { data: pictograms = [], isPending } = usePictograms();
-  const tabs: readonly TabDef[] = [
-    { value: 'library', label: 'Library', sub: isPending ? '' : `${pictograms.length}` },
-    { value: 'upload', label: 'Upload', sub: 'Photo / image' },
-    { value: 'generate', label: 'Generate', sub: 'AI image' },
+  const tabs: readonly TabItem<PickerTab>[] = [
+    { id: 'library', label: 'Library', ...(isPending ? {} : { sub: `${pictograms.length}` }) },
+    { id: 'upload', label: 'Upload', sub: 'Photo / image' },
+    { id: 'generate', label: 'Generate', sub: 'AI image' },
   ];
   // Keep the dialog's pictogram in sync with the query cache so `audio_path`
   // updates (record → save, delete) flow through without remounting.
@@ -71,23 +66,8 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
           closeLabel="Close picker"
         />
       </div>
-      <div className={styles.tabs} role="tablist">
-        {tabs.map((t) => {
-          const active = tab === t.value;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={[styles.tab, active && styles.tabActive].filter(Boolean).join(' ')}
-              onClick={() => setTab(t.value)}
-            >
-              {t.label}
-              <span className={styles.tabSub}>{t.sub}</span>
-            </button>
-          );
-        })}
+      <div className={styles.tabs}>
+        <Tabs items={tabs} value={tab} onChange={setTab} />
       </div>
       <div className={styles.body}>
         {tab === 'library' && (
