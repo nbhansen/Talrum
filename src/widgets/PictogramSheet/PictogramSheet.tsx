@@ -4,6 +4,7 @@ import { useBoards } from '@/lib/queries/boards.read';
 import {
   referencingBoardIds,
   useDeletePictogram,
+  usePictograms,
   useRenamePictogram,
   useReplacePictogramImage,
 } from '@/lib/queries/pictograms';
@@ -12,9 +13,10 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
-import { UploadIcon } from '@/ui/icons';
+import { MicIcon, UploadIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
+import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 import styles from './PictogramSheet.module.css';
 
@@ -28,6 +30,10 @@ const LABEL_MAX = 40;
 
 export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   const [label, setLabel] = useState(picto.label);
+  const [recordingVoice, setRecordingVoice] = useState(false);
+  // The hosts capture `picto` at tap time; audio saved while the sheet is
+  // open lands in the pictograms cache, so the voice section follows that.
+  const livePicto = usePictograms().data?.find((p) => p.id === picto.id) ?? picto;
   const [error, setError] = useState<string | null>(null);
   const {
     fileInputRef,
@@ -94,7 +100,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Edit pictogram"
-          subtitle="Rename, replace the photo, or delete it."
+          subtitle="Rename, replace the photo, record a voice, or delete it."
           titleId={TITLE_ID}
           onClose={onClose}
         />
@@ -175,6 +181,20 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
           </section>
         )}
 
+        <section className={styles.section}>
+          <div className={styles.fieldLabel}>Voice</div>
+          <div className={styles.sectionActions}>
+            <Button
+              variant="ghost"
+              icon={<MicIcon size={14} />}
+              onClick={() => setRecordingVoice(true)}
+              disabled={busy}
+            >
+              {livePicto.audioPath ? 'Edit recording' : 'Record voice'}
+            </Button>
+          </div>
+        </section>
+
         <section className={styles.dangerSection}>
           <div className={styles.fieldLabel}>Delete</div>
           {referencedBoardIds.length > 0 && (
@@ -195,6 +215,9 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
 
         {shownError && <div className={styles.error}>{shownError}</div>}
       </div>
+      {recordingVoice && (
+        <VoiceRecorderDialog picto={livePicto} onClose={() => setRecordingVoice(false)} />
+      )}
     </Modal>
   );
 };
