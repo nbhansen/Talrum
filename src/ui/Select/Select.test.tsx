@@ -25,4 +25,12 @@ describe('Select', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('none');
   });
+
+  it('row layout labels the control without the inline colon', () => {
+    render(
+      <Select label="Language" layout="row" value="tts" onChange={vi.fn()} options={OPTIONS} />,
+    );
+    expect(screen.getByLabelText('Language')).toHaveValue('tts');
+    expect(screen.queryByText('Language:')).not.toBeInTheDocument();
+  });
 });

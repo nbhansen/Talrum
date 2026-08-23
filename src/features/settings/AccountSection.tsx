@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { useSignOut, useUserEmail } from '@/lib/auth/session';
+import { Button } from '@/ui/Button/Button';
 
 import styles from './AccountSection.module.css';
 
@@ -22,9 +23,11 @@ export const AccountSection = (): JSX.Element => {
           You are signed in as <span className={styles.emailValue}>{email}</span>.
         </p>
       )}
-      <button type="button" className={styles.signOut} onClick={handleSignOut} disabled={pending}>
-        {pending ? 'Signing out…' : 'Sign out'}
-      </button>
+      <div className={styles.actions}>
+        <Button variant="ghost" onClick={handleSignOut} disabled={pending}>
+          {pending ? 'Signing out…' : 'Sign out'}
+        </Button>
+      </div>
     </section>
   );
 };

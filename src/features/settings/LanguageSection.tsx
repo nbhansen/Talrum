@@ -1,14 +1,21 @@
 import { type JSX, useState } from 'react';
 
 import { type AppLanguage, getLanguagePref, isAppLanguage, setLanguagePref } from '@/lib/language';
+import { Select } from '@/ui/Select/Select';
 
 import styles from './LanguageSection.module.css';
+
+const OPTIONS = [
+  { value: '', label: 'Automatic (device language)' },
+  { value: 'da', label: 'Dansk' },
+  { value: 'en', label: 'English' },
+] as const;
 
 export const LanguageSection = (): JSX.Element => {
   const [pref, setPref] = useState<AppLanguage | null>(() => getLanguagePref());
 
-  const onChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    const next = isAppLanguage(e.target.value) ? e.target.value : null;
+  const onChange = (value: string): void => {
+    const next = isAppLanguage(value) ? value : null;
     setPref(next);
     setLanguagePref(next);
   };
@@ -20,14 +27,13 @@ export const LanguageSection = (): JSX.Element => {
         Language for kid mode and the reading voice. Changes apply on the next tap.
       </p>
       <div className={styles.row}>
-        <label htmlFor="app-language" className={styles.label}>
-          Language
-        </label>
-        <select id="app-language" className={styles.select} value={pref ?? ''} onChange={onChange}>
-          <option value="">Automatic (device language)</option>
-          <option value="da">Dansk</option>
-          <option value="en">English</option>
-        </select>
+        <Select
+          label="Language"
+          layout="row"
+          value={pref ?? ''}
+          onChange={onChange}
+          options={OPTIONS}
+        />
       </div>
     </section>
   );
