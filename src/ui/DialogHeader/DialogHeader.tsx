@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 
+import { IconButton } from '@/ui/IconButton/IconButton';
 import { XIcon } from '@/ui/icons';
 
 import styles from './DialogHeader.module.css';
@@ -26,8 +27,8 @@ export const DialogHeader = ({
       </h2>
       {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
     </div>
-    <button type="button" onClick={onClose} aria-label={closeLabel} className={styles.closeBtn}>
+    <IconButton onClick={onClose} aria-label={closeLabel}>
       <XIcon size={18} />
-    </button>
+    </IconButton>
   </header>
 );

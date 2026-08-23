@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import type { Pictogram } from '@/types/domain';
 import { Chip } from '@/ui/Chip/Chip';
+import { IconButton } from '@/ui/IconButton/IconButton';
 import { MicIcon, SearchIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
@@ -53,8 +54,8 @@ export const LibraryTab = ({
               selected={selected.has(p.id)}
               onClick={() => onToggle(p.id)}
             />
-            <button
-              type="button"
+            <IconButton
+              variant="raised"
               className={[styles.micBtn, p.audioPath ? styles.micBtnHasAudio : null]
                 .filter(Boolean)
                 .join(' ')}
@@ -68,7 +69,7 @@ export const LibraryTab = ({
               title={p.audioPath ? 'Edit recording' : 'Record voice'}
             >
               <MicIcon size={14} />
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>

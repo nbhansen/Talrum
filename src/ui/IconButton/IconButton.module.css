@@ -1,0 +1,56 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tal-tap-min);
+  height: var(--tal-tap-min);
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--tal-ink-soft);
+  cursor: pointer;
+}
+
+.root:hover {
+  color: var(--tal-ink);
+}
+
+.root:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-iconbtn-bg, transparent);
+  color: var(--tal-iconbtn-ink, inherit);
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.sm .glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.md .glyph {
+  width: 32px;
+  height: 32px;
+}
+
+.quiet:hover .glyph {
+  background: var(--tal-iconbtn-bg, var(--tal-surface-alt));
+}
+
+.raised .glyph {
+  background: var(--tal-iconbtn-bg, var(--tal-surface));
+  border: 1px solid var(--tal-iconbtn-line, var(--tal-line));
+  box-shadow: var(--tal-shadow-1);
+}
+
+.raised:hover .glyph {
+  transform: scale(1.08);
+}

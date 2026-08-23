@@ -68,6 +68,9 @@
   --tal-space-10: 40px;
   --tal-space-12: 48px;
 
+  /* Tap targets */
+  --tal-tap-min: 44px;
+
   /* Radii */
   --tal-r-sm: 10px;
   --tal-r-md: 16px;

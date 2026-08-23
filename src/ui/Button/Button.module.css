@@ -2,6 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--tal-space-2);
+  min-height: var(--tal-tap-min);
   border-radius: var(--tal-r-pill);
   font-size: 15px;
   font-weight: 700;

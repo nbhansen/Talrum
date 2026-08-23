@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { kindTileMarker } from '@/lib/boardKindVocab';
 import type { BoardKind, Pictogram } from '@/types/domain';
+import { IconButton } from '@/ui/IconButton/IconButton';
 import { PencilIcon, XIcon } from '@/ui/icons';
 import type { DragBindings } from '@/ui/Reorderable/Reorderable';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
@@ -47,8 +48,9 @@ export const StepTile = ({
         <PictoTile picto={picto} size={116} showLabel={labelsVisible} />
       </div>
       {onEdit && (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
+          variant="raised"
           className={styles.edit}
           onClick={(e) => {
             e.stopPropagation();
@@ -59,10 +61,11 @@ export const StepTile = ({
           title="Edit"
         >
           <PencilIcon size={11} />
-        </button>
+        </IconButton>
       )}
-      <button
-        type="button"
+      <IconButton
+        size="sm"
+        variant="raised"
         className={styles.remove}
         onClick={(e) => {
           e.stopPropagation();
@@ -72,7 +75,7 @@ export const StepTile = ({
         aria-label={`Remove ${picto.label}`}
       >
         <XIcon size={10} />
-      </button>
+      </IconButton>
     </div>
   );
   /* eslint-enable react-hooks/refs */
