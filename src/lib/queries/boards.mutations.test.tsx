@@ -337,11 +337,12 @@ describe('useDeleteBoard (#520)', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
   });
 
-  it('rolls back the list on a non-retryable DB error', async () => {
+  it('rolls back the list on a non-retryable DB error and keeps the per-board cache', async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
     qc.setQueryData(boardsQueryKey, [seed, other]);
+    qc.setQueryData(boardQueryKey('morning'), seed);
     deleteEqMock.mockResolvedValueOnce({ error: rlsError });
 
     const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
@@ -354,6 +355,8 @@ describe('useDeleteBoard (#520)', () => {
       'morning',
       'bedtime',
     ]);
+    // The board still exists; its per-board cache must survive the failure.
+    expect(qc.getQueryData(boardQueryKey('morning'))).toEqual(seed);
   });
 
   it('clears the last-board pointer only when it points at the deleted board', async () => {

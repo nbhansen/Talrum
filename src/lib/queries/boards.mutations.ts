@@ -259,9 +259,13 @@ export const useDeleteBoard = (): UseMutationResult<
       if (getLastBoard()?.id === boardId) clearLastBoard();
     },
     mutationFn: ({ boardId }) => enqueueAndDrain({ kind: 'deleteBoard', boardId }),
-    settle: ({ boardId }) => {
-      qc.removeQueries({ queryKey: boardQueryKey(boardId) });
-      qc.removeQueries({ queryKey: boardMembersQueryKey(boardId) });
+    // On error the board still exists and the builder still shows it, so only
+    // a successful delete may evict its caches.
+    settle: ({ boardId }, error) => {
+      if (!error) {
+        qc.removeQueries({ queryKey: boardQueryKey(boardId) });
+        qc.removeQueries({ queryKey: boardMembersQueryKey(boardId) });
+      }
       void qc.invalidateQueries({ queryKey: boardsQueryKey });
     },
   });
