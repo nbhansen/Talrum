@@ -78,6 +78,16 @@ describe('PictoPicker', () => {
     expect(screen.getByPlaceholderText(/Search eat, dress/)).toBeInTheDocument();
   });
 
+  it('disables Add to board until a pictogram is selected (#523)', async () => {
+    const user = userEvent.setup();
+    render(wrap(<PictoPicker onClose={vi.fn()} onConfirm={vi.fn()} />));
+
+    expect(screen.getByRole('button', { name: 'Add to board' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Apple' }));
+    expect(screen.getByRole('button', { name: 'Add 1 to board' })).toBeEnabled();
+  });
+
   it('toggles selection and reflects the count + label in the footer', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
