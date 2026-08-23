@@ -50,7 +50,7 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
    * REPLACES the default settle (invalidate every cache key) — it does not
    * run in addition. A custom settle must invalidate every cache itself.
    */
-  settle?: () => void;
+  settle?: (input: Input) => void;
 }): UseMutationResult<Result, Error, Input, OptimisticListContext> => {
   const qc = useQueryClient();
   const { caches, mutationFn, onMutateSideEffect, beforeRollback, settle } = options;
@@ -71,9 +71,9 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
         if (snapshot) qc.setQueryData(c.queryKey, snapshot);
       });
     },
-    onSettled: () => {
+    onSettled: (_result, _err, input) => {
       if (settle) {
-        settle();
+        settle(input);
         return;
       }
       for (const c of caches) qc.invalidateQueries({ queryKey: c.queryKey });

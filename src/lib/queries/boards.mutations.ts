@@ -2,8 +2,15 @@ import { useMutation, type UseMutationResult, useQueryClient } from '@tanstack/r
 import { useRef } from 'react';
 
 import { useSessionUser } from '@/lib/auth/session';
+import { clearLastBoard, getLastBoard } from '@/lib/lastBoard';
 import { type BoardRowPatch, enqueueAndDrain } from '@/lib/outbox';
+import { boardMembersQueryKey } from '@/lib/queries/board-members';
 import { boardQueryKey, boardsQueryKey, rowToBoard } from '@/lib/queries/boards.read';
+import {
+  listCache,
+  type OptimisticListContext,
+  useOptimisticListMutation,
+} from '@/lib/queries/optimistic';
 import { supabase } from '@/lib/supabase';
 import { type Accent } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
@@ -222,6 +229,40 @@ export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInp
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: boardsQueryKey });
+    },
+  });
+};
+
+interface DeleteBoardInput {
+  boardId: string;
+}
+
+/**
+ * The per-board and members caches go on settle, not in onMutate: the builder
+ * still observes the per-board key until the route navigates away, and a
+ * removed-while-observed query refetches into BoardNotFound.
+ */
+export const useDeleteBoard = (): UseMutationResult<
+  void,
+  Error,
+  DeleteBoardInput,
+  OptimisticListContext
+> => {
+  const qc = useQueryClient();
+  return useOptimisticListMutation({
+    caches: [
+      listCache<Board, DeleteBoardInput>(boardsQueryKey, (list, { boardId }) =>
+        list?.filter((b) => b.id !== boardId),
+      ),
+    ],
+    onMutateSideEffect: ({ boardId }) => {
+      if (getLastBoard()?.id === boardId) clearLastBoard();
+    },
+    mutationFn: ({ boardId }) => enqueueAndDrain({ kind: 'deleteBoard', boardId }),
+    settle: ({ boardId }) => {
+      qc.removeQueries({ queryKey: boardQueryKey(boardId) });
+      qc.removeQueries({ queryKey: boardMembersQueryKey(boardId) });
+      void qc.invalidateQueries({ queryKey: boardsQueryKey });
     },
   });
 };

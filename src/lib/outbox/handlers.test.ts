@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ClearPictogramAudioEntry,
   CreatePhotoPictogramEntry,
+  DeleteBoardEntry,
   DeleteKidEntry,
   DeletePictogramEntry,
   RenameKidEntry,
@@ -728,6 +729,46 @@ describe('runHandler · deleteKid', () => {
     expect(selectMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('runHandler · deleteBoard', () => {
+  it('deletes the board row by id and touches nothing else', async () => {
+    const entry: DeleteBoardEntry = {
+      ...baseProps,
+      kind: 'deleteBoard',
+      boardId: 'b-1',
+    };
+    await runHandler(entry);
+    expect(fromMock).toHaveBeenCalledWith('boards');
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(deleteEqMock).toHaveBeenCalledWith('id', 'b-1');
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('resolves again when the same entry replays (row already gone)', async () => {
+    const entry: DeleteBoardEntry = {
+      ...baseProps,
+      kind: 'deleteBoard',
+      boardId: 'b-1',
+    };
+    await runHandler(entry);
+    await expect(runHandler(entry)).resolves.toBeUndefined();
+    expect(deleteMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('wraps coded DB errors in UnretryableOutboxError', async () => {
+    deleteEqMock.mockResolvedValue({
+      error: { code: '42501', message: 'permission denied', details: '', hint: '' },
+    });
+    const entry: DeleteBoardEntry = {
+      ...baseProps,
+      kind: 'deleteBoard',
+      boardId: 'b-1',
+    };
+    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 

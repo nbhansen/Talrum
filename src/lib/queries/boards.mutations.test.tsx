@@ -22,13 +22,18 @@ const unguardedSelectMock = vi.fn<(cols: string) => Promise<UpdateSelectResult>>
 const eqMock = vi.fn((_c: string, _v: string) => ({ select: unguardedSelectMock }));
 const matchMock = vi.fn((_filter: Record<string, string>) => ({ select: guardSelectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock, match: matchMock }));
-const fromMock = vi.fn((_table: string) => ({ update: updateMock }));
+const deleteEqMock =
+  vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
+const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
+const fromMock = vi.fn((_table: string) => ({ update: updateMock, delete: deleteMock }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
 
 // Import after the mock is registered.
-const { boardQueryKey } = await import('./boards.read');
-const { useRenameBoard, useSetStepIds } = await import('./boards.mutations');
+const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
+const { boardMembersQueryKey } = await import('./board-members');
+const { useDeleteBoard, useRenameBoard, useSetStepIds } = await import('./boards.mutations');
+const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 
 const seed: Board = {
   id: 'morning',
@@ -281,5 +286,94 @@ describe('useSetStepIds', () => {
       result.current.reset();
     });
     await waitFor(() => expect(result.current.isError).toBe(false));
+  });
+});
+
+describe('useDeleteBoard (#520)', () => {
+  const other: Board = { ...seed, id: 'bedtime', name: 'Bedtime' };
+  const rlsError: MockPostgrestError = {
+    code: '42501',
+    message: 'row-level-security',
+    details: '',
+    hint: '',
+  };
+
+  beforeEach(() => {
+    deleteEqMock.mockReset();
+    deleteMock.mockClear();
+    fromMock.mockClear();
+    clearLastBoard();
+  });
+
+  it('optimistically removes the board from the list, then drops the per-board and members caches on settle', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardsQueryKey, [seed, other]);
+    qc.setQueryData(boardQueryKey('morning'), seed);
+    qc.setQueryData(boardMembersQueryKey('morning'), []);
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    let resolveEq: (v: { error: MockPostgrestError | null }) => void = () => {
+      throw new Error('resolver not assigned');
+    };
+    deleteEqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+
+    const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning' });
+    });
+
+    await waitFor(() => {
+      expect(qc.getQueryData<Board[]>(boardsQueryKey)?.map((b) => b.id)).toEqual(['bedtime']);
+    });
+    // The builder still observes the per-board key mid-flight; it goes on settle.
+    expect(qc.getQueryData(boardQueryKey('morning'))).toEqual(seed);
+
+    resolveEq({ error: null });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(qc.getQueryData(boardQueryKey('morning'))).toBeUndefined();
+    expect(qc.getQueryData(boardMembersQueryKey('morning'))).toBeUndefined();
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
+  });
+
+  it('rolls back the list on a non-retryable DB error', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardsQueryKey, [seed, other]);
+    deleteEqMock.mockResolvedValueOnce({ error: rlsError });
+
+    const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(qc.getQueryData<Board[]>(boardsQueryKey)?.map((b) => b.id)).toEqual([
+      'morning',
+      'bedtime',
+    ]);
+  });
+
+  it('clears the last-board pointer only when it points at the deleted board', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardsQueryKey, [seed, other]);
+    deleteEqMock.mockResolvedValue({ error: null });
+    setLastBoard({ id: 'bedtime', kind: 'sequence' });
+
+    const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
+    act(() => {
+      result.current.mutate({ boardId: 'morning' });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getLastBoard()?.id).toBe('bedtime');
+
+    act(() => {
+      result.current.mutate({ boardId: 'bedtime' });
+    });
+    await waitFor(() => expect(getLastBoard()).toBeNull());
   });
 });

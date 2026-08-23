@@ -79,6 +79,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onBack={() => navigate('/')}
         onOpenPicker={openPicker}
         onOpenShare={openShare}
+        onDeleted={() => navigate('/', { replace: true })}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
         onNav={onNav}
       />

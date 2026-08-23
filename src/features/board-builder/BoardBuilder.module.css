@@ -8,20 +8,10 @@
   margin-top: -4px;
 }
 
-.shareBtn {
+.crumbActions {
   margin-left: auto;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--tal-ink);
-  background: var(--tal-surface);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-pill);
-  padding: var(--tal-space-2) var(--tal-space-4);
-  cursor: pointer;
-}
-
-.shareBtn:hover {
-  background: var(--tal-bg);
+  display: flex;
+  gap: var(--tal-space-2);
 }
 
 .back {
