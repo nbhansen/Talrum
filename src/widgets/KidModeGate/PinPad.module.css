@@ -2,20 +2,6 @@
   padding: var(--tal-space-8) var(--tal-space-7) var(--tal-space-7);
   min-width: 340px;
   margin: 0 auto;
-  text-align: center;
-}
-
-.title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--tal-ink);
-  margin: 0 0 var(--tal-space-2);
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--tal-ink-muted);
-  margin: 0 0 var(--tal-space-6);
 }
 
 .dots {
@@ -71,19 +57,9 @@
 }
 
 .error {
+  text-align: center;
   font-size: 13px;
   color: var(--tal-danger);
   min-height: 18px;
   margin-top: var(--tal-space-4);
-}
-
-.cancel {
-  background: none;
-  border: 0;
-  color: var(--tal-ink-muted);
-  font-size: 13px;
-  font-weight: 600;
-  padding: var(--tal-space-2) var(--tal-space-4);
-  margin-top: var(--tal-space-3);
-  cursor: pointer;
 }

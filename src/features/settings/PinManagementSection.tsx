@@ -3,7 +3,7 @@ import { type JSX, useEffect, useRef, useState } from 'react';
 import { clearPin, hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
 import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
-import { PinPad } from '@/widgets/KidModeGate/PinPad';
+import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/KidModeGate/PinPad';
 
 import styles from './PinManagementSection.module.css';
 
@@ -136,7 +136,7 @@ export const PinManagementSection = ({
         </p>
       )}
       {modal.kind === 'pin' && (
-        <Modal onClose={close} size="sm">
+        <Modal onClose={close} labelledBy={PIN_PAD_TITLE_ID} size="sm">
           {modal.stage === 'verify' && (
             <PinPad
               title="Enter current PIN"

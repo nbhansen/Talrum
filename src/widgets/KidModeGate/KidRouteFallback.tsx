@@ -5,7 +5,7 @@ import { getKidCopy } from '@/lib/kidCopy';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 import { Modal } from '@/ui/Modal/Modal';
 
-import { PinPad } from './PinPad';
+import { PIN_PAD_TITLE_ID, PinPad } from './PinPad';
 import { usePinExit } from './usePinExit';
 
 /**
@@ -26,7 +26,7 @@ export const KidRouteFallback = (): JSX.Element => {
   return (
     <div role="alert" className={styles.kidFallback}>
       {verifying ? (
-        <Modal onClose={cancel} size="sm">
+        <Modal onClose={cancel} labelledBy={PIN_PAD_TITLE_ID} size="sm">
           <PinPad
             title={kidCopy.pin.verifyTitle}
             subtitle={kidCopy.pin.verifySubtitle}

@@ -201,7 +201,7 @@ describe('KidModeGate', () => {
     it('keeps the lock when the pad is closed and reopened', async () => {
       await renderAndLock();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       fireEvent.click(screen.getByRole('button', { name: 'Exit kid mode' }));
 
       expect(screen.getByRole('button', { name: '1' })).toBeDisabled();
@@ -215,7 +215,7 @@ describe('KidModeGate', () => {
     const { user } = renderGate(onExit);
 
     await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByText('Enter PIN to exit')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Exit kid mode' })).toBeInTheDocument();

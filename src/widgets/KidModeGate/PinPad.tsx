@@ -1,9 +1,12 @@
 import { type JSX, useEffect, useState } from 'react';
 
+import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+
 import styles from './PinPad.module.css';
 import { MAX_LOCK_MS } from './pinThrottle';
 
 const PIN_LENGTH = 4;
+export const PIN_PAD_TITLE_ID = 'pin-pad-title';
 
 interface PinPadProps {
   title: string;
@@ -80,8 +83,12 @@ export const PinPad = ({
 
   return (
     <div className={styles.wrap}>
-      <h2 className={styles.title}>{title}</h2>
-      <p className={styles.subtitle}>{subtitle}</p>
+      <DialogHeader
+        title={title}
+        subtitle={subtitle}
+        titleId={PIN_PAD_TITLE_ID}
+        onClose={onCancel}
+      />
       <div className={styles.dots}>
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
@@ -116,9 +123,6 @@ export const PinPad = ({
             )
           : (error ?? '')}
       </div>
-      <button type="button" className={styles.cancel} onClick={onCancel}>
-        Cancel
-      </button>
     </div>
   );
 };
