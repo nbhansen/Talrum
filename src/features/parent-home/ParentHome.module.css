@@ -5,7 +5,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
   gap: var(--tal-space-5);
   margin-top: var(--tal-space-2);
 }
