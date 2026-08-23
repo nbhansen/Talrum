@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { pictogramsQueryKey } from '@/lib/queries/pictograms';
+import { LONG_PRESS_MS } from '@/lib/useLongPress';
 import type { Board, Pictogram } from '@/types/domain';
 
 const speakPictogramMock = vi.fn();
@@ -171,5 +172,86 @@ describe('KidSequence', () => {
       </Wrap>,
     );
     expect(screen.getByRole('status')).toHaveTextContent(/grown-up/i);
+  });
+
+  describe('long-press marks a step done (#519)', () => {
+    const hold = (el: HTMLElement): void => {
+      fireEvent.pointerDown(el, { isPrimary: true, button: 0, clientX: 5, clientY: 5 });
+      act(() => {
+        vi.advanceTimersByTime(LONG_PRESS_MS);
+      });
+      fireEvent.pointerUp(el);
+      fireEvent.click(el);
+    };
+
+    const renderBoard = (overrides: Partial<Board> = {}): void => {
+      render(
+        <Wrap qc={makeClient()}>
+          <KidSequence board={{ ...board, ...overrides }} onExit={vi.fn()} />
+        </Wrap>,
+      );
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('tapping a tile speaks it and does not mark it done', () => {
+      vi.useFakeTimers();
+      renderBoard();
+      const apple = screen.getByRole('button', { name: /Apple/i });
+      fireEvent.pointerDown(apple, { isPrimary: true, button: 0, clientX: 5, clientY: 5 });
+      fireEvent.pointerUp(apple);
+      fireEvent.click(apple);
+      expect(speakPictogramMock).toHaveBeenCalledTimes(1);
+      expect(apple).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+    });
+
+    it('long-pressing the current step marks it done, advances current, and does not speak', () => {
+      vi.useFakeTimers();
+      renderBoard();
+      const apple = screen.getByRole('button', { name: /Apple/i });
+      const drink = screen.getByRole('button', { name: /Drink/i });
+      expect(apple.className).toMatch(/tileCurrent/);
+
+      hold(apple);
+
+      expect(speakPictogramMock).not.toHaveBeenCalled();
+      expect(apple).toHaveAttribute('aria-pressed', 'true');
+      expect(apple.className).toMatch(/tileDone/);
+      expect(drink.className).toMatch(/tileCurrent/);
+      expect(screen.getByText('Step 2 of 2')).toBeInTheDocument();
+    });
+
+    it('long-pressing a done step un-marks it and it becomes current again', () => {
+      vi.useFakeTimers();
+      renderBoard();
+      const apple = screen.getByRole('button', { name: /Apple/i });
+      hold(apple);
+      hold(apple);
+      expect(apple).toHaveAttribute('aria-pressed', 'false');
+      expect(apple.className).toMatch(/tileCurrent/);
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+    });
+
+    it('shows the all-done banner once every step is done', () => {
+      vi.useFakeTimers();
+      renderBoard();
+      hold(screen.getByRole('button', { name: /Apple/i }));
+      hold(screen.getByRole('button', { name: /Drink/i }));
+      expect(screen.getByText('All done!')).toBeInTheDocument();
+      expect(screen.queryByText(/Step \d of/)).not.toBeInTheDocument();
+    });
+
+    it('long-press still marks done on the kidReorderable branch and the tile keeps its sortable role', () => {
+      vi.useFakeTimers();
+      renderBoard({ kidReorderable: true });
+      const apple = screen.getByRole('button', { name: /Apple/i });
+      expect(apple).toHaveAttribute('aria-roledescription', 'sortable');
+      hold(apple);
+      expect(apple).toHaveAttribute('aria-pressed', 'true');
+      expect(apple).toHaveAttribute('aria-roledescription', 'sortable');
+    });
   });
 });

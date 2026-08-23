@@ -20,6 +20,10 @@ export interface KidCopy {
     letsGoTo: (label: string) => string;
     hearAgain: (label: string) => string;
   };
+  sequence: {
+    progress: (step: number, total: number) => string;
+    allDone: string;
+  };
   // Verification only: a kid must never be shown a way to create the PIN that
   // contains them, so the setup copy lives in parent UI (#353).
   pin: {
@@ -45,6 +49,10 @@ const copy: Record<AppLanguage, KidCopy> = {
       letsGoTo: (label: string): string => `Let's go to ${label}`,
       hearAgain: (label: string): string => `Hear ${label} again`,
     },
+    sequence: {
+      progress: (step: number, total: number): string => `Step ${step} of ${total}`,
+      allDone: 'All done!',
+    },
     pin: {
       verifyTitle: 'Enter PIN to exit',
       verifySubtitle: 'Enter your 4-digit parent PIN.',
@@ -67,6 +75,10 @@ const copy: Record<AppLanguage, KidCopy> = {
       tapPlaceholder: 'Tryk på ét for at vælge ✨',
       letsGoTo: (label: string): string => `Lad os gå til ${label}`,
       hearAgain: (label: string): string => `Hør ${label} igen`,
+    },
+    sequence: {
+      progress: (step: number, total: number): string => `Trin ${step} af ${total}`,
+      allDone: 'Færdig!',
     },
     pin: {
       verifyTitle: 'Indtast PIN for at afslutte',

@@ -108,8 +108,9 @@ development. Status: ✅ shipped · 🔜 planned (linked issue) · 💭 candidat
 
 > As a kid I follow the steps of a routine one pictogram at a time.
 
-- ✅ As a kid, I step through the board's pictograms in order, with the
-  current step large and prominent.
+- ✅ As a kid, I follow the board's steps in order: a tap speaks a step, a
+  long-press marks it done, and the first step not done is shown large with
+  a "Step n of m" banner. Progress lasts for the visit. ([#519])
 - ✅ As a kid, an empty board tells me kindly to "ask a grown-up to add some
   pictograms" instead of breaking.
 - ✅ As a kid, the KID button takes me to the most recent board that is
@@ -336,3 +337,4 @@ Supabase free tier, which blocks some of them:
 [#447]: https://github.com/nbhansen/Talrum/issues/447
 [#490]: https://github.com/nbhansen/Talrum/issues/490
 [#498]: https://github.com/nbhansen/Talrum/issues/498
+[#519]: https://github.com/nbhansen/Talrum/issues/519

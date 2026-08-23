@@ -5,14 +5,15 @@
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: var(--tal-space-5);
+  gap: var(--tal-space-4);
   padding: 0 var(--tal-space-10) var(--tal-space-10);
 }
 
 .tile {
-  flex: 1 1 0;
-  min-width: 120px;
-  max-width: 220px;
+  flex: 0 0 auto;
+  width: 140px;
+  -webkit-touch-callout: none;
+  user-select: none;
   background: var(--tal-surface);
   border-radius: var(--tal-r-xl);
   padding: var(--tal-space-4);
@@ -33,6 +34,36 @@
   transform: scale(1.04);
   box-shadow: var(--tal-shadow-3);
   border-color: var(--tal-sage-ink);
+}
+
+.tileCurrent {
+  width: 320px;
+  border-color: var(--tal-sage-ink);
+  box-shadow: var(--tal-shadow-2);
+}
+
+.tileCurrent .label {
+  font-size: 30px;
+}
+
+.tileDone {
+  opacity: 0.45;
+}
+
+.doneBadge {
+  position: absolute;
+  top: var(--tal-space-2);
+  right: var(--tal-space-2);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--tal-r-pill);
+  background: var(--tal-sage-ink);
+  color: var(--tal-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--tal-shadow-1);
+  pointer-events: none;
 }
 
 .mediaWrap {
@@ -70,7 +101,7 @@
 }
 
 .label {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--tal-ink);
   letter-spacing: -0.3px;
