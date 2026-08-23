@@ -3,7 +3,9 @@ import { type JSX } from 'react';
 import { useSessionUser } from '@/lib/auth/session';
 import { useBoardMembers, useRemoveBoardMember } from '@/lib/queries/board-members';
 import { useCopy } from '@/lib/useCopy';
+import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { IconButton } from '@/ui/IconButton/IconButton';
 import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
@@ -45,14 +47,9 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
           <span className={styles.sectionLabel}>Your sharing ID</span>
           <div className={styles.idRow}>
             <div className={styles.idValue}>{me.id}</div>
-            <button
-              type="button"
-              onClick={() => copy(me.id)}
-              className={styles.copyBtn}
-              aria-label="Copy your sharing ID"
-            >
+            <Button variant="pill" onClick={() => copy(me.id)} aria-label="Copy your sharing ID">
               {copied ? 'Copied' : 'Copy'}
-            </button>
+            </Button>
           </div>
           {copyError && (
             <p role="alert" className={styles.error}>
@@ -78,15 +75,14 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
                     <li key={m.userId} className={styles.memberRow}>
                       <span className={styles.memberId}>{m.userId}</span>
                       <span className={styles.memberRole}>{m.role}</span>
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
                         onClick={() => removeMember.mutate({ boardId, userId: m.userId })}
                         aria-label={`Remove ${m.userId}`}
-                        className={styles.removeBtn}
                         disabled={removeMember.isPending}
                       >
                         <XIcon size={14} />
-                      </button>
+                      </IconButton>
                     </li>
                   ))}
                 </ul>
@@ -107,13 +103,9 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
                   onChange={(e) => setDraftId(e.target.value)}
                   aria-label="Sharing ID"
                 />
-                <button
-                  type="submit"
-                  className={styles.copyBtn}
-                  disabled={submitting || draftId.trim() === ''}
-                >
+                <Button variant="pill" type="submit" disabled={submitting || draftId.trim() === ''}>
                   {submitting ? 'Adding…' : 'Add'}
-                </button>
+                </Button>
               </form>
               {submitError && (
                 <p role="alert" className={styles.error}>

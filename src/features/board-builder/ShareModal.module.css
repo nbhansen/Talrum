@@ -41,22 +41,6 @@
   white-space: nowrap;
 }
 
-.copyBtn {
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--tal-ink);
-  background: var(--tal-surface);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  padding: var(--tal-space-2) var(--tal-space-3);
-  cursor: pointer;
-}
-
-.copyBtn:hover {
-  background: var(--tal-bg);
-}
-
 .empty {
   font-size: 14px;
   color: var(--tal-ink-muted);
@@ -104,25 +88,6 @@
   padding: 2px var(--tal-space-2);
   border-radius: var(--tal-r-pill);
   flex-shrink: 0;
-}
-
-.removeBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--tal-ink-soft);
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.removeBtn:hover {
-  color: var(--tal-ink);
-  background: var(--tal-surface);
 }
 
 .addRow {

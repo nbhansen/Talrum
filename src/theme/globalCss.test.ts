@@ -12,6 +12,7 @@ describe('global theme CSS', () => {
     expect(root.getPropertyValue('--tal-ink').trim()).not.toBe('');
     expect(root.getPropertyValue('--tal-font').trim()).toMatch(/Nunito/i);
     expect(root.getPropertyValue('--tal-space-4').trim()).toBe('16px');
+    expect(root.getPropertyValue('--tal-tap-min').trim()).toBe('44px');
   });
 
   it('reset.css points body font-family at the --tal-font token', () => {

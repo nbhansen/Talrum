@@ -20,17 +20,3 @@
   color: var(--tal-ink-muted);
   margin: 0;
 }
-
-.closeBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--tal-ink-soft);
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-}
