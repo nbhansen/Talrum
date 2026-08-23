@@ -109,8 +109,8 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={confirm}>
-            Add {selected.size > 0 ? selected.size : ''} to board
+          <Button variant="primary" onClick={confirm} disabled={selected.size === 0}>
+            {selected.size > 0 ? `Add ${selected.size} to board` : 'Add to board'}
           </Button>
         </div>
       </footer>
