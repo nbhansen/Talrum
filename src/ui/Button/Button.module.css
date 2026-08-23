@@ -52,3 +52,14 @@
 .pill:not(:disabled):hover {
   color: var(--tal-ink);
 }
+
+.danger {
+  padding: var(--tal-space-3) var(--tal-space-4);
+  background: var(--tal-danger);
+  color: var(--tal-on-accent);
+  box-shadow: var(--tal-shadow-1);
+}
+
+.danger:not(:disabled):hover {
+  box-shadow: var(--tal-shadow-2);
+}

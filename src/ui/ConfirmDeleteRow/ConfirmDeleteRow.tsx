@@ -28,8 +28,7 @@ export const ConfirmDeleteRow = ({
             Cancel
           </Button>
           <Button
-            variant="primary"
-            className={styles.dangerBtn}
+            variant="danger"
             icon={<TrashIcon size={14} />}
             onClick={onConfirm}
             disabled={disabled}
