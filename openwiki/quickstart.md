@@ -15,7 +15,7 @@ Talrum is a low-stim, offline-capable AAC (Augmentative & Alternative Communicat
 
 Most AAC applications are busy with menus, badges, and colors. For a child who is easily overstimulated, this can lead to distress and rejection of the tool. Talrum aims to be as calm as physical paper cards but shareable, speakable, and robust against network failures.
 
-*   **Parent Mode:** Caregivers build or edit boards, upload custom pictures, record audio prompts, or generate AI voices, and manage visibility toggles.
+*   **Parent Mode:** Caregivers build or edit boards, manage a central pictogram library, upload custom pictures, record audio prompts, or generate AI voices, and manage visibility toggles.
 *   **Kid Mode:** A tap-only, zero-decoration, distraction-free environment optimized for a tablet in landscape mode. Tapping a card plays recorded audio or uses text-to-speech.
 
 ## System Prerequisites
@@ -29,6 +29,7 @@ Use the table below to find the correct architecture overview, entry points, and
 | Change Area | Relevant Wiki Page | Source Entry Points | Important Symbols | Focused Tests | Minimal Validation |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Frontend Architecture & Layouts** | [Architecture](architecture.md) | `eslint.config.js`, `src/app/`, `src/features/` | Layers (App, Features, Widgets, UI, Lib) | `scripts/verify-boundaries.mjs` | `npm run lint:boundaries` |
+| **Authoring (Library & Board Builder)** | [Architecture](architecture.md) | `src/features/library/`, `src/features/board-builder/`, `src/widgets/` | `NewPictogramModal`, `PictogramSheet`, `VoiceRecorderDialog` | `Library.test.tsx`, `BoardBuilder.test.tsx` | `npm run test -- features` |
 | **Offline Sync & Storage** | [Offline Sync](offline-sync.md) | `src/lib/outbox/`, `src/lib/storage/` | `signedUrlFor`, `clearPersistedCache` | `src/lib/storage/storage.test.ts` | `npm run test -- storage.test.ts` |
 | **Kid Mode UI & PIN Gate** | [Kid Mode & Speech](kid-mode-speech.md) | `src/widgets/KidModeGate/`, `src/lib/kidCopy.ts` | `KidModeGate`, `pinThrottle` | `KidModeGate.test.tsx` | `npm run test -- KidModeGate` |
 | **Speech & Audio (TTS/Recording)** | [Kid Mode & Speech](kid-mode-speech.md) | `src/lib/platform/speech.ts`, `src/lib/platform/audio.ts` | `speakPictogram`, AI generated functions | `src/lib/platform/audio.test.ts` | `npm run test -- platform` |

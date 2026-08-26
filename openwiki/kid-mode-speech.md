@@ -52,6 +52,6 @@ flowchart TD
 ```
 *Audio playback resolution flow prioritizing custom recordings over local text-to-speech.*
 
-Because fetching available system voices can be asynchronous, the application caches its preferred voice selection. A heuristic is used to pick an appropriate local voice based on the chosen language, falling back to English if necessary. Caregivers can override the heuristic by manually selecting a preferred device voice in the settings, or bypass local TTS entirely by generating a persistent neural voice clip using the backend AI integrations during board building.
+Because fetching available system voices can be asynchronous, the application caches its preferred voice selection. A heuristic is used to pick an appropriate local voice based on the chosen language, falling back to English if necessary. Caregivers can override the heuristic by manually selecting a preferred device voice in the settings, or bypass local TTS entirely by generating a persistent neural voice clip using the backend AI integrations during board building or directly from the central library.
 
 **Kid-Visible Copy**: All language strings rendered inside Kid Mode (including the PIN pad) are strictly maintained in a single translation file (`src/lib/kidCopy.ts`). This ensures every string a child sees can be audited and translated safely without leaking parent-mode chrome.
