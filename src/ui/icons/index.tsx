@@ -71,12 +71,6 @@ export const ArrowLeftIcon = ({ size = 16, ...rest }: IconProps): JSX.Element =>
   </Svg>
 );
 
-export const ArrowRightIcon = ({ size = 16, ...rest }: IconProps): JSX.Element => (
-  <Svg size={size} viewBox="0 0 24 24" strokeWidth={2.2} {...rest}>
-    <path d="M9 6 L15 12 L9 18" />
-  </Svg>
-);
-
 export const StepArrowIcon = ({ size = 22, ...rest }: IconProps): JSX.Element => (
   <Svg size={size} viewBox="0 0 24 24" {...rest}>
     <path d="M6 12 L18 12 M14 8 L18 12 L14 16" />
