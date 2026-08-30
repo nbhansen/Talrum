@@ -4,11 +4,11 @@ import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
 import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import {
+  type SetStepIdsResult,
   useRenameBoard,
   useSetBoardKind,
   useSetKidReorderable,
   useSetLabelsVisible,
-  useSetStepIds,
   useSetVoiceMode,
 } from '@/lib/queries/boards';
 import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
@@ -33,6 +33,8 @@ const TITLE_DEBOUNCE_MS = 300;
 interface BoardBuilderProps {
   board: Board;
   isOwner: boolean;
+  /** Shared with the route's picker confirm, so one banner covers every step write. */
+  setStepIds: SetStepIdsResult;
   onBack: () => void;
   onOpenPicker: () => void;
   onOpenShare: () => void;
@@ -44,6 +46,7 @@ interface BoardBuilderProps {
 export const BoardBuilder = ({
   board,
   isOwner,
+  setStepIds,
   onBack,
   onOpenPicker,
   onOpenShare,
@@ -58,7 +61,6 @@ export const BoardBuilder = ({
   const setKind = useSetBoardKind();
   const setLabels = useSetLabelsVisible();
   const setVoice = useSetVoiceMode();
-  const setStepIds = useSetStepIds();
   const setKidReorderable = useSetKidReorderable();
 
   // Local title state keeps the input snappy; the mutation fires once the user

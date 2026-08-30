@@ -456,7 +456,7 @@ describe('useCreatePhotoPictogram', () => {
     let created: { id: string; imagePath: string } | undefined;
     act(() => {
       void result.current
-        .mutateAsync({ label: '  Cereal bowl  ', blob, extension: 'jpg' })
+        .mutateAsync({ id: crypto.randomUUID(), label: '  Cereal bowl  ', blob, extension: 'jpg' })
         .then((r) => (created = r));
     });
 
@@ -502,6 +502,7 @@ describe('useCreatePhotoPictogram', () => {
 
     act(() => {
       result.current.mutate({
+        id: crypto.randomUUID(),
         label: 'Cereal bowl',
         blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
         extension: 'jpg',
