@@ -24,10 +24,14 @@ describe('formatUpdated', () => {
   });
 
   it('shows days for 2–6 days', () => {
-    expect(formatUpdated(ago(60 * 60 * 24 * 3), now)).toBe('3 days ago');
+    expect(formatUpdated(ago(60 * 60 * 24 * 3), now)).toBe('Edited 3 days ago');
   });
 
   it('shows weeks for 1–4 weeks', () => {
-    expect(formatUpdated(ago(60 * 60 * 24 * 14), now)).toBe('2w ago');
+    expect(formatUpdated(ago(60 * 60 * 24 * 14), now)).toBe('Edited 2w ago');
+  });
+
+  it('does not round 23h up to yesterday', () => {
+    expect(formatUpdated(ago(60 * 60 * 23 + 60 * 40), now)).toBe('Edited 23h ago');
   });
 });

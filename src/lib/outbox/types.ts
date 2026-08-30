@@ -133,5 +133,3 @@ export type OutboxEntry =
   | RenameKidEntry
   | DeleteKidEntry
   | DeleteBoardEntry;
-
-export type OutboxEntryKind = OutboxEntry['kind'];
