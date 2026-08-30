@@ -2,6 +2,7 @@ import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
+import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import {
   useRenameBoard,
   useSetBoardKind,
@@ -39,24 +40,6 @@ interface BoardBuilderProps {
   onKidMode: () => void;
   onNav?: (id: ParentNavKey) => void;
 }
-
-interface Step {
-  key: string;
-  pictoId: string;
-  picto: Pictogram;
-}
-
-/**
- * React keys must be unique across duplicates of the same pictogram. The
- * `pictoId` alone collides when a board contains the same pictogram twice.
- * A positional suffix keeps each rendered step stable during reorder.
- */
-const buildSteps = (stepIds: string[], byId: Map<string, Pictogram>): Step[] =>
-  stepIds.flatMap((pictoId, index) => {
-    const picto = byId.get(pictoId);
-    if (!picto) return [];
-    return [{ key: `${pictoId}-${index}`, pictoId, picto }];
-  });
 
 export const BoardBuilder = ({
   board,
@@ -122,7 +105,7 @@ export const BoardBuilder = ({
   );
 
   const steps = useMemo(
-    () => buildSteps(board.stepIds, pictogramsById),
+    () => buildBoardSteps(board.stepIds, pictogramsById),
     [board.stepIds, pictogramsById],
   );
 
@@ -134,18 +117,15 @@ export const BoardBuilder = ({
     [allPictograms],
   );
 
-  const removeAt = (index: number): void =>
+  const removeAt = (stepIndex: number): void =>
     setStepIds.mutate({
       boardId: board.id,
-      update: (prev) => prev.filter((_, i) => i !== index),
+      update: (prev) => prev.filter((_, i) => i !== stepIndex),
     });
 
   const reorder = (nextKeys: string[]): void => {
-    const byKey = new Map(steps.map((s) => [s.key, s.pictoId]));
-    const nextIds = nextKeys
-      .map((k) => byKey.get(k))
-      .filter((id): id is string => typeof id === 'string');
-    setStepIds.mutate({ boardId: board.id, update: () => nextIds });
+    const { stepIds } = reorderBoardSteps(board.stepIds, steps, nextKeys);
+    setStepIds.mutate({ boardId: board.id, update: () => stepIds });
   };
 
   const appendPicto = (pictoId: string): void =>
@@ -208,7 +188,7 @@ export const BoardBuilder = ({
         <div className={styles.trackRow}>
           <div className={`${styles.rail} tal-scroll`}>
             <Reorderable
-              items={steps.map((s) => ({ ...s, id: s.key }))}
+              items={steps}
               onReorder={reorder}
               renderItem={(step, i, drag) => (
                 <Fragment key={step.id}>
@@ -217,7 +197,7 @@ export const BoardBuilder = ({
                     index={i}
                     kind={board.kind}
                     labelsVisible={board.labelsVisible}
-                    onRemove={() => removeAt(i)}
+                    onRemove={() => removeAt(step.stepIndex)}
                     onEdit={() => setEditTarget(step.picto)}
                     drag={drag}
                   />
