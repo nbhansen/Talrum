@@ -9,6 +9,14 @@ const setBoardKindMock = vi.fn();
 const renameBoardMock = vi.fn();
 const deleteBoardMock = vi.fn();
 const setStepIdsMock = vi.fn();
+const stepIdsResult = {
+  mutate: setStepIdsMock,
+  retry: vi.fn(),
+  isError: false,
+  error: null,
+  isPending: false,
+  reset: vi.fn(),
+};
 let pictogramsById = new Map<string, Pictogram>();
 
 vi.mock('@/lib/queries/boards', () => ({
@@ -16,14 +24,6 @@ vi.mock('@/lib/queries/boards', () => ({
   useSetBoardKind: () => ({ mutate: setBoardKindMock }),
   useSetKidReorderable: () => ({ mutate: vi.fn() }),
   useSetLabelsVisible: () => ({ mutate: vi.fn() }),
-  useSetStepIds: () => ({
-    mutate: setStepIdsMock,
-    retry: vi.fn(),
-    isError: false,
-    error: null,
-    isPending: false,
-    reset: vi.fn(),
-  }),
   useSetVoiceMode: () => ({ mutate: vi.fn() }),
   useDeleteBoard: () => ({ mutateAsync: deleteBoardMock, isPending: false }),
 }));
@@ -98,6 +98,7 @@ describe('BoardBuilder title', () => {
         <BoardBuilder
           board={baseBoard}
           isOwner
+          setStepIds={stepIdsResult}
           onBack={noop}
           onOpenPicker={noop}
           onOpenShare={noop}
@@ -127,6 +128,7 @@ describe('BoardBuilder blank title', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -188,6 +190,7 @@ describe('BoardBuilder Share button', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -203,6 +206,7 @@ describe('BoardBuilder Share button', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner={false}
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -219,6 +223,7 @@ describe('BoardBuilder Share button', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={onOpenShare}
@@ -237,6 +242,7 @@ describe('BoardBuilder Delete board (#520)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner={isOwner}
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -270,6 +276,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -288,6 +295,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -307,6 +315,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -325,6 +334,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -344,6 +354,7 @@ describe('BoardBuilder track (#522)', () => {
       <BoardBuilder
         board={{ ...baseBoard, kind, stepIds }}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -401,6 +412,7 @@ describe('BoardBuilder steps with a missing pictogram', () => {
       <BoardBuilder
         board={{ ...baseBoard, stepIds }}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
@@ -443,6 +455,7 @@ describe('BoardBuilder Quick add section (#234)', () => {
       <BoardBuilder
         board={baseBoard}
         isOwner
+        setStepIds={stepIdsResult}
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
