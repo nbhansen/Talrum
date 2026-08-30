@@ -1,14 +1,7 @@
--- Phase 3 step 5: real auth + per-user onboarding, uuid-native schema.
---
--- Drops and recreates the Phase 2 tables to replace text primary keys with
--- uuids. Text slugs ('apple', 'morning', 'liam') are preserved as an
--- optional human-readable column, not as identifiers. This removes the
--- entire class of Phase 3 workarounds (composite PKs, uuid-prefix arithmetic
--- on board.id, dropped boards.kid_id FK) that accumulated because text PKs
--- can't repeat across users.
---
--- Safe to run destructively because Phase 2 ran against a stub user only;
--- no real user data exists yet.
+-- Real auth + per-user onboarding, uuid-native schema. Drops and recreates
+-- the stub-auth tables: text PKs cannot repeat across users, so uuids are
+-- the identifiers and slugs stay as an optional human-readable column.
+-- Destructive on purpose — only stub-user data existed before this.
 
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user();
@@ -188,13 +181,10 @@ create policy template_pictograms_read on template_pictograms
 create policy template_boards_read on template_boards
   for select using (auth.role() = 'authenticated');
 
--- On new auth.users row: clone templates into the signing-up user's tables.
--- Idempotent: if the kid already exists (retry after a partial failure) we
--- skip cloning so a re-fire doesn't double-seed.
---
--- SECURITY DEFINER is required because the trigger runs in the auth schema's
--- context during signup; search_path is pinned to public so the trigger
--- can't be hijacked via a same-named template_* in another schema.
+-- Clones templates into the signing-up user's tables. Idempotent: an
+-- existing kid skips the clone, so a trigger re-fire cannot double-seed.
+-- SECURITY DEFINER because signup runs in the auth schema's context;
+-- search_path pinned so same-named tables elsewhere cannot hijack it.
 
 create or replace function handle_new_user() returns trigger
 language plpgsql security definer

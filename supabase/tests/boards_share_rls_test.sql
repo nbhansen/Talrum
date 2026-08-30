@@ -1,29 +1,6 @@
--- Regression test for boards / board_members RLS.
---
--- boards carries the most policy surface of any table (per-command
--- select/insert/update/delete plus the membership and editor branches)
--- but until now was exercised only incidentally by
--- pictograms_kids_share_rls_test.sql and storage_share_rls_test.sql.
--- This test pins the role matrix directly:
---
---   boards         — owner sees all own boards; a member sees exactly the
---                    shared board (not the owner's other boards); a
---                    stranger and a cross-owner member see zero. Viewer
---                    UPDATE is filtered, editor UPDATE succeeds
---                    (`boards_update` editor branch, wired since Phase 3
---                    even though the UI only surfaces viewers), DELETE
---                    stays owner-only, and INSERT with someone else's
---                    owner_id is rejected outright.
---   board_members  — the owner manages membership (positive INSERT and
---                    DELETE paths); a member sees only their own row and
---                    can neither self-escalate to editor, invite others,
---                    nor remove rows.
---
--- Same user shape as the sibling share tests: Alice owner; Bob viewer on
--- one Alice board; Erin editor on the same board (added by Alice through
--- RLS as a positive write assertion); Charlie unrelated; Dana member of
--- Charlie's board, NOT Alice's (scoped-membership guard).
---
+-- boards / board_members RLS role matrix: owner, member (viewer + editor),
+-- stranger, and a cross-owner member. The test names below state each
+-- expectation. Same user shape as the sibling share tests.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(18);

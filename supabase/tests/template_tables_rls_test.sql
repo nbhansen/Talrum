@@ -1,12 +1,6 @@
--- Role-switched test for the template-table RLS policies (#508).
---
--- grants_test.sql pins the privilege layer (SELECT-only for authenticated,
--- nothing for anon). Nothing asserted the policy layer: a broken
--- `template_pictograms_read` / `template_boards_read` would make
--- authenticated reads return zero rows silently while every grant
--- assertion stays green.
---
--- Run with: supabase test db
+-- Template-table RLS policy layer (#508): a broken *_read policy returns
+-- zero rows silently while every grant assertion in grants_test stays
+-- green. Run with: supabase test db
 BEGIN;
 SELECT plan(6);
 

@@ -1,10 +1,6 @@
--- Adds the missing FK cascades from app tables to auth.users.
--- Required by issue #100 (delete-my-account) so that auth.users deletion
--- cleans up all owner-scoped app rows in one atomic step.
---
--- Pre-launch context: cloud has no real users yet, so default validation
--- is safe. If a future replay against populated data finds orphans, the
--- ALTER fails — by design — surfacing them for cleanup before deploy.
+-- FK cascades from app tables to auth.users (#100): account deletion
+-- cleans owner-scoped rows in one atomic step. A replay against populated
+-- data fails on orphans by design, surfacing them before deploy.
 
 alter table public.kids
   add constraint kids_owner_id_fkey

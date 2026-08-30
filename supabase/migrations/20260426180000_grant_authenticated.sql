@@ -1,9 +1,6 @@
--- Cloud project's postgres-owned default ACL on schema public grants only
--- Dxtm (truncate/references/trigger/maintain) to anon/authenticated/service_role.
--- Tables created by `supabase db push` (running as postgres) inherit that ACL
--- and lack arwd, so PostgREST returns 42501 "permission denied" before RLS
--- runs. Grant CRUD to authenticated for existing app tables and set the
--- schema default so future migrations stay safe.
+-- Cloud's default ACL lacks CRUD for the API roles, so pushed tables made
+-- PostgREST return 42501 before RLS ran. Grant CRUD to authenticated and
+-- set the schema default so future migrations stay safe.
 
 grant select, insert, update, delete on
   public.kids,

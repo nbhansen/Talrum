@@ -1,25 +1,7 @@
--- Seed the starter template library that handle_new_user() clones into every
--- new user's account on signup (closes #63). Without this, fresh signups on
--- cloud land on a blank screen — the AAC tool's primary value (pictograms to
--- react to, boards to use) is invisible until the parent creates content
--- from scratch.
---
--- Why a migration and not supabase/seed.sql: by Supabase convention seed.sql
--- only runs on local `supabase db reset`. `supabase db push --linked` (used
--- by deploy-migrations.yml) does not run seed.sql, so cloud has stayed empty
--- since the project's first deploy. A migration is the only path that lands
--- on cloud automatically. After this PR, supabase/seed.sql is blanked and
--- this file is the single source of truth for starter content — no drift
--- between local and cloud.
---
--- Idempotency: ON CONFLICT (slug) DO NOTHING. Supabase doesn't reapply
--- migrations, but the ON CONFLICT shape also makes a hand-run safe.
---
--- Future template changes: write a NEW migration that explicitly UPDATEs by
--- slug for changes to existing rows, INSERTs new slugs, and DELETEs removed
--- ones. Re-running this migration with a changed label would silently drop
--- the change because of ON CONFLICT — that's intentional (this file is
--- frozen as the v1 starter library).
+-- Starter template library that handle_new_user() clones on signup (#63).
+-- A migration, not seed.sql, because `db push` never runs seed.sql on
+-- cloud. Frozen as v1: ON CONFLICT (slug) DO NOTHING makes hand-runs safe,
+-- so template changes need a NEW migration that updates by slug.
 
 insert into template_pictograms
   (slug, label, style, glyph, tint, image_path, audio_path) values

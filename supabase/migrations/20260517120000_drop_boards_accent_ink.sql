@@ -1,12 +1,7 @@
--- Drop denormalised `accent_ink` from boards + template_boards. Ink is now
--- derived from `accent` in the read layer via inkForAccent (src/theme/tokens.ts).
--- Order matters: recreate the trigger function first so it stops referencing
--- the column, then drop. Body matches 20260425000000 except for the column
--- list in the boards INSERT.
---
--- CREATE OR REPLACE preserves the function's OID, so the on_auth_user_created
--- trigger binding from 20260425000000 keeps pointing at the same function
--- record. No need to re-create the trigger.
+-- Drop denormalised accent_ink; ink derives from accent via inkForAccent.
+-- Order matters: recreate the trigger function first so it stops
+-- referencing the column, then drop. CREATE OR REPLACE keeps the OID, so
+-- the trigger binding survives.
 
 create or replace function private.handle_new_user() returns trigger
 language plpgsql security definer
