@@ -2,7 +2,6 @@ import { type JSX, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
-import { BoardErrorBanner } from '@/features/board-builder/BoardErrorBanner';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
 import { PictoPicker } from '@/features/board-builder/pictogram-picker/PictoPicker';
 import { ShareModal } from '@/features/board-builder/ShareModal';
@@ -72,10 +71,10 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
 
   return (
     <>
-      <BoardErrorBanner mutation={setStepIds} message="Couldn't save your picks. Try again." />
       <BoardBuilder
         board={board}
         isOwner={isOwner}
+        setStepIds={setStepIds}
         onBack={() => navigate('/')}
         onOpenPicker={openPicker}
         onOpenShare={openShare}

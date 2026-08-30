@@ -215,6 +215,35 @@ describe('useOptimisticListMutation', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: mirrorKey });
   });
 
+  it('removes an entry a create patch materialized from an empty cache on error', async () => {
+    // `[...(list ?? []), row]` creates the cache entry from nothing. Rollback
+    // must remove it: invalidation does not refetch an unobserved query, and
+    // the persister would write the phantom row to IndexedDB.
+    const createCache = listCache<Item, RenameInput>(itemsKey, (list, { id, name }) => [
+      ...(list ?? []),
+      { id, name },
+    ]);
+    const qc = makeClient();
+    const { mutationFn, reject } = deferredMutation();
+
+    const { result } = renderHook(
+      () => useOptimisticListMutation({ caches: [createCache], mutationFn }),
+      { wrapper: makeWrapper(qc) },
+    );
+
+    act(() => {
+      result.current.mutate({ id: 'x', name: 'New' });
+    });
+    await waitFor(() => {
+      expect(qc.getQueryData<Item[]>(itemsKey)).toEqual([{ id: 'x', name: 'New' }]);
+    });
+
+    reject(new Error('server said no'));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(qc.getQueryData(itemsKey)).toBeUndefined();
+  });
+
   it('runs onMutateSideEffect after the patch and does not roll it back on error', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
