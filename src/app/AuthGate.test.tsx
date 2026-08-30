@@ -248,6 +248,37 @@ describe('AuthGate', () => {
     });
   });
 
+  // getSession can lag (it refreshes an expired token over the network). A
+  // SIGNED_IN that lands first must win over the stale getSession result, or
+  // a just-signed-in user bounces back to Login.
+  it('ignores a late getSession result once an auth event has landed', async () => {
+    let resolveGetSession: (v: { data: { session: Session | null } }) => void = () => undefined;
+    getSessionMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveGetSession = resolve;
+      }),
+    );
+    const sessionB = makeSession('user-b-id', 'b@example.com');
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+
+    act(() => {
+      lastAuthListener?.('SIGNED_IN', sessionB);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+    });
+
+    await act(async () => {
+      resolveGetSession({ data: { session: null } });
+    });
+    expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+    expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+  });
+
   // These survived sign-out, locking the next user out of kid mode and aiming
   // their auto-launch at user A's board (#178).
   it('clears talrum:pin-hash and talrum:last-board from localStorage on SIGNED_OUT (#178)', async () => {
