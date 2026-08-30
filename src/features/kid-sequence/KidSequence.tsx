@@ -1,12 +1,13 @@
 import { type JSX, type PointerEvent, useEffect, useRef, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
+import { type BoardStep, buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import { getKidCopy } from '@/lib/kidCopy';
 import { useSetStepIds } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { useLongPress } from '@/lib/useLongPress';
 import { speakPictogram } from '@/lib/voiceOut';
-import type { Board, Pictogram } from '@/types/domain';
+import type { Board } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { CheckIcon, SpeakerIcon } from '@/ui/icons';
 import { type DragBindings, Reorderable } from '@/ui/Reorderable/Reorderable';
@@ -25,25 +26,8 @@ const SPEAK_FLASH_MS = 600;
 const MEDIA_SIZE = 104;
 const CURRENT_MEDIA_SIZE = 284;
 
-interface Step {
-  key: string;
-  pictoId: string;
-  picto: Pictogram;
-  id: string; // alias of key for Reorderable's Identified constraint
-}
-
-const slotKey = (pictoId: string, index: number): string => `${pictoId}-${index}`;
-
-const buildSteps = (stepIds: readonly string[], byId: Map<string, Pictogram>): Step[] =>
-  stepIds.flatMap((pictoId, index) => {
-    const picto = byId.get(pictoId);
-    if (!picto) return [];
-    const key = slotKey(pictoId, index);
-    return [{ key, id: key, pictoId, picto }];
-  });
-
 interface SequenceTileProps {
-  step: Step;
+  step: BoardStep;
   labelsVisible: boolean;
   isSpeaking: boolean;
   isDone: boolean;
@@ -119,7 +103,7 @@ const SequenceTile = ({
 export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element => {
   const kidCopy = getKidCopy();
   const pictogramsById = usePictogramsById();
-  const steps = buildSteps(board.stepIds, pictogramsById);
+  const steps = buildBoardSteps(board.stepIds, pictogramsById);
   // Track the speaking flash and done state by slot key, not pictogram id: a
   // sequence may repeat the same pictogram ("jump, jump, jump"), and an
   // id-keyed flash would light up every identical tile at once (#273).
@@ -138,7 +122,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     [],
   );
 
-  const announce = (step: Step): void => {
+  const announce = (step: BoardStep): void => {
     setSpeakingKey(step.key);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => {
@@ -157,21 +141,18 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     });
 
   const handleReorder = (nextKeys: string[]): void => {
-    const byKey = new Map(steps.map((s) => [s.key, s.pictoId]));
-    const nextIds = nextKeys
-      .map((k) => byKey.get(k))
-      .filter((id): id is string => typeof id === 'string');
+    const { stepIds, keyMap } = reorderBoardSteps(board.stepIds, steps, nextKeys);
     // Done state follows the pictogram into its new slot.
     setDoneKeys(
       (prev) =>
         new Set(
-          nextKeys.flatMap((k, i) => {
-            const id = byKey.get(k);
-            return prev.has(k) && id ? [slotKey(id, i)] : [];
+          [...prev].flatMap((k) => {
+            const nextKey = keyMap.get(k);
+            return nextKey ? [nextKey] : [];
           }),
         ),
     );
-    setStepIds.mutate({ boardId: board.id, update: () => nextIds });
+    setStepIds.mutate({ boardId: board.id, update: () => stepIds });
   };
 
   const currentIndex = steps.findIndex((s) => !doneKeys.has(s.key));
@@ -181,7 +162,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     : kidCopy.sequence.allDone;
   const allDone = steps.length > 0 && !current;
 
-  const renderTile = (step: Step, drag?: DragBindings): JSX.Element => (
+  const renderTile = (step: BoardStep, drag?: DragBindings): JSX.Element => (
     <SequenceTile
       step={step}
       labelsVisible={board.labelsVisible}

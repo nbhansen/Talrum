@@ -8,9 +8,9 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
+  horizontalListSortingStrategy,
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties, JSX, ReactNode } from 'react';
@@ -31,8 +31,6 @@ interface ReorderableProps<T extends Identified> {
   items: readonly T[];
   onReorder: (nextIds: string[]) => void;
   renderItem: (item: T, index: number, drag: DragBindings) => ReactNode;
-  /** Key suffix lets the same id appear twice (e.g. duplicate picto in steps). */
-  keyFor?: (item: T, index: number) => string;
 }
 
 /**
@@ -43,9 +41,8 @@ export const Reorderable = <T extends Identified>({
   items,
   onReorder,
   renderItem,
-  keyFor,
 }: ReorderableProps<T>): JSX.Element => {
-  const keys = items.map((item, i) => (keyFor ? keyFor(item, i) : item.id));
+  const keys = items.map((item) => item.id);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const handleDragEnd = (event: DragEndEvent): void => {
@@ -60,7 +57,7 @@ export const Reorderable = <T extends Identified>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={keys} strategy={verticalListSortingStrategy}>
+      <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
         {items.map((item, i) => (
           <SortableItem key={keys[i]} itemKey={keys[i] ?? item.id}>
             {(drag) => renderItem(item, i, drag)}

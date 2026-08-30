@@ -1,13 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Board } from '@/types/domain';
+import type { Board, Pictogram } from '@/types/domain';
 
 const setBoardKindMock = vi.fn();
 const renameBoardMock = vi.fn();
 const deleteBoardMock = vi.fn();
+const setStepIdsMock = vi.fn();
+let pictogramsById = new Map<string, Pictogram>();
 
 vi.mock('@/lib/queries/boards', () => ({
   useRenameBoard: () => ({ mutate: renameBoardMock }),
@@ -15,7 +17,7 @@ vi.mock('@/lib/queries/boards', () => ({
   useSetKidReorderable: () => ({ mutate: vi.fn() }),
   useSetLabelsVisible: () => ({ mutate: vi.fn() }),
   useSetStepIds: () => ({
-    mutate: vi.fn(),
+    mutate: setStepIdsMock,
     retry: vi.fn(),
     isError: false,
     error: null,
@@ -28,8 +30,37 @@ vi.mock('@/lib/queries/boards', () => ({
 
 vi.mock('@/lib/queries/pictograms', () => ({
   usePictograms: () => ({ data: [] }),
-  usePictogramsById: () => new Map(),
+  usePictogramsById: () => pictogramsById,
 }));
+
+// Stub: a real drag needs pointer geometry jsdom does not have. The "reverse
+// order" button hands BoardBuilder the same nextKeys a completed drag would.
+vi.mock('@/ui/Reorderable/Reorderable', () => {
+  const drag = {
+    setNodeRef: (): void => undefined,
+    style: {},
+    attributes: {},
+    listeners: {},
+    isDragging: false,
+  };
+  return {
+    Reorderable: <T extends { id: string }>(props: {
+      items: readonly T[];
+      onReorder: (nextIds: string[]) => void;
+      renderItem: (item: T, index: number, bindings: typeof drag) => ReactNode;
+    }): JSX.Element => (
+      <>
+        {props.items.map((item, i) => props.renderItem(item, i, drag))}
+        <button
+          type="button"
+          onClick={() => props.onReorder(props.items.map((it) => it.id).reverse())}
+        >
+          reverse order
+        </button>
+      </>
+    ),
+  };
+});
 
 vi.mock('@/layouts/ParentShell', () => ({
   ParentShell: ({ children }: { children: JSX.Element }): JSX.Element => <div>{children}</div>,
@@ -338,6 +369,71 @@ describe('BoardBuilder track (#522)', () => {
     expect(rail).not.toBeNull();
     const addTile = screen.getByRole('button', { name: /add picto/i });
     expect(rail?.contains(addTile)).toBe(false);
+  });
+});
+
+describe('BoardBuilder steps with a missing pictogram', () => {
+  // A stepId can be unresolvable on a shared board (owner-scoped pictogram),
+  // or transiently while the pictogram query loads. Remove and reorder must
+  // act on the full stepIds array, never on rendered positions.
+  const apple: Pictogram = {
+    id: 'apple-uuid',
+    label: 'Apple',
+    style: 'illus',
+    glyph: 'apple',
+    tint: 'oklch(88% 0.05 20)',
+  };
+  const cup: Pictogram = {
+    id: 'cup-uuid',
+    label: 'Drink',
+    style: 'illus',
+    glyph: 'cup',
+    tint: 'oklch(88% 0.05 240)',
+  };
+  const stepIds = [apple.id, 'ghost-uuid', cup.id];
+
+  const renderBoard = (): void => {
+    pictogramsById = new Map([
+      [apple.id, apple],
+      [cup.id, cup],
+    ]);
+    render(
+      <BoardBuilder
+        board={{ ...baseBoard, stepIds }}
+        isOwner
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onDeleted={noop}
+        onKidMode={noop}
+      />,
+    );
+  };
+
+  afterEach(() => {
+    pictogramsById = new Map();
+  });
+
+  const capturedUpdate = (): ((prev: string[]) => string[]) => {
+    expect(setStepIdsMock).toHaveBeenCalledTimes(1);
+    const arg = setStepIdsMock.mock.calls[0]?.[0] as {
+      boardId: string;
+      update: (prev: string[]) => string[];
+    };
+    expect(arg.boardId).toBe(baseBoard.id);
+    return arg.update;
+  };
+
+  it('removes the tapped step, not the step at its rendered position', async () => {
+    renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Drink' }));
+    expect(capturedUpdate()(stepIds)).toEqual([apple.id, 'ghost-uuid']);
+  });
+
+  it('keeps unresolvable steps in place when the rendered steps reorder', async () => {
+    renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'reverse order' }));
+    expect(capturedUpdate()(stepIds)).toEqual([cup.id, 'ghost-uuid', apple.id]);
   });
 });
 
