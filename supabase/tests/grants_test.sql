@@ -8,7 +8,7 @@
 --
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(88);
+SELECT plan(92);
 
 -- 1–16: authenticated has full CRUD on the four real app tables.
 SELECT ok(has_table_privilege('authenticated', 'public.kids',          'SELECT'), 'authenticated can SELECT kids');
@@ -122,7 +122,7 @@ SELECT ok(has_function_privilege('authenticated', 'public.delete_pictogram(uuid)
 SELECT ok(has_function_privilege('service_role',  'public.delete_pictogram(uuid)', 'EXECUTE'), 'service_role can EXECUTE delete_pictogram');
 SELECT ok(NOT has_function_privilege('anon',      'public.delete_pictogram(uuid)', 'EXECUTE'), 'anon cannot EXECUTE delete_pictogram');
 
--- 76–85: the five RLS helpers in `private` KEEP EXECUTE for the API roles.
+-- 76–89: the RLS helpers in `private` KEEP EXECUTE for the API roles.
 -- This is the load-bearing half of #91: policies call these helpers during
 -- evaluation, and revoking EXECUTE on a function in that position crashes
 -- the Postgres backend mid-query (verified empirically — see
@@ -136,13 +136,17 @@ SELECT ok(has_function_privilege('authenticated', 'private.is_board_member(uuid)
 SELECT ok(has_function_privilege('authenticated', 'private.is_board_editor(uuid)',               'EXECUTE'), 'authenticated keeps EXECUTE on is_board_editor (RLS evaluation)');
 SELECT ok(has_function_privilege('authenticated', 'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'authenticated keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
 SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_editor_for_owner(uuid)',           'EXECUTE'), 'authenticated keeps EXECUTE on is_editor_for_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_writable(text)', 'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_writable (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_board_owner(uuid)',                'EXECUTE'), 'anon keeps EXECUTE on is_board_owner (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_board_member(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_member (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_board_editor(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_editor (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'anon keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
 SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_editor_for_owner(uuid)',           'EXECUTE'), 'anon keeps EXECUTE on is_editor_for_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_writable(text)', 'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_writable (RLS evaluation)');
 
--- 86–88: USAGE on the `private` schema itself. The other documented half of
+-- 90–92: USAGE on the `private` schema itself. The other documented half of
 -- the same crash contract: without USAGE the role cannot resolve the
 -- qualified helper name during policy evaluation, and the backend-crash
 -- failure mode reappears (20260427145144_move_helpers_to_private_schema.sql).
