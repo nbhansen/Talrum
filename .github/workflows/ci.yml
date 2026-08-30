@@ -168,5 +168,10 @@ jobs:
         with:
           # Same pin as the verify job — keep both jobs on one CLI version.
           version: 2.105.0
-      - run: supabase link --project-ref "$PROJECT_REF"
-      - run: npm run migrations:check-drift
+      # Fork and dependabot PRs get no repo secrets; `supabase link` with an
+      # empty project ref would fail the job for a reason unrelated to the
+      # diff. Skip the check there — deploy.yml re-asserts parity on push.
+      - if: env.PROJECT_REF != ''
+        run: supabase link --project-ref "$PROJECT_REF"
+      - if: env.PROJECT_REF != ''
+        run: npm run migrations:check-drift

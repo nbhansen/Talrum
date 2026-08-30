@@ -32,7 +32,7 @@ SELECT is(
   'no SECURITY DEFINER function exists in public schema (use private instead)'
 );
 
--- 2. The seven internal helpers from this app must live in `private`. Pinning
+-- 2. The internal helpers from this app must live in `private`. Pinning
 --    by name catches a regression where a maintainer drops one of them, then
 --    recreates it in `public` (which a class-wide DEFINER check could miss
 --    if they happened to flip the function to INVOKER along the way).
@@ -43,6 +43,7 @@ SELECT is(
     WHERE p.proname IN (
             'is_board_owner', 'is_board_member', 'is_board_editor',
             'is_owner_shared_with_me', 'is_pictogram_storage_visible',
+            'is_editor_for_owner', 'is_pictogram_storage_writable',
             'handle_new_user', 'set_updated_at',
             'rls_auto_enable'
           )
