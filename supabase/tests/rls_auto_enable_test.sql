@@ -1,21 +1,6 @@
--- Regression test for #102: `private.rls_auto_enable()` must not silently
--- swallow per-table RLS-enable failures.
---
--- The original event-trigger body wrapped its `alter table ... enable row
--- level security` call in `begin ... exception when others then raise log
--- ... end`. A failure there meant a public table got created WITHOUT RLS
--- and the only signal was a log line on the dashboard. Since the trigger
--- runs SECURITY DEFINER as `postgres`, forcing a real failure is contrived
--- (postgres has ALTER on everything we'd plausibly create in a migration).
--- So instead, this test asserts a structural property: the function source
--- has no `exception when others` clause.
---
--- This is weaker than a behavioral test but strong enough to catch the
--- specific regression — someone adding the swallow-block back. The happy
--- path (RLS gets enabled on new public tables) is implicitly covered by
--- every other migration that creates a public table plus the RLS-coverage
--- assertion in rest_surface_contract_test.sql.
---
+-- rls_auto_enable must not swallow RLS-enable failures (#102). Forcing a
+-- real failure as postgres is contrived, so the assertion is structural:
+-- the body has no `exception when others` clause.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(2);

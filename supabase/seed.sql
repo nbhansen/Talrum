@@ -1,10 +1,3 @@
--- Local dev seed (runs on `supabase db reset`). Reserved for local-only
--- test/dev data — anything that should NOT land on cloud.
---
--- Template content (template_pictograms, template_boards) is NOT seeded here
--- anymore. It lives in a migration so deploy-migrations.yml can land it on
--- cloud — see supabase/migrations/20260427162919_seed_templates.sql.
--- That migration is the single source of truth for the starter library.
---
--- This file is intentionally empty. Add local-only fixtures here if/when
--- they're needed.
+-- Local-only fixtures (runs on `supabase db reset`). Intentionally empty:
+-- template content lives in the 20260427162919_seed_templates migration so
+-- deploys land it on cloud.

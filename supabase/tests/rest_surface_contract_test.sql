@@ -1,19 +1,7 @@
--- Regression test pinning the REST surface contract introduced in #91.
---
--- PostgREST exposes every function in the schemas listed in
--- `[api].schemas` (config.toml: ["public", "graphql_public"]) as
--- `/rest/v1/rpc/<name>`. SECURITY DEFINER helpers used inside RLS policies
--- are internal plumbing — they should never be reachable as REST endpoints,
--- because their bodies (`exists (select 1 from boards where ...)`) are
--- designed for evaluation inside policy expressions, not for direct callers.
---
--- The fix in #91 was to move every internal helper into `private` (a schema
--- not in `[api].schemas`). This test pins that contract: any future
--- `create or replace function` that lands a SECURITY DEFINER helper in
--- `public` re-introduces the same advisor warning surface (lints 0028+0029)
--- and trips this assertion.
---
--- Run with: supabase test db
+-- REST surface contract (#91): PostgREST exposes every function in the
+-- [api].schemas list as /rest/v1/rpc/<name>, so internal RLS helpers must
+-- live in `private`. A DEFINER helper landing in `public` trips this
+-- (advisor lints 0028+0029). Run with: supabase test db
 BEGIN;
 SELECT plan(2);
 
