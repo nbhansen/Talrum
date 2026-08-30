@@ -42,8 +42,8 @@ The longer version — the architecture, the offline model, and the design
 trade-offs — is written up at
 [nbhansen.dk/2026-07-15-how-talrum-is-built](https://nbhansen.dk/2026-07-15-how-talrum-is-built/).
 
-What has shipped and what's planned is tracked as epics and user stories in
-[docs/user-stories.md](./docs/user-stories.md).
+What has shipped and what's planned is tracked in the GitHub issues and
+milestones.
 
 ## Quick start
 
@@ -80,6 +80,7 @@ Supabase Studio is at <http://127.0.0.1:54323>.
 | Typecheck            | `npm run typecheck`    |
 | Lint (zero warnings) | `npm run lint`         |
 | Lint CSS tokens      | `npm run lint:css`     |
+| Lint layer imports   | `npm run lint:boundaries` |
 | Lint comment length  | `npm run lint:comments`|
 | Tests                | `npm run test`         |
 | DB tests (pgTAP)     | `npm run test:db`      |
@@ -114,8 +115,7 @@ Email-OTP via Supabase. The full flow and how to read OTPs locally are in
 ## Deployment
 
 Backend is a Supabase Cloud project. The web SPA deploys to Cloudflare Pages.
-Mobile clients use the Supabase SDK and hit the same project. Path to a
-self-hosted Supabase on a VPS is in [docs/self-hosting.md](./docs/self-hosting.md).
+Mobile clients use the Supabase SDK and hit the same project.
 
 **One-time setup**
 

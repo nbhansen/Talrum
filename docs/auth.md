@@ -1,9 +1,6 @@
 # Auth — email code sign-in
 
-Real email-based sign-in with uuid-native per-user onboarding. It replaced
-an earlier stubbed single-user auth from the initial build — the "Phase 2" /
-"Phase 3" labels in the storage caveat at the bottom refer to that
-transition.
+Email-based sign-in with uuid-native per-user onboarding.
 
 ## Flow
 
@@ -14,7 +11,7 @@ transition.
   `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
 - `AuthGate` (`src/app/AuthGate.tsx`) subscribes to
   `onAuthStateChange` and swaps the routed app in/out on session changes.
-- Sign-out is the avatar button in the parent sidebar.
+- Sign-out lives in Settings (`src/features/settings/AccountSection.tsx`).
 
 The code reaches the user only while the dashboard-managed email templates
 render `{{ .Token }}` (#219, #498). Two templates send it: **Magic Link** for
@@ -76,21 +73,3 @@ client-side lookup sites that need to name a template pictogram without
 knowing its per-user uuid — `ParentHome`'s recent strip, `BoardBuilder`'s
 quick-add — via `usePictogramsBySlug`. Column shapes and constraints live
 in the migrations and the generated `src/types/supabase.ts`.
-
-## Storage cleanup caveat
-
-Phase-2 uploads (if any were ever made against a real DB) were keyed under
-the stub user's uuid path. The Phase-3 migration drops and recreates the
-application tables but does **not** touch `storage.objects`. If this
-migration is ever applied to a DB that saw Phase-2 traffic, stranded
-objects will remain in the audio/images buckets — RLS will 403 them to
-every real user and they're invisible to the UI. Purge manually with:
-
-```sql
-delete from storage.objects
-where bucket_id in ('pictogram-audio', 'pictogram-images')
-  and (storage.foldername(name))[1] = '00000000-0000-0000-0000-0000000000a1';
-```
-
-For local dev this is a non-issue because `supabase db reset` clears
-storage.objects alongside the schema.
