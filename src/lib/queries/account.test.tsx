@@ -88,7 +88,7 @@ describe('useDeleteMyAccount', () => {
       return { error: null };
     });
 
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -118,7 +118,7 @@ describe('useDeleteMyAccount', () => {
       order.push('preSignOut');
     });
 
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc, onPreSignOut }), {
+    const { result } = renderHook(() => useDeleteMyAccount({ onPreSignOut }), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -137,7 +137,7 @@ describe('useDeleteMyAccount', () => {
     qc.setQueryData(['boards'], [{ id: 'b1' }]);
     const onPreSignOut = vi.fn();
 
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc, onPreSignOut }), {
+    const { result } = renderHook(() => useDeleteMyAccount({ onPreSignOut }), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -167,7 +167,7 @@ describe('useDeleteMyAccount', () => {
       data: null,
       error: makeHttpError(status, { ok: false, error: code, message: 'm' }),
     });
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -181,7 +181,7 @@ describe('useDeleteMyAccount', () => {
       data: null,
       error: makeHttpError(500, 'not json at all'),
     });
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -197,7 +197,7 @@ describe('useDeleteMyAccount', () => {
       data: null,
       error: makeHttpError(500, { not_an_error_field: 'x' }),
     });
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -213,7 +213,7 @@ describe('useDeleteMyAccount', () => {
       data: null,
       error: { name: 'FunctionsFetchError', message: 'network blip' },
     });
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -235,7 +235,7 @@ describe('useDeleteMyAccount', () => {
     // own mutation behaviour, not a client-level suppression.
     const qc = new QueryClient();
 
-    const { result } = renderHook(() => useDeleteMyAccount({ injectedClient: qc }), {
+    const { result } = renderHook(() => useDeleteMyAccount(), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();

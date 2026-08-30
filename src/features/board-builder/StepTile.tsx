@@ -5,7 +5,7 @@ import type { BoardKind, Pictogram } from '@/types/domain';
 import { IconButton } from '@/ui/IconButton/IconButton';
 import { PencilIcon, XIcon } from '@/ui/icons';
 import type { DragBindings } from '@/ui/Reorderable/Reorderable';
-import { PictoTile } from '@/widgets/PictoTile/PictoTile';
+import { PictoCard } from '@/widgets/PictoTile/PictoCard';
 
 import styles from './StepTile.module.css';
 
@@ -45,7 +45,7 @@ export const StepTile = ({
     >
       <div className={styles.marker}>{marker}</div>
       <div className={styles.body}>
-        <PictoTile picto={picto} size={116} showLabel={labelsVisible} />
+        <PictoCard picto={picto} size={116} showLabel={labelsVisible} />
       </div>
       {onEdit && (
         <IconButton

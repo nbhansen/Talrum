@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface CopyState {
   copied: boolean;
@@ -17,6 +17,13 @@ const COPIED_FLASH_MS = 1500;
 export const useCopy = (): CopyState => {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
   const copy = (text: string): void => {
     if (
       typeof navigator === 'undefined' ||
@@ -30,7 +37,8 @@ export const useCopy = (): CopyState => {
     void navigator.clipboard.writeText(text).then(
       () => {
         setCopied(true);
-        setTimeout(() => setCopied(false), COPIED_FLASH_MS);
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setCopied(false), COPIED_FLASH_MS);
       },
       () => {
         setError(FALLBACK_MESSAGE);
