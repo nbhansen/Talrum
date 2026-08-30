@@ -187,5 +187,5 @@ export PATH="$HOME/.deno/bin:$PATH"
 ```
 
 `supabase functions serve` will use this Deno when invoked locally. CI
-installs Deno via `denoland/setup-deno@v2` (already wired in Phase E),
+installs Deno via `denoland/setup-deno@v2`,
 so you don't need to do anything extra for CI runs.
