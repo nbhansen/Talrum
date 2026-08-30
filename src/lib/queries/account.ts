@@ -1,10 +1,5 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import {
-  type QueryClient,
-  useMutation,
-  type UseMutationResult,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { performSignOut } from '@/lib/auth/session';
 import { supabase } from '@/lib/supabase';
@@ -56,8 +51,6 @@ export const mapErrorCode = (payload: RawErrorPayload): DeleteAccountError => {
 type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
 
 export interface UseDeleteMyAccountOptions {
-  /** Optional QueryClient injection for testing. Production code omits. */
-  injectedClient?: QueryClient;
   /**
    * Fired before signOut. supabase-js fires onAuthStateChange synchronously
    * from inside signOut(), so anything after it runs on an unmounted tree.
@@ -68,8 +61,7 @@ export interface UseDeleteMyAccountOptions {
 export const useDeleteMyAccount = (
   options: UseDeleteMyAccountOptions = {},
 ): UseMutationResult<void, DeleteAccountError, void> => {
-  const ctxClient = useQueryClient();
-  const qc = options.injectedClient ?? ctxClient;
+  const qc = useQueryClient();
   // Explicit generics narrow TError and make `mutate()` argument-free. The
   // lint rule rejects `void` here, but this is TanStack's documented idiom.
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
@@ -107,15 +99,8 @@ export const useDeleteMyAccount = (
         }
         throw new DeleteAccountError('internal_error', error.message);
       }
-      if (!data?.ok) {
-        // Defensive: the function never emits a 2xx { ok: false } today,
-        // but if it ever did we'd still want to map the code.
-        throw mapErrorCode({
-          ok: false,
-          error: (data as { error?: string } | null)?.error ?? 'internal_error',
-          message: (data as { message?: string } | null)?.message,
-        });
-      }
+      // An empty or malformed 2xx body must not read as a completed deletion.
+      if (!data?.ok) throw new DeleteAccountError('internal_error', 'Unexpected response body.');
     },
     onSuccess: async () => {
       // Clear first, so no in-flight query refetches on a live session.
