@@ -69,9 +69,10 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
       caches.forEach((c, i) => {
         const snapshot = ctx.snapshots[i];
         if (snapshot) qc.setQueryData(c.queryKey, snapshot);
-        // A create patch materializes an entry from an empty cache. Restoring
-        // "no snapshot" means removing it: invalidation does not refetch an
-        // unobserved query, so the phantom row would persist to IndexedDB.
+        // No snapshot: drop the whole entry, whatever it holds now. A create
+        // patch may have materialized it, and invalidation does not refetch
+        // an unobserved query, so a phantom row would persist to IndexedDB.
+        // An observed query rebuilds and refetches on removal.
         else qc.removeQueries({ queryKey: c.queryKey, exact: true });
       });
     },
