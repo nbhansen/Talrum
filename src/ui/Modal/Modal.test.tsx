@@ -69,6 +69,43 @@ describe('Modal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('Escape closes only the top modal when modals nest', async () => {
+    // PictogramSheet and PictoPicker render VoiceRecorderDialog inside their
+    // own Modal. Esc on the recorder must not also close the parent.
+    const closeParent = vi.fn();
+    const closeChild = vi.fn();
+    render(
+      <Modal onClose={closeParent} size="full">
+        <p>Parent body</p>
+        <Modal onClose={closeChild} size="sm">
+          <p>Child body</p>
+        </Modal>
+      </Modal>,
+    );
+    await userEvent.keyboard('{Escape}');
+    expect(closeChild).toHaveBeenCalledTimes(1);
+    expect(closeParent).not.toHaveBeenCalled();
+  });
+
+  it('Escape reaches the parent again once the top modal is gone', async () => {
+    const closeParent = vi.fn();
+    const { rerender } = render(
+      <Modal onClose={closeParent} size="full">
+        <p>Parent body</p>
+        <Modal onClose={vi.fn()} size="sm">
+          <p>Child body</p>
+        </Modal>
+      </Modal>,
+    );
+    rerender(
+      <Modal onClose={closeParent} size="full">
+        <p>Parent body</p>
+      </Modal>,
+    );
+    await userEvent.keyboard('{Escape}');
+    expect(closeParent).toHaveBeenCalledTimes(1);
+  });
+
   it('stops listening for Escape after unmount', async () => {
     const onClose = vi.fn();
     const { unmount } = render(
