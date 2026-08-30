@@ -34,6 +34,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   useEffect(() => {
     let cancelled = false;
+    // getSession can resolve late (network token refresh). An auth event that
+    // lands first is newer — the stale result must not overwrite it.
+    let sawAuthEvent = false;
     // A deliberate sync reset for an async init effect, not a cascading render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ status: 'loading' });
@@ -42,17 +45,18 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (cancelled) return;
+        if (cancelled || sawAuthEvent) return;
         setOutboxOwner(data.session?.user.id ?? null);
         lastUserIdRef.current = data.session?.user.id ?? null;
         setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || sawAuthEvent) return;
         const message = err instanceof Error ? err.message : 'Could not reach auth service.';
         setState({ status: 'error', message });
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      sawAuthEvent = true;
       const newUserId = session?.user.id ?? null;
       // A token refresh and a first sign-in are not auth boundaries.
       const isUserSwitch =
