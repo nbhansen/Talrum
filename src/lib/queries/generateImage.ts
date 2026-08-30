@@ -1,8 +1,6 @@
-import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 
-import { captureException } from '@/lib/platform/telemetry';
-import { supabase } from '@/lib/supabase';
+import { invokeBlobFunction } from '@/lib/queries/edgeBlobFunction';
 
 /**
  * Client side of the generate-image edge function (#422). The wire contract is
@@ -29,7 +27,7 @@ const WIRE_ERROR_CODES = [
 ] as const;
 export type GenerateImageErrorCode = (typeof WIRE_ERROR_CODES)[number] | 'network';
 
-const KNOWN_CODES: ReadonlySet<string> = new Set(WIRE_ERROR_CODES);
+const KNOWN_CODES: ReadonlySet<GenerateImageErrorCode> = new Set(WIRE_ERROR_CODES);
 
 export class GenerateImageError extends Error {
   constructor(
@@ -41,48 +39,9 @@ export class GenerateImageError extends Error {
   }
 }
 
-const codeFromHttpError = async (error: FunctionsHttpError): Promise<GenerateImageErrorCode> => {
-  try {
-    const body: unknown = await error.context.clone().json();
-    if (
-      body !== null &&
-      typeof body === 'object' &&
-      'error' in body &&
-      typeof (body as { error: unknown }).error === 'string' &&
-      KNOWN_CODES.has((body as { error: string }).error)
-    ) {
-      return (body as { error: GenerateImageErrorCode }).error;
-    }
-  } catch {
-    // Unparseable body: fall through to the generic code.
-  }
-  return 'internal_error';
-};
-
 interface GenerateImageInput {
   label: string;
 }
-
-// Success envelope: base64-in-JSON, same reason as generate-voice —
-// supabase-js reads image/* response bodies as text and exposes no
-// response headers to carry a MIME type beside raw bytes.
-interface SuccessResponse {
-  ok: true;
-  mimeType: string;
-  imageBase64: string;
-}
-
-const isSuccessResponse = (v: unknown): v is SuccessResponse =>
-  v !== null &&
-  typeof v === 'object' &&
-  (v as { ok?: unknown }).ok === true &&
-  typeof (v as { mimeType?: unknown }).mimeType === 'string' &&
-  typeof (v as { imageBase64?: unknown }).imageBase64 === 'string';
-
-const decodeImage = ({ mimeType, imageBase64 }: SuccessResponse): Blob => {
-  const bytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
-  return new Blob([bytes], { type: mimeType });
-};
 
 export const useGenerateImage = (): UseMutationResult<
   Blob,
@@ -90,32 +49,17 @@ export const useGenerateImage = (): UseMutationResult<
   GenerateImageInput
 > =>
   useMutation({
-    mutationFn: async ({ label }) => {
-      const { data, error } = await supabase.functions.invoke<unknown>(
-        GENERATE_IMAGE_FUNCTION_NAME,
-        { body: { label } },
-      );
-      if (error) {
-        if (error instanceof FunctionsHttpError) {
-          // The server answered, so this is not the network's fault — a
-          // broken Azure key must not look like flaky wifi, to the parent
-          // or to us (#359 rationale).
-          const code = await codeFromHttpError(error);
-          captureException(error, {
-            level: 'warning',
-            tags: { component: 'generateImage', op: code },
-          });
-          throw new GenerateImageError(code, error.message);
-        }
-        throw new GenerateImageError('network', error.message);
-      }
-      if (!isSuccessResponse(data)) {
-        throw new GenerateImageError('internal_error', 'image generation returned no image');
-      }
-      try {
-        return decodeImage(data);
-      } catch {
-        throw new GenerateImageError('internal_error', 'image generation returned invalid data');
-      }
-    },
+    mutationFn: ({ label }) =>
+      invokeBlobFunction({
+        functionName: GENERATE_IMAGE_FUNCTION_NAME,
+        telemetryComponent: 'generateImage',
+        body: { label },
+        knownCodes: KNOWN_CODES,
+        // Base64-in-JSON: supabase-js reads image/* bodies as text and
+        // exposes no response headers to carry a MIME type beside raw bytes.
+        envelopeKey: 'imageBase64',
+        makeError: (code, message) => new GenerateImageError(code, message),
+        emptyMessage: 'image generation returned no image',
+        invalidMessage: 'image generation returned invalid data',
+      }),
   });

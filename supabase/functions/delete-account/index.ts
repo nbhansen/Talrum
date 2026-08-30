@@ -57,8 +57,7 @@ const logSuccess = (
 export const handleRequest = async (
   req: Request,
   admin: AdminLike,
-  deleteFn: (uid: string) => Promise<{ audioCount: number; imageCount: number }> = (uid) =>
-    deleteAccount(admin as AdminClient, uid),
+  deleteFn: (uid: string) => Promise<{ audioCount: number; imageCount: number }>,
 ): Promise<Response> => {
   const start = Date.now();
   let userId: string | null = null;
@@ -120,6 +119,10 @@ if (import.meta.main) {
   if (!url || !key) {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   }
-  const admin = createClient(url, key, { auth: { persistSession: false } });
-  Deno.serve((req) => handleRequest(req, admin as unknown as AdminClient));
+  // One cast at the env boundary: AdminClient is the hand-rolled structural
+  // subset of the supabase-js client this function actually uses.
+  const admin = createClient(url, key, {
+    auth: { persistSession: false },
+  }) as unknown as AdminClient;
+  Deno.serve((req) => handleRequest(req, admin, (uid) => deleteAccount(admin, uid)));
 }
