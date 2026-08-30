@@ -224,7 +224,7 @@ export const BoardBuilder = ({
       {quickAdd.length > 0 && (
         <section className={styles.quickAdd}>
           <div className={styles.quickAddHeader}>
-            <h2 className={styles.quickAddHeading}>Quick add from library</h2>
+            <h2 className={styles.quickAddHeading}>Add from the library</h2>
             <button type="button" className={styles.browseAll} onClick={onOpenPicker}>
               Browse all →
             </button>

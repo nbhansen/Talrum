@@ -438,7 +438,7 @@ describe('BoardBuilder steps with a missing pictogram', () => {
 });
 
 describe('BoardBuilder Quick add section (#234)', () => {
-  it('hides the "Quick add from library" section when no slugs resolve', () => {
+  it('hides the "Add from the library" section when no slugs resolve', () => {
     render(
       <BoardBuilder
         board={baseBoard}
@@ -450,7 +450,7 @@ describe('BoardBuilder Quick add section (#234)', () => {
         onKidMode={noop}
       />,
     );
-    expect(screen.queryByRole('heading', { name: /quick add from library/i })).toBeNull();
+    expect(screen.queryByRole('heading', { name: /add from the library/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /browse all/i })).toBeNull();
   });
 });
