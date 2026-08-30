@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -26,9 +26,9 @@ jobs:
           fi
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install OpenWiki
         run: npm install --global openwiki
@@ -42,11 +42,13 @@ jobs:
           OPENWIKI_MODEL_ID: gemini-3.7-flash
 
       - name: Create OpenWiki update pull request
+        # Same gate as the run step: without it, a quiet week runs this action
+        # against an unchanged tree, which closes the open openwiki PR.
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.found == 'true'
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           add-paths: |
             openwiki
-            AGENTS.md
           branch: openwiki/update
           commit-message: 'docs: update OpenWiki'
           title: 'docs: update OpenWiki'

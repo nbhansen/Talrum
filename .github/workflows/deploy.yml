@@ -86,10 +86,18 @@ jobs:
             echo
             echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
           } > /tmp/issue-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
-            --body-file /tmp/issue-body.md
+          # Repeated failures land as comments on the open issue, not as
+          # one new issue per failed push.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search '"deploy failed on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
+              --body-file /tmp/issue-body.md
+          fi
   pages:
     needs: migrations
     runs-on: ubuntu-latest
@@ -146,7 +154,15 @@ jobs:
             echo
             echo "Fix the cause and push, or re-run the ci workflow. A green ci run on main starts the deploy automatically. Close this issue when the deploy is green."
           } > /tmp/issue-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "CI failed on main, deploy skipped ($(date -u +%Y-%m-%d))" \
-            --body-file /tmp/issue-body.md
+          # Repeated failures land as comments on the open issue, not as
+          # one new issue per failed push.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search '"CI failed on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "CI failed on main, deploy skipped ($(date -u +%Y-%m-%d))" \
+              --body-file /tmp/issue-body.md
+          fi
