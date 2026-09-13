@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -69,6 +69,20 @@ describe('PinManagementSection', () => {
     await setPin('1234');
     render(<PinManagementSection pinRequiredForKidMode />);
     expect(screen.queryByText(/Kid mode needs a parent PIN/i)).not.toBeInTheDocument();
+  });
+
+  it('follows a PIN cleared from another tab (#562)', async () => {
+    await setPin('1234');
+    render(<PinManagementSection />);
+    expect(screen.getByRole('button', { name: /change pin/i })).toBeInTheDocument();
+
+    window.localStorage.removeItem('talrum:pin-hash');
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'talrum:pin-hash', newValue: null }));
+    });
+
+    expect(await screen.findByRole('button', { name: /set a pin/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /change pin/i })).not.toBeInTheDocument();
   });
 
   it('shows Change PIN and Clear PIN when a PIN is set', async () => {

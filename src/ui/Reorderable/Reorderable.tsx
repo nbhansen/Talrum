@@ -6,12 +6,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import {
-  arrayMove,
-  horizontalListSortingStrategy,
-  SortableContext,
-  useSortable,
-} from '@dnd-kit/sortable';
+import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
@@ -57,7 +52,7 @@ export const Reorderable = <T extends Identified>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
+      <SortableContext items={keys} strategy={rectSortingStrategy}>
         {items.map((item, i) => (
           <SortableItem key={keys[i]} itemKey={keys[i] ?? item.id}>
             {(drag) => renderItem(item, i, drag)}
