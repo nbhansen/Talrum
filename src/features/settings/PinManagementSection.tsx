@@ -1,6 +1,6 @@
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { clearPin, hasPin, pinGateDisabled, setPin, verifyPin } from '@/lib/pin';
+import { clearPin, hasPin, pinGateDisabled, setPin, subscribePin, verifyPin } from '@/lib/pin';
 import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
 import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/KidModeGate/PinPad';
@@ -31,7 +31,7 @@ export const PinManagementSection = ({
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const newPinRef = useRef<string>('');
-  const hasPinNow = hasPin();
+  const hasPinNow = useSyncExternalStore(subscribePin, hasPin, () => false);
 
   useEffect(() => {
     if (!flash) return;
