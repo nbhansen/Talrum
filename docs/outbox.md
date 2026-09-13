@@ -124,8 +124,8 @@ its bound rejects as transient, releases the lock, and retries.
 **A transient failure schedules its own re-drain** with capped exponential
 backoff (#391), so an entry that fails while the device stays online never waits
 for an external trigger. The schedule, its reset rules, and the attempt budget
-live together in `drain.ts` and `drain-state.ts`; the budget is sized against
-the schedule, so change them only together.
+live together in `drain.ts`, `retry-decision.ts` and `drain-state.ts`; the
+budget is sized against the schedule, so change them only together.
 
 ## Error classification: transient vs permanent
 

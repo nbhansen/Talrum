@@ -7,10 +7,10 @@ import {
   drainSubscribers,
   type OutboxStatus,
   RETRY_BASE_DELAY_MS,
-  RETRY_MAX_DELAY_MS,
 } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { getOutboxOwner } from './owner';
+import { decideRetry } from './retry-decision';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -21,9 +21,6 @@ import type { OutboxEntry } from './types';
  * Change this only together with the delays in `drain-state.ts`.
  */
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
-
-/** Drains in a row that achieved nothing before the retry timer stops (#458). */
-const MAX_STALLED_DRAINS = 6;
 
 export type { OutboxStatus };
 export { __resetDrainForTests } from './drain-state';
@@ -187,13 +184,12 @@ const clearRetryTimer = (): void => {
  * Without this, an entry that fails while the device stays online waits for
  * the next external trigger, and the pending count sticks (#391).
  */
-const scheduleRetry = (): void => {
+const scheduleRetry = (delayMs: number): void => {
   clearRetryTimer();
   drainState.retryTimer = setTimeout(() => {
     drainState.retryTimer = undefined;
     void drain({ fromTimer: true });
-  }, drainState.retryDelayMs);
-  drainState.retryDelayMs = Math.min(drainState.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
+  }, delayMs);
 };
 
 const cancelRetryOnOffline = (): void => {
@@ -289,30 +285,21 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
     // start during the emit() await and get a stray timer armed under it.
-    // Progress resets the backoff: a queue that lands entries each pass is not
-    // the sustained-failure case the doubling exists for (#391).
-    if (!sawUncleared && (sawProgress || !sawTransient)) {
-      drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
-    }
-    // A timer set after the device dropped would wake once, hit the offline
-    // branch, and cancel itself. The `online` event is the next trigger.
-    const online = typeof navigator === 'undefined' || navigator.onLine;
-    // An uncleared entry needs the timer too: nothing else clears a landed
-    // write the delete left `pending`, and the delete usually works next
-    // time — the IDB connection another tab closed reopens on reuse (#449).
-
-    // A drain that IndexedDB stopped from running the queue may never heal, so
-    // the timer would wake for the rest of an idle session. `online` stays a
-    // trigger; Retry does not, because it needs a `failed` entry.
-    const stalled = passThrew && !sawProgress && !sawUncleared;
-    if (!stalled) drainState.stalledDrains = 0;
-    // Only a timer wake spends the budget. The bound exists for the timer, and
-    // a burst of writes drains once each, so it would empty it in a second.
-    else if (fromTimer) drainState.stalledDrains += 1;
-    const giveUp = drainState.stalledDrains >= MAX_STALLED_DRAINS;
-    if ((sawTransient || sawUncleared) && !drainState.pendingDrain && online && !giveUp) {
-      scheduleRetry();
-    }
+    const decision = decideRetry(
+      {
+        sawTransient,
+        sawProgress,
+        sawUncleared,
+        passThrew,
+        fromTimer,
+        online: typeof navigator === 'undefined' || navigator.onLine,
+        pendingDrain: drainState.pendingDrain,
+      },
+      drainState,
+    );
+    drainState.retryDelayMs = decision.retryDelayMs;
+    drainState.stalledDrains = decision.stalledDrains;
+    if (decision.retryInMs !== undefined) scheduleRetry(decision.retryInMs);
     drainState.draining = false;
     drainState.timerDrain = false;
     await emit();
