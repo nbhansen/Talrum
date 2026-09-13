@@ -7,6 +7,8 @@
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Cache the preflight; without this every invoke costs an extra OPTIONS.
+  'Access-Control-Max-Age': '86400',
 } as const;
 
 /** The preflight response; return this before any method or auth check. */

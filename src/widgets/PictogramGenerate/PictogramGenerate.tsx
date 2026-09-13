@@ -77,6 +77,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
     setBusy('saving');
     try {
       await createPhoto.mutateAsync({
+        id: crypto.randomUUID(),
         label: label.trim(),
         blob: preview.blob,
         extension: preview.extension,

@@ -115,7 +115,7 @@ export const ParentHome = ({
       {recentPictos.length > 0 && (
         <section className={styles.recent}>
           <div className={styles.recentHeader}>
-            <h2 className={styles.recentHeading}>Recently added pictograms</h2>
+            <h2 className={styles.recentHeading}>From the library</h2>
             <button type="button" className={styles.seeAll} onClick={onSeeAll}>
               See all
             </button>

@@ -1,11 +1,5 @@
 import type { AccentBg } from '@/theme/tokens';
 
-/**
- * Raw OKLCH rather than an accent token: the seed library uses a softer
- * lightness than the accents, plus a few custom hues.
- */
-export type PictogramTint = string;
-
 export type GlyphName =
   | 'apple'
   | 'bag'
@@ -37,7 +31,8 @@ interface IllustratedPictogram {
   label: string;
   style: 'illus';
   glyph: GlyphName;
-  tint: PictogramTint;
+  /** Raw OKLCH, not an accent token: the seed library uses softer, custom hues. */
+  tint: string;
   audioPath?: string;
 }
 

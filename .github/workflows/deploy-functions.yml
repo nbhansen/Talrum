@@ -1,9 +1,7 @@
 name: deploy-functions
 on:
-  # Gate on CI (#398): run when the ci workflow completes for a push to
-  # main, deploy only when it is green. CI already runs
-  # `npm run test:functions` on the same commit, so the gate covers the
-  # "no tests before deploy" gap too — no need to run them again here.
+  # Gate on CI (#398): deploy only when ci is green for a push to main.
+  # CI already ran test:functions on the same commit; no rerun here.
   workflow_run:
     workflows: [ci]
     types: [completed]

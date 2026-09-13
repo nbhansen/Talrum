@@ -1,24 +1,7 @@
--- Phase 5: minimum viable sharing.
---
--- Owners can already grant other users access to a board via the
--- `board_members` table that's existed since Phase 2. The phase-3 RLS for
--- `boards` already honors membership (`is_board_member` on SELECT,
--- `is_board_editor` on UPDATE). This migration extends that visibility
--- across the data the board *references*: the owner's pictograms, the
--- owner's kid record, and the storage bytes for any photo/audio
--- pictograms on the owner's boards.
---
--- Permissive on purpose. A member sees ALL of the owner's pictograms
--- and ALL of the owner's kids whenever the member belongs to ANY of the
--- owner's boards — not just the rows referenced by the shared board's
--- `step_ids`. Trade: simpler policy SQL, no array scans inside RLS, and
--- a member can still re-add a removed pictogram without the owner
--- re-sharing. Storage bytes follow the same rule via the file-path
--- prefix (which encodes the file's owner_id).
---
--- Writes stay owner-only across the board. Phase 5 surfaces only the
--- viewer role; the editor branch in `boards_update` is unchanged but
--- not yet exposed in UI.
+-- Sharing: extend board-membership visibility to the data a board
+-- references (owner's pictograms, kids, storage bytes). Permissive on
+-- purpose — a member of ANY of the owner's boards sees ALL the owner's
+-- rows: simpler policies, no array scans inside RLS. Writes stay owner-only.
 
 -- ─── pictograms ─────────────────────────────────────────────────────────────
 

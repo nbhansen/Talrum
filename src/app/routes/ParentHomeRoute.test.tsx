@@ -11,7 +11,7 @@ import type { Board, Kid, Pictogram } from '@/types/domain';
 
 const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
 
-// One pictogram unhides the "Recently added" strip, and with it "See all".
+// One pictogram unhides the "From the library" strip, and with it "See all".
 const RECENT_PICTO: Pictogram = {
   id: 'p-apple',
   slug: 'apple',
@@ -299,12 +299,12 @@ describe('ParentHomeRoute create flows', () => {
     expect(screen.getByTestId('library-route')).toBeInTheDocument();
   });
 
-  it('hides the "Recently added pictograms" section when no slugs resolve (#234)', () => {
+  it('hides the "From the library" section when no slugs resolve (#234)', () => {
     usePictogramsBySlugMock.mockReturnValueOnce(new Map<string, Pictogram>());
     const Wrap = makeWrap('/');
     render(<Wrap />);
 
-    expect(screen.queryByRole('heading', { name: /recently added pictograms/i })).toBeNull();
+    expect(screen.queryByRole('heading', { name: /from the library/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /see all/i })).toBeNull();
   });
 

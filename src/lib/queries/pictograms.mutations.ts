@@ -109,6 +109,9 @@ interface ClearAudioInput {
 }
 
 interface CreatePhotoInput {
+  /** Minted by the caller (crypto.randomUUID): the optimistic patch in
+   * onMutate needs the new row's id before mutationFn runs. */
+  id: string;
   label: string;
   blob: Blob;
   extension: string;
@@ -121,9 +124,6 @@ interface CreatedPhotoPictogram {
   imagePath: string;
 }
 
-/** `CreatePhotoInput` plus the id minted at the mutate boundary. */
-type CreatePhotoQueuedInput = CreatePhotoInput & { id: string };
-
 export const useCreatePhotoPictogram = (): UseMutationResult<
   CreatedPhotoPictogram,
   Error,
@@ -132,9 +132,9 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
 > => {
   const qc = useQueryClient();
   const me = useSessionUser().id;
-  const inner = useOptimisticListMutation<CreatePhotoQueuedInput, CreatedPhotoPictogram>({
+  return useOptimisticListMutation<CreatePhotoInput, CreatedPhotoPictogram>({
     caches: [
-      listCache<Pictogram, CreatePhotoQueuedInput>(
+      listCache<Pictogram, CreatePhotoInput>(
         pictogramsQueryKey,
         (list, { id, label, blob, ownerId = me }) => [
           ...(list ?? []),
@@ -167,16 +167,6 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
     beforeRollback: () => revokePictogramBlobs(qc),
     settle: revokeThenInvalidate(qc),
   });
-  // The optimistic patch in onMutate needs the new row's id, so the id is
-  // minted here — before the inner mutation runs — not inside mutationFn.
-  return {
-    ...inner,
-    mutate: (input, options) => {
-      inner.mutate({ ...input, id: crypto.randomUUID() }, options);
-    },
-    mutateAsync: (input, options) =>
-      inner.mutateAsync({ ...input, id: crypto.randomUUID() }, options),
-  };
 };
 
 interface RenameInput {

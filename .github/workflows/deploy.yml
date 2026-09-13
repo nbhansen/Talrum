@@ -46,9 +46,8 @@ jobs:
           # Same pin as ci.yml; the sync check below greps CLI output, so
           # bump deliberately, not via `latest`.
           version: 2.105.0
-      # Link + push are idempotent, so retrying the pair once covers
-      # transient runner/network failures — the June 2026 outage was one
-      # (#337) — with no risk of double-applying a migration.
+      # Link + push are idempotent, so one retry covers transient
+      # runner/network failures (#337) without double-applying a migration.
       - name: Link and push migrations
         run: |
           deploy() {
@@ -70,9 +69,8 @@ jobs:
             echo "::error::remote database does not match local migrations after push"
             exit 1
           fi
-      # A red migration run on main once went unnoticed for five weeks
-      # (#337). The SPA job below is skipped on failure, so prod keeps
-      # serving the previous release — but someone still has to know.
+      # The SPA job is skipped on failure, so prod keeps serving the
+      # previous release — but someone still has to know (#337).
       - name: File issue on failure
         if: failure()
         env:
@@ -86,10 +84,18 @@ jobs:
             echo
             echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
           } > /tmp/issue-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
-            --body-file /tmp/issue-body.md
+          # Repeated failures land as comments on the open issue, not as
+          # one new issue per failed push.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search '"deploy failed on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
+              --body-file /tmp/issue-body.md
+          fi
   pages:
     needs: migrations
     runs-on: ubuntu-latest
@@ -122,8 +128,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=talrum --branch=main --commit-hash=${{ env.DEPLOY_SHA }}
   # With the gate above, a red ci run on main means no deploy at all —
-  # silently. That is the same "nobody noticed for five weeks" failure
-  # mode as #337, so file an issue when the gate blocks a deploy.
+  # silently (#337). File an issue when the gate blocks a deploy.
   ci-failed:
     if: >-
       github.event.workflow_run.event == 'push' &&
@@ -146,7 +151,15 @@ jobs:
             echo
             echo "Fix the cause and push, or re-run the ci workflow. A green ci run on main starts the deploy automatically. Close this issue when the deploy is green."
           } > /tmp/issue-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "CI failed on main, deploy skipped ($(date -u +%Y-%m-%d))" \
-            --body-file /tmp/issue-body.md
+          # Repeated failures land as comments on the open issue, not as
+          # one new issue per failed push.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search '"CI failed on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "CI failed on main, deploy skipped ($(date -u +%Y-%m-%d))" \
+              --body-file /tmp/issue-body.md
+          fi

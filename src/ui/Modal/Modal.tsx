@@ -14,10 +14,16 @@ interface ModalProps {
 
 export const Modal = ({ onClose, children, labelledBy, size }: ModalProps): JSX.Element => {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Modals nest (voice recorder inside the pictogram sheet). Every instance
+    // hears the global keydown; only the last dialog in document order may
+    // act, or one Escape closes the whole stack.
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] === dialogRef.current) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -32,6 +38,7 @@ export const Modal = ({ onClose, children, labelledBy, size }: ModalProps): JSX.
       }}
     >
       <div
+        ref={dialogRef}
         className={`${styles.dialog} ${styles[size]}`}
         role="dialog"
         aria-modal="true"

@@ -9,8 +9,7 @@
 export const VOICE_LANGUAGES = ['da', 'en'] as const;
 export type VoiceLanguage = (typeof VOICE_LANGUAGES)[number];
 
-/** Pictogram labels are short; this cap bounds cost and abuse. */
-export const MAX_LABEL_LENGTH = 60;
+export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
 export type ErrorCode =
   | 'unauthorized'

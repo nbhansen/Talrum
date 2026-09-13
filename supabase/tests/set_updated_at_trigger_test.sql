@@ -1,19 +1,7 @@
--- Behavioral test for the `boards_set_updated_at` trigger (#401).
---
--- The trigger (`private.set_updated_at`, wired in the init migration) bumps
--- `boards.updated_at` on every UPDATE. The outbox conflict guard (#281)
--- depends on this: the client compares its `expectedUpdatedAt` against the
--- row, so a write that lands without a bump makes a later conflicting write
--- pass the guard silently. Until now the trigger appeared only in structural
--- assertions — nothing verified that it fires and that a client cannot
--- suppress the bump.
---
--- `now()` is frozen for the whole transaction, so the seeded rows carry the
--- same timestamp the trigger will write. The test inserts a board with a
--- backdated `updated_at` (INSERT does not fire the BEFORE UPDATE trigger)
--- to make the bump observable.
---
--- Run with: supabase test db
+-- boards_set_updated_at must fire on every UPDATE (#401): the outbox
+-- conflict guard (#281) compares expectedUpdatedAt, so an unbumped write
+-- lets a later conflict pass silently. The board is seeded backdated
+-- because now() is frozen per transaction. Run with: supabase test db
 BEGIN;
 SELECT plan(5);
 

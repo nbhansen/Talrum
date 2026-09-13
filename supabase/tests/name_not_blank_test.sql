@@ -1,7 +1,5 @@
--- boards.name and kids.name refuse '' and whitespace (#482). The create and
--- rename paths trim and refuse a blank name in the UI; this holds it where a
--- client bug or a direct REST call cannot get past it.
---
+-- boards.name and kids.name refuse blank at the DB (#482), so a client bug
+-- or direct REST call cannot get past the UI-side trim.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(6);

@@ -1,12 +1,7 @@
--- A co-caregiver edits a shared board like the owner (#447), so a pictogram
--- they add to it belongs to the board owner: `owner_id` is the owner's and
--- the bytes go under the owner's prefix. Otherwise the owner and the other
--- members cannot read it (#490). The trust is the `board_members` row, which
--- only the owner writes, so removing a member revokes this at once.
---
--- An editor of any board of an owner writes that owner's whole pictogram
--- library and storage prefix. That matches the read side, which is already
--- per owner (`is_owner_shared_with_me`).
+-- A co-caregiver's pictogram belongs to the board owner (#447, #490):
+-- owner_id and storage prefix are the owner's, or nobody else can read it.
+-- An editor of any of an owner's boards writes that owner's whole library,
+-- matching the per-owner read side. Removing the member revokes at once.
 
 create or replace function private.is_editor_for_owner(p_owner_id uuid)
 returns boolean

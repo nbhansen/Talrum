@@ -1,13 +1,5 @@
--- Tests for the `delete_pictogram` RPC (#280).
---
--- Pictogram deletion used to run SELECT + N UPDATEs + DELETE from the
--- browser, with the scrub list computed from the client cache at enqueue
--- time — non-atomic, and stale lists left dangling step_ids. The RPC
--- scrubs `boards.step_ids` server-side and deletes the row in one
--- transaction. SECURITY INVOKER: RLS scopes the scrub to boards the
--- caller can write and the delete to pictograms they own, so a stranger
--- calling it is a no-op.
---
+-- delete_pictogram RPC (#280): server-side scrub + delete in one
+-- transaction; SECURITY INVOKER, so RLS makes a stranger's call a no-op.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(6);

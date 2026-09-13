@@ -1,7 +1,6 @@
 import type { JSX } from 'react';
 
 import type { Pictogram } from '@/types/domain';
-import { Chip } from '@/ui/Chip/Chip';
 import { IconButton } from '@/ui/IconButton/IconButton';
 import { MicIcon, SearchIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
@@ -38,12 +37,6 @@ export const LibraryTab = ({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Search eat, dress, happy, park…"
         />
-        <div className={styles.filters}>
-          <Chip active>All</Chip>
-          <Chip>Illustrated</Chip>
-          <Chip>Photos</Chip>
-          <Chip>Mine</Chip>
-        </div>
       </div>
       <div className={styles.grid}>
         {filtered.map((p) => (

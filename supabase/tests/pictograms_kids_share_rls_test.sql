@@ -1,33 +1,7 @@
--- Regression test for pictograms / kids RLS shared-board access.
---
--- Parallel to storage_share_rls_test.sql but for the data-plane policies
--- (`pictograms_select`, `kids_select`) that gate the rows whose
--- `image_path` / `audio_path` columns the storage policies then gate
--- bytes for. The two layers must agree: a member should see both the
--- row and the bytes; a non-member should see neither.
---
--- Four users with the same shape as the storage test (Alice owner;
--- Bob member of Alice; Charlie unrelated; Dana cross-owner member of
--- Charlie's board, NOT Alice's). Asserts:
---
---   policy layer  — SELECT through `pictograms_select` and
---                   `kids_select` returns the owner's rows for the
---                   owner and the member; zero rows for the
---                   non-member and the cross-owner-member.
---   write floor   — a member cannot UPDATE the owner's pictograms
---                   (the existing `pictograms_owner_write` policy
---                   still gates writes). Kids stay owner-only for
---                   EVERY non-owner, including editors — #490 widened
---                   pictogram writes, not kid writes (#508).
---
--- Helper-layer assertions previously here called `is_owner_shared_with_me`
--- directly under role-switched sessions — that pinned the wrong contract.
--- The helper now lives in `private` (not the exposed API schema, per #91),
--- so calling it directly is no longer the surface to test. The policy-layer
--- assertions below still exercise the helper through the actual RLS path,
--- which is what production depends on.
---
--- Run with: supabase test db
+-- pictograms / kids RLS on shared boards — the data-plane twin of
+-- storage_share_rls_test.sql; the two layers must agree. Same four-user
+-- shape. Kids stay owner-only for every non-owner: #490 widened pictogram
+-- writes, not kid writes (#508). Run with: supabase test db
 BEGIN;
 SELECT plan(14);
 
@@ -58,11 +32,9 @@ SELECT id, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'viewer'
  WHERE owner_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
  ORDER BY id LIMIT 1;
 
--- Capture Alice's row counts BEFORE role switching, while still postgres.
--- Used as the expected count under owner + member sessions, so the test
--- doesn't hardcode template_pictograms / template_boards numbers.
--- The GRANT is needed because authenticated role doesn't get SELECT on
--- temp tables by default; without it the post-role-switch reads fail.
+-- Counts captured as postgres, before role switching, so the test never
+-- hardcodes template numbers. The GRANT below is required: authenticated
+-- has no default SELECT on temp tables.
 CREATE TEMP TABLE expected AS
   SELECT
     (SELECT count(*)::int FROM public.pictograms
@@ -111,12 +83,9 @@ SELECT is(
   'policy: cross-owner member sees zero of owner pictograms (scoped-membership guard)'
 );
 
--- ── 5-7. kids_select policy, three roles ─────────────────────────────────
--- Owner and member must see Alice's seeded kid; non-member and
--- cross-owner-member must not. (Picking three of the four roles —
--- owner/member/cross-owner — covers the same logic plane as pictograms;
--- one row in `kids` per user means the owner+member case is the load-
--- bearing one.)
+-- ── 5-7. kids_select policy ──────────────────────────────────────────────
+-- Three of the four roles: same logic plane as pictograms, and the
+-- owner+member case is the load-bearing one.
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';

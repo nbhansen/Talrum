@@ -7,7 +7,7 @@ import { type AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
 import type { Database } from '@/types/supabase';
 
-export type BoardRow = Database['public']['Tables']['boards']['Row'];
+type BoardRow = Database['public']['Tables']['boards']['Row'];
 
 /**
  * DB columns for `kind`, `voice_mode`, `accent` are plain `text`. The casts

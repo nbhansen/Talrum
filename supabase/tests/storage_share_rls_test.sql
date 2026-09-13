@@ -1,39 +1,7 @@
--- Regression test for storage RLS shared-board access (issue #37).
---
--- Four users:
---   Alice   — owns the board + storage we're sharing.
---   Bob     — viewer on one of Alice's boards. Should see her storage.
---   Charlie — no membership anywhere. Should see nothing.
---   Dana    — viewer on one of Charlie's boards but NOT Alice's. Catches
---             a regression where the predicate loosens from "member of
---             this owner" to "member anywhere".
---
--- The test exercises the actual policies under role-switched sessions
--- and asserts:
---
---   policy layer  — SELECT through `pictogram_audio_select` and
---                   `pictogram_images_select` returns 1/1/0/0 rows
---                   for owner/member/non-member/cross-owner-member.
---   write floor   — a member cannot UPDATE or INSERT into the owner's
---                   prefix; the existing owner-only write policies
---                   still gate writes. (DELETE on storage.objects is
---                   blocked by a supabase `protect_delete` trigger
---                   that fires before RLS, so DELETE isn't testable
---                   from SQL — the storage API enforces it.)
---
--- The "member sees 1 row" assertions are the specific guards against
--- the shadowing bug fixed in 20260425020000. Any future regression
--- that re-breaks the member branch (column shadow, missing helper,
--- bad cast) will land on these.
---
--- Helper-layer assertions previously here called `is_pictogram_storage_visible`
--- directly under role-switched sessions — that pinned the wrong contract.
--- The helper now lives in `private` (not the exposed API schema, per #91),
--- so calling it directly is no longer the surface to test. The policy-layer
--- assertions below still exercise the helper through the actual storage RLS
--- path, which is what production depends on.
---
--- Run with: supabase test db
+-- Storage RLS on shared boards (#37): four roles under role-switched
+-- sessions. The "member sees 1 row" assertions guard the column-shadowing
+-- bug fixed in 20260425020000. DELETE is not testable from SQL
+-- (protect_delete fires before RLS). Run with: supabase test db
 BEGIN;
 SELECT plan(13);
 

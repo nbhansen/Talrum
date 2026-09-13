@@ -147,14 +147,10 @@ max_indexes = 5
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
-## THIS FILE CONFIGURES LOCAL DEV ONLY. Production auth is managed in the
-## Supabase dashboard (Authentication → URL Configuration / Providers) and is the
-## source of truth there — see docs/runbooks/deploy.md.
-##
-## Do NOT run `supabase config push`. It writes every value below to the linked
-## project at once, so a push meant to change one field silently rewrites prod's
-## OTP length, confirmations and MFA settings (#215), and would set prod's
-## site_url to localhost. Nothing in CI runs it.
+## LOCAL DEV ONLY — production auth is dashboard-managed (#215; see
+## docs/runbooks/deploy.md). Never run `supabase config push`: one push
+## writes every value below to the linked project at once and would set
+## prod's site_url to localhost. CI enforces this (config.toml stays local).
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used

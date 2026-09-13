@@ -11,6 +11,7 @@ const SOURCE_GLOBS = [
   'src/**/*.{ts,tsx}',
   'scripts/**/*.{ts,mjs}',
   'supabase/functions/**/*.ts',
+  'supabase/**/*.sql',
 ];
 
 // A marker line counts as prose whenever it carries any, so `/* one` and
@@ -22,17 +23,17 @@ const BARE_CLOSE = /^\*\/\}?$/;
 // comments that start a line are inspected: telling `// x` apart from a `//`
 // inside a string needs a lexer, and a false positive on a URL costs more than
 // the trailing-comment case is worth. Pinned by tests.
-export function findLongComments(source) {
+export function findLongComments(source, { linePrefix = '//' } = {}) {
   const lines = source.split('\n');
   const out = [];
   for (let i = 0; i < lines.length; i++) {
     const text = lines[i].trim();
-    if (text.startsWith('//')) {
+    if (text.startsWith(linePrefix)) {
       // A blank line ends the run: two comments on adjacent declarations are
       // two comments. That leaves splitting one comment with a blank line as a
       // way under the cap — deliberate evasion, and visible in review.
       let j = i;
-      while (j + 1 < lines.length && lines[j + 1].trim().startsWith('//')) j++;
+      while (j + 1 < lines.length && lines[j + 1].trim().startsWith(linePrefix)) j++;
       const length = j - i + 1;
       if (length > MAX_LINES) out.push({ line: i + 1, length });
       i = j;
@@ -71,9 +72,10 @@ if (invokedDirectly) {
     return matched;
   });
   const failures = files.flatMap((file) =>
-    findLongComments(readFileSync(file, 'utf8')).map(
-      (f) => `${file}:${f.line} — ${f.length} lines`,
-    ),
+    findLongComments(
+      readFileSync(file, 'utf8'),
+      file.endsWith('.sql') ? { linePrefix: '--' } : {},
+    ).map((f) => `${file}:${f.line} — ${f.length} lines`),
   );
 
   if (failures.length > 0) {

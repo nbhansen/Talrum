@@ -1,8 +1,5 @@
--- Regression test for handle_new_user() — the SECURITY DEFINER trigger that
--- seeds a starter library on each auth.users insert. Verifies per-user
--- counts, owner isolation, step_id remap correctness, and idempotency on
--- re-fire.
---
+-- handle_new_user(): per-user counts, owner isolation, step_id remap, and
+-- idempotency on re-fire.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(14);
@@ -124,15 +121,10 @@ SELECT is(
   'user B board step_ids never point at user A pictograms'
 );
 
--- 13–14: idempotency. Trigger function guards on existing kid for the
--- owner. Re-firing must not double-seed. We can't INSERT the same auth.users
--- id twice (PK collision), so we attach handle_new_user to AFTER UPDATE for
--- the duration of the test, fire it via a no-op UPDATE, then drop it.
--- Note: this validates the function body's existing-kid guard, not the
--- AFTER INSERT wiring on auth.users. A regression that left the guard
--- intact but altered the INSERT-time conflict handling would not be
--- caught here; that's covered (implicitly) by the PK collision on
--- re-inserting auth.users.
+-- 13–14: idempotency. The same auth.users id cannot be inserted twice, so
+-- re-fire the function via a temporary AFTER UPDATE trigger and a no-op
+-- UPDATE. This validates the existing-kid guard in the body, not the
+-- AFTER INSERT wiring.
 CREATE TRIGGER tmp_retest
   AFTER UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION private.handle_new_user();

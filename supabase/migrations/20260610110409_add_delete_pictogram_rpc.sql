@@ -1,19 +1,7 @@
--- Atomic pictogram deletion RPC (#280).
---
--- `boards.step_ids` is a bare uuid[] with no FK, so deleting a pictogram
--- used to require the client to scrub references itself: SELECT + N UPDATEs
--- + DELETE from the browser, with the scrub list computed from the client
--- cache at enqueue time. Non-atomic (a crash mid-way leaves partial state)
--- and the stale scrub list could miss boards edited between enqueue and
--- drain, leaving dangling step_ids forever. This function recomputes the
--- referencing boards at execution time and runs scrub + delete in one
--- transaction. Storage cleanup stays client-side.
---
--- SECURITY INVOKER on purpose: RLS scopes the UPDATE to boards the caller
--- can write and the DELETE to pictograms they own, so no authorization code
--- is needed here and the rest_surface_contract_test invariant (no SECURITY
--- DEFINER functions in public) holds. Idempotent: a retry after success
--- (outbox redelivery) finds nothing to scrub or delete and is a no-op.
+-- Atomic pictogram deletion (#280): step_ids has no FK, and a client-side
+-- scrub was non-atomic and could go stale between enqueue and drain. The
+-- RPC recomputes referencing boards at execution time in one transaction.
+-- SECURITY INVOKER: RLS is the authorization; retries no-op (outbox).
 create function public.delete_pictogram(p_pictogram_id uuid)
 returns void
 language plpgsql

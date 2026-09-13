@@ -5,8 +5,7 @@
  * change the other.
  */
 
-/** Pictogram labels are short; this cap bounds cost and abuse. */
-export const MAX_LABEL_LENGTH = 60;
+export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
 export type ErrorCode =
   | 'unauthorized'

@@ -10,6 +10,16 @@ describe('findLongComments', () => {
     expect(findLongComments(lines(4, '//'))).toEqual([]);
   });
 
+  it('scans SQL-style -- runs when given that prefix', () => {
+    expect(findLongComments(lines(4, '--'), { linePrefix: '--' })).toEqual([]);
+    expect(findLongComments(lines(5, '--'), { linePrefix: '--' })).toEqual([
+      { line: 1, length: 5 },
+    ]);
+    // The default prefix must not read SQL comments (a JS line can start
+    // with a decrement).
+    expect(findLongComments(lines(5, '--'))).toEqual([]);
+  });
+
   it('reports a line comment run over the cap', () => {
     expect(findLongComments(lines(5, '//'))).toEqual([{ line: 1, length: 5 }]);
   });

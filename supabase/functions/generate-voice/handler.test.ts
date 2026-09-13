@@ -4,15 +4,14 @@ import { buildSsml } from './azure.ts';
 import { handleRequest } from './index.ts';
 import { SynthesisError, type Synthesize } from './types.ts';
 
+// The shared HTTP shell (CORS, method, auth, body and label validation) is
+// covered in _shared/generateHandler.test.ts. These tests pin what is
+// specific to generate-voice: the language set, the envelope key, the
+// provider error code, and the SSML builder.
+
 const goodAdmin = {
   auth: {
     getUser: async (_jwt: string) => ({ data: { user: { id: 'u-good' } } }),
-  },
-};
-
-const noUserAdmin = {
-  auth: {
-    getUser: async (_jwt: string) => ({ data: { user: null } }),
   },
 };
 
@@ -21,109 +20,22 @@ const okSynth: Synthesize = async (_label, _language) => ({
   mimeType: 'audio/mpeg',
 });
 
-const request = (body: unknown, init: RequestInit = {}): Request =>
+const request = (body: unknown): Request =>
   new Request('http://localhost/generate-voice', {
     method: 'POST',
     headers: { Authorization: 'Bearer some-jwt', 'content-type': 'application/json' },
     body: JSON.stringify(body),
-    ...init,
   });
-
-const errorCode = async (res: Response): Promise<string> => {
-  const body = await res.json();
-  return body.error;
-};
-
-Deno.test('answers the CORS preflight before any auth check (#435)', async () => {
-  const res = await handleRequest(
-    new Request('http://localhost/generate-voice', { method: 'OPTIONS' }),
-    noUserAdmin,
-    okSynth,
-  );
-  assertEquals(res.status, 204);
-  assertEquals(res.headers.get('access-control-allow-origin'), '*');
-  assertEquals(res.headers.get('access-control-allow-headers')?.includes('authorization'), true);
-});
-
-Deno.test('every response carries the CORS origin header (#435)', async () => {
-  const err = await handleRequest(request({ label: '', language: 'da' }), goodAdmin, okSynth);
-  assertEquals(err.headers.get('access-control-allow-origin'), '*');
-  const ok = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin, okSynth);
-  assertEquals(ok.headers.get('access-control-allow-origin'), '*');
-});
-
-Deno.test('rejects non-POST', async () => {
-  const res = await handleRequest(
-    new Request('http://localhost/generate-voice', { method: 'GET' }),
-    goodAdmin,
-    okSynth,
-  );
-  assertEquals(res.status, 405);
-  assertEquals(await errorCode(res), 'method_not_allowed');
-});
-
-Deno.test('rejects a missing Authorization header without an auth round-trip', async () => {
-  let called = false;
-  const admin = {
-    auth: {
-      getUser: async (_jwt: string) => {
-        called = true;
-        return { data: { user: { id: 'u' } } };
-      },
-    },
-  };
-  const res = await handleRequest(
-    new Request('http://localhost/generate-voice', {
-      method: 'POST',
-      body: JSON.stringify({ label: 'spise', language: 'da' }),
-    }),
-    admin,
-    okSynth,
-  );
-  assertEquals(res.status, 401);
-  assertEquals(called, false);
-});
-
-Deno.test('rejects an invalid JWT', async () => {
-  const res = await handleRequest(
-    request({ label: 'spise', language: 'da' }),
-    noUserAdmin,
-    okSynth,
-  );
-  assertEquals(res.status, 401);
-  assertEquals(await errorCode(res), 'unauthorized');
-});
-
-Deno.test('rejects a non-JSON body', async () => {
-  const res = await handleRequest(
-    new Request('http://localhost/generate-voice', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer j' },
-      body: 'not json',
-    }),
-    goodAdmin,
-    okSynth,
-  );
-  assertEquals(res.status, 400);
-  assertEquals(await errorCode(res), 'bad_request');
-});
-
-Deno.test('rejects an empty label', async () => {
-  const res = await handleRequest(request({ label: '   ', language: 'da' }), goodAdmin, okSynth);
-  assertEquals(res.status, 400);
-});
-
-Deno.test('rejects a label over the length cap', async () => {
-  const res = await handleRequest(
-    request({ label: 'x'.repeat(61), language: 'da' }),
-    goodAdmin,
-    okSynth,
-  );
-  assertEquals(res.status, 400);
-});
 
 Deno.test('rejects a language outside the closed set', async () => {
   const res = await handleRequest(request({ label: 'spise', language: 'xx' }), goodAdmin, okSynth);
+  assertEquals(res.status, 400);
+  const body = await res.json();
+  assertEquals(body.error, 'bad_request');
+});
+
+Deno.test('rejects a missing language', async () => {
+  const res = await handleRequest(request({ label: 'spise' }), goodAdmin, okSynth);
   assertEquals(res.status, 400);
 });
 
@@ -135,6 +47,7 @@ Deno.test('returns the provider clip as a base64 JSON envelope on success', asyn
   };
   const res = await handleRequest(request({ label: ' spise ', language: 'da' }), goodAdmin, synth);
   assertEquals(res.status, 200);
+  assertEquals(res.headers.get('access-control-allow-origin'), '*');
   // JSON, deliberately: supabase-js reads audio/* responses as text and
   // exposes no headers — see SuccessResponse in types.ts.
   assertEquals(res.headers.get('content-type'), 'application/json');

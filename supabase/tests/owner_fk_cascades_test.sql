@@ -1,7 +1,5 @@
--- Pins the FK-cascade contract introduced for issue #100 (delete-my-account).
--- Without this, a future migration could drop or weaken the cascade and the
--- regression would only surface when a deletion fails to clean up app rows.
---
+-- Pins the FK-cascade contract for account deletion (#100): weakening a
+-- cascade would only surface when a deletion fails to clean up.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(17);
@@ -34,11 +32,9 @@ SELECT is(
   'board_members_user_id_fkey is ON DELETE CASCADE'
 );
 
--- Behavioral cascade test: insert auth + app rows, delete auth, assert empty.
--- Uses a sentinel uuid to avoid colliding with any existing test fixtures.
--- Disable session_replication_role so handle_new_user() does not auto-seed
--- a 'Liam' kid + template pictograms for the sentinel auth row — we want to
--- assert the cascade against rows we explicitly inserted, with known counts.
+-- Behavioral cascade: insert auth + app rows, delete auth, assert empty.
+-- replica mode keeps handle_new_user() from auto-seeding the sentinel user,
+-- so the cascade is asserted against known counts.
 SET LOCAL session_replication_role = replica;
 
 DO $$
@@ -56,11 +52,8 @@ BEGIN
   INSERT INTO public.boards (owner_id, kid_id, name, kind, voice_mode, accent)
   SELECT test_uid, k.id, 'cascade-board', 'sequence', 'tts', 'sage'
   FROM public.kids k WHERE k.owner_id = test_uid LIMIT 1;
-  -- board_members: this row exercises BOTH cascade paths simultaneously
-  -- (board_members.user_id -> auth.users(id), and indirectly
-  -- board_members.board_id -> boards(id) -> auth.users(id)). Either path
-  -- removing it satisfies the assertion; future test could split into two
-  -- sentinel users to disambiguate.
+  -- Exercises both cascade paths at once (user_id direct; board_id via
+  -- boards). Either path removing the row satisfies the assertion.
   INSERT INTO public.board_members (board_id, user_id, role)
   SELECT b.id, test_uid, 'owner'
   FROM public.boards b WHERE b.owner_id = test_uid LIMIT 1;

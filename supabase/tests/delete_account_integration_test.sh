@@ -14,12 +14,16 @@
 #     no env file is needed.
 #   - `jq`, `curl`, `psql` available on PATH.
 #
-# Note on seeding: the `private.handle_new_user` trigger seeds 1 kid + 17
-# pictograms (one per row in public.template_pictograms) on every signup.
-# This test then inserts ONE more kid and ONE more pictogram, so the
-# pre-deletion sanity counts are 2 kids and 18 pictograms.
+# Note on seeding: the `private.handle_new_user` trigger seeds 1 kid plus one
+# pictogram per row in public.template_pictograms on every signup. This test
+# inserts ONE more of each; the expected counts are derived below so a new
+# template row does not break this test.
 
 set -euo pipefail
+
+AUDIO_FILE="$(mktemp --suffix=.mp3)"
+IMAGE_FILE="$(mktemp --suffix=.png)"
+trap 'rm -f "$AUDIO_FILE" "$IMAGE_FILE"' EXIT
 
 # `supabase status` writes warnings (e.g. "Stopped services: ...") to stderr
 # alongside the JSON on stdout. Drop stderr so jq sees clean JSON.
@@ -57,26 +61,26 @@ curl -fsS -X POST "${API_URL}/rest/v1/pictograms" \
   -d "{\"owner_id\":\"${USER_ID}\",\"label\":\"apple\",\"style\":\"illus\",\"glyph\":\"A\",\"tint\":\"red\"}" > /dev/null
 
 echo "==> 3/8 upload storage objects"
-echo "fake-audio" > /tmp/del-audio.mp3
-echo "fake-image" > /tmp/del-image.png
+echo "fake-audio" > "$AUDIO_FILE"
+echo "fake-image" > "$IMAGE_FILE"
 # Buckets have allowed_mime_types — must set Content-Type to a permitted value.
 # pictogram-audio: audio/mpeg; pictogram-images: image/png.
 curl -fsS -X POST "${API_URL}/storage/v1/object/pictogram-audio/${USER_ID}/test.mp3" \
   -H "apikey: ${ANON_KEY}" -H "Authorization: Bearer ${USER_JWT}" \
   -H "Content-Type: audio/mpeg" \
-  --data-binary "@/tmp/del-audio.mp3" > /dev/null
+  --data-binary "@$AUDIO_FILE" > /dev/null
 curl -fsS -X POST "${API_URL}/storage/v1/object/pictogram-images/${USER_ID}/test.png" \
   -H "apikey: ${ANON_KEY}" -H "Authorization: Bearer ${USER_JWT}" \
   -H "Content-Type: image/png" \
-  --data-binary "@/tmp/del-image.png" > /dev/null
+  --data-binary "@$IMAGE_FILE" > /dev/null
 
 echo "==> 4/8 pre-deletion sanity (counts via service-role)"
-# 2 kids = 1 from handle_new_user trigger + 1 from this test.
-# 18 pictograms = 17 from handle_new_user trigger + 1 from this test.
+# Seeded rows (handle_new_user trigger) + 1 of each from this test.
+EXPECTED_PICTS=$(psql "$DB_URL" -tAc "SELECT count(*) + 1 FROM public.template_pictograms")
 PRE_KIDS=$(psql "$DB_URL" -tAc "SELECT count(*) FROM public.kids WHERE owner_id='$USER_ID'")
 PRE_PICTS=$(psql "$DB_URL" -tAc "SELECT count(*) FROM public.pictograms WHERE owner_id='$USER_ID'")
-[[ "$PRE_KIDS" == "2" ]]   || { echo "FAIL pre-kids=$PRE_KIDS (expected 2)";   exit 1; }
-[[ "$PRE_PICTS" == "18" ]] || { echo "FAIL pre-picts=$PRE_PICTS (expected 18)"; exit 1; }
+[[ "$PRE_KIDS" == "2" ]] || { echo "FAIL pre-kids=$PRE_KIDS (expected 2)"; exit 1; }
+[[ "$PRE_PICTS" == "$EXPECTED_PICTS" ]] || { echo "FAIL pre-picts=$PRE_PICTS (expected $EXPECTED_PICTS)"; exit 1; }
 
 PRE_AUDIO=$(psql "$DB_URL" -tAc "SELECT count(*) FROM storage.objects WHERE bucket_id='pictogram-audio' AND split_part(name, '/', 1)='$USER_ID'")
 PRE_IMG=$(psql "$DB_URL" -tAc "SELECT count(*) FROM storage.objects WHERE bucket_id='pictogram-images' AND split_part(name, '/', 1)='$USER_ID'")
@@ -112,5 +116,4 @@ SIGNIN_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${API_URL}/auth
   -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")
 [[ "$SIGNIN_STATUS" == "400" ]] || { echo "FAIL signin status=$SIGNIN_STATUS (expected 400)"; exit 1; }
 
-rm -f /tmp/del-audio.mp3 /tmp/del-image.png
 echo "==> ALL CHECKS PASSED"

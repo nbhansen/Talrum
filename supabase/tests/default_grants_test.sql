@@ -1,14 +1,6 @@
--- Pins the ALTER DEFAULT PRIVILEGES contract from
--- 20260427000000_tighten_grants.sql. When `supabase db push` (running as
--- postgres) creates a new table in schema public, it must inherit:
---   authenticated -> CRUD
---   service_role  -> CRUD
---   anon          -> nothing
---
--- Without this, a regression in default privileges only surfaces when the
--- next real table is added — and after Supabase enforces the May/Oct 2026
--- "secure by default" Data API change, that surfaces as a 42501 in prod.
---
+-- Pins the ALTER DEFAULT PRIVILEGES contract (20260427000000): a new
+-- public table inherits CRUD for authenticated + service_role and nothing
+-- for anon. A regression here only surfaces when the next table is added.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(12);

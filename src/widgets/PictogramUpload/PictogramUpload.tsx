@@ -52,6 +52,7 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
     setError(null);
     try {
       await createPhoto.mutateAsync({
+        id: crypto.randomUUID(),
         label: trimmed,
         blob: processed.blob,
         extension: processed.extension,

@@ -1,12 +1,6 @@
--- Talrum Phase 2: row-level security.
--- Phase 2 stubs auth: the client signs in as a seeded user whose uuid matches
--- LOCAL_PARENT_ID, so these policies don't gate day-to-day dev. Phase 3 flips
--- on real sign-in and the same policies start enforcing for free.
---
--- Cross-table `exists` checks (boards ↔ board_members) are wrapped in
--- SECURITY DEFINER helper functions. Running the check inside a function
--- bypasses the other table's RLS during evaluation, avoiding the policy
--- recursion Postgres reports as error 42P17.
+-- Row-level security. Cross-table `exists` checks (boards ↔ board_members)
+-- are wrapped in SECURITY DEFINER helpers: the function bypasses the other
+-- table's RLS during evaluation, avoiding policy recursion (42P17).
 
 alter table kids          enable row level security;
 alter table pictograms    enable row level security;
