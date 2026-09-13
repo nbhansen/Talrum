@@ -1,7 +1,7 @@
 # Runbook: account deletion requests
 
 How the operator handles inbound account-deletion, restore, and export
-requests. Pairs with `docs/privacy-policy.md`.
+requests. Pairs with `src/app/routes/PrivacyPolicyRoute.tsx`.
 
 The in-app delete flow (Settings → Delete my account) is the preferred
 path: it invokes the `delete-account` edge function, which deletes
@@ -83,8 +83,8 @@ flow isn't usable.
 The project runs on the **free plan**, which does not give the dashboard any
 restorable backups — Supabase takes daily backups only for Pro, Team, and
 Enterprise projects ([docs](https://supabase.com/docs/guides/platform/backups)).
-`docs/privacy-policy.md` §8 says this plainly, and the in-app delete flow
-warns the user before they confirm.
+`src/app/routes/PrivacyPolicyRoute.tsx` §8 says this plainly, and the
+in-app delete flow warns the user before they confirm.
 
 Respond apologetically and do not improvise a partial rebuild from
 screenshots or logs — a half-restored account is worse than an empty one.

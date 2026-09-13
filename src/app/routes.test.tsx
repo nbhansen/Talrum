@@ -98,7 +98,7 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByRole('link', { name: /sign up again/i }).getAttribute('href')).toBe('/');
   });
 
-  it('/privacy-policy renders the markdown content', async () => {
+  it('/privacy-policy renders the policy', async () => {
     const memRouter = createMemoryRouter(
       [{ path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') }],
       { initialEntries: ['/privacy-policy'] },
@@ -107,7 +107,6 @@ describe('routes — error boundary wiring', () => {
     await waitFor(() => {
       expect(screen.getByTestId('privacy-policy-route')).toBeInTheDocument();
     });
-    // The first H1 in docs/privacy-policy.md.
     expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
   });
 

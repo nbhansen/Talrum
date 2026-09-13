@@ -97,7 +97,7 @@ that can be personal (names, routines) — to the provider (Microsoft
 Azure, EU region `northeurope`). The function does not log labels (the
 Azure error path keeps only status + request id for exactly this
 reason), and nothing else leaves the device. Disclosed to parents in
-`docs/privacy-policy.md` §4 and §10, which renders verbatim at the
+`src/app/routes/PrivacyPolicyRoute.tsx` §4 and §10, which is the
 public `/privacy-policy` route — keep policy and provider in sync if
 either changes.
 

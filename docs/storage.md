@@ -121,8 +121,8 @@ regional deployment of an EU resource, never Global — see the deploy
 runbook). The function does not log
 labels (the error path keeps only status + request id for exactly this
 reason), and nothing else leaves the device. Disclosed to parents in
-`docs/privacy-policy.md` §4 and §10 — keep policy and provider in sync if
-either changes.
+`src/app/routes/PrivacyPolicyRoute.tsx` §4 and §10 — keep policy and
+provider in sync if either changes.
 
 The provider is swappable by design, mirroring `generate-voice` (see
 [speech.md](./speech.md)): the client knows only the function name and the
