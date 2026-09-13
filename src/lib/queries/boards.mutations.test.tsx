@@ -28,12 +28,14 @@ const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
 const fromMock = vi.fn((_table: string) => ({ update: updateMock, delete: deleteMock }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => fromMock(table) } }));
+vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 
 // Import after the mock is registered.
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { boardMembersQueryKey } = await import('./board-members');
 const { useDeleteBoard, useRenameBoard, useSetStepIds } = await import('./boards.mutations');
 const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
+const { captureException } = await import('@/lib/platform/telemetry');
 
 const seed: Board = {
   id: 'morning',
@@ -210,6 +212,20 @@ describe('useSetStepIds', () => {
 
     await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
     expect(updateMock).toHaveBeenCalledWith({ step_ids: ['a', 'b', 'c'] });
+  });
+
+  it('reports a cache miss to telemetry instead of dropping the write silently (#365)', () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+    });
+
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it('exposes isError to the caller after a non-retryable DB error', async () => {
