@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { useSessionUser } from '@/lib/auth/session';
 import { clearLastBoard, getLastBoard } from '@/lib/lastBoard';
 import { type BoardRowPatch, enqueueAndDrain } from '@/lib/outbox';
+import { captureException } from '@/lib/platform/telemetry';
 import { boardMembersQueryKey } from '@/lib/queries/board-members';
 import { boardQueryKey, boardsQueryKey, rowToBoard } from '@/lib/queries/boards.read';
 import {
@@ -149,15 +150,11 @@ export const useSetStepIds = (): SetStepIdsResult => {
   const run = ({ boardId, update }: SetStepIdsInput): void => {
     const fresh = qc.getQueryData<Board>(boardQueryKey(boardId));
     if (!fresh) {
-      // Cache should always be hydrated by the time the UI can call this —
-      // every caller gates on a loaded `board`. A miss here means a future
-      // wiring put `useSetStepIds` ahead of its data. Surface in dev only.
-      if (import.meta.env.DEV) {
-        console.warn(
-          `[useSetStepIds] no cached board for ${boardId}; mutation skipped. ` +
-            `Caller likely fired before the board query resolved.`,
-        );
-      }
+      // Every caller gates on a loaded board, so a miss means a future wiring
+      // fired this before its data. The write is dropped; report it (#365).
+      const err = new Error(`useSetStepIds: no cached board for ${boardId}; mutation skipped`);
+      if (import.meta.env.DEV) console.warn(err.message);
+      captureException(err, { tags: { component: 'useSetStepIds' } });
       return;
     }
     inner.mutate({ boardId, stepIds: update(fresh.stepIds) });

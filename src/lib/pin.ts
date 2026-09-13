@@ -5,7 +5,8 @@
 
 const STORAGE_KEY = 'talrum:pin-hash';
 
-const isDisabled = (): boolean => import.meta.env.VITE_DISABLE_PIN === '1';
+// Dev-only so the flag can never bypass kid mode in a production build (#365).
+const isDisabled = (): boolean => import.meta.env.DEV && import.meta.env.VITE_DISABLE_PIN === '1';
 
 const listeners = new Set<() => void>();
 

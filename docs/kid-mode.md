@@ -12,14 +12,16 @@ done; that progress is in-memory for the visit ([#519]).
 The PIN is a **soft gate**, not security. It stops a kid in kid mode from
 exiting to parent settings; it does not stop an adult with devtools. The
 threat model is spelled out at the top of `src/lib/pin.ts`: the PIN is
-SHA-256-hashed before persisting (we never store the digits), lives in
-`localStorage` under `talrum:pin-hash`, and is **per-device** — a household
-iPad has one PIN regardless of which parent account is signed in. It is
-wiped alongside the rest of device state at sign-out (see
+SHA-256-hashed before persisting (the digits are not stored, but an unsalted
+hash of 4 digits is trivial to reverse, so this hides nothing from devtools),
+lives in `localStorage` under `talrum:pin-hash`, and is **per-device** — a
+household iPad has one PIN regardless of which parent account is signed in.
+It is wiped alongside the rest of device state at sign-out (see
 [offline-cache.md](./offline-cache.md)).
 
 `VITE_DISABLE_PIN=1` disables the gate entirely (`pinGateDisabled()`), which
-tests and local dev use to skip the modal.
+tests and local dev use to skip the modal. Dev builds only; a production build
+ignores the flag.
 
 ## No PIN, no kid mode
 

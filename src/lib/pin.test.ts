@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearPin, hasPin, kidModeNeedsPinSetup, setPin, verifyPin } from './pin';
+import { clearPin, hasPin, kidModeNeedsPinSetup, pinGateDisabled, setPin, verifyPin } from './pin';
 
 beforeEach(() => {
   window.localStorage.removeItem('talrum:pin-hash');
@@ -24,6 +24,17 @@ describe('pin', () => {
     expect(stored).toBeTruthy();
     expect(stored).not.toBe('4242');
     expect(stored).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('ignores VITE_DISABLE_PIN outside a dev build (#365)', () => {
+    vi.stubEnv('VITE_DISABLE_PIN', '1');
+    vi.stubEnv('DEV', false);
+    try {
+      expect(pinGateDisabled()).toBe(false);
+      expect(hasPin()).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   describe('kidModeNeedsPinSetup (#353)', () => {
