@@ -32,16 +32,3 @@
 .entry {
   position: relative;
 }
-
-.micBtn {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  --tal-iconbtn-ink: var(--tal-ink-muted);
-}
-
-.micBtnHasAudio {
-  --tal-iconbtn-bg: var(--tal-sage);
-  --tal-iconbtn-line: var(--tal-sage-ink);
-  --tal-iconbtn-ink: var(--tal-sage-ink);
-}
