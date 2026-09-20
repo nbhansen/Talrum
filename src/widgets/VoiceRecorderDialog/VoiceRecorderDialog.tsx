@@ -15,6 +15,7 @@ import {
   useGenerateVoice,
 } from '@/lib/queries/generateVoice';
 import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
+import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
@@ -235,8 +236,8 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
           title="Record voice"
           subtitle={
             <>
-              This voice plays for <strong>{picto.label}</strong> when a board uses &ldquo;Parent
-              voice&rdquo;.
+              This voice plays for <strong>{picto.label}</strong>, except on a board set to &ldquo;
+              {voiceModeLabel('tts')}&rdquo;.
             </>
           }
           titleId={TITLE_ID}
