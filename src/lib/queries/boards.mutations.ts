@@ -214,7 +214,7 @@ export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInp
           name: name.trim(),
           kind,
           labels_visible: true,
-          voice_mode: 'tts',
+          voice_mode: 'parent',
           step_ids: [],
           kid_reorderable: false,
           accent: accent.bg,

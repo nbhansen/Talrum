@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 
+import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { BoardKind, VoiceMode } from '@/types/domain';
 import { Segmented } from '@/ui/Segmented/Segmented';
 import { Select } from '@/ui/Select/Select';
@@ -23,11 +24,10 @@ const KIND_OPTIONS = [
   { value: 'choice' as const, label: 'Choice', sub: 'This or that or that?' },
 ];
 
-const VOICE_OPTIONS = [
-  { value: 'tts' as const, label: 'Read aloud (TTS)' },
-  { value: 'parent' as const, label: "Mom's voice (recorded)" },
-  { value: 'none' as const, label: 'No sound' },
-];
+const VOICE_OPTIONS = (['tts', 'parent', 'none'] as const).map((value) => ({
+  value,
+  label: voiceModeLabel(value),
+}));
 
 export const SettingsRow = ({
   kind,
