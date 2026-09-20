@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type * as recordingModule from '@/lib/platform/recording';
+import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
 
 interface MockError {
@@ -145,6 +146,14 @@ beforeEach(() => {
 });
 
 describe('VoiceRecorderDialog', () => {
+  it('names the board setting with the words of the Voice select (#575)', () => {
+    renderDialog(pictoWithoutAudio);
+
+    expect(document.body).toHaveTextContent(voiceModeLabel('tts'));
+    expect(document.body).toHaveTextContent(voiceModeLabel('none'));
+    expect(document.body).not.toHaveTextContent('Parent voice');
+  });
+
   it('explains and disables recording in a browser without capture support', () => {
     supportedMock.mockReturnValue(false);
     renderDialog(pictoWithoutAudio);

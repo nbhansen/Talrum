@@ -25,8 +25,9 @@ window.speechSynthesis                    (silent only if the browser has no
                                            speechSynthesis at all)
 ```
 
-`voiceMode` is per **board** (`src/types/domain.ts`), so a caregiver can give
-one routine a recorded parent voice and leave another on TTS. Recordings are
+`voiceMode` is per **board** (`src/types/domain.ts`). Boards start on `parent`,
+so a recording plays as soon as it exists; `tts` is the caregiver's explicit
+choice to ignore recordings on that board (#575). Recordings are
 captured with `src/lib/platform/recording.ts` (a MediaRecorder wrapper) in parent
 mode and uploaded via the outbox; playback here only needs the Storage path.
 

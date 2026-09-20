@@ -2,7 +2,7 @@
 -- idempotency on re-fire.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 
 -- Capture template counts so the assertions below survive future seed
 -- changes (add more pictograms, add a fifth board, etc.) without editing
@@ -66,6 +66,13 @@ SELECT is(
   (SELECT count(*)::int FROM public.boards WHERE owner_id = '22222222-2222-2222-2222-222222222222'),
   (SELECT boards FROM tt),
   'user B board count matches template_boards'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.boards
+    WHERE owner_id = '11111111-1111-1111-1111-111111111111' AND voice_mode <> 'parent'),
+  0,
+  'user A boards all start on the recorded voice (#575)'
 );
 
 -- 7: pictogram ids are disjoint between users (no row reuse, no shared PKs).
