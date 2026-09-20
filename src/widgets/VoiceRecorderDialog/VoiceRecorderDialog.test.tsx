@@ -150,6 +150,7 @@ describe('VoiceRecorderDialog', () => {
     renderDialog(pictoWithoutAudio);
 
     expect(document.body).toHaveTextContent(voiceModeLabel('tts'));
+    expect(document.body).toHaveTextContent(voiceModeLabel('none'));
     expect(document.body).not.toHaveTextContent('Parent voice');
   });
 

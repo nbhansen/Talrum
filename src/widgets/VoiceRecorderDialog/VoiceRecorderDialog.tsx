@@ -237,7 +237,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
           subtitle={
             <>
               This voice plays for <strong>{picto.label}</strong>, except on a board set to &ldquo;
-              {voiceModeLabel('tts')}&rdquo;.
+              {voiceModeLabel('tts')}&rdquo; or &ldquo;{voiceModeLabel('none')}&rdquo;.
             </>
           }
           titleId={TITLE_ID}
