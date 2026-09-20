@@ -1,9 +1,9 @@
 import type { JSX } from 'react';
 
 import type { Pictogram } from '@/types/domain';
-import { IconButton } from '@/ui/IconButton/IconButton';
-import { MicIcon, SearchIcon } from '@/ui/icons';
+import { SearchIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
+import { PictoVoiceButton } from '@/widgets/PictoVoiceButton/PictoVoiceButton';
 
 import styles from './LibraryTab.module.css';
 
@@ -47,22 +47,7 @@ export const LibraryTab = ({
               selected={selected.has(p.id)}
               onClick={() => onToggle(p.id)}
             />
-            <IconButton
-              variant="raised"
-              className={[styles.micBtn, p.audioPath ? styles.micBtnHasAudio : null]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditVoice(p);
-              }}
-              aria-label={
-                p.audioPath ? `Edit voice recording for ${p.label}` : `Record voice for ${p.label}`
-              }
-              title={p.audioPath ? 'Edit recording' : 'Record voice'}
-            >
-              <MicIcon size={14} />
-            </IconButton>
+            <PictoVoiceButton picto={p} onClick={() => onEditVoice(p)} />
           </div>
         ))}
       </div>

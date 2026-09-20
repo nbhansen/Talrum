@@ -20,6 +20,12 @@ vi.mock('@/widgets/PictogramSheet/PictogramSheet', () => ({
   ),
 }));
 
+vi.mock('@/widgets/VoiceRecorderDialog/VoiceRecorderDialog', () => ({
+  VoiceRecorderDialog: ({ picto }: { picto: Pictogram }) => (
+    <div data-testid="voice-dialog">Voice for {picto.label}</div>
+  ),
+}));
+
 const { Library } = await import('./Library');
 
 const PICTOS: Pictogram[] = [
@@ -67,10 +73,18 @@ describe('Library', () => {
     usePictogramsMock.mockReturnValue({ data: PICTOS, isPending: false });
     render(<Library />);
     expect(screen.queryByTestId('picto-sheet')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /apple/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apple' }));
     expect(screen.getByTestId('picto-sheet')).toBeInTheDocument();
     expect(screen.getByText(/editing apple/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /close-sheet/i }));
+    expect(screen.queryByTestId('picto-sheet')).toBeNull();
+  });
+
+  it('opens the voice recorder from the mic button on a tile, not the edit sheet (#574)', () => {
+    usePictogramsMock.mockReturnValue({ data: PICTOS, isPending: false });
+    render(<Library />);
+    fireEvent.click(screen.getByRole('button', { name: 'Record voice for Apple' }));
+    expect(screen.getByTestId('voice-dialog')).toHaveTextContent('Voice for Apple');
     expect(screen.queryByTestId('picto-sheet')).toBeNull();
   });
 });

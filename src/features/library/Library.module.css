@@ -36,3 +36,7 @@
   gap: var(--tal-space-5);
   margin-top: var(--tal-space-2);
 }
+
+.entry {
+  position: relative;
+}
