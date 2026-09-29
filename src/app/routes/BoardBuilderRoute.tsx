@@ -72,6 +72,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   return (
     <>
       <BoardBuilder
+        key={board.id}
         board={board}
         isOwner={isOwner}
         setStepIds={setStepIds}
