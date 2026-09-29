@@ -20,11 +20,8 @@ const BoardBuilderRoute = lazy(() =>
     default: m.BoardBuilderRoute,
   })),
 );
-const KidSequenceRoute = lazy(() =>
-  import('@/app/routes/KidSequenceRoute').then((m) => ({ default: m.KidSequenceRoute })),
-);
-const KidChoiceRoute = lazy(() =>
-  import('@/app/routes/KidChoiceRoute').then((m) => ({ default: m.KidChoiceRoute })),
+const KidBoardRoute = lazy(() =>
+  import('@/app/routes/KidBoardRoute').then((m) => ({ default: m.KidBoardRoute })),
 );
 const LibraryRoute = lazy(() =>
   import('@/app/routes/LibraryRoute').then((m) => ({ default: m.LibraryRoute })),
@@ -110,8 +107,8 @@ export const router = createBrowserRouter([
   { path: '/library', element: wrap(<LibraryRoute />, 'parent') },
   { path: '/kids', element: wrap(<KidsRoute />, 'parent') },
   { path: '/settings', element: wrap(<SettingsRoute />, 'parent') },
-  { path: '/kid/sequence/:boardId', element: wrap(<KidSequenceRoute />, 'kid') },
-  { path: '/kid/choice/:boardId', element: wrap(<KidChoiceRoute />, 'kid') },
+  { path: '/kid/sequence/:boardId', element: wrap(<KidBoardRoute kind="sequence" />, 'kid') },
+  { path: '/kid/choice/:boardId', element: wrap(<KidBoardRoute kind="choice" />, 'kid') },
   { path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') },
   { path: '/privacy-policy', element: wrap(<PrivacyPolicyRoute />, 'parent') },
   { path: '*', element: <Navigate to="/" replace /> },
