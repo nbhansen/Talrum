@@ -3,13 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const useOutboxStatusMock = vi.fn();
 const retryFailedMock = vi.fn();
-const peekEntriesMock = vi.fn();
+const listEntriesMock = vi.fn();
 const discardEntryMock = vi.fn();
 
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
   retryFailed: (...args: unknown[]) => retryFailedMock(...args),
-  peekEntries: (...args: unknown[]) => peekEntriesMock(...args),
+  listEntries: (...args: unknown[]) => listEntriesMock(...args),
   discardEntry: (...args: unknown[]) => discardEntryMock(...args),
 }));
 
@@ -18,7 +18,7 @@ const { OfflineIndicator } = await import('./OfflineIndicator');
 afterEach(() => {
   useOutboxStatusMock.mockReset();
   retryFailedMock.mockReset();
-  peekEntriesMock.mockReset();
+  listEntriesMock.mockReset();
   discardEntryMock.mockReset();
 });
 
@@ -174,7 +174,7 @@ describe('OfflineIndicator', () => {
       failedCount: 1,
       draining: false,
     });
-    peekEntriesMock.mockResolvedValue([
+    listEntriesMock.mockResolvedValue([
       { id: 'a', status: 'failed' },
       { id: 'b', status: 'pending' },
     ]);

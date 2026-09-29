@@ -2,8 +2,8 @@ import type { JSX, ReactNode } from 'react';
 
 import { getKidCopy } from '@/lib/kidCopy';
 import { Modal } from '@/ui/Modal/Modal';
+import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/PinPad/PinPad';
 
-import { PIN_PAD_TITLE_ID, PinPad } from './PinPad';
 import { usePinExit } from './usePinExit';
 
 interface KidModeGateProps {

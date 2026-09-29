@@ -128,18 +128,8 @@ Mobile clients use the Supabase SDK and hit the same project.
    supabase link --project-ref <project-ref>
    supabase db push
    ```
-3. In GitHub _Settings → Secrets and variables → Actions_ add:
-   - `SUPABASE_ACCESS_TOKEN` (the PAT)
-   - `SUPABASE_PROJECT_REF` (the ref; the build derives the project URL from it)
-   - `SUPABASE_DB_PASSWORD` (Postgres password from the dashboard)
-   - `VITE_SUPABASE_ANON_KEY` (anon / publishable key)
-   - `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` (for the Pages upload)
-   - `VITE_SENTRY_DSN` (Sentry project DSN; build embeds it in the prod bundle)
-   - `SENTRY_AUTH_TOKEN` (Sentry org auth token with `project:releases` scope)
-   - `SENTRY_ORG` / `SENTRY_PROJECT` (org slug + project slug for source-map upload)
-
-   These are the **only** place production's Supabase URL and key are
-   configured.
+3. In GitHub _Settings → Secrets and variables → Actions_ add every secret in
+   [docs/runbooks/deploy.md](./docs/runbooks/deploy.md#required-github-secrets).
 
 4. Create the Cloudflare Pages project (`talrum`). Leave its build settings
    empty — Pages is used purely as static hosting. CI runs `npm run build`

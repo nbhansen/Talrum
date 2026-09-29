@@ -20,7 +20,7 @@ export const DELETE_ACCOUNT_ERROR_CODES = [
   'internal_error',
 ] as const;
 
-export type DeleteAccountErrorCode = (typeof DELETE_ACCOUNT_ERROR_CODES)[number];
+type DeleteAccountErrorCode = (typeof DELETE_ACCOUNT_ERROR_CODES)[number];
 
 export type DeleteAccountError = CodedError<DeleteAccountErrorCode>;
 

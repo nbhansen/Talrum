@@ -3,6 +3,8 @@
 // dragging the runtime client through tsconfig.node.json. Same pattern as
 // `src/lib/storage/storage-cache.ts`.
 
+import { isOnline } from './online';
+
 export interface OutboxStatus {
   online: boolean;
   pendingCount: number;
@@ -44,7 +46,7 @@ export const RETRY_BASE_DELAY_MS = 2_000;
 export const RETRY_MAX_DELAY_MS = 30_000;
 
 const initialStatus = (): OutboxStatus => ({
-  online: typeof navigator === 'undefined' ? true : navigator.onLine,
+  online: isOnline(),
   pendingCount: 0,
   failedCount: 0,
   conflictCount: 0,

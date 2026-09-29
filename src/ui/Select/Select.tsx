@@ -4,7 +4,7 @@ import { ChevronDownIcon } from '@/ui/icons';
 
 import styles from './Select.module.css';
 
-export interface SelectOption<V extends string> {
+interface SelectOption<V extends string> {
   value: V;
   label: string;
 }

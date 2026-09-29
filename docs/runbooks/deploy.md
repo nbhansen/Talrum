@@ -47,11 +47,20 @@ Set on the repo with `gh secret set <NAME> --repo nbhansen/Talrum`. CI
 reads them in `.github/workflows/deploy.yml` (migrations, SPA, and edge
 functions).
 
-| Secret                  | Used by                              | Source                                  |
-| ----------------------- | ------------------------------------ | --------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`                         | dashboard → Account → Access Tokens     |
-| `SUPABASE_DB_PASSWORD`  | `deploy.yml`                         | dashboard → Project settings → Database |
-| `SUPABASE_PROJECT_REF`  | `deploy.yml`                         | dashboard → Project settings → General  |
+| Secret                   | Used by                              | Source                                          |
+| ------------------------ | ------------------------------------ | ----------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`  | migrations and functions jobs        | dashboard → Account → Access Tokens             |
+| `SUPABASE_DB_PASSWORD`   | migrations job                       | dashboard → Project settings → Database         |
+| `SUPABASE_PROJECT_REF`   | every job; the build derives the URL | dashboard → Project settings → General          |
+| `VITE_SUPABASE_ANON_KEY` | SPA build                            | dashboard → Project settings → API              |
+| `VITE_SENTRY_DSN`        | SPA build (embedded in the bundle)   | Sentry → project → Client Keys                  |
+| `SENTRY_AUTH_TOKEN`      | SPA build, source-map upload         | Sentry org auth token, `project:releases` scope |
+| `SENTRY_ORG`             | SPA build, source-map upload         | Sentry org slug                                 |
+| `SENTRY_PROJECT`         | SPA build, source-map upload         | Sentry project slug                             |
+| `CLOUDFLARE_API_TOKEN`   | Pages upload                         | Cloudflare → API Tokens                         |
+| `CLOUDFLARE_ACCOUNT_ID`  | Pages upload                         | Cloudflare dashboard sidebar                    |
+
+These are the only place production's Supabase URL and key are configured.
 
 ## Edge function default secrets — no manual bootstrap
 
@@ -163,7 +172,7 @@ You can always deploy from a developer machine. Make sure
   ```
 - **Functions:**
   ```sh
-  supabase functions deploy delete-account --project-ref <ref>
+  supabase functions deploy --project-ref <ref>
   ```
 
 Both commands target the project `supabase link` is currently bound to,

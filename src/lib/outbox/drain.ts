@@ -9,6 +9,7 @@ import {
   RETRY_BASE_DELAY_MS,
 } from './drain-state';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { isOnline } from './online';
 import { getOutboxOwner } from './owner';
 import { decideRetry } from './retry-decision';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
@@ -23,7 +24,6 @@ import type { OutboxEntry } from './types';
 const MAX_ATTEMPTS_BEFORE_FAILED = 6;
 
 export type { OutboxStatus };
-export { __resetDrainForTests } from './drain-state';
 
 type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
 
@@ -45,7 +45,7 @@ const emit = async (): Promise<void> => {
     // which would clear the pill for writes that are still queued (#458).
     ...drainState.lastStatus,
     ...(counts ?? {}),
-    online: typeof navigator === 'undefined' ? true : navigator.onLine,
+    online: isOnline(),
     draining: drainState.draining,
     timerDrain: drainState.timerDrain,
     queueUnreadable: counts === undefined,
@@ -229,7 +229,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     await emit();
     return;
   }
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+  if (!isOnline()) {
     cancelRetryOnOffline();
     await emit();
     return;
@@ -247,7 +247,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
       // attempting on a dropped network burns the retry budget for nothing.
-      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      if (!isOnline()) return;
       let queue = await reconcileQueue();
       let stop = false;
       while (!stop) {
@@ -292,7 +292,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
         sawUncleared,
         passThrew,
         fromTimer,
-        online: typeof navigator === 'undefined' || navigator.onLine,
+        online: isOnline(),
         pendingDrain: drainState.pendingDrain,
       },
       drainState,

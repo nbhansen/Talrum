@@ -119,7 +119,7 @@ export const useSetVoiceMode = (): UseMutationResult<
  * current cache. A snapshot closed over at render time is clobbered when a
  * drain, another tab, or a long-open picker shifts the cache underneath it.
  */
-export interface SetStepIdsInput {
+interface SetStepIdsInput {
   boardId: string;
   update: (prev: string[]) => string[];
 }

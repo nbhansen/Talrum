@@ -1,11 +1,11 @@
 import type { JSX } from 'react';
 
-import { discardEntry, peekEntries, retryFailed, useOutboxStatus } from '@/lib/outbox';
+import { discardEntry, listEntries, retryFailed, useOutboxStatus } from '@/lib/outbox';
 
 import styles from './OfflineIndicator.module.css';
 
 const discardAllFailed = async (): Promise<void> => {
-  const entries = await peekEntries();
+  const entries = await listEntries();
   await Promise.all(entries.filter((e) => e.status === 'failed').map((e) => discardEntry(e.id)));
 };
 
