@@ -6,6 +6,8 @@ import { OfflineIndicator } from '@/widgets/OfflineIndicator/OfflineIndicator';
 
 import styles from './ParentShell.module.css';
 import { TalrumLogo } from './TalrumLogo';
+import { useKidModeNav } from './useKidModeNav';
+import { useParentNav } from './useParentNav';
 
 export type ParentNavKey = 'home' | 'library' | 'kids' | 'settings';
 
@@ -24,8 +26,7 @@ const NAV: readonly NavItem[] = [
 
 interface ParentShellProps {
   active?: ParentNavKey;
-  onNav?: (id: ParentNavKey) => void;
-  /** Omitted when no board qualifies, which renders the button disabled. */
+  /** Overrides the default kid-mode target, which is disabled when no board qualifies. */
   onKidMode?: () => void;
   title?: string;
   subtitle?: string;
@@ -35,13 +36,15 @@ interface ParentShellProps {
 
 export const ParentShell = ({
   active,
-  onNav,
   onKidMode,
   title,
   subtitle,
   right,
   children,
 }: ParentShellProps): JSX.Element => {
+  const onNav = useParentNav();
+  const defaultKidMode = useKidModeNav();
+  const kidMode = onKidMode ?? defaultKidMode;
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -56,7 +59,7 @@ export const ParentShell = ({
                 className={[styles.navItem, isActive && styles.navItemActive]
                   .filter(Boolean)
                   .join(' ')}
-                onClick={() => onNav?.(item.id)}
+                onClick={() => onNav(item.id)}
               >
                 <NavIcon name={item.glyph} />
                 <span>{item.label}</span>
@@ -65,7 +68,7 @@ export const ParentShell = ({
           })}
         </nav>
         <div className={styles.bottom}>
-          <button type="button" className={styles.kidBtn} onClick={onKidMode} disabled={!onKidMode}>
+          <button type="button" className={styles.kidBtn} onClick={kidMode} disabled={!kidMode}>
             <LockIcon size={22} />
             <span>KID</span>
           </button>

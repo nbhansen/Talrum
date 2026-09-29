@@ -14,6 +14,10 @@
   background: var(--tal-bg);
 }
 
+.libraryTab {
+  padding: var(--tal-space-7);
+}
+
 .footer {
   padding: var(--tal-space-4) var(--tal-space-7);
   display: flex;

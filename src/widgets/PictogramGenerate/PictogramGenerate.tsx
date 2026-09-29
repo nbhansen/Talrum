@@ -1,8 +1,9 @@
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
 import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
+import { useBlobPreview } from '@/lib/useBlobPreview';
 import { Button } from '@/ui/Button/Button';
 import { FormError } from '@/ui/FormError/FormError';
 import { SparkleIcon } from '@/ui/icons';
@@ -21,29 +22,11 @@ interface PictogramGenerateProps {
 
 export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Element => {
   const [label, setLabel] = useState('');
-  const [preview, setPreview] = useState<ProcessedImage | null>(null);
+  const { preview, show: showPreview, clear: clearPreview } = useBlobPreview<ProcessedImage>();
   const [busy, setBusy] = useState<'generating' | 'saving' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const genMut = useGenerateImage();
   const createPhoto = useCreatePhotoPictogram();
-
-  // A blob URL from a dropped setPreview never reaches the cleanup below. The
-  // setup body must re-assert true, or StrictMode's setup → cleanup → setup
-  // leaves the guard permanently closed (#433).
-  const openRef = useRef(true);
-  useEffect(() => {
-    openRef.current = true;
-    return () => {
-      openRef.current = false;
-    };
-  }, []);
-
-  // The preview's blob URL must not outlive the preview (or the tab).
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview.previewUrl);
-    };
-  }, [preview]);
 
   const generate = async (): Promise<void> => {
     const trimmed = label.trim();
@@ -53,11 +36,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
     try {
       const blob = await genMut.mutateAsync({ label: trimmed });
       const processed = await cropToSquareJpeg(blob);
-      if (!openRef.current) {
-        URL.revokeObjectURL(processed.previewUrl);
-        return;
-      }
-      setPreview(processed);
+      showPreview(processed);
     } catch (err) {
       // Only a request that got no response blames the connection. Telling a
       // parent to check wifi that is fine sends them chasing the wrong thing.
@@ -84,7 +63,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
         extension: preview.extension,
         ...(ownerId ? { ownerId } : {}),
       });
-      setPreview(null);
+      clearPreview();
       setLabel('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed.');
@@ -94,7 +73,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
   };
 
   const discard = (): void => {
-    setPreview(null);
+    clearPreview();
     setError(null);
   };
 

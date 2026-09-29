@@ -7,11 +7,11 @@ import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
 import { type TabItem, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
+import { PictogramGrid } from '@/widgets/PictogramGrid/PictogramGrid';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 import styles from './PictoPicker.module.css';
-import { LibraryTab } from './tabs/LibraryTab';
 
 type PickerTab = 'library' | 'upload' | 'generate';
 
@@ -71,14 +71,18 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
       </div>
       <div className={styles.body}>
         {tab === 'library' && (
-          <LibraryTab
-            pictograms={pictograms}
-            query={query}
-            onQueryChange={setQuery}
-            selected={selected}
-            onToggle={toggle}
-            onEditVoice={setEditingVoice}
-          />
+          <div className={styles.libraryTab}>
+            <PictogramGrid
+              pictograms={pictograms}
+              query={query}
+              onQueryChange={setQuery}
+              placeholder="Search eat, dress, happy, park…"
+              tileSize={110}
+              selected={selected}
+              onTileClick={(p) => toggle(p.id)}
+              onEditVoice={setEditingVoice}
+            />
+          </div>
         )}
         {tab === 'upload' && <PictogramUpload {...(ownerId ? { ownerId } : {})} />}
         {tab === 'generate' && <PictogramGenerate {...(ownerId ? { ownerId } : {})} />}
