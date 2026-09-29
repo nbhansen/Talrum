@@ -72,6 +72,19 @@ describe('useImagePicker', () => {
     expect(revokeMock).toHaveBeenCalledWith('blob:1');
   });
 
+  // #433 pattern: a crop that lands after unmount reaches no cleanup (#619).
+  it('revokes a preview whose crop finishes after unmount', async () => {
+    let finish: (p: ProcessedImage) => void = () => undefined;
+    cropMock.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const { result, unmount } = renderHook(() => useImagePicker());
+
+    await pick(result);
+    unmount();
+    await act(async () => finish(processedFor('blob:late')));
+
+    expect(revokeMock).toHaveBeenCalledWith('blob:late');
+  });
+
   it('revokes the preview URL on reset and clears state', async () => {
     cropMock.mockResolvedValue(processedFor('blob:1'));
     const { result } = renderHook(() => useImagePicker());
