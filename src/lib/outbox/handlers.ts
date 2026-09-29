@@ -187,16 +187,21 @@ const handleCreatePhotoPictogram = async (
   if (error) throw error;
 };
 
+// One pair per kind, so a caller cannot swap the bucket and the column (#596).
+const ROW_OBJECT = {
+  setPictoAudio: { bucket: AUDIO_BUCKET, column: 'audio_path' },
+  replacePictoImage: { bucket: IMAGES_BUCKET, column: 'image_path' },
+} as const;
+
 /**
  * Upload, repoint the row, then remove the object it pointed at. Shared by the
  * audio and image replaces so the abort points and #418 hold for both.
  */
 const replaceRowObject = async (
-  bucket: typeof AUDIO_BUCKET | typeof IMAGES_BUCKET,
-  column: 'audio_path' | 'image_path',
   entry: SetPictogramAudioEntry | ReplacePictogramImageEntry,
   signal: AbortSignal,
 ): Promise<void> => {
+  const { bucket, column } = ROW_OBJECT[entry.kind];
   const path = entryPath(entry);
   await uploadBlob(bucket, path, entry.blob);
   throwIfCancelled(signal);
@@ -306,13 +311,13 @@ const dispatch = (entry: OutboxEntry, signal: AbortSignal): Promise<void> => {
     case 'createPhotoPicto':
       return handleCreatePhotoPictogram(entry, signal);
     case 'setPictoAudio':
-      return replaceRowObject(AUDIO_BUCKET, 'audio_path', entry, signal);
+      return replaceRowObject(entry, signal);
     case 'clearPictoAudio':
       return handleClearPictogramAudio(entry, signal);
     case 'renamePicto':
       return handleRenamePictogram(entry);
     case 'replacePictoImage':
-      return replaceRowObject(IMAGES_BUCKET, 'image_path', entry, signal);
+      return replaceRowObject(entry, signal);
     case 'deletePicto':
       return handleDeletePictogram(entry, signal);
     case 'renameKid':

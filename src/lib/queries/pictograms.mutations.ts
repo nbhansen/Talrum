@@ -72,7 +72,7 @@ type ReplaceBlobMutation = UseMutationResult<void, Error, ReplaceBlobInput, Opti
  */
 const useReplaceBlob = (
   kind: 'setPictoAudio' | 'replacePictoImage',
-  patch: (p: Pictogram, blobUrl: string) => Pictogram,
+  patch: (p: Pictogram, blob: Blob) => Pictogram,
 ): ReplaceBlobMutation => {
   const qc = useQueryClient();
   const me = useSessionUser().id;
@@ -80,8 +80,7 @@ const useReplaceBlob = (
     caches: [
       listCache<Pictogram, ReplaceBlobInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
         if (!list) return list;
-        const blobUrl = URL.createObjectURL(blob);
-        return patchPictogramInList(list, pictogramId, (p) => patch(p, blobUrl));
+        return patchPictogramInList(list, pictogramId, (p) => patch(p, blob));
       }),
     ],
     // No previous-path snapshot: the handler reads the row to find the
@@ -105,7 +104,7 @@ const useReplaceBlob = (
 };
 
 export const useSetPictogramAudio = (): ReplaceBlobMutation =>
-  useReplaceBlob('setPictoAudio', (p, blobUrl) => ({ ...p, audioPath: blobUrl }));
+  useReplaceBlob('setPictoAudio', (p, blob) => ({ ...p, audioPath: URL.createObjectURL(blob) }));
 
 interface ClearAudioInput {
   pictogramId: string;
@@ -194,8 +193,9 @@ export const useRenamePictogram = (): UseMutationResult<
   });
 
 export const useReplacePictogramImage = (): ReplaceBlobMutation =>
-  useReplaceBlob('replacePictoImage', (p, blobUrl) =>
-    p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
+  // Mint the URL only when the patch keeps it: the sweep revokes only cached ones (#597).
+  useReplaceBlob('replacePictoImage', (p, blob) =>
+    p.style === 'photo' ? { ...p, imagePath: URL.createObjectURL(blob) } : p,
   );
 
 export interface DeletePictogramInput {
