@@ -63,18 +63,12 @@ export const BoardBuilder = ({
   const setVoice = useSetVoiceMode();
   const setKidReorderable = useSetKidReorderable();
 
-  // Local title state keeps the input snappy; the mutation fires once the user
-  // pauses typing. Re-sync only when navigating to a different board — syncing
-  // on every board.name change would clobber in-progress typing when the
-  // previous debounced write lands.
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Seeded once: the route keys this component on board.id, and a re-sync on
+  // board.name would clobber typing when the previous debounced write lands.
   const [titleDraft, setTitleDraft] = useState(board.name);
-  // Re-sync the title draft only when navigating to a different board (keyed on
-  // board.id, not board.name) — see the note above. The sync write is intended.
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
-  useEffect(() => setTitleDraft(board.name), [board.id]);
   const pendingTitleWrite = useRef<{
     timer: ReturnType<typeof setTimeout>;
     write: () => void;
