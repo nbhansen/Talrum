@@ -3,7 +3,7 @@
 -- bug fixed in 20260425020000. DELETE is not testable from SQL
 -- (protect_delete fires before RLS). Run with: supabase test db
 BEGIN;
-SELECT plan(13);
+SELECT plan(15);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -197,6 +197,19 @@ SELECT is(
   (SELECT count(*)::int FROM ins),
   1,
   'policy: editor CAN INSERT into owner prefix'
+);
+
+-- ── A malformed path fails the check, not a uuid cast ─────────────────────
+
+SELECT is(
+  private.is_pictogram_storage_visible('not-a-uuid/x.jpg'),
+  false,
+  'helper: a non-uuid prefix is not visible, and does not raise'
+);
+SELECT is(
+  private.is_pictogram_storage_writable('not-a-uuid/x.jpg'),
+  false,
+  'helper: a non-uuid prefix is not writable, and does not raise'
 );
 
 SELECT * FROM finish();
