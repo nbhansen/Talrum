@@ -1,7 +1,7 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 
 import { invokeBlobFunction } from '@/lib/queries/edgeBlobFunction';
-import type { CodedError } from '@/lib/queries/edgeFunction';
+import { type CodedError, isCodedError } from '@/lib/queries/edgeFunction';
 
 /**
  * Client side of the generate-voice edge function (#422). The wire contract is
@@ -31,6 +31,9 @@ export const GENERATE_VOICE_ERROR_CODES = [
 export type GenerateVoiceErrorCode = (typeof GENERATE_VOICE_ERROR_CODES)[number] | 'network';
 
 export type GenerateVoiceError = CodedError<GenerateVoiceErrorCode>;
+
+export const isGenerateVoiceError = (err: unknown): err is GenerateVoiceError =>
+  isCodedError<GenerateVoiceErrorCode>(err, [...GENERATE_VOICE_ERROR_CODES, 'network']);
 
 interface GenerateVoiceInput {
   label: string;
