@@ -187,20 +187,26 @@ const handleCreatePhotoPictogram = async (
   if (error) throw error;
 };
 
-const handleSetPictogramAudio = async (
-  entry: SetPictogramAudioEntry,
+/**
+ * Upload, repoint the row, then remove the object it pointed at. Shared by the
+ * audio and image replaces so the abort points and #418 hold for both.
+ */
+const replaceRowObject = async (
+  bucket: typeof AUDIO_BUCKET | typeof IMAGES_BUCKET,
+  column: 'audio_path' | 'image_path',
+  entry: SetPictogramAudioEntry | ReplacePictogramImageEntry,
   signal: AbortSignal,
 ): Promise<void> => {
   const path = entryPath(entry);
-  await uploadBlob(AUDIO_BUCKET, path, entry.blob);
+  await uploadBlob(bucket, path, entry.blob);
   throwIfCancelled(signal);
-  invalidateSignedUrl(AUDIO_BUCKET, path);
+  invalidateSignedUrl(bucket, path);
   // Read before the update — afterwards the row already points at `path`.
-  const previous = (await readRowPaths(entry.pictogramId))?.audio_path ?? undefined;
+  const previous = (await readRowPaths(entry.pictogramId))?.[column] ?? undefined;
   throwIfCancelled(signal);
   const { error } = await supabase
     .from('pictograms')
-    .update({ audio_path: path })
+    .update(column === 'audio_path' ? { audio_path: path } : { image_path: path })
     .eq('id', entry.pictogramId);
   if (error) throw error;
   throwIfCancelled(signal);
@@ -208,8 +214,8 @@ const handleSetPictogramAudio = async (
   // is not replay-idempotent: a crash between the two orphans the old object,
   // a named residual in docs/outbox.md.
   if (isUploadedStoragePath(previous) && previous !== path) {
-    await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
-    invalidateSignedUrl(AUDIO_BUCKET, previous);
+    await removeFromBucket(bucket, [previous]).catch(reportCleanupFailure);
+    invalidateSignedUrl(bucket, previous);
   }
 };
 
@@ -241,31 +247,6 @@ const handleRenamePictogram = async (entry: RenamePictogramEntry): Promise<void>
     .update({ label: entry.label })
     .eq('id', entry.pictogramId);
   if (error) throw error;
-};
-
-const handleReplacePictogramImage = async (
-  entry: ReplacePictogramImageEntry,
-  signal: AbortSignal,
-): Promise<void> => {
-  const path = entryPath(entry);
-  await uploadBlob(IMAGES_BUCKET, path, entry.blob);
-  throwIfCancelled(signal);
-  invalidateSignedUrl(IMAGES_BUCKET, path);
-  // Read before the update — afterwards the row already points at `path`.
-  const previous = (await readRowPaths(entry.pictogramId))?.image_path ?? undefined;
-  throwIfCancelled(signal);
-  const { error } = await supabase
-    .from('pictograms')
-    .update({ image_path: path })
-    .eq('id', entry.pictogramId);
-  if (error) throw error;
-  throwIfCancelled(signal);
-  // isUploadedStoragePath skips stock-prefixed seeds; `previous === path` on
-  // a replay of an entry whose update already landed.
-  if (isUploadedStoragePath(previous) && previous !== path) {
-    await removeFromBucket(IMAGES_BUCKET, [previous]).catch(reportCleanupFailure);
-    invalidateSignedUrl(IMAGES_BUCKET, previous);
-  }
 };
 
 const handleDeletePictogram = async (
@@ -325,13 +306,13 @@ const dispatch = (entry: OutboxEntry, signal: AbortSignal): Promise<void> => {
     case 'createPhotoPicto':
       return handleCreatePhotoPictogram(entry, signal);
     case 'setPictoAudio':
-      return handleSetPictogramAudio(entry, signal);
+      return replaceRowObject(AUDIO_BUCKET, 'audio_path', entry, signal);
     case 'clearPictoAudio':
       return handleClearPictogramAudio(entry, signal);
     case 'renamePicto':
       return handleRenamePictogram(entry);
     case 'replacePictoImage':
-      return handleReplacePictogramImage(entry, signal);
+      return replaceRowObject(IMAGES_BUCKET, 'image_path', entry, signal);
     case 'deletePicto':
       return handleDeletePictogram(entry, signal);
     case 'renameKid':
