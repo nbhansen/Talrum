@@ -3,9 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearPin, hasPin, setPin } from '@/lib/pin';
+import { captureException } from '@/lib/platform/telemetry';
 
 import { KidModeGate } from './KidModeGate';
 import { recordPinFailure, resetPinThrottle } from './pinThrottle';
+
+vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 
 // `pinGateDisabled()` reads import.meta.env at runtime, and the flag is unset
 // here, so the gate is active.
@@ -110,18 +113,22 @@ describe('KidModeGate', () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  // Kid screens can be Danish; a raw browser message would be English (#586).
-  it('shows the kid-copy error, not the raw message, when the PIN check throws', async () => {
+  // Kid screens can be Danish, so no raw browser text (#586). The correct PIN
+  // must not read as "Wrong PIN", or the parent cannot tell they are trapped (#588).
+  it('says the PIN cannot be checked, and reports it, when the PIN check throws', async () => {
     await setPin('9999');
-    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('raw browser message'));
+    const cause = new Error('raw browser message');
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(cause);
     const onExit = vi.fn();
     const { user } = renderGate(onExit);
 
     await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
     await tapDigits(user, '9999');
 
-    expect(await screen.findByText('Wrong PIN')).toBeInTheDocument();
+    expect(await screen.findByText(/This browser cannot check the PIN/)).toBeInTheDocument();
+    expect(screen.queryByText('Wrong PIN')).not.toBeInTheDocument();
     expect(screen.queryByText('raw browser message')).not.toBeInTheDocument();
+    expect(captureException).toHaveBeenCalledWith(cause, expect.anything());
     expect(onExit).not.toHaveBeenCalled();
   });
 
