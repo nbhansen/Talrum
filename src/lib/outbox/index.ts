@@ -18,6 +18,7 @@ import { getOutboxOwner, setOwnerId } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
+export { OUTBOX_KEY_PREFIX } from './store';
 export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
 export { startOutbox, UnretryableOutboxError };
 
