@@ -29,8 +29,8 @@ export const mintStoragePath = (ownerId: string, pictogramId: string, extension:
   `${ownerId}/${pictogramId}-${ulid()}.${extension}`;
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
-const IDB_PREFIX = 'signed-url:';
-const idbKey = (cacheKey: string): string => `${IDB_PREFIX}${cacheKey}`;
+export const SIGNED_URL_KEY_PREFIX = 'signed-url:';
+const idbKey = (cacheKey: string): string => `${SIGNED_URL_KEY_PREFIX}${cacheKey}`;
 
 const readPersisted = async (cacheKey: string): Promise<SignedUrlEntry | null> => {
   const stored = await get<SignedUrlEntry>(idbKey(cacheKey));

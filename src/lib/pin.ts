@@ -40,9 +40,18 @@ const hashPin = async (pin: string): Promise<string> => {
 
 export const pinGateDisabled = (): boolean => isDisabled();
 
+// Blocked storage reads as "no PIN", so kid mode fails closed to PIN setup.
+const readHash = (): string | null => {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
 export const hasPin = (): boolean => {
   if (isDisabled()) return true;
-  return localStorage.getItem(STORAGE_KEY) !== null;
+  return readHash() !== null;
 };
 
 /**
@@ -58,12 +67,16 @@ export const setPin = async (pin: string): Promise<void> => {
 
 export const verifyPin = async (pin: string): Promise<boolean> => {
   if (isDisabled()) return true;
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = readHash();
   if (!stored) return false;
   return (await hashPin(pin)) === stored;
 };
 
 export const clearPin = (): void => {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Blocked storage: nothing to clear, and the sign-out sweep must go on.
+  }
   notify();
 };

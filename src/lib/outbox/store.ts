@@ -7,9 +7,10 @@ import type { OutboxEntry } from './types';
  * enqueues don't race on a shared array. Iteration order = ULID order =
  * enqueue order, so FIFO is free.
  */
-const PREFIX = 'outbox:';
-const idbKey = (id: string): string => `${PREFIX}${id}`;
-const isOutboxKey = (k: IDBValidKey): k is string => typeof k === 'string' && k.startsWith(PREFIX);
+export const OUTBOX_KEY_PREFIX = 'outbox:';
+const idbKey = (id: string): string => `${OUTBOX_KEY_PREFIX}${id}`;
+const isOutboxKey = (k: IDBValidKey): k is string =>
+  typeof k === 'string' && k.startsWith(OUTBOX_KEY_PREFIX);
 
 export const putEntry = async (entry: OutboxEntry): Promise<void> => {
   await set(idbKey(entry.id), entry);
