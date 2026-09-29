@@ -44,14 +44,14 @@ boot and shouts if it is not local. Remember there is no staging project (#98), 
 ## Required GitHub secrets
 
 Set on the repo with `gh secret set <NAME> --repo nbhansen/Talrum`. CI
-reads them in `.github/workflows/deploy.yml` (migrations + SPA) and
-`.github/workflows/deploy-functions.yml`.
+reads them in `.github/workflows/deploy.yml` (migrations, SPA, and edge
+functions).
 
 | Secret                  | Used by                              | Source                                  |
 | ----------------------- | ------------------------------------ | --------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`, `deploy-functions.yml` | dashboard → Account → Access Tokens     |
+| `SUPABASE_ACCESS_TOKEN` | `deploy.yml`                         | dashboard → Account → Access Tokens     |
 | `SUPABASE_DB_PASSWORD`  | `deploy.yml`                         | dashboard → Project settings → Database |
-| `SUPABASE_PROJECT_REF`  | `deploy.yml`, `deploy-functions.yml` | dashboard → Project settings → General  |
+| `SUPABASE_PROJECT_REF`  | `deploy.yml`                         | dashboard → Project settings → General  |
 
 ## Edge function default secrets — no manual bootstrap
 
