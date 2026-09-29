@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-import { corsHeaders, preflightResponse } from '../_shared/cors.ts';
+import {
+  authenticate,
+  errorResponse as sharedErrorResponse,
+  jsonResponse,
+  logFailure as sharedLogFailure,
+  rejectNonPost,
+} from '../_shared/http.ts';
 import { type AdminClient, deleteAccount } from './deleteAccount.ts';
 import { type DeleteResponse, DeletionError, type ErrorCode } from './types.ts';
 
@@ -10,28 +16,12 @@ import { type DeleteResponse, DeletionError, type ErrorCode } from './types.ts';
 // AdminClient, so a real client is assignable to AdminLike without casting.
 type AdminLike = Pick<AdminClient, 'auth'>;
 
-const errorResponse = (code: ErrorCode, message: string, status: number): Response =>
-  new Response(JSON.stringify({ ok: false, error: code, message } satisfies DeleteResponse), {
-    status,
-    headers: { 'content-type': 'application/json', ...corsHeaders },
-  });
+// Narrowed to this function's closed code set (types.ts).
+const errorResponse: (code: ErrorCode, message: string, status: number) => Response =
+  sharedErrorResponse;
 
-const okResponse = (): Response =>
-  new Response(JSON.stringify({ ok: true } satisfies DeleteResponse), {
-    status: 200,
-    headers: { 'content-type': 'application/json', ...corsHeaders },
-  });
-
-const logFailure = (userId: string | null, step: string, error: unknown): void => {
-  console.error(
-    JSON.stringify({
-      event: 'delete_account_failed',
-      user_id: userId,
-      step,
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
-};
+const logFailure = (userId: string | null, step: string, error: unknown): void =>
+  sharedLogFailure('delete_account_failed', userId, step, error);
 
 const logSuccess = (
   userId: string,
@@ -62,14 +52,8 @@ export const handleRequest = async (
   const start = Date.now();
   let userId: string | null = null;
   try {
-    // Before any method or auth check: the browser's preflight carries no
-    // Authorization header, and a non-2xx kills the real request (#435).
-    if (req.method === 'OPTIONS') {
-      return preflightResponse();
-    }
-    if (req.method !== 'POST') {
-      return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
-    }
+    const rejected = rejectNonPost(req);
+    if (rejected) return rejected;
 
     // Byte equality, not JSON parsing: the user id comes from the verified
     // JWT, so there is nothing in a body worth trusting, and parsing would
@@ -80,27 +64,14 @@ export const handleRequest = async (
       return errorResponse('bad_request', 'request body must be empty or {}', 400);
     }
 
-    // Short-circuit on missing/malformed Authorization before calling
-    // admin.auth.getUser, so unauthenticated spam costs only a header read
-    // (no Supabase auth round-trip, no edge-function quota beyond this).
-    const auth = req.headers.get('Authorization') ?? '';
-    if (!auth.startsWith('Bearer ')) {
-      return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
-    }
-    const jwt = auth.slice('Bearer '.length);
-    if (jwt.length === 0) {
-      return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
-    }
-    const { data } = await admin.auth.getUser(jwt);
-    if (!data.user) {
-      return errorResponse('unauthorized', 'missing or invalid JWT', 401);
-    }
-    userId = data.user.id;
+    const caller = await authenticate(req, admin);
+    if (caller instanceof Response) return caller;
+    userId = caller;
 
     const result = await deleteFn(userId);
 
     logSuccess(userId, result.audioCount, result.imageCount, Date.now() - start);
-    return okResponse();
+    return jsonResponse({ ok: true } satisfies DeleteResponse, 200);
   } catch (err) {
     if (err instanceof DeletionError) {
       logFailure(userId, err.step, err);
