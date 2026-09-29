@@ -59,7 +59,13 @@ export const PinManagementSection = ({
   const handleConfirmNew = async (pin: string): Promise<boolean> => {
     if (pin !== newPinRef.current) return false;
     const wasFirstPin = !hasPinNow;
-    await setPin(pin);
+    try {
+      await setPin(pin);
+    } catch {
+      throw new Error(
+        "Couldn't save the PIN on this device. Allow site data for Talrum in the browser settings, then try again.",
+      );
+    }
     close();
     setFlash(wasFirstPin ? 'PIN set — kid mode is ready' : 'PIN updated');
     return true;
