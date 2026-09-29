@@ -8,6 +8,7 @@ export {
   isUploadedStoragePath,
   mintStoragePath,
   removeFromBucket,
+  SIGNED_URL_KEY_PREFIX,
   signedUrlFor,
   STOCK_PATH_PREFIX,
   uploadBlob,

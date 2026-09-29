@@ -4,10 +4,10 @@ import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-cl
 import { del, get, keys, set } from 'idb-keyval';
 
 import { clearLastBoard } from './lastBoard';
-import { OUTBOX_KEY_PREFIX } from './outbox/store';
+import { OUTBOX_KEY_PREFIX } from './outbox';
 import { clearPin } from './pin';
 import { setActiveKidId } from './queries/kids';
-import { SIGNED_URL_KEY_PREFIX } from './storage/storage';
+import { SIGNED_URL_KEY_PREFIX } from './storage';
 
 /**
  * AAC use is calm, not real-time. Skip focus-refetching so an iPad tap away
