@@ -42,7 +42,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 }));
 
 const { cropToSquareJpeg } = await import('@/lib/image');
-const { GenerateImageError } = await import('@/lib/queries/generateImage');
+const { CodedError } = await import('@/lib/queries/edgeFunction');
 const { PictogramGenerate } = await import('./PictogramGenerate');
 
 const cropMock = vi.mocked(cropToSquareJpeg);
@@ -174,7 +174,7 @@ describe('PictogramGenerate · generate flow', () => {
     // A pre-mapped error, because building a FunctionsHttpError needs a value
     // import the boundary lint restricts to lib/. generateImage.test.ts covers
     // the mapping; this covers the widget's copy split.
-    invokeMock.mockRejectedValue(new GenerateImageError('generation_failed', 'azure down'));
+    invokeMock.mockRejectedValue(new CodedError('generation_failed', 'azure down'));
     renderGenerate();
 
     await typeAndGenerate(user);

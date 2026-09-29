@@ -2,15 +2,16 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useMutation, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { performSignOut } from '@/lib/auth/session';
+import { CodedError, codeFromHttpError } from '@/lib/queries/edgeFunction';
 import { supabase } from '@/lib/supabase';
 
 // Mirrored in `supabase/functions/delete-account/types.ts`, because tsconfig
-// excludes supabase/. A test below fails if the two drift apart.
-const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
+// excludes supabase/. wireContract.test.ts fails if the two drift apart.
+export const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 
 // The wire contract. Add a code here and in DeleteAccountDialog's toast map
 // whenever the edge function adds one.
-const DELETE_ACCOUNT_ERROR_CODES = [
+export const DELETE_ACCOUNT_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
   'bad_request',
@@ -21,33 +22,8 @@ const DELETE_ACCOUNT_ERROR_CODES = [
 
 export type DeleteAccountErrorCode = (typeof DELETE_ACCOUNT_ERROR_CODES)[number];
 
-const KNOWN_CODES: ReadonlySet<DeleteAccountErrorCode> = new Set(DELETE_ACCOUNT_ERROR_CODES);
+export type DeleteAccountError = CodedError<DeleteAccountErrorCode>;
 
-export class DeleteAccountError extends Error {
-  constructor(
-    public readonly code: DeleteAccountErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'DeleteAccountError';
-  }
-}
-
-interface RawErrorPayload {
-  ok: false;
-  error: string;
-  message?: string | undefined;
-}
-
-export const mapErrorCode = (payload: RawErrorPayload): DeleteAccountError => {
-  const code: DeleteAccountErrorCode = KNOWN_CODES.has(payload.error as DeleteAccountErrorCode)
-    ? (payload.error as DeleteAccountErrorCode)
-    : 'internal_error';
-  return new DeleteAccountError(code, payload.message ?? '');
-};
-
-// supabase-js routes 4xx/5xx into `error`, carrying the original Response on
-// `.context`, so an error body is only ever reachable by re-parsing that.
 type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
 
 export interface UseDeleteMyAccountOptions {
@@ -74,33 +50,14 @@ export const useDeleteMyAccount = (
       if (error) {
         // Recover the closed-set code from the body, or every toast falls
         // through to 'internal_error'.
-        if (error instanceof FunctionsHttpError) {
-          try {
-            const body: unknown = await error.context.clone().json();
-            if (
-              body !== null &&
-              typeof body === 'object' &&
-              'error' in body &&
-              typeof (body as { error: unknown }).error === 'string'
-            ) {
-              const errorField = (body as { error: string }).error;
-              const messageField =
-                'message' in body && typeof (body as { message: unknown }).message === 'string'
-                  ? (body as { message: string }).message
-                  : undefined;
-              throw mapErrorCode({ ok: false, error: errorField, message: messageField });
-            }
-          } catch (parseErr) {
-            // Re-throw our own mapped error; swallow JSON parse / shape
-            // failures and fall through to the generic internal_error
-            // throw below.
-            if (parseErr instanceof DeleteAccountError) throw parseErr;
-          }
-        }
-        throw new DeleteAccountError('internal_error', error.message);
+        const code =
+          error instanceof FunctionsHttpError
+            ? await codeFromHttpError(error, DELETE_ACCOUNT_ERROR_CODES)
+            : 'internal_error';
+        throw new CodedError(code, error.message);
       }
       // An empty or malformed 2xx body must not read as a completed deletion.
-      if (!data?.ok) throw new DeleteAccountError('internal_error', 'Unexpected response body.');
+      if (!data?.ok) throw new CodedError('internal_error', 'Unexpected response body.');
     },
     onSuccess: async () => {
       // Clear first, so no in-flight query refetches on a live session.

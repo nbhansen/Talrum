@@ -17,7 +17,8 @@ vi.mock('@/lib/platform/telemetry', () => ({
 }));
 
 const { captureException } = await import('@/lib/platform/telemetry');
-const { GenerateVoiceError, useGenerateVoice } = await import('./generateVoice');
+const { CodedError } = await import('./edgeFunction');
+const { useGenerateVoice } = await import('./generateVoice');
 
 const captureMock = vi.mocked(captureException);
 
@@ -28,13 +29,13 @@ const wrapper = ({ children }: { children: ReactNode }): React.ReactElement =>
     children,
   );
 
-const runMutation = async (): Promise<InstanceType<typeof GenerateVoiceError>> => {
+const runMutation = async (): Promise<InstanceType<typeof CodedError<string>>> => {
   const { result } = renderHook(() => useGenerateVoice(), { wrapper });
   result.current.mutate({ label: 'spise', language: 'da' });
   await waitFor(() => {
     expect(result.current.isError).toBe(true);
   });
-  return result.current.error as InstanceType<typeof GenerateVoiceError>;
+  return result.current.error as InstanceType<typeof CodedError<string>>;
 };
 
 beforeEach(() => {
@@ -79,7 +80,7 @@ describe('useGenerateVoice error mapping (#433 review)', () => {
 
     const error = await runMutation();
 
-    expect(error).toBeInstanceOf(GenerateVoiceError);
+    expect(error).toBeInstanceOf(CodedError);
     expect(error.code).toBe('synthesis_failed');
     // A broken key must not look like flaky wifi to us either.
     expect(captureMock).toHaveBeenCalledWith(expect.any(FunctionsHttpError), {

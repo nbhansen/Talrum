@@ -57,31 +57,31 @@ const revokeThenInvalidate = (qc: QueryClient) => (): void => {
   qc.invalidateQueries({ queryKey: pictogramsQueryKey });
 };
 
-interface SetAudioInput {
+interface ReplaceBlobInput {
   pictogramId: string;
   blob: Blob;
   extension: string;
 }
+
+type ReplaceBlobMutation = UseMutationResult<void, Error, ReplaceBlobInput, OptimisticListContext>;
 
 /**
  * Optimistically points the pictogram at a local blob URL and queues the
  * upload through the outbox. Drain replaces the blob URL with the real
  * server path on success; offline writes wait for `online` and replay.
  */
-export const useSetPictogramAudio = (): UseMutationResult<
-  void,
-  Error,
-  SetAudioInput,
-  OptimisticListContext
-> => {
+const useReplaceBlob = (
+  kind: 'setPictoAudio' | 'replacePictoImage',
+  patch: (p: Pictogram, blobUrl: string) => Pictogram,
+): ReplaceBlobMutation => {
   const qc = useQueryClient();
   const me = useSessionUser().id;
   return useOptimisticListMutation({
     caches: [
-      listCache<Pictogram, SetAudioInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
+      listCache<Pictogram, ReplaceBlobInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
         if (!list) return list;
         const blobUrl = URL.createObjectURL(blob);
-        return patchPictogramInList(list, pictogramId, (p) => ({ ...p, audioPath: blobUrl }));
+        return patchPictogramInList(list, pictogramId, (p) => patch(p, blobUrl));
       }),
     ],
     // No previous-path snapshot: the handler reads the row to find the
@@ -89,12 +89,12 @@ export const useSetPictogramAudio = (): UseMutationResult<
     // blob: URL between an enqueue and the settle refetch.
     mutationFn: ({ pictogramId, blob, extension }) =>
       enqueueAndDrain({
-        kind: 'setPictoAudio',
+        kind,
         pictogramId,
         blob,
         // Minted here, once per entry (#415): replays reuse the path, and no
         // two entries ever share one, so an abandoned run's late IO cannot
-        // touch a newer recording.
+        // touch a newer object.
         path: mintStoragePath(ownerOf(qc, pictogramId, me), pictogramId, extension),
       }),
     // Revoke while the blob URL is still in the cache — the sweep walks
@@ -103,6 +103,9 @@ export const useSetPictogramAudio = (): UseMutationResult<
     settle: revokeThenInvalidate(qc),
   });
 };
+
+export const useSetPictogramAudio = (): ReplaceBlobMutation =>
+  useReplaceBlob('setPictoAudio', (p, blobUrl) => ({ ...p, audioPath: blobUrl }));
 
 interface ClearAudioInput {
   pictogramId: string;
@@ -190,44 +193,10 @@ export const useRenamePictogram = (): UseMutationResult<
       enqueueAndDrain({ kind: 'renamePicto', pictogramId, label }),
   });
 
-interface ReplaceImageInput {
-  pictogramId: string;
-  blob: Blob;
-  extension: string;
-}
-
-export const useReplacePictogramImage = (): UseMutationResult<
-  void,
-  Error,
-  ReplaceImageInput,
-  OptimisticListContext
-> => {
-  const qc = useQueryClient();
-  const me = useSessionUser().id;
-  return useOptimisticListMutation({
-    caches: [
-      listCache<Pictogram, ReplaceImageInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
-        if (!list) return list;
-        const blobUrl = URL.createObjectURL(blob);
-        return patchPictogramInList(list, pictogramId, (p) =>
-          p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
-        );
-      }),
-    ],
-    mutationFn: ({ pictogramId, blob, extension }) =>
-      enqueueAndDrain({
-        kind: 'replacePictoImage',
-        pictogramId,
-        blob,
-        path: mintStoragePath(ownerOf(qc, pictogramId, me), pictogramId, extension),
-      }),
-    // Revoke while the blob URL is still in the cache (revoke walks current
-    // cache state); restoring the snapshot first would orphan the URL — it'd
-    // be unreachable from the cache and never revoked.
-    beforeRollback: () => revokePictogramBlobs(qc),
-    settle: revokeThenInvalidate(qc),
-  });
-};
+export const useReplacePictogramImage = (): ReplaceBlobMutation =>
+  useReplaceBlob('replacePictoImage', (p, blobUrl) =>
+    p.style === 'photo' ? { ...p, imagePath: blobUrl } : p,
+  );
 
 export interface DeletePictogramInput {
   pictogramId: string;

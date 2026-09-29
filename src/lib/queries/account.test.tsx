@@ -4,6 +4,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CodedError } from './edgeFunction';
+
 // Mirror the real supabase-js shape: an error body is reachable only through
 // `error.context`. Mocking a `{ data: { ok: false } }` shape once made the
 // closed-set error mapping unreachable in production.
@@ -35,7 +37,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-const { mapErrorCode, DeleteAccountError, useDeleteMyAccount } = await import('./account');
+const { useDeleteMyAccount } = await import('./account');
 
 const makeWrapper = (qc: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
@@ -47,20 +49,6 @@ const makeWrapper = (qc: QueryClient) => {
 beforeEach(() => {
   invokeMock.mockReset();
   signOutMock.mockClear();
-});
-
-describe('mapErrorCode', () => {
-  it('returns a DeleteAccountError with the closed-set code', () => {
-    const err = mapErrorCode({ ok: false, error: 'storage_purge_failed', message: 'm' });
-    expect(err).toBeInstanceOf(DeleteAccountError);
-    expect(err.code).toBe('storage_purge_failed');
-    expect(err.message).toBe('m');
-  });
-
-  it('falls back to internal_error for unknown codes', () => {
-    const err = mapErrorCode({ ok: false, error: 'who_knows', message: 'x' } as never);
-    expect(err.code).toBe('internal_error');
-  });
 });
 
 describe('useDeleteMyAccount', () => {
@@ -146,9 +134,7 @@ describe('useDeleteMyAccount', () => {
     expect(qc.getQueryData(['boards'])).toEqual([{ id: 'b1' }]);
     expect(signOutMock).not.toHaveBeenCalled();
     expect(onPreSignOut).not.toHaveBeenCalled();
-    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
-      'auth_delete_failed',
-    );
+    expect((result.current.error as CodedError<string>).code).toBe('auth_delete_failed');
   });
 
   // Pins the production wire path: closed-set codes arrive inside a
@@ -172,7 +158,7 @@ describe('useDeleteMyAccount', () => {
     });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(code);
+    expect((result.current.error as CodedError<string>).code).toBe(code);
   });
 
   it('falls back to internal_error when the FunctionsHttpError body is not JSON', async () => {
@@ -186,9 +172,21 @@ describe('useDeleteMyAccount', () => {
     });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
-      'internal_error',
-    );
+    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
+  });
+
+  it('falls back to internal_error for a code outside the closed set', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: makeHttpError(500, { ok: false, error: 'who_knows', message: 'x' }),
+    });
+    const { result } = renderHook(() => useDeleteMyAccount(), {
+      wrapper: makeWrapper(qc),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
   });
 
   it('falls back to internal_error when the body is JSON but missing the error field', async () => {
@@ -202,9 +200,7 @@ describe('useDeleteMyAccount', () => {
     });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
-      'internal_error',
-    );
+    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
   });
 
   it('falls back to internal_error for non-FunctionsHttpError errors (network blip)', async () => {
@@ -218,9 +214,7 @@ describe('useDeleteMyAccount', () => {
     });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as InstanceType<typeof DeleteAccountError>).code).toBe(
-      'internal_error',
-    );
+    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
   });
 
   // The user clicked "delete forever" once. We must not silently re-fire on

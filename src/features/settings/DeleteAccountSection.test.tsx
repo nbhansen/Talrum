@@ -17,7 +17,6 @@ vi.mock('@/lib/queries/account', () => ({
       error: null,
     };
   },
-  DeleteAccountError: class extends Error {},
 }));
 
 const { DeleteAccountSection } = await import('./DeleteAccountSection');

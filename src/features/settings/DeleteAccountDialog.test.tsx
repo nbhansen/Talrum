@@ -26,14 +26,6 @@ vi.mock('@/lib/queries/account', () => ({
       error: mutationState.error,
     };
   },
-  DeleteAccountError: class extends Error {
-    constructor(
-      public code: string,
-      message: string,
-    ) {
-      super(message);
-    }
-  },
 }));
 
 const { DeleteAccountDialog } = await import('./DeleteAccountDialog');
