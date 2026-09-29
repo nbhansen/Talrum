@@ -1,3 +1,5 @@
+import type { SharedErrorCode } from '../_shared/http.ts';
+
 /**
  * Wire contract for the generate-voice edge function. The client mirrors
  * these literals in `src/lib/queries/generateVoice.ts` — tsconfig does not
@@ -11,12 +13,7 @@ export type VoiceLanguage = (typeof VOICE_LANGUAGES)[number];
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode =
-  | 'unauthorized'
-  | 'method_not_allowed'
-  | 'bad_request'
-  | 'synthesis_failed'
-  | 'internal_error';
+export type ErrorCode = SharedErrorCode | 'bad_request' | 'synthesis_failed' | 'internal_error';
 
 export interface ErrorResponse {
   ok: false;

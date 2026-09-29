@@ -6,6 +6,9 @@ export interface AuthLike {
   };
 }
 
+/** The codes this file sends. Each function's ErrorCode must include them (#598). */
+export type SharedErrorCode = 'unauthorized' | 'method_not_allowed';
+
 export const jsonResponse = (body: unknown, status: number): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -39,7 +42,11 @@ export const logFailure = (
 export const rejectNonPost = (req: Request): Response | null => {
   if (req.method === 'OPTIONS') return preflightResponse();
   if (req.method !== 'POST') {
-    return errorResponse('method_not_allowed', `method ${req.method} not allowed`, 405);
+    return errorResponse(
+      'method_not_allowed' satisfies SharedErrorCode,
+      `method ${req.method} not allowed`,
+      405,
+    );
   }
   return null;
 };
@@ -53,9 +60,14 @@ export const authenticate = async (req: Request, admin: AuthLike): Promise<strin
   const auth = req.headers.get('Authorization') ?? '';
   const jwt = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
   if (jwt.length === 0) {
-    return errorResponse('unauthorized', 'missing or malformed Authorization header', 401);
+    return errorResponse(
+      'unauthorized' satisfies SharedErrorCode,
+      'missing or malformed Authorization header',
+      401,
+    );
   }
   const { data } = await admin.auth.getUser(jwt);
-  if (!data.user) return errorResponse('unauthorized', 'missing or invalid JWT', 401);
+  if (!data.user)
+    return errorResponse('unauthorized' satisfies SharedErrorCode, 'missing or invalid JWT', 401);
   return data.user.id;
 };
