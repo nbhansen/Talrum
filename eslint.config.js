@@ -1,6 +1,8 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import importX from 'eslint-plugin-import-x';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
@@ -289,6 +291,22 @@ export default tseslint.config(
       // folder nobody adds to `layerElements` would get zero enforcement.
       // This rule flags such files instead.
       'boundaries/no-unknown-files': 'error',
+    },
+  },
+  {
+    // Runtime cycles only: the rule skips `import type`, which the build erases.
+    // The parsers setting is required; without it the rule sees no imports.
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { 'import-x': importX },
+    settings: {
+      'import-x/extensions': ['.ts', '.tsx'],
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
+      'import-x/resolver-next': [
+        createTypeScriptImportResolver({ alwaysTryTypes: true, project: './tsconfig.app.json' }),
+      ],
+    },
+    rules: {
+      'import-x/no-cycle': 'error',
     },
   },
 );
