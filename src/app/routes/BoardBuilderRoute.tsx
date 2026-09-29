@@ -1,5 +1,5 @@
-import { type JSX, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import type { JSX } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
@@ -9,6 +9,7 @@ import { useKidModeNav } from '@/layouts/useKidModeNav';
 import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useSetStepIds } from '@/lib/queries/boards';
+import { useSearchParamFlag } from '@/lib/useSearchParamFlag';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
@@ -19,33 +20,8 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
   const navigate = useNavigate();
   const onNav = useParentNav();
   const me = useSessionUser();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const pickerOpen = searchParams.get('picker') === '1';
-  const shareOpen = searchParams.get('share') === '1';
-
-  const openPicker = useCallback((): void => {
-    const next = new URLSearchParams(searchParams);
-    next.set('picker', '1');
-    setSearchParams(next);
-  }, [searchParams, setSearchParams]);
-
-  const closePicker = useCallback((): void => {
-    const next = new URLSearchParams(searchParams);
-    next.delete('picker');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
-
-  const openShare = useCallback((): void => {
-    const next = new URLSearchParams(searchParams);
-    next.set('share', '1');
-    setSearchParams(next);
-  }, [searchParams, setSearchParams]);
-
-  const closeShare = useCallback((): void => {
-    const next = new URLSearchParams(searchParams);
-    next.delete('share');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  const picker = useSearchParamFlag('picker');
+  const share = useSearchParamFlag('share');
 
   // `.single()` raises PGRST116 when a row is missing or hidden by RLS
   // (e.g. a pasted URL from another account) — terminal, surface as
@@ -77,23 +53,23 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         isOwner={isOwner}
         setStepIds={setStepIds}
         onBack={() => navigate('/')}
-        onOpenPicker={openPicker}
-        onOpenShare={openShare}
+        onOpenPicker={picker.open}
+        onOpenShare={share.open}
         onDeleted={() => navigate('/', { replace: true })}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
         onNav={onNav}
       />
-      {pickerOpen && (
+      {picker.isOpen && (
         <PictoPicker
           ownerId={board.ownerId}
-          onClose={closePicker}
+          onClose={picker.close}
           onConfirm={(ids) => {
             if (ids.length === 0) return;
             setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, ...ids] });
           }}
         />
       )}
-      {shareOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={closeShare} />}
+      {share.isOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={share.close} />}
     </>
   );
 };
