@@ -11,6 +11,7 @@ import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { CheckIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
@@ -154,7 +155,7 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
           />
         </section>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <FormError>{error}</FormError>}
       </div>
     </Modal>
   );

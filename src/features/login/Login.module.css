@@ -75,14 +75,6 @@
   justify-content: flex-end;
 }
 
-.error {
-  font-size: 13px;
-  color: var(--tal-coral-ink);
-  background: var(--tal-coral);
-  padding: var(--tal-space-2) var(--tal-space-3);
-  border-radius: var(--tal-r-md);
-}
-
 .offline {
   font-size: 13px;
   background: var(--tal-surface-alt);

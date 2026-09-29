@@ -1,9 +1,3 @@
-.wrap {
-  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
-}
-
-.error {
-  margin: var(--tal-space-2) 0 0;
-  font-size: 13px;
-  color: var(--tal-coral-ink);
+.errorGap {
+  margin-top: var(--tal-space-2);
 }

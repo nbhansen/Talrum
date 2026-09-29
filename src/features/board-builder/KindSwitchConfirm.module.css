@@ -1,7 +1,3 @@
-.wrap {
-  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
-}
-
 .body {
   margin: var(--tal-space-3) 0 var(--tal-space-4);
   color: var(--tal-ink-muted);

@@ -67,9 +67,3 @@
   color: var(--tal-ink-muted);
   margin: 0;
 }
-
-.error {
-  color: var(--tal-danger);
-  font-size: 14px;
-  text-align: center;
-}

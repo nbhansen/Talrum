@@ -4,6 +4,7 @@ import talrumLogo from '@/assets/talrum-logo.png';
 import { useEmailCode } from '@/lib/auth/login';
 import { useOnline } from '@/lib/useOnline';
 import { Button } from '@/ui/Button/Button';
+import { FormError } from '@/ui/FormError/FormError';
 import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './Login.module.css';
@@ -57,7 +58,7 @@ export const Login = (): JSX.Element => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="parent@example.com"
             />
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <FormError>{error}</FormError>}
             <div className={styles.row}>
               <Button
                 type="button"
@@ -112,7 +113,7 @@ export const Login = (): JSX.Element => {
               placeholder="••••••"
               inputClassName={styles.otp}
             />
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <FormError>{error}</FormError>}
             <div className={styles.row}>
               <Button
                 type="button"

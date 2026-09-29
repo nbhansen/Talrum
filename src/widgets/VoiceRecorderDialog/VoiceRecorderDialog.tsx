@@ -7,6 +7,7 @@ import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { CheckIcon, MicIcon, PlayIcon, SparkleIcon, StopIcon, TrashIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
@@ -101,11 +102,11 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
             <span className={styles.empty}>No recording yet.</span>
           )}
         </div>
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <FormError>{error}</FormError>}
         {!supported && (
-          <div className={styles.error}>
+          <FormError>
             Your browser can&apos;t record audio. Try Chrome or Safari on the iPad.
-          </div>
+          </FormError>
         )}
       </div>
       <footer className={styles.footer}>

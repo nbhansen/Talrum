@@ -5,6 +5,7 @@ import { isUploadedStoragePath } from '@/lib/storage';
 import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
+import { FormError } from '@/ui/FormError/FormError';
 import { UploadIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
@@ -101,7 +102,7 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
                 maxLength={40}
               />
             </label>
-            {shownError && <div className={styles.error}>{shownError}</div>}
+            {shownError && <FormError>{shownError}</FormError>}
             <div className={styles.previewActions}>
               <Button variant="ghost" onClick={reset} disabled={uploading}>
                 Choose another
@@ -129,7 +130,7 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
           <div className={styles.hint}>
             Real photos of cereal, shoes, or bed work best. We crop to a square automatically.
           </div>
-          {shownError && <div className={styles.error}>{shownError}</div>}
+          {shownError && <FormError>{shownError}</FormError>}
         </button>
       )}
       {recentPhotos.length > 0 && (

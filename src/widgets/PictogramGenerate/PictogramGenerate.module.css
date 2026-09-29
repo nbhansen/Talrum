@@ -105,11 +105,3 @@
   margin-top: auto;
   justify-content: flex-end;
 }
-
-.error {
-  font-size: 13px;
-  color: var(--tal-coral-ink, var(--tal-ink));
-  background: var(--tal-coral, var(--tal-surface-alt));
-  padding: var(--tal-space-2) var(--tal-space-3);
-  border-radius: var(--tal-r-md);
-}
