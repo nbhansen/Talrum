@@ -12,8 +12,8 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 jobs:
-  # Schema first, SPA second — `needs:` makes it impossible to ship
-  # frontend code against a database that missed its migration (#337).
+  # Schema first, SPA and functions second — `needs:` makes it impossible to
+  # ship code against a database that missed its migration (#337).
   # Push is idempotent and a no-op when nothing is pending, so this job
   # runs on every green push and doubles as a local-ahead drift check
   # (CI's migration-drift job only catches the remote-orphan direction).
@@ -27,7 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -69,33 +68,6 @@ jobs:
             echo "::error::remote database does not match local migrations after push"
             exit 1
           fi
-      # The SPA job is skipped on failure, so prod keeps serving the
-      # previous release — but someone still has to know (#337).
-      - name: File issue on failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          {
-            echo "The migration deploy failed, so the SPA deploy for this commit was skipped and production keeps serving the previous release (see #337 for the failure mode this prevents)."
-            echo
-            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "Commit: ${DEPLOY_SHA}"
-            echo
-            echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
-          } > /tmp/issue-body.md
-          # Repeated failures land as comments on the open issue, not as
-          # one new issue per failed push.
-          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-            --search '"deploy failed on main" in:title' --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
-          else
-            gh issue create \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
-              --body-file /tmp/issue-body.md
-          fi
   pages:
     needs: migrations
     runs-on: ubuntu-latest
@@ -127,6 +99,75 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=talrum --branch=main --commit-hash=${{ env.DEPLOY_SHA }}
+  functions:
+    needs: migrations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # Same commit the gating ci run verified — see the migrations job.
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 2
+      # main only receives squash-merge commits (single-commit pushes), so
+      # HEAD^..HEAD covers the whole push. A manual dispatch always deploys.
+      - name: Check whether function files changed
+        id: changed
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] ||
+             git diff --name-only HEAD^ HEAD | grep -qE '^supabase/functions/|^\.github/workflows/deploy\.yml$'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v2
+        if: steps.changed.outputs.deploy == 'true'
+        with:
+          # Same pin as ci.yml and the migrations job.
+          version: 2.105.0
+      # No function name: deploy everything under supabase/functions/, so a
+      # new function cannot be forgotten here (#433).
+      - if: steps.changed.outputs.deploy == 'true'
+        run: supabase functions deploy --project-ref "$PROJECT_REF"
+  # A failed job skips its dependents, so prod keeps serving the previous
+  # release — but someone still has to know (#337). One job covers all three.
+  deploy-failed:
+    needs: [migrations, pages, functions]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: File issue on failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          {
+            echo "A deploy job failed. A failed migrations job skips the SPA and function deploys, so production keeps serving the previous release (see #337 for the failure mode this prevents)."
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "Commit: ${DEPLOY_SHA}"
+            echo
+            echo "After fixing the cause, re-deploy with \`gh workflow run deploy\` and close this issue once the run is green."
+          } > /tmp/issue-body.md
+          # Repeated failures land as comments on the open issue, not as
+          # one new issue per failed push.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search '"deploy failed on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "deploy failed on main ($(date -u +%Y-%m-%d), run ${GITHUB_RUN_ID})" \
+              --body-file /tmp/issue-body.md
+          fi
   # With the gate above, a red ci run on main means no deploy at all —
   # silently (#337). File an issue when the gate blocks a deploy.
   ci-failed:
