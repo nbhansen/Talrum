@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { ParentNavKey } from './ParentShell';
+export type ParentNavKey = 'home' | 'library' | 'kids' | 'settings';
 
 const PATHS: Record<ParentNavKey, string> = {
   home: '/',

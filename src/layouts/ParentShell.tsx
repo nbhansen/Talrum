@@ -7,9 +7,7 @@ import { OfflineIndicator } from '@/widgets/OfflineIndicator/OfflineIndicator';
 import styles from './ParentShell.module.css';
 import { TalrumLogo } from './TalrumLogo';
 import { useKidModeNav } from './useKidModeNav';
-import { useParentNav } from './useParentNav';
-
-export type ParentNavKey = 'home' | 'library' | 'kids' | 'settings';
+import { type ParentNavKey, useParentNav } from './useParentNav';
 
 interface NavItem {
   id: ParentNavKey;
