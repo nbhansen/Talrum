@@ -45,7 +45,10 @@ export const usePinExit = (onExit: () => void): PinExit => {
       // The pad disables its keys while locked; this guard is the backstop
       // for an entry already in flight when the lock engaged.
       if (Date.now() < getPinLockedUntil()) return false;
-      const ok = await verifyPin(pin);
+      // A throw (no crypto.subtle off HTTPS) is not a guess, so it skips the
+      // throttle; false makes the pad show the localized kidCopy text (#586).
+      const ok = await verifyPin(pin).catch(() => null);
+      if (ok === null) return false;
       if (ok) {
         resetPinThrottle();
         setVerifying(false);

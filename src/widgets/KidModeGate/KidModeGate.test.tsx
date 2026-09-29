@@ -110,6 +110,21 @@ describe('KidModeGate', () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
+  // Kid screens can be Danish; a raw browser message would be English (#586).
+  it('shows the kid-copy error, not the raw message, when the PIN check throws', async () => {
+    await setPin('9999');
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('raw browser message'));
+    const onExit = vi.fn();
+    const { user } = renderGate(onExit);
+
+    await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
+    await tapDigits(user, '9999');
+
+    expect(await screen.findByText('Wrong PIN')).toBeInTheDocument();
+    expect(screen.queryByText('raw browser message')).not.toBeInTheDocument();
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
   it('a wrong PIN cannot be escalated into setting a new one', async () => {
     await setPin('9999');
     const onExit = vi.fn();
