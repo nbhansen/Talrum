@@ -173,6 +173,8 @@ describe('clearPersistedCache', () => {
 
   it('still wipes the IDB stripes when localStorage throws', async () => {
     await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
+    // Present, so setActiveKidId reaches removeItem instead of returning early.
+    localStorage.setItem('talrum:active-kid-id', 'k1');
     const removeItem = vi.spyOn(localStorage, 'removeItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError');
     });
