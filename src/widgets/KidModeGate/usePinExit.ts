@@ -1,6 +1,8 @@
 import { useState, useSyncExternalStore } from 'react';
 
+import { getKidCopy } from '@/lib/kidCopy';
 import { hasPin, pinGateDisabled, verifyPin } from '@/lib/pin';
+import { captureException } from '@/lib/platform/telemetry';
 
 import {
   getPinLockedUntil,
@@ -14,7 +16,7 @@ interface PinExit {
   /** Ask to leave kid mode: opens the pad, or exits outright when there is no PIN. */
   requestExit: () => void;
   cancel: () => void;
-  /** PinPad's `onSubmit`. Resolves false on a wrong PIN rather than throwing. */
+  /** PinPad's `onSubmit`. False on a wrong PIN; throws the kid-copy text when the check fails. */
   verify: (pin: string) => Promise<boolean>;
   /** Epoch ms until which entry is throttle-locked (#372); 0 when unlocked. */
   lockedUntil: number;
@@ -46,9 +48,12 @@ export const usePinExit = (onExit: () => void): PinExit => {
       // for an entry already in flight when the lock engaged.
       if (Date.now() < getPinLockedUntil()) return false;
       // A throw (no crypto.subtle off HTTPS) is not a guess, so it skips the
-      // throttle; false makes the pad show the localized kidCopy text (#586).
-      const ok = await verifyPin(pin).catch(() => null);
-      if (ok === null) return false;
+      // throttle. PinPad shows the thrown message: localized, not raw (#586, #588).
+      const ok = await verifyPin(pin).catch((err: unknown) => {
+        captureException(err, { tags: { component: 'usePinExit', op: 'verifyPin' } });
+        return null;
+      });
+      if (ok === null) throw new Error(getKidCopy().pin.checkFailed);
       if (ok) {
         resetPinThrottle();
         setVerifying(false);
