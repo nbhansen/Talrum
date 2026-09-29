@@ -437,8 +437,8 @@ describe('VoiceRecorderDialog', () => {
     // rejects with the mapped error and the dialog must pick the right copy.
     it('a server-side failure says so instead of blaming the connection (#359 rationale)', async () => {
       const user = userEvent.setup();
-      const { GenerateVoiceError } = await import('@/lib/queries/generateVoice');
-      invokeMock.mockRejectedValue(new GenerateVoiceError('synthesis_failed', 'azure down'));
+      const { CodedError } = await import('@/lib/queries/edgeFunction');
+      invokeMock.mockRejectedValue(new CodedError('synthesis_failed', 'azure down'));
       renderDialog(pictoWithoutAudio);
 
       await user.click(screen.getByRole('button', { name: /generate voice/i }));
