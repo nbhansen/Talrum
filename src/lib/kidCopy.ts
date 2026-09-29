@@ -30,7 +30,7 @@ export interface KidCopy {
     verifyTitle: string;
     verifySubtitle: string;
     wrongPin: string;
-    /** The check itself failed (no Web Crypto off HTTPS), not the guess (#588). */
+    /** The check itself failed, not the guess (#588). */
     checkFailed: string;
     /** Throttle-lock countdown after repeated wrong entries (#372). */
     locked: (secondsLeft: number) => string;
@@ -59,7 +59,7 @@ const copy: Record<AppLanguage, KidCopy> = {
       verifyTitle: 'Enter PIN to exit',
       verifySubtitle: 'Enter your 4-digit parent PIN.',
       wrongPin: 'Wrong PIN',
-      checkFailed: 'This browser cannot check the PIN. Open Talrum from a secure (https) link.',
+      checkFailed: 'Talrum cannot check the PIN on this device. Reload the page and try again.',
       locked: (secondsLeft: number): string =>
         secondsLeft === 1
           ? 'Too many tries. Wait 1 second.'
@@ -87,7 +87,7 @@ const copy: Record<AppLanguage, KidCopy> = {
       verifyTitle: 'Indtast PIN for at afslutte',
       verifySubtitle: 'Indtast din 4-cifrede forældre-PIN.',
       wrongPin: 'Forkert PIN',
-      checkFailed: 'Denne browser kan ikke tjekke PIN. Åbn Talrum fra et sikkert (https) link.',
+      checkFailed: 'Talrum kan ikke tjekke PIN på denne enhed. Genindlæs siden, og prøv igen.',
       locked: (secondsLeft: number): string =>
         secondsLeft === 1
           ? 'For mange forsøg. Vent 1 sekund.'
