@@ -125,7 +125,7 @@ describe('KidModeGate', () => {
     await user.click(screen.getByRole('button', { name: 'Exit kid mode' }));
     await tapDigits(user, '9999');
 
-    expect(await screen.findByText(/This browser cannot check the PIN/)).toBeInTheDocument();
+    expect(await screen.findByText(/Talrum cannot check the PIN/)).toBeInTheDocument();
     expect(screen.queryByText('Wrong PIN')).not.toBeInTheDocument();
     expect(screen.queryByText('raw browser message')).not.toBeInTheDocument();
     expect(captureException).toHaveBeenCalledWith(cause, expect.anything());

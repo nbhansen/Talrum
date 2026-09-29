@@ -47,8 +47,8 @@ export const usePinExit = (onExit: () => void): PinExit => {
       // The pad disables its keys while locked; this guard is the backstop
       // for an entry already in flight when the lock engaged.
       if (Date.now() < getPinLockedUntil()) return false;
-      // A throw (no crypto.subtle off HTTPS) is not a guess, so it skips the
-      // throttle. PinPad shows the thrown message: localized, not raw (#586, #588).
+      // A throw (locked-down browser, failed digest) is not a guess, so it skips
+      // the throttle. PinPad shows the thrown message: localized, not raw (#588).
       const ok = await verifyPin(pin).catch((err: unknown) => {
         captureException(err, { tags: { component: 'usePinExit', op: 'verifyPin' } });
         return null;
