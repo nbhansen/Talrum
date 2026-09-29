@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { hasPin, setPin } from '@/lib/pin';
 
@@ -58,6 +58,24 @@ describe('PinManagementSection', () => {
 
     expect(await screen.findByText(/PINs don't match/i)).toBeInTheDocument();
     expect(hasPin()).toBe(false);
+  });
+
+  it('tells the parent when the device cannot save the PIN, and keeps the pad usable (#582)', async () => {
+    const user = userEvent.setup();
+    const setItem = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    try {
+      render(<PinManagementSection />);
+      await user.click(screen.getByRole('button', { name: /set a pin/i }));
+      await enterPin(user, '4321');
+      await enterPin(user, '4321');
+
+      expect(await screen.findByText(/couldn't save the PIN on this device/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '1' })).toBeEnabled();
+    } finally {
+      setItem.mockRestore();
+    }
   });
 
   it('explains the redirect when a kid route bounced the parent here (#353)', () => {
