@@ -1,6 +1,7 @@
-import { type ChangeEvent, type RefObject, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type RefObject, useRef, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from './image';
+import { useBlobPreview } from './useBlobPreview';
 
 export interface ImagePicker {
   /** Attach to the hidden `<input type="file">`. */
@@ -17,23 +18,12 @@ export interface ImagePicker {
   reset: () => void;
 }
 
-/**
- * The pick-a-photo flow, centralised for the `blob:` preview-URL lifecycle:
- * the effect below is the single revocation point, so no caller has to
- * remember one.
- */
+/** The pick-a-photo flow; useBlobPreview owns the `blob:` URL lifecycle. */
 export const useImagePicker = (): ImagePicker => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [processed, setProcessed] = useState<ProcessedImage | null>(null);
+  const { preview: processed, show, clear } = useBlobPreview<ProcessedImage>();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(
-    () => () => {
-      if (processed) URL.revokeObjectURL(processed.previewUrl);
-    },
-    [processed],
-  );
 
   const pickFile = (): void => fileInputRef.current?.click();
 
@@ -43,10 +33,10 @@ export const useImagePicker = (): ImagePicker => {
     e.target.value = '';
     if (!file) return;
     setError(null);
-    setProcessed(null);
+    clear();
     setProcessing(true);
     cropToSquareJpeg(file)
-      .then(setProcessed)
+      .then(show)
       .catch(() => {
         setError('Could not read that image. Try a JPG or PNG.');
       })
@@ -56,7 +46,7 @@ export const useImagePicker = (): ImagePicker => {
   };
 
   const reset = (): void => {
-    setProcessed(null);
+    clear();
     setError(null);
   };
 
