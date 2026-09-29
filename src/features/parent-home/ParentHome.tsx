@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
+import { ParentShell } from '@/layouts/ParentShell';
 import { useBoards } from '@/lib/queries/boards';
 import { setActiveKidId, useActiveKid, useKids } from '@/lib/queries/kids';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
@@ -17,10 +17,7 @@ import styles from './ParentHome.module.css';
 const RECENT_STRIP_SLUGS = ['wakeup', 'apple', 'zoo', 'bag', 'bath', 'book', 'play'];
 
 interface ParentHomeProps {
-  kidName?: string;
   onOpenBoard?: (id: string) => void;
-  onKidMode?: () => void;
-  onNav?: (id: ParentNavKey) => void;
   onNewKid?: () => void;
   /** Opens the full New board modal (name + kind + kid picker). */
   onNewBoard?: () => void;
@@ -35,10 +32,7 @@ interface ParentHomeProps {
 }
 
 export const ParentHome = ({
-  kidName,
   onOpenBoard,
-  onKidMode,
-  onNav,
   onNewKid,
   onNewBoard,
   onNewBlankBoard,
@@ -66,9 +60,7 @@ export const ParentHome = ({
   return (
     <ParentShell
       active="home"
-      {...(onNav ? { onNav } : {})}
-      {...(onKidMode ? { onKidMode } : {})}
-      title={kidName ? `${kidName}'s boards` : 'Boards'}
+      title={activeKid ? `${activeKid.name}'s boards` : 'Boards'}
       subtitle="Pick a board to edit, or start a new one."
       right={
         <div className={styles.rightActions}>

@@ -2,8 +2,6 @@ import { type JSX, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { ParentHome } from '@/features/parent-home/ParentHome';
-import { useKidModeNav } from '@/layouts/useKidModeNav';
-import { useParentNav } from '@/layouts/useParentNav';
 import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
 import { kidModeNeedsPinSetup } from '@/lib/pin';
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
@@ -14,8 +12,6 @@ import { NewKidModal } from '@/widgets/NewKidModal/NewKidModal';
 
 export const ParentHomeRoute = (): JSX.Element => {
   const navigate = useNavigate();
-  const onNav = useParentNav();
-  const onKidMode = useKidModeNav();
   const boardsQuery = useBoards();
   const activeKid = useActiveKid();
   const createBoard = useCreateBoard();
@@ -58,10 +54,7 @@ export const ParentHomeRoute = (): JSX.Element => {
   return (
     <>
       <ParentHome
-        {...(activeKid ? { kidName: activeKid.name } : {})}
         onOpenBoard={(id) => navigate(`/boards/${id}/edit`)}
-        {...(onKidMode ? { onKidMode } : {})}
-        onNav={onNav}
         onNewKid={() => setNewKidOpen(true)}
         onNewBoard={() => setNewBoardOpen(true)}
         onNewBlankBoard={onNewBlankBoard}

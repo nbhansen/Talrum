@@ -1,6 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
-import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
+import { ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
 import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import {
@@ -40,7 +40,6 @@ interface BoardBuilderProps {
   onOpenShare: () => void;
   onDeleted: () => void;
   onKidMode: () => void;
-  onNav?: (id: ParentNavKey) => void;
 }
 
 export const BoardBuilder = ({
@@ -52,7 +51,6 @@ export const BoardBuilder = ({
   onOpenShare,
   onDeleted,
   onKidMode,
-  onNav,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const { data: allPictograms = [] } = usePictograms();
@@ -128,7 +126,7 @@ export const BoardBuilder = ({
     setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, pictoId] });
 
   return (
-    <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
+    <ParentShell active="home" onKidMode={onKidMode}>
       <BoardErrorBanner mutation={setStepIds} />
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>

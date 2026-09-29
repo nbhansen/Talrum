@@ -2,22 +2,16 @@ import { type JSX, useState } from 'react';
 
 import { Kids } from '@/features/kids/Kids';
 import { ParentShell } from '@/layouts/ParentShell';
-import { useKidModeNav } from '@/layouts/useKidModeNav';
-import { useParentNav } from '@/layouts/useParentNav';
 import { Button } from '@/ui/Button/Button';
 import { PlusIcon } from '@/ui/icons';
 import { NewKidModal } from '@/widgets/NewKidModal/NewKidModal';
 
 export const KidsRoute = (): JSX.Element => {
-  const onNav = useParentNav();
-  const onKidMode = useKidModeNav();
   const [newKidOpen, setNewKidOpen] = useState(false);
   return (
     <>
       <ParentShell
         active="kids"
-        onNav={onNav}
-        {...(onKidMode ? { onKidMode } : {})}
         title="Kids"
         subtitle="Tap a kid to rename, delete, or set them as active."
         right={
