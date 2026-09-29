@@ -9,7 +9,6 @@ vi.mock('@/lib/queries/pictograms', () => ({
 
 vi.mock('@/lib/queries/generateImage', () => ({
   useGenerateImage: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  GenerateImageError: class extends Error {},
 }));
 
 vi.mock('@/lib/storage/useSignedUrl', () => ({

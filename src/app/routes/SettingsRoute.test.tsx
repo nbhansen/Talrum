@@ -32,7 +32,6 @@ vi.mock('@/lib/queries/account', () => ({
     isSuccess: false,
     error: null,
   }),
-  DeleteAccountError: class extends Error {},
 }));
 
 const { SettingsRoute } = await import('./SettingsRoute');

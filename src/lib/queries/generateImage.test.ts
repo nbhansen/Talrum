@@ -17,7 +17,8 @@ vi.mock('@/lib/platform/telemetry', () => ({
 }));
 
 const { captureException } = await import('@/lib/platform/telemetry');
-const { GenerateImageError, useGenerateImage } = await import('./generateImage');
+const { CodedError } = await import('./edgeFunction');
+const { useGenerateImage } = await import('./generateImage');
 
 const captureMock = vi.mocked(captureException);
 
@@ -28,13 +29,13 @@ const wrapper = ({ children }: { children: ReactNode }): React.ReactElement =>
     children,
   );
 
-const runMutation = async (): Promise<InstanceType<typeof GenerateImageError>> => {
+const runMutation = async (): Promise<InstanceType<typeof CodedError<string>>> => {
   const { result } = renderHook(() => useGenerateImage(), { wrapper });
   result.current.mutate({ label: 'spise' });
   await waitFor(() => {
     expect(result.current.isError).toBe(true);
   });
-  return result.current.error as InstanceType<typeof GenerateImageError>;
+  return result.current.error as InstanceType<typeof CodedError<string>>;
 };
 
 beforeEach(() => {
@@ -79,7 +80,7 @@ describe('useGenerateImage error mapping', () => {
 
     const error = await runMutation();
 
-    expect(error).toBeInstanceOf(GenerateImageError);
+    expect(error).toBeInstanceOf(CodedError);
     expect(error.code).toBe('generation_failed');
     // A broken key must not look like flaky wifi to us either.
     expect(captureMock).toHaveBeenCalledWith(expect.any(FunctionsHttpError), {

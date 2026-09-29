@@ -1,7 +1,8 @@
 import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
-import { GenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
+import { CodedError } from '@/lib/queries/edgeFunction';
+import { useGenerateImage } from '@/lib/queries/generateImage';
 import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
 import { SparkleIcon } from '@/ui/icons';
@@ -62,7 +63,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
       // parent to check wifi that is fine sends them chasing the wrong thing.
       // Retry stays the advice either way: generation is non-deterministic.
       setError(
-        err instanceof GenerateImageError && err.code === 'network'
+        err instanceof CodedError && err.code === 'network'
           ? 'Could not generate an image. Check your connection and try again.'
           : 'Image generation failed. Try again in a moment.',
       );
