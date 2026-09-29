@@ -18,7 +18,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 
 const { captureException } = await import('@/lib/platform/telemetry');
 const { CodedError } = await import('./edgeFunction');
-const { useGenerateVoice } = await import('./generateVoice');
+const { isGenerateVoiceError, useGenerateVoice } = await import('./generateVoice');
 
 const captureMock = vi.mocked(captureException);
 
@@ -110,5 +110,21 @@ describe('useGenerateVoice error mapping (#433 review)', () => {
 
     expect(error.code).toBe('network');
     expect(captureMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('isGenerateVoiceError (#599)', () => {
+  it('accepts its own codes and network, and nothing else', () => {
+    expect(isGenerateVoiceError(new CodedError('synthesis_failed', 'x'))).toBe(true);
+    expect(isGenerateVoiceError(new CodedError('network', 'x'))).toBe(true);
+    expect(isGenerateVoiceError(new CodedError('generation_failed', 'x'))).toBe(false);
+    expect(isGenerateVoiceError(new Error('x'))).toBe(false);
+  });
+
+  it('narrows code to the closed set', () => {
+    const err: unknown = new CodedError('network', 'x');
+    if (!isGenerateVoiceError(err)) throw err;
+    // @ts-expect-error -- a misspelled code must not compile.
+    expect(err.code === 'netwrok').toBe(false);
   });
 });

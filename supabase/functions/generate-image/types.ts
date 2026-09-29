@@ -1,3 +1,5 @@
+import type { SharedErrorCode } from '../_shared/http.ts';
+
 /**
  * Wire contract for the generate-image edge function. The client mirrors
  * these literals in `src/lib/queries/generateImage.ts` — tsconfig does not
@@ -7,12 +9,7 @@
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode =
-  | 'unauthorized'
-  | 'method_not_allowed'
-  | 'bad_request'
-  | 'generation_failed'
-  | 'internal_error';
+export type ErrorCode = SharedErrorCode | 'bad_request' | 'generation_failed' | 'internal_error';
 
 export interface ErrorResponse {
   ok: false;

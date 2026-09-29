@@ -9,8 +9,11 @@ import {
   type Recording,
   startRecording,
 } from '@/lib/platform/recording';
-import { CodedError } from '@/lib/queries/edgeFunction';
-import { MAX_LABEL_LENGTH, useGenerateVoice } from '@/lib/queries/generateVoice';
+import {
+  isGenerateVoiceError,
+  MAX_LABEL_LENGTH,
+  useGenerateVoice,
+} from '@/lib/queries/generateVoice';
 import { useClearPictogramAudio, useSetPictogramAudio } from '@/lib/queries/pictograms';
 import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
@@ -176,7 +179,7 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
       // a server-side failure told to "check your connection" sends the
       // parent chasing wifi that is fine.
       setError(
-        err instanceof CodedError && err.code !== 'network'
+        isGenerateVoiceError(err) && err.code !== 'network'
           ? 'Voice generation failed. Try again in a moment.'
           : 'Could not generate a voice. Check your connection and try again.',
       );

@@ -11,6 +11,13 @@ export class CodedError<Code extends string> extends Error {
   }
 }
 
+/** `instanceof CodedError` alone narrows `code` to `string` (#599). */
+export const isCodedError = <Code extends string>(
+  err: unknown,
+  codes: readonly Code[],
+): err is CodedError<Code> =>
+  err instanceof CodedError && (codes as readonly string[]).includes(err.code);
+
 /**
  * supabase-js routes 4xx/5xx into `error` and keeps the Response on
  * `.context`, so the body must be re-parsed to recover the closed-set code.
