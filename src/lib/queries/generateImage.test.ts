@@ -18,7 +18,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
 
 const { captureException } = await import('@/lib/platform/telemetry');
 const { CodedError } = await import('./edgeFunction');
-const { useGenerateImage } = await import('./generateImage');
+const { isGenerateImageError, useGenerateImage } = await import('./generateImage');
 
 const captureMock = vi.mocked(captureException);
 
@@ -110,5 +110,21 @@ describe('useGenerateImage error mapping', () => {
 
     expect(error.code).toBe('network');
     expect(captureMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('isGenerateImageError (#599)', () => {
+  it('accepts its own codes and network, and nothing else', () => {
+    expect(isGenerateImageError(new CodedError('generation_failed', 'x'))).toBe(true);
+    expect(isGenerateImageError(new CodedError('network', 'x'))).toBe(true);
+    expect(isGenerateImageError(new CodedError('synthesis_failed', 'x'))).toBe(false);
+    expect(isGenerateImageError(new Error('x'))).toBe(false);
+  });
+
+  it('narrows code to the closed set', () => {
+    const err: unknown = new CodedError('network', 'x');
+    if (!isGenerateImageError(err)) throw err;
+    // @ts-expect-error -- a misspelled code must not compile.
+    expect(err.code === 'netwrok').toBe(false);
   });
 });

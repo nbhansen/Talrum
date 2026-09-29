@@ -492,6 +492,9 @@ describe('runHandler · setPictoAudio', () => {
     );
     expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1-01HV1WEBM.webm' });
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV0OLD.m4a']);
+    expect(new Set(storageFromMock.mock.calls.map(([b]) => b))).toEqual(
+      new Set(['pictogram-audio']),
+    );
   });
 
   it("skips the remove when the row already points at this entry's path (replay)", async () => {
@@ -587,6 +590,9 @@ describe('runHandler · replacePictoImage', () => {
     );
     expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1-01HV1JPG.jpg' });
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV0OLD.webp']);
+    expect(new Set(storageFromMock.mock.calls.map(([b]) => b))).toEqual(
+      new Set(['pictogram-images']),
+    );
   });
 
   it('skips removeFromBucket when the row points at a stock sentinel', async () => {

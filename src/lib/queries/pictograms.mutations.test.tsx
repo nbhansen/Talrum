@@ -560,6 +560,26 @@ describe('useReplacePictogramImage', () => {
     );
   });
 
+  it.each(['p1', 'missing'])(
+    'mints no blob URL when the patch cannot use it (%s) (#597)',
+    async (pictogramId) => {
+      const qc = makeClient();
+      qc.setQueryData(pictogramsQueryKey, photoSeed());
+      uploadMock.mockReturnValue(new Promise(() => undefined));
+
+      const { result } = renderHook(() => useReplacePictogramImage(), {
+        wrapper: makeSessionWrapper(qc),
+      });
+
+      act(() => {
+        result.current.mutate({ pictogramId, blob: new Blob(['jpeg']), extension: 'jpg' });
+      });
+
+      await waitFor(() => expect(uploadMock).toHaveBeenCalled());
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    },
+  );
+
   it('uploads, updates the row, and removes the replaced image on success', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, photoSeed());

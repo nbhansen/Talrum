@@ -1,7 +1,7 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 
 import { invokeBlobFunction } from '@/lib/queries/edgeBlobFunction';
-import type { CodedError } from '@/lib/queries/edgeFunction';
+import { type CodedError, isCodedError } from '@/lib/queries/edgeFunction';
 
 /**
  * Client side of the generate-image edge function (#422). The wire contract is
@@ -29,6 +29,9 @@ export const GENERATE_IMAGE_ERROR_CODES = [
 export type GenerateImageErrorCode = (typeof GENERATE_IMAGE_ERROR_CODES)[number] | 'network';
 
 export type GenerateImageError = CodedError<GenerateImageErrorCode>;
+
+export const isGenerateImageError = (err: unknown): err is GenerateImageError =>
+  isCodedError<GenerateImageErrorCode>(err, [...GENERATE_IMAGE_ERROR_CODES, 'network']);
 
 interface GenerateImageInput {
   label: string;
