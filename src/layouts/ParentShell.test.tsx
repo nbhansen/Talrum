@@ -1,4 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, type RenderResult, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { JSX, ReactElement } from 'react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const useOutboxStatusMock = vi.fn();
@@ -10,7 +13,12 @@ vi.mock('@/lib/outbox', () => ({
   discardEntry: vi.fn(),
 }));
 
+const kidModeNavMock = vi.fn((): (() => void) | undefined => undefined);
+vi.mock('./useKidModeNav', () => ({ useKidModeNav: () => kidModeNavMock() }));
+
 const { ParentShell } = await import('./ParentShell');
+
+const render = (ui: ReactElement): RenderResult => rtlRender(ui, { wrapper: MemoryRouter });
 
 const clean = { online: true, pendingCount: 0, failedCount: 0, conflictCount: 0, draining: false };
 const failed = { online: true, pendingCount: 0, failedCount: 2, conflictCount: 0, draining: false };
@@ -24,6 +32,7 @@ const offline = {
 
 afterEach(() => {
   useOutboxStatusMock.mockReset();
+  kidModeNavMock.mockReset();
 });
 
 describe('ParentShell sync status (#354)', () => {
@@ -92,5 +101,68 @@ describe('ParentShell sync status (#354)', () => {
 
     expect(container.querySelector('header')).toBeNull();
     expect(screen.getByTestId('page')).toBeInTheDocument();
+  });
+});
+
+describe('ParentShell navigation', () => {
+  const Path = (): JSX.Element => <div data-testid="path">{useLocation().pathname}</div>;
+
+  it('moves to the tapped section', async () => {
+    useOutboxStatusMock.mockReturnValue(clean);
+    render(
+      <>
+        <ParentShell>
+          <div />
+        </ParentShell>
+        <Path />
+      </>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Library' }));
+
+    expect(screen.getByTestId('path')).toHaveTextContent('/library');
+  });
+
+  it('opens kid mode on the default board when the screen passes none', async () => {
+    useOutboxStatusMock.mockReturnValue(clean);
+    const toDefault = vi.fn();
+    kidModeNavMock.mockReturnValue(toDefault);
+    render(
+      <ParentShell>
+        <div />
+      </ParentShell>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'KID' }));
+
+    expect(toDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens kid mode on the screen's own board when it passes one", async () => {
+    useOutboxStatusMock.mockReturnValue(clean);
+    const toDefault = vi.fn();
+    const toOwn = vi.fn();
+    kidModeNavMock.mockReturnValue(toDefault);
+    render(
+      <ParentShell onKidMode={toOwn}>
+        <div />
+      </ParentShell>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'KID' }));
+
+    expect(toOwn).toHaveBeenCalledTimes(1);
+    expect(toDefault).not.toHaveBeenCalled();
+  });
+
+  it('disables the kid button when no board qualifies', () => {
+    useOutboxStatusMock.mockReturnValue(clean);
+    render(
+      <ParentShell>
+        <div />
+      </ParentShell>,
+    );
+
+    expect(screen.getByRole('button', { name: 'KID' })).toBeDisabled();
   });
 });

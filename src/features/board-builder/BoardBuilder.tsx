@@ -1,6 +1,6 @@
 import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
 
-import { type ParentNavKey, ParentShell } from '@/layouts/ParentShell';
+import { ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
 import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import {
@@ -40,7 +40,6 @@ interface BoardBuilderProps {
   onOpenShare: () => void;
   onDeleted: () => void;
   onKidMode: () => void;
-  onNav?: (id: ParentNavKey) => void;
 }
 
 export const BoardBuilder = ({
@@ -52,7 +51,6 @@ export const BoardBuilder = ({
   onOpenShare,
   onDeleted,
   onKidMode,
-  onNav,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
   const { data: allPictograms = [] } = usePictograms();
@@ -63,18 +61,12 @@ export const BoardBuilder = ({
   const setVoice = useSetVoiceMode();
   const setKidReorderable = useSetKidReorderable();
 
-  // Local title state keeps the input snappy; the mutation fires once the user
-  // pauses typing. Re-sync only when navigating to a different board — syncing
-  // on every board.name change would clobber in-progress typing when the
-  // previous debounced write lands.
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Seeded once: the route keys this component on board.id, and a re-sync on
+  // board.name would clobber typing when the previous debounced write lands.
   const [titleDraft, setTitleDraft] = useState(board.name);
-  // Re-sync the title draft only when navigating to a different board (keyed on
-  // board.id, not board.name) — see the note above. The sync write is intended.
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
-  useEffect(() => setTitleDraft(board.name), [board.id]);
   const pendingTitleWrite = useRef<{
     timer: ReturnType<typeof setTimeout>;
     write: () => void;
@@ -134,7 +126,7 @@ export const BoardBuilder = ({
     setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, pictoId] });
 
   return (
-    <ParentShell active="home" onKidMode={onKidMode} {...(onNav ? { onNav } : {})}>
+    <ParentShell active="home" onKidMode={onKidMode}>
       <BoardErrorBanner mutation={setStepIds} />
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>

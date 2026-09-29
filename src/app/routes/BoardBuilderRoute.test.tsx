@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
-import { boardsQueryKey } from '@/lib/queries/boards';
+import { boardQueryKey, boardsQueryKey } from '@/lib/queries/boards';
+import type { Board } from '@/types/domain';
 
 const singleMock = vi.fn();
 const eqMock = vi.fn(() => ({ single: singleMock }));
@@ -34,7 +36,15 @@ const makeWrapper = (qc: QueryClient, initialPath: string): (() => JSX.Element) 
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
-            <Route path="/boards/:boardId/edit" element={<BoardBuilderRoute />} />
+            <Route
+              path="/boards/:boardId/edit"
+              element={
+                <>
+                  <Link to="/boards/board-b/edit">Go to B</Link>
+                  <BoardBuilderRoute />
+                </>
+              }
+            />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -79,5 +89,31 @@ describe('BoardBuilderRoute', () => {
       { timeout: 2000 },
     );
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('shows the new board name after navigating from one board to another', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+    const board = (id: string, name: string): Board => ({
+      id,
+      ownerId: 'owner-1',
+      kidId: 'kid-1',
+      name,
+      kind: 'sequence',
+      labelsVisible: true,
+      voiceMode: 'tts',
+      stepIds: [],
+      kidReorderable: false,
+      accent: 'peach',
+      updatedLabel: 'Edited just now',
+    });
+    qc.setQueryData(boardQueryKey('board-a'), board('board-a', 'Morning'));
+    qc.setQueryData(boardQueryKey('board-b'), board('board-b', 'Bedtime'));
+    const Wrap = makeWrapper(qc, '/boards/board-a/edit');
+    render(<Wrap />);
+    expect(await screen.findByDisplayValue('Morning')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('link', { name: 'Go to B' }));
+
+    expect(await screen.findByDisplayValue('Bedtime')).toBeInTheDocument();
   });
 });
