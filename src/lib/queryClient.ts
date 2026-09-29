@@ -4,7 +4,10 @@ import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-cl
 import { del, get, keys, set } from 'idb-keyval';
 
 import { clearLastBoard } from './lastBoard';
+import { OUTBOX_KEY_PREFIX } from './outbox/store';
 import { clearPin } from './pin';
+import { setActiveKidId } from './queries/kids';
+import { SIGNED_URL_KEY_PREFIX } from './storage/storage';
 
 /**
  * AAC use is calm, not real-time. Skip focus-refetching so an iPad tap away
@@ -52,14 +55,15 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
 
 /**
  * Drop every per-user store at an auth boundary so the next user of a shared
- * device starts clean: the query cache, the outbox, signed URLs, the PIN and
- * last-board pointer (#178), and the service worker's byte cache (#380).
+ * device starts clean: query cache, outbox, signed URLs, PIN, last-board and
+ * active-kid pointers (#178), and the service worker's byte cache (#380).
  * The IDB deletes race the next sign-in's hydration, but all are idempotent.
  */
 export const clearPersistedCache = async (): Promise<void> => {
   queryClient.clear();
   clearPin();
   clearLastBoard();
+  setActiveKidId(null);
   // Disjoint stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),
@@ -69,7 +73,8 @@ export const clearPersistedCache = async (): Promise<void> => {
     keys().then((all) => {
       const stripeKeys = all.filter(
         (k): k is string =>
-          typeof k === 'string' && (k.startsWith('outbox:') || k.startsWith('signed-url:')),
+          typeof k === 'string' &&
+          (k.startsWith(OUTBOX_KEY_PREFIX) || k.startsWith(SIGNED_URL_KEY_PREFIX)),
       );
       return Promise.all(stripeKeys.map((k) => del(k)));
     }),

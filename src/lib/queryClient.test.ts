@@ -163,6 +163,27 @@ describe('clearPersistedCache', () => {
     expect(await get('some-other-feature')).toBe('keep-me');
   });
 
+  it("clears the active kid — the next user must not start on user A's kid", async () => {
+    localStorage.setItem('talrum:active-kid-id', 'k1');
+
+    await clearPersistedCache();
+
+    expect(localStorage.getItem('talrum:active-kid-id')).toBeNull();
+  });
+
+  it('still wipes the IDB stripes when localStorage throws', async () => {
+    await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
+    const removeItem = vi.spyOn(localStorage, 'removeItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    try {
+      await clearPersistedCache();
+    } finally {
+      removeItem.mockRestore();
+    }
+    expect(await get('outbox:01ARZ')).toBeUndefined();
+  });
+
   it('deletes the SW storage cache by prefix but leaves the app-shell precache alone (#380)', async () => {
     const live = stubCaches([
       'talrum-storage-v1',
