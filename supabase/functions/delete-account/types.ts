@@ -1,3 +1,5 @@
+import type { SharedErrorCode } from '../_shared/http.ts';
+
 // Error codes are a closed set; the client switches on `error` to pick a toast
 // (src/lib/queries/account.ts). Add a code here, add a toast there.
 
@@ -7,8 +9,7 @@
 export const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 
 export type ErrorCode =
-  | 'unauthorized'
-  | 'method_not_allowed'
+  | SharedErrorCode
   | 'bad_request'
   | 'storage_purge_failed'
   | 'auth_delete_failed'

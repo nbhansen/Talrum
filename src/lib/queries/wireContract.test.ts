@@ -22,9 +22,17 @@ const functionSource = (dir: string, file = 'types.ts'): string => {
   return source;
 };
 
+const unionCodes = (source: string, name: string): string[] => {
+  const union = new RegExp(`export type ${name} =([^;]+);`).exec(source)?.[1] ?? '';
+  return [...union.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '');
+};
+
 const serverErrorCodes = (dir: string): string[] => {
-  const union = /export type ErrorCode =([^;]+);/.exec(functionSource(dir))?.[1] ?? '';
-  return [...union.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '').sort();
+  const own = unionCodes(functionSource(dir), 'ErrorCode');
+  const shared = /\bSharedErrorCode\b/.test(functionSource(dir))
+    ? unionCodes(functionSource('_shared', 'http.ts'), 'SharedErrorCode')
+    : [];
+  return [...own, ...shared].sort();
 };
 
 describe('edge-function wire contract', () => {
