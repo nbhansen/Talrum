@@ -55,11 +55,16 @@ export const PinPad = ({
 
   const submit = async (pin: string): Promise<void> => {
     setBusy(true);
-    const ok = await onSubmit(pin);
-    setBusy(false);
-    if (!ok) {
-      setError(errorMessage ?? 'Wrong PIN');
+    try {
+      if (!(await onSubmit(pin))) {
+        setError(errorMessage ?? 'Wrong PIN');
+        setDigits('');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       setDigits('');
+    } finally {
+      setBusy(false);
     }
   };
 
