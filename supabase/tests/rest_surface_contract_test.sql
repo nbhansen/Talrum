@@ -32,6 +32,7 @@ SELECT is(
             'is_board_owner', 'is_board_member', 'is_board_editor',
             'is_owner_shared_with_me', 'is_pictogram_storage_visible',
             'is_editor_for_owner', 'is_pictogram_storage_writable',
+            'has_owner_access', 'storage_owner_id',
             'handle_new_user', 'set_updated_at',
             'rls_auto_enable'
           )
