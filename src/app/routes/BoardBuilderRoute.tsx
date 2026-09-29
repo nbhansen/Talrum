@@ -5,19 +5,15 @@ import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
 import { PictoPicker } from '@/features/board-builder/pictogram-picker/PictoPicker';
 import { ShareModal } from '@/features/board-builder/ShareModal';
-import { useKidModeNav } from '@/layouts/useKidModeNav';
-import { useParentNav } from '@/layouts/useParentNav';
 import { useSessionUser } from '@/lib/auth/session';
 import { isNotFoundError, useBoard, useSetStepIds } from '@/lib/queries/boards';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
   const boardQuery = useBoard(boardId);
-  const fallbackKidMode = useKidModeNav();
   const setStepIds = useSetStepIds();
   const board = boardQuery.data;
   const navigate = useNavigate();
-  const onNav = useParentNav();
   const me = useSessionUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const pickerOpen = searchParams.get('picker') === '1';
@@ -59,8 +55,6 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         variant={variant}
         onBack={() => navigate('/')}
         onRetry={() => void boardQuery.refetch()}
-        {...(fallbackKidMode ? { onKidMode: fallbackKidMode } : {})}
-        onNav={onNav}
       />
     );
   }
@@ -80,7 +74,6 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
         onOpenShare={openShare}
         onDeleted={() => navigate('/', { replace: true })}
         onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
-        onNav={onNav}
       />
       {pickerOpen && (
         <PictoPicker
