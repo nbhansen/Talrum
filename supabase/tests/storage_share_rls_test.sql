@@ -3,7 +3,7 @@
 -- bug fixed in 20260425020000. DELETE is not testable from SQL
 -- (protect_delete fires before RLS). Run with: supabase test db
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -210,6 +210,12 @@ SELECT is(
   private.is_pictogram_storage_writable('not-a-uuid/x.jpg'),
   false,
   'helper: a non-uuid prefix is not writable, and does not raise'
+);
+
+-- It calls storage.foldername, which Postgres treats as volatile (#600).
+SELECT volatility_is(
+  'private', 'storage_owner_id', ARRAY['text'], 'stable',
+  'helper: storage_owner_id is stable, not immutable'
 );
 
 SELECT * FROM finish();
