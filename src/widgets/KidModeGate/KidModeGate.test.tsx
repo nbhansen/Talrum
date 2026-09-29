@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearPin, hasPin, setPin } from '@/lib/pin';
 import { captureException } from '@/lib/platform/telemetry';
+import { recordPinFailure, resetPinThrottle } from '@/widgets/PinPad/pinThrottle';
 
 import { KidModeGate } from './KidModeGate';
-import { recordPinFailure, resetPinThrottle } from './pinThrottle';
 
 vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 

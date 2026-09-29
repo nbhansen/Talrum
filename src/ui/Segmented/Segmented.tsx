@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 
 import styles from './Segmented.module.css';
 
-export interface SegmentedOption<V extends string> {
+interface SegmentedOption<V extends string> {
   value: V;
   label: string;
   sub?: string;

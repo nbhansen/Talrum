@@ -19,9 +19,9 @@ interface NewBoardModalProps {
   onCreated: (boardId: string) => void;
 }
 
-const KIND_OPTIONS: readonly { value: BoardKind; label: string; hint: string }[] = [
-  { value: 'sequence', label: 'Sequence', hint: 'Step-by-step strip' },
-  { value: 'choice', label: 'Choice', hint: '3-up picker' },
+const KIND_OPTIONS: readonly { value: BoardKind; label: string }[] = [
+  { value: 'sequence', label: 'Sequence' },
+  { value: 'choice', label: 'Choice' },
 ];
 
 export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.Element => {

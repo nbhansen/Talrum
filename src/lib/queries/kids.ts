@@ -22,7 +22,7 @@ import type { Database } from '@/types/supabase';
 
 type KidRow = Database['public']['Tables']['kids']['Row'];
 
-export const rowToKid = (row: KidRow): Kid => ({
+const rowToKid = (row: KidRow): Kid => ({
   id: row.id,
   ownerId: row.owner_id,
   name: row.name,

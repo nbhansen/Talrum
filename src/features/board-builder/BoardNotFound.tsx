@@ -5,7 +5,7 @@ import { Button } from '@/ui/Button/Button';
 
 import styles from './BoardNotFound.module.css';
 
-export type BoardLoadFailureVariant = 'not-found' | 'error';
+type BoardLoadFailureVariant = 'not-found' | 'error';
 
 interface BoardNotFoundProps {
   variant: BoardLoadFailureVariant;

@@ -3,13 +3,12 @@ import { useState, useSyncExternalStore } from 'react';
 import { getKidCopy } from '@/lib/kidCopy';
 import { hasPin, pinGateDisabled, verifyPin } from '@/lib/pin';
 import { captureException } from '@/lib/platform/telemetry';
-
 import {
   getPinLockedUntil,
   recordPinFailure,
   resetPinThrottle,
   subscribePinThrottle,
-} from './pinThrottle';
+} from '@/widgets/PinPad/pinThrottle';
 
 interface PinExit {
   verifying: boolean;

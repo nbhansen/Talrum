@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import styles from './Modal.module.css';
 
-export type ModalSize = 'sm' | 'md' | 'full';
+type ModalSize = 'sm' | 'md' | 'full';
 
 interface ModalProps {
   onClose: () => void;

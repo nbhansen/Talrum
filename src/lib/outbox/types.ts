@@ -23,7 +23,7 @@ export type BoardRowPatch = Pick<
  * attempt and the browser releases it when a tab dies, which makes an
  * `attempting` entry seen from inside the lock proof that its owner is gone.
  */
-export type OutboxEntryStatus = 'pending' | 'attempting' | 'failed';
+type OutboxEntryStatus = 'pending' | 'attempting' | 'failed';
 
 /**
  * Program state: `conflictCount` and the Retry guard-strip key off it.

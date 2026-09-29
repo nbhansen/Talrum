@@ -3,7 +3,7 @@ import { type JSX, useEffect, useRef, useState, useSyncExternalStore } from 'rea
 import { clearPin, hasPin, pinGateDisabled, setPin, subscribePin, verifyPin } from '@/lib/pin';
 import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
-import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/KidModeGate/PinPad';
+import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/PinPad/PinPad';
 
 import styles from './PinManagementSection.module.css';
 

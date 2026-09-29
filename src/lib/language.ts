@@ -5,7 +5,7 @@
 
 const STORAGE_KEY = 'talrum:language';
 
-export const APP_LANGUAGES = ['en', 'da'] as const;
+const APP_LANGUAGES = ['en', 'da'] as const;
 export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
 export const isAppLanguage = (v: unknown): v is AppLanguage =>

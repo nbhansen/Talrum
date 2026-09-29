@@ -13,7 +13,7 @@ import { type CodedError, isCodedError } from '@/lib/queries/edgeFunction';
 export const GENERATE_VOICE_FUNCTION_NAME = 'generate-voice';
 
 /** Mirrors the function's closed language set. */
-export type VoiceLanguage = 'da' | 'en';
+type VoiceLanguage = 'da' | 'en';
 
 /** Mirrors the function's cap; the dialog checks it before a round trip. */
 export const MAX_LABEL_LENGTH = 60;

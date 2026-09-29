@@ -14,13 +14,14 @@ import {
   withCrossTabLock,
 } from './drain';
 import { runHandler, UnretryableOutboxError } from './handlers';
+import { isOnline } from './online';
 import { getOutboxOwner, setOwnerId } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
 export { OUTBOX_KEY_PREFIX } from './store';
-export type { BoardRowPatch, OutboxEntry, OutboxEntryStatus } from './types';
-export { startOutbox, UnretryableOutboxError };
+export type { BoardRowPatch } from './types';
+export { listEntries, startOutbox };
 
 /**
  * Tell the outbox which account it works for. Draining is gated on a known
@@ -79,7 +80,7 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     });
     // Read `onLine` inside the lock. A pre-check goes stale during the wait,
     // and attempting on a dead network burns a retry attempt for nothing.
-    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const offline = !isOnline();
     // An unreadable queue is not an empty queue: the fast path would run this
     // write ahead of entries it cannot see, and they overwrite it on replay
     // (#279, #458). The put below stays unguarded — #445 needs it to reject.
@@ -172,8 +173,6 @@ export const discardEntry = async (id: string): Promise<void> => {
   await withCrossTabLock(() => deleteEntry(id));
   await refreshStatus();
 };
-
-export const peekEntries = listEntries;
 
 export const useOutboxStatus = (): OutboxStatus => {
   const [status, setStatus] = useState<OutboxStatus>(getStatus());
