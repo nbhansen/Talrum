@@ -31,23 +31,21 @@ export const KindSwitchConfirm = ({
   onConfirm,
   onCancel,
 }: KindSwitchConfirmProps): JSX.Element => (
-  <Modal onClose={onCancel} labelledBy={TITLE_ID} size="sm">
-    <div className={styles.wrap}>
-      <DialogHeader
-        title={`Switch to ${kindLabel(next)}?`}
-        subtitle={`This board is currently a ${kindLabel(current)} board. Switching changes how kids interact with it.`}
-        titleId={TITLE_ID}
-        onClose={onCancel}
-      />
-      <p className={styles.body}>{BODY[next]}</p>
-      <DialogActions>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="button" variant="primary" onClick={onConfirm}>
-          Switch to {kindLabel(next)}
-        </Button>
-      </DialogActions>
-    </div>
+  <Modal onClose={onCancel} labelledBy={TITLE_ID} size="sm" padded>
+    <DialogHeader
+      title={`Switch to ${kindLabel(next)}?`}
+      subtitle={`This board is currently a ${kindLabel(current)} board. Switching changes how kids interact with it.`}
+      titleId={TITLE_ID}
+      onClose={onCancel}
+    />
+    <p className={styles.body}>{BODY[next]}</p>
+    <DialogActions>
+      <Button type="button" variant="ghost" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="button" variant="primary" onClick={onConfirm}>
+        Switch to {kindLabel(next)}
+      </Button>
+    </DialogActions>
   </Modal>
 );

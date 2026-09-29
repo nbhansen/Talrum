@@ -10,9 +10,17 @@ interface ModalProps {
   children: ReactNode;
   labelledBy?: string;
   size: ModalSize;
+  /** Wraps the content in the standard dialog padding. */
+  padded?: boolean;
 }
 
-export const Modal = ({ onClose, children, labelledBy, size }: ModalProps): JSX.Element => {
+export const Modal = ({
+  onClose,
+  children,
+  labelledBy,
+  size,
+  padded = false,
+}: ModalProps): JSX.Element => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +52,7 @@ export const Modal = ({ onClose, children, labelledBy, size }: ModalProps): JSX.
         aria-modal="true"
         {...(labelledBy ? { 'aria-labelledby': labelledBy } : {})}
       >
-        {children}
+        {padded ? <div className={styles.padded}>{children}</div> : children}
       </div>
     </div>
   );

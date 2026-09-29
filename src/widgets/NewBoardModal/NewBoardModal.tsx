@@ -6,8 +6,9 @@ import type { BoardKind } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogActions } from '@/ui/DialogActions/DialogActions';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { Modal } from '@/ui/Modal/Modal';
-import { TextField } from '@/ui/TextField/TextField';
+import { SelectField, TextField } from '@/ui/TextField/TextField';
 
 import styles from './NewBoardModal.module.css';
 
@@ -62,94 +63,80 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm">
-      <div className={styles.wrap}>
-        <DialogHeader
-          title="New board"
-          subtitle="You can add steps and tweak settings after the board is created."
-          titleId={TITLE_ID}
-          onClose={onClose}
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm" padded>
+      <DialogHeader
+        title="New board"
+        subtitle="You can add steps and tweak settings after the board is created."
+        titleId={TITLE_ID}
+        onClose={onClose}
+      />
+      <form onSubmit={submit} className={styles.form}>
+        {noKids && (
+          <p className={styles.noKids}>Add a kid first — boards need a kid to belong to.</p>
+        )}
+
+        <TextField
+          label="Name"
+          type="text"
+          autoFocus
+          autoComplete="off"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (error) setError(null);
+          }}
+          placeholder="Morning routine"
+          disabled={noKids}
         />
-        <form onSubmit={submit} className={styles.form}>
-          {noKids && (
-            <p className={styles.noKids}>Add a kid first — boards need a kid to belong to.</p>
-          )}
 
-          <TextField
-            label="Name"
-            type="text"
-            autoFocus
-            autoComplete="off"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (error) setError(null);
-            }}
-            placeholder="Morning routine"
-            disabled={noKids}
-          />
-
-          <fieldset className={`${styles.field} ${styles.kindGroup}`}>
-            {KIND_OPTIONS.map((opt) => {
-              const checked = kind === opt.value;
-              return (
-                <label
-                  key={opt.value}
-                  className={`${styles.kindOption} ${checked ? styles.kindOptionChecked : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="kind"
-                    value={opt.value}
-                    checked={checked}
-                    onChange={() => setKind(opt.value)}
-                    className={styles.kindRadio}
-                    disabled={noKids}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              );
-            })}
-          </fieldset>
-
-          {kidList.length > 1 && (
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Kid</span>
-              <select
-                value={effectiveKidId}
-                onChange={(e) => setSelectedKidId(e.target.value)}
-                className={styles.input}
+        <fieldset className={`${styles.field} ${styles.kindGroup}`}>
+          {KIND_OPTIONS.map((opt) => {
+            const checked = kind === opt.value;
+            return (
+              <label
+                key={opt.value}
+                className={`${styles.kindOption} ${checked ? styles.kindOptionChecked : ''}`}
               >
-                {kidList.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+                <input
+                  type="radio"
+                  name="kind"
+                  value={opt.value}
+                  checked={checked}
+                  onChange={() => setKind(opt.value)}
+                  className={styles.kindRadio}
+                  disabled={noKids}
+                />
+                <span>{opt.label}</span>
+              </label>
+            );
+          })}
+        </fieldset>
 
-          {error && (
-            <p role="alert" className={styles.error}>
-              {error}
-            </p>
-          )}
+        {kidList.length > 1 && (
+          <SelectField
+            label="Kid"
+            value={effectiveKidId}
+            onChange={(e) => setSelectedKidId(e.target.value)}
+          >
+            {kidList.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.name}
+              </option>
+            ))}
+          </SelectField>
+        )}
 
-          <DialogActions>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onClose}
-              disabled={createBoard.isPending}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitDisabled}>
-              {createBoard.isPending ? 'Saving…' : 'Save'}
-            </Button>
-          </DialogActions>
-        </form>
-      </div>
+        {error && <FormError>{error}</FormError>}
+
+        <DialogActions>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={createBoard.isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitDisabled}>
+            {createBoard.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </form>
     </Modal>
   );
 };

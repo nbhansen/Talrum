@@ -13,6 +13,7 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { MicIcon, UploadIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
@@ -213,7 +214,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
           />
         </section>
 
-        {shownError && <div className={styles.error}>{shownError}</div>}
+        {shownError && <FormError>{shownError}</FormError>}
       </div>
       {recordingVoice && (
         <VoiceRecorderDialog picto={livePicto} onClose={() => setRecordingVoice(false)} />

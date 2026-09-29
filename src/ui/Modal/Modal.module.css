@@ -34,3 +34,7 @@
   max-width: 1040px;
   height: 100%;
 }
+
+.padded {
+  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
+}

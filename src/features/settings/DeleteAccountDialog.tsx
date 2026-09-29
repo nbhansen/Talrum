@@ -57,7 +57,7 @@ export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Elem
   };
 
   return (
-    <Modal onClose={handleClose} labelledBy={TITLE_ID} size="sm">
+    <Modal onClose={handleClose} labelledBy={TITLE_ID} size="sm" padded>
       <div className={styles.wrap}>
         <DialogHeader
           title="Delete your account?"

@@ -4,6 +4,7 @@ import { useCreateKid } from '@/lib/queries/kids';
 import { Button } from '@/ui/Button/Button';
 import { DialogActions } from '@/ui/DialogActions/DialogActions';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { Modal } from '@/ui/Modal/Modal';
 import { TextField } from '@/ui/TextField/TextField';
 
@@ -37,42 +38,36 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm">
-      <div className={styles.wrap}>
-        <DialogHeader
-          title="New kid"
-          subtitle="Each kid has their own boards. You can add more later."
-          titleId={TITLE_ID}
-          onClose={onClose}
+    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm" padded>
+      <DialogHeader
+        title="New kid"
+        subtitle="Each kid has their own boards. You can add more later."
+        titleId={TITLE_ID}
+        onClose={onClose}
+      />
+      <form onSubmit={submit}>
+        <TextField
+          label="Name"
+          type="text"
+          autoFocus
+          autoComplete="off"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (error) setError(null);
+          }}
+          placeholder="Liam"
         />
-        <form onSubmit={submit}>
-          <TextField
-            label="Name"
-            type="text"
-            autoFocus
-            autoComplete="off"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (error) setError(null);
-            }}
-            placeholder="Liam"
-          />
-          {error && (
-            <p role="alert" className={styles.error}>
-              {error}
-            </p>
-          )}
-          <DialogActions>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={createKid.isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitDisabled}>
-              {createKid.isPending ? 'Saving…' : 'Save'}
-            </Button>
-          </DialogActions>
-        </form>
-      </div>
+        {error && <FormError className={styles.errorGap}>{error}</FormError>}
+        <DialogActions>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={createKid.isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitDisabled}>
+            {createKid.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </form>
     </Modal>
   );
 };

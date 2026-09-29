@@ -4,6 +4,7 @@ import { useDeleteBoard } from '@/lib/queries/boards';
 import { Button } from '@/ui/Button/Button';
 import { DialogActions } from '@/ui/DialogActions/DialogActions';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { FormError } from '@/ui/FormError/FormError';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './DeleteBoardConfirm.module.css';
@@ -37,34 +38,28 @@ export const DeleteBoardConfirm = ({
   };
 
   return (
-    <Modal onClose={onCancel} labelledBy={TITLE_ID} size="sm">
-      <div className={styles.wrap}>
-        <DialogHeader
-          title={`Delete "${boardName}"?`}
-          subtitle="It disappears for everyone it is shared with. Pictograms stay in your library."
-          titleId={TITLE_ID}
-          onClose={onCancel}
-        />
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        )}
-        <DialogActions>
-          <Button variant="ghost" onClick={onCancel} disabled={deleteBoard.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => {
-              void confirm();
-            }}
-            disabled={deleteBoard.isPending}
-          >
-            {deleteBoard.isPending ? 'Deleting…' : 'Delete forever'}
-          </Button>
-        </DialogActions>
-      </div>
+    <Modal onClose={onCancel} labelledBy={TITLE_ID} size="sm" padded>
+      <DialogHeader
+        title={`Delete "${boardName}"?`}
+        subtitle="It disappears for everyone it is shared with. Pictograms stay in your library."
+        titleId={TITLE_ID}
+        onClose={onCancel}
+      />
+      {error && <FormError className={styles.errorGap}>{error}</FormError>}
+      <DialogActions>
+        <Button variant="ghost" onClick={onCancel} disabled={deleteBoard.isPending}>
+          Cancel
+        </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            void confirm();
+          }}
+          disabled={deleteBoard.isPending}
+        >
+          {deleteBoard.isPending ? 'Deleting…' : 'Delete forever'}
+        </Button>
+      </DialogActions>
     </Modal>
   );
 };

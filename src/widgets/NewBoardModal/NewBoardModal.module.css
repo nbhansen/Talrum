@@ -1,7 +1,3 @@
-.wrap {
-  padding: var(--tal-space-7) var(--tal-space-7) var(--tal-space-6);
-}
-
 .form {
   display: flex;
   flex-direction: column;
@@ -18,39 +14,6 @@
   border: 0;
   padding: 0;
   margin: 0;
-}
-
-.fieldLabel {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--tal-ink-muted);
-}
-
-.input {
-  font: inherit;
-  font-size: 15px;
-  padding: var(--tal-space-3);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  background: var(--tal-surface);
-  color: var(--tal-ink);
-  outline: none;
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.input:focus {
-  border-color: var(--tal-sky-ink);
-  box-shadow: 0 0 0 3px var(--tal-sky);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .input {
-    transition: none;
-  }
 }
 
 .kindGroup {
@@ -80,12 +43,6 @@
 
 .kindRadio {
   margin: 0;
-}
-
-.error {
-  margin: 0;
-  font-size: 13px;
-  color: var(--tal-coral-ink);
 }
 
 .noKids {

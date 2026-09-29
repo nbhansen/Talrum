@@ -4,6 +4,7 @@ import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
 import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
 import { Button } from '@/ui/Button/Button';
+import { FormError } from '@/ui/FormError/FormError';
 import { SparkleIcon } from '@/ui/icons';
 
 import styles from './PictogramGenerate.module.css';
@@ -107,11 +108,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
             <div className={styles.hint}>
               This is how the pictogram will look. Save it, or discard and generate again.
             </div>
-            {error && (
-              <div className={styles.error} role="alert">
-                {error}
-              </div>
-            )}
+            {error && <FormError>{error}</FormError>}
             <div className={styles.previewActions}>
               <Button variant="ghost" onClick={discard} disabled={busy !== null}>
                 Discard
@@ -150,11 +147,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
               disabled={busy !== null}
             />
           </label>
-          {error && (
-            <div className={styles.error} role="alert">
-              {error}
-            </div>
-          )}
+          {error && <FormError>{error}</FormError>}
           <div className={styles.formActions}>
             <Button
               variant="primary"

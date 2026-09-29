@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes, type JSX, type SelectHTMLAttributes } from 'react';
 
 import styles from './TextField.module.css';
 
@@ -20,3 +20,14 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   ),
 );
 TextField.displayName = 'TextField';
+
+interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> {
+  label: string;
+}
+
+export const SelectField = ({ label, ...selectProps }: SelectFieldProps): JSX.Element => (
+  <label className={styles.field}>
+    <span className={styles.label}>{label}</span>
+    <select {...selectProps} className={styles.input} />
+  </label>
+);
