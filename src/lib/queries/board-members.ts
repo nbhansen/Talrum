@@ -8,6 +8,7 @@ import {
 
 import { useSessionUser } from '@/lib/auth/session';
 import { hasPgCode } from '@/lib/hasPgCode';
+import { clearLastBoard, getLastBoard } from '@/lib/lastBoard';
 import { boardQueryKey, boardsQueryKey } from '@/lib/queries/boards.read';
 import { kidsQueryKey } from '@/lib/queries/kids';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
@@ -116,6 +117,7 @@ export const useLeaveBoard = (): UseMutationResult<void, Error, { boardId: strin
   return useMutation({
     mutationFn: ({ boardId }) => removeMember({ boardId, userId }),
     onSuccess: (_data, { boardId }) => {
+      if (getLastBoard()?.id === boardId) clearLastBoard();
       qc.removeQueries({ queryKey: boardQueryKey(boardId) });
       for (const queryKey of [boardsQueryKey, kidsQueryKey, pictogramsQueryKey]) {
         qc.invalidateQueries({ queryKey });
