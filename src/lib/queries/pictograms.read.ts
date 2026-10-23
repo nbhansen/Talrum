@@ -9,8 +9,9 @@ type PictogramRow = Database['public']['Tables']['pictograms']['Row'];
 
 /**
  * Narrow a DB row (strings + nulls) into the discriminated-union domain type.
- * The init migration's CHECK constraints guarantee the narrowing is safe —
- * (style='illus' ↔ glyph/tint non-null) and (style='photo' ↔ glyph/tint null).
+ * DB CHECK constraints guarantee the narrowing is safe: (style='illus' ↔
+ * glyph/tint non-null), (style='photo' ↔ glyph/tint null), and glyph is a
+ * GlyphName.
  */
 export const rowToPictogram = (row: PictogramRow): Pictogram => {
   if (row.style === 'illus') {

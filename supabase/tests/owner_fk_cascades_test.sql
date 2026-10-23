@@ -48,7 +48,7 @@ BEGIN
 
   INSERT INTO public.kids (owner_id, name) VALUES (test_uid, 'cascade-kid');
   INSERT INTO public.pictograms (owner_id, label, style, glyph, tint)
-    VALUES (test_uid, 'apple', 'illus', '🍎', 'red');
+    VALUES (test_uid, 'apple', 'illus', 'apple', 'oklch(88% 0.05 20)');
   INSERT INTO public.boards (owner_id, kid_id, name, kind, voice_mode, accent)
   SELECT test_uid, k.id, 'cascade-board', 'sequence', 'tts', 'sage'
   FROM public.kids k WHERE k.owner_id = test_uid LIMIT 1;
