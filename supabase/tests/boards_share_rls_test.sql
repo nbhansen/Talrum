@@ -161,7 +161,7 @@ SET LOCAL "request.jwt.claims" TO
 SELECT throws_ok(
   $$
     INSERT INTO public.boards (owner_id, kid_id, name, kind, voice_mode, accent)
-    SELECT 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', k.id, 'intruder', 'choice', 'tts', 'moss'
+    SELECT 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', k.id, 'intruder', 'choice', 'tts', 'sage'
       FROM public.kids k
      WHERE k.owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
      LIMIT 1
