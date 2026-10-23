@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "dependencies": {
+    "openwiki": "0.7.2"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
