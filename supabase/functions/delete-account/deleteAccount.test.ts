@@ -241,3 +241,21 @@ Deno.test(
     );
   },
 );
+
+Deno.test('deleteAccount: purges an object in a subfolder, then deletes the user', async () => {
+  const { client, calls } = createFakeClient({
+    buckets: {
+      'pictogram-audio': { objects: [`${UID}/a.mp3`, `${UID}/x/y/b.mp3`] },
+      'pictogram-images': { objects: [] },
+    },
+    authDelete: { ok: true },
+  });
+
+  const result = await deleteAccount(client, UID);
+
+  assertEquals(result.audioCount, 2);
+  assertEquals(
+    calls.some((c) => c.kind === 'auth.admin.deleteUser'),
+    true,
+  );
+});

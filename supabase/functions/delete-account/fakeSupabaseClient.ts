@@ -21,8 +21,14 @@ interface BucketScript {
   removeResponses: { data?: { name: string }[]; error?: { message: string } }[];
 }
 
+// Models Storage instead of a script: list() returns one level, with
+// `id: null` for a folder, and remove() deletes exact paths only (#638).
+interface BucketStore {
+  objects: string[];
+}
+
 export interface FakeOptions {
-  buckets: Record<string, BucketScript>;
+  buckets: Record<string, BucketScript | BucketStore>;
   authDelete: { ok: true } | { error: { message: string; code?: string } };
 }
 
@@ -37,22 +43,45 @@ export const createFakeClient = (
   const calls: CallLogEntry[] = [];
   const remainingList: Record<string, BucketScript['listResponses']> = {};
   const remainingRemove: Record<string, BucketScript['removeResponses']> = {};
+  const stores: Record<string, Set<string>> = {};
   for (const [bucket, script] of Object.entries(options.buckets)) {
+    if ('objects' in script) {
+      stores[bucket] = new Set(script.objects);
+      continue;
+    }
     remainingList[bucket] = [...script.listResponses];
     remainingRemove[bucket] = [...script.removeResponses];
   }
 
+  const listStore = (store: Set<string>, prefix: string, limit = 100) => {
+    const entries = new Map<string, string | null>();
+    for (const path of store) {
+      if (!path.startsWith(`${prefix}/`)) continue;
+      const rest = path.slice(prefix.length + 1);
+      const slash = rest.indexOf('/');
+      entries.set(slash === -1 ? rest : rest.slice(0, slash), slash === -1 ? path : null);
+    }
+    return [...entries].slice(0, limit).map(([name, id]) => ({ name, id }));
+  };
+
   const client: FakeClient = {
     storage: {
       from: (bucket) => ({
-        list: async (prefix) => {
+        list: async (prefix, opts) => {
           calls.push({ kind: 'storage.list', bucket, prefix });
+          const store = stores[bucket];
+          if (store) return { data: listStore(store, prefix, opts?.limit), error: null };
           const next = remainingList[bucket]?.shift() ?? { data: [] };
           if (next.error) return { data: null, error: next.error };
-          return { data: next.data ?? [], error: null };
+          return { data: (next.data ?? []).map((o) => ({ ...o, id: o.name })), error: null };
         },
         remove: async (paths) => {
           calls.push({ kind: 'storage.remove', bucket, paths });
+          const store = stores[bucket];
+          if (store) {
+            const removed = paths.filter((p) => store.delete(p));
+            return { data: removed.map((name) => ({ name })), error: null };
+          }
           const next = remainingRemove[bucket]?.shift() ?? { data: [] };
           if (next.error) return { data: null, error: next.error };
           return { data: next.data ?? [], error: null };
