@@ -106,10 +106,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "boards_kid_id_fkey"
-            columns: ["kid_id"]
+            columns: ["kid_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "kids"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }

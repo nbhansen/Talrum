@@ -3,7 +3,7 @@
 -- expectation. Same user shape as the sibling share tests.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(18);
+SELECT plan(19);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -150,6 +150,22 @@ SELECT throws_ok(
   '42501',
   'boards.owner_id cannot change',
   'boards: editor cannot UPDATE owner_id to themselves (trigger)'
+);
+
+-- ── 8c. An editor cannot point the board at a kid the editor owns ──────────
+-- Deleting that kid would then cascade-delete the owner's board (#635).
+
+SELECT throws_ok(
+  $$
+    UPDATE public.boards
+       SET kid_id = (SELECT id FROM public.kids
+                      WHERE owner_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+                      LIMIT 1)
+     WHERE id = (SELECT shared_board FROM ctx)
+  $$,
+  '23503',
+  NULL,
+  'boards: editor cannot UPDATE kid_id to a kid of another owner (FK)'
 );
 
 -- ── 9. boards_insert rejects rows claiming someone else''s owner_id ──────────
