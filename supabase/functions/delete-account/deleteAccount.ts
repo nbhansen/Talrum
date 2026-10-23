@@ -12,7 +12,10 @@ export interface AdminClient {
       list: (
         prefix: string,
         opts?: { limit?: number },
-      ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
+      ) => Promise<{
+        data: { name: string; id: string | null }[] | null;
+        error: { message: string } | null;
+      }>;
       remove: (
         paths: string[],
       ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
@@ -34,7 +37,7 @@ export interface AdminClient {
 const purgeBucket = async (
   client: AdminClient,
   bucket: string,
-  userId: string,
+  prefix: string,
   step: 'storage_purge_audio' | 'storage_purge_images',
 ): Promise<number> => {
   let removed = 0;
@@ -42,13 +45,18 @@ const purgeBucket = async (
   for (let safety = 0; safety < 1000; safety++) {
     const { data, error } = await client.storage
       .from(bucket)
-      .list(userId, { limit: STORAGE_LIST_LIMIT });
+      .list(prefix, { limit: STORAGE_LIST_LIMIT });
     if (error) {
       throw new DeletionError('storage_purge_failed', step, `list ${bucket}: ${error.message}`);
     }
     if (!data || data.length === 0) return removed;
 
-    const paths = data.map((o) => `${userId}/${o.name}`);
+    // list() is one level deep; a folder entry has a null id (#638).
+    for (const folder of data.filter((o) => o.id === null)) {
+      removed += await purgeBucket(client, bucket, `${prefix}/${folder.name}`, step);
+    }
+    const paths = data.filter((o) => o.id !== null).map((o) => `${prefix}/${o.name}`);
+    if (paths.length === 0) continue;
     let lastError: { message: string } | null = null;
     for (let attempt = 0; attempt < STORAGE_RETRY_ATTEMPTS; attempt++) {
       const removeResult = await client.storage.from(bucket).remove(paths);
