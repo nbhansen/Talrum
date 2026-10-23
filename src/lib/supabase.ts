@@ -11,4 +11,7 @@ if (!url || !anonKey) {
   );
 }
 
-export const supabase: SupabaseClient<Database> = createClient<Database>(url, anonKey);
+export const supabase: SupabaseClient<Database> = createClient<Database>(url, anonKey, {
+  // Sign-in is a typed OTP code only, so a URL never carries a valid session (#632).
+  auth: { detectSessionInUrl: false },
+});
