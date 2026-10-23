@@ -13,9 +13,10 @@ interface MockPostgrestError {
   hint: string;
 }
 
-// Read-path chain: from('kids').select('*').order('created_at')
-const orderMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
-const readSelectMock = vi.fn(() => ({ order: orderMock }));
+// Read-path chain: from('kids').select('*')[.gt('id', after)].order('id').limit(n)
+const limitMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
+const pageQuery = { gt: vi.fn(() => pageQuery), order: vi.fn(() => ({ limit: limitMock })) };
+const readSelectMock = vi.fn(() => pageQuery);
 
 // Write-path chain: from('kids').insert({...}).select().single()
 const singleMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
@@ -61,7 +62,7 @@ const wrap = (qc: QueryClient): ((p: { children: ReactNode }) => JSX.Element) =>
 
 describe('useKids', () => {
   beforeEach(() => {
-    orderMock.mockReset();
+    limitMock.mockReset();
     readSelectMock.mockClear();
     singleMock.mockReset();
     insertSelectMock.mockClear();
@@ -70,7 +71,7 @@ describe('useKids', () => {
   });
 
   it('fetches kids and maps rows to the domain shape', async () => {
-    orderMock.mockResolvedValueOnce({
+    limitMock.mockResolvedValueOnce({
       data: [
         {
           id: 'k1',
@@ -89,11 +90,36 @@ describe('useKids', () => {
     expect(result.current.data).toEqual<Kid[]>([{ id: 'k1', ownerId: 'owner-uuid', name: 'Liam' }]);
     expect(fromMock).toHaveBeenCalledWith('kids');
   });
+
+  it('reads past a full page and sorts all rows by created_at', async () => {
+    const shared = Array.from({ length: 1000 }, (_, i) => ({
+      id: `s${String(i).padStart(4, '0')}`,
+      owner_id: 'sharer-uuid',
+      name: 'Shared',
+      created_at: '2026-05-01T00:00:00Z',
+    }));
+    const own = {
+      id: 'zz',
+      owner_id: 'owner-uuid',
+      name: 'Own',
+      created_at: '1970-01-01T00:00:00Z',
+    };
+    limitMock
+      .mockResolvedValueOnce({ data: shared, error: null })
+      .mockResolvedValueOnce({ data: [own], error: null });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useKids(), { wrapper: wrap(qc) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(1001);
+    expect(result.current.data?.[0]).toEqual<Kid>({ id: 'zz', ownerId: 'owner-uuid', name: 'Own' });
+  });
 });
 
 describe('useCreateKid', () => {
   beforeEach(() => {
-    orderMock.mockReset();
+    limitMock.mockReset();
     readSelectMock.mockClear();
     singleMock.mockReset();
     insertSelectMock.mockClear();

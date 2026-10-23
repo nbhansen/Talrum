@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+import { byCreatedAt, fetchAllRows } from '@/lib/queries/fetchAllRows';
 import { supabase } from '@/lib/supabase';
 import type { GlyphName, Pictogram } from '@/types/domain';
 import type { Database } from '@/types/supabase';
@@ -38,9 +39,8 @@ export const rowToPictogram = (row: PictogramRow): Pictogram => {
 };
 
 const fetchPictograms = async (): Promise<Pictogram[]> => {
-  const { data, error } = await supabase.from('pictograms').select('*').order('created_at');
-  if (error) throw error;
-  return data.map(rowToPictogram);
+  const rows = await fetchAllRows(() => supabase.from('pictograms').select('*'));
+  return rows.sort(byCreatedAt).map(rowToPictogram);
 };
 
 export const pictogramsQueryKey = ['pictograms'] as const;
