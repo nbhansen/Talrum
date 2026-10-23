@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getLastBoard, setLastBoard } from './lastBoard';
 import { hasPin, setPin } from './pin';
 import { clearPersistedCache, persistOptions, queryClient } from './queryClient';
+import { signedUrlMemCache } from './storage/storage-cache';
 
 const fakeQuery = (status: 'success' | 'pending' | 'error', data: unknown): Query =>
   ({ state: { status, data } }) as unknown as Query;
@@ -110,6 +111,15 @@ describe('clearPersistedCache', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('empties the in-memory signed-URL cache (#645)', async () => {
+    stubCaches([]);
+    signedUrlMemCache.set('pictogram-images:a/x.jpg', { url: 'https://x', expiresAt: Date.now() });
+
+    await clearPersistedCache();
+
+    expect(signedUrlMemCache.size).toBe(0);
   });
 
   // The lock would not make the guarantee hold — `enqueuedBy` does — and it is

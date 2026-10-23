@@ -11,7 +11,8 @@ export interface SessionContextValue {
 
 /** The one call site for `supabase.auth.signOut` (#126). */
 export const performSignOut = async (): Promise<void> => {
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 };
 
 export const SessionContext = createContext<SessionContextValue | null>(null);

@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type JSX, type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
@@ -24,13 +24,34 @@ type AuthState =
 // this the signed-out user is bounced to Login.
 const normalizePath = (p: string): string => p.replace(/\/$/, '') || '/';
 
+const clearStores = (): void => {
+  clearPersistedCache().catch((err: unknown) =>
+    captureException(err, {
+      level: 'warning',
+      tags: { component: 'AuthGate', op: 'clearPersistedCache' },
+    }),
+  );
+};
+
+// Kept across reloads: after a signed-out boot, or a session lost with no
+// SIGNED_OUT we saw, the next sign-in must still detect a new user (#179, #645).
+const STORE_OWNER_KEY = 'talrum:store-owner';
+
+// An unreadable owner counts as a change, so the check fails closed.
+const claimStores = (userId: string): void => {
+  try {
+    if (localStorage.getItem(STORE_OWNER_KEY) === userId) return;
+    localStorage.setItem(STORE_OWNER_KEY, userId);
+  } catch {
+    // Blocked storage: clear on every sign-in.
+  }
+  clearStores();
+};
+
 /** The sole subscriber to Supabase auth. Descendants read `useSession()`. */
 export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const [retryCount, setRetryCount] = useState(0);
-  // Detects a same-tab account switch: SIGNED_IN for a different user with no
-  // SIGNED_OUT between (#179).
-  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,8 +67,9 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       .getSession()
       .then(({ data }) => {
         if (cancelled || sawAuthEvent) return;
-        setOutboxOwner(data.session?.user.id ?? null);
-        lastUserIdRef.current = data.session?.user.id ?? null;
+        const userId = data.session?.user.id ?? null;
+        if (userId !== null) claimStores(userId);
+        setOutboxOwner(userId);
         setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
       })
       .catch((err: unknown) => {
@@ -58,21 +80,11 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       sawAuthEvent = true;
       const newUserId = session?.user.id ?? null;
-      // A token refresh and a first sign-in are not auth boundaries.
-      const isUserSwitch =
-        newUserId !== null && lastUserIdRef.current !== null && newUserId !== lastUserIdRef.current;
-      if (event === 'SIGNED_OUT' || isUserSwitch) {
-        clearPersistedCache().catch((err: unknown) =>
-          captureException(err, {
-            level: 'warning',
-            tags: { component: 'AuthGate', op: 'clearPersistedCache' },
-          }),
-        );
-      }
+      if (event === 'SIGNED_OUT') clearStores();
+      else if (newUserId !== null) claimStores(newUserId);
       // The same listener as the sweep, so the queue's owner and the boundary
       // that wipes it can never disagree (#446).
       setOutboxOwner(newUserId);
-      lastUserIdRef.current = newUserId;
       setState(session ? { status: 'in', session } : { status: 'out' });
     });
     return () => {

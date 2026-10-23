@@ -65,7 +65,9 @@ export const useDeleteMyAccount = (
       // it synchronously. Sign out last.
       qc.clear();
       options.onPreSignOut?.();
-      await performSignOut();
+      // The account is already gone, so a sign-out error must not report the
+      // deletion as failed (#645).
+      await performSignOut().catch(() => undefined);
     },
   });
 };

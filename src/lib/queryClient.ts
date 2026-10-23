@@ -7,7 +7,7 @@ import { clearLastBoard } from './lastBoard';
 import { OUTBOX_KEY_PREFIX } from './outbox';
 import { clearPin } from './pin';
 import { setActiveKidId } from './queries/kids';
-import { SIGNED_URL_KEY_PREFIX } from './storage';
+import { clearSignedUrlMemCache, SIGNED_URL_KEY_PREFIX } from './storage';
 
 /**
  * AAC use is calm, not real-time. Skip focus-refetching so an iPad tap away
@@ -64,6 +64,7 @@ export const clearPersistedCache = async (): Promise<void> => {
   clearPin();
   clearLastBoard();
   setActiveKidId(null);
+  clearSignedUrlMemCache();
   // Disjoint stores, so the round trips parallelize cleanly.
   await Promise.all([
     persister.removeClient(),

@@ -1,13 +1,15 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-const signOutMock = vi.fn(() => Promise.resolve({ error: null }));
+const signOutMock = vi.fn<() => Promise<{ error: Error | null }>>(() =>
+  Promise.resolve({ error: null }),
+);
 
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signOut: signOutMock } },
 }));
 
-const { useSession, useSessionUser, useSignOut } = await import('./session');
+const { performSignOut, useSession, useSessionUser, useSignOut } = await import('./session');
 const { TestSessionProvider } = await import('./session.test-utils');
 
 describe('session hooks', () => {
@@ -25,6 +27,12 @@ describe('session hooks', () => {
     const { result } = renderHook(() => useSignOut(), { wrapper: TestSessionProvider });
     await result.current();
     expect(signOutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('performSignOut rejects when signOut returns an error (#645)', async () => {
+    const error = new Error('Failed to fetch');
+    signOutMock.mockResolvedValueOnce({ error });
+    await expect(performSignOut()).rejects.toBe(error);
   });
 
   it('throws when used outside SessionProvider', () => {
