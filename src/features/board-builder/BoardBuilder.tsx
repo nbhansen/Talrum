@@ -23,6 +23,7 @@ import styles from './BoardBuilder.module.css';
 import { BoardErrorBanner } from './BoardErrorBanner';
 import { DeleteBoardConfirm } from './DeleteBoardConfirm';
 import { KindSwitchConfirm } from './KindSwitchConfirm';
+import { LeaveBoardConfirm } from './LeaveBoardConfirm';
 import { SettingsRow } from './SettingsRow';
 import { StepTile } from './StepTile';
 
@@ -38,7 +39,8 @@ interface BoardBuilderProps {
   onBack: () => void;
   onOpenPicker: () => void;
   onOpenShare: () => void;
-  onDeleted: () => void;
+  /** After the board is deleted or left. */
+  onRemoved: () => void;
   onKidMode: () => void;
 }
 
@@ -49,7 +51,7 @@ export const BoardBuilder = ({
   onBack,
   onOpenPicker,
   onOpenShare,
-  onDeleted,
+  onRemoved,
   onKidMode,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
@@ -64,6 +66,7 @@ export const BoardBuilder = ({
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   // Seeded once: the route keys this component on board.id, and a re-sync on
   // board.name would clobber typing when the previous debounced write lands.
   const [titleDraft, setTitleDraft] = useState(board.name);
@@ -135,23 +138,37 @@ export const BoardBuilder = ({
         </button>
         <span className={styles.crumbSep}>/</span>
         <span className={styles.crumbPath}>Editing</span>
-        {isOwner && (
-          <div className={styles.crumbActions}>
-            <Button variant="pill" onClick={() => setConfirmingDelete(true)}>
-              Delete board
+        <div className={styles.crumbActions}>
+          {isOwner ? (
+            <>
+              <Button variant="pill" onClick={() => setConfirmingDelete(true)}>
+                Delete board
+              </Button>
+              <Button variant="pill" onClick={onOpenShare}>
+                Share
+              </Button>
+            </>
+          ) : (
+            <Button variant="pill" onClick={() => setConfirmingLeave(true)}>
+              Leave board
             </Button>
-            <Button variant="pill" onClick={onOpenShare}>
-              Share
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {confirmingDelete && (
         <DeleteBoardConfirm
           boardId={board.id}
           boardName={board.name}
           onCancel={() => setConfirmingDelete(false)}
-          onDeleted={onDeleted}
+          onDeleted={onRemoved}
+        />
+      )}
+      {confirmingLeave && (
+        <LeaveBoardConfirm
+          boardId={board.id}
+          boardName={board.name}
+          onCancel={() => setConfirmingLeave(false)}
+          onLeft={onRemoved}
         />
       )}
 

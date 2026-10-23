@@ -3,7 +3,7 @@
 -- expectation. Same user shape as the sibling share tests.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(19);
+SELECT plan(20);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -207,7 +207,7 @@ SELECT is(
   'board_members: member sees only their own membership row'
 );
 
--- ── 12-14. Members cannot manage membership ─────────────────────────────────
+-- ── 12-15. Members cannot manage membership, but can leave ──────────────────
 
 WITH upd AS (
   UPDATE public.board_members SET role = 'editor'
@@ -234,15 +234,29 @@ SELECT throws_ok(
 WITH del AS (
   DELETE FROM public.board_members
    WHERE board_id = (SELECT shared_board FROM ctx)
+     AND user_id <> 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
    RETURNING 1
 )
 SELECT is(
   (SELECT count(*)::int FROM del),
   0,
-  'board_members: member cannot remove membership rows (RLS-filtered)'
+  'board_members: member cannot remove another member (RLS-filtered)'
 );
 
--- ── 15. Owner can remove a member through RLS ───────────────────────────────
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
+WITH del AS (
+  DELETE FROM public.board_members
+   WHERE user_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+   RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM del),
+  1,
+  'board_members: member can leave a shared board (#666)'
+);
+
+-- ── 16. Owner can remove a member through RLS ───────────────────────────────
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
@@ -258,7 +272,7 @@ SELECT is(
   'board_members: owner can remove a member'
 );
 
--- ── 16-17. Owner can DELETE the shared board; board_members cascade ─────────
+-- ── 17-18. Owner can DELETE the shared board; board_members cascade ─────────
 -- Last on purpose: it destroys shared_board. Bob's viewer row is still
 -- present here, so the cascade assertion has a row to remove.
 
