@@ -11,6 +11,7 @@ import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
+import { byCreatedAt, fetchAllRows } from '@/lib/queries/fetchAllRows';
 import {
   listCache,
   type OptimisticListContext,
@@ -31,9 +32,8 @@ const rowToKid = (row: KidRow): Kid => ({
 export const kidsQueryKey = ['kids'] as const;
 
 const fetchKids = async (): Promise<Kid[]> => {
-  const { data, error } = await supabase.from('kids').select('*').order('created_at');
-  if (error) throw error;
-  return data.map(rowToKid);
+  const rows = await fetchAllRows(() => supabase.from('kids').select('*'));
+  return rows.sort(byCreatedAt).map(rowToKid);
 };
 
 export const useKids = (): UseQueryResult<Kid[]> =>

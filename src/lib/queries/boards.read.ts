@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
 import { hasPgCode } from '@/lib/hasPgCode';
+import { fetchAllRows } from '@/lib/queries/fetchAllRows';
 import { supabase } from '@/lib/supabase';
 import { type AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind, VoiceMode } from '@/types/domain';
@@ -33,11 +34,10 @@ export const boardsQueryKey = ['boards'] as const;
 export const boardQueryKey = (id: string): readonly ['boards', string] => ['boards', id];
 
 const fetchBoards = async (): Promise<Board[]> => {
-  const { data, error } = await supabase.from('boards').select('*').order('updated_at', {
-    ascending: false,
-  });
-  if (error) throw error;
-  return data.map(rowToBoard);
+  const rows = await fetchAllRows(() => supabase.from('boards').select('*'));
+  return rows
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || a.id.localeCompare(b.id))
+    .map(rowToBoard);
 };
 
 const fetchBoard = async (id: string): Promise<Board> => {

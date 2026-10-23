@@ -57,7 +57,9 @@ vi.mock('@/lib/queries/pictograms', async (importOriginal) => {
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
-      select: () => ({ order: () => Promise.resolve({ data: [], error: null }) }),
+      select: () => ({
+        order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
+      }),
     }),
     auth: {
       signOut: vi.fn(),

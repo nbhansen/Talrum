@@ -12,7 +12,7 @@ const singleMock = vi.fn();
 const eqMock = vi.fn(() => ({ single: singleMock }));
 const selectMock = vi.fn(() => ({
   eq: eqMock,
-  order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+  order: vi.fn(() => ({ limit: () => Promise.resolve({ data: [], error: null }) })),
 }));
 const fromMock = vi.fn(() => ({ select: selectMock }));
 
