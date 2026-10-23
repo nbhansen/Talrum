@@ -187,11 +187,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: true,
-    // supabase/functions/** is Deno code with its own deno.json import map
-    // (jsr: specifiers, std/assert). Vitest's default include picks it up
-    // and fails to resolve the imports. Run those tests via
-    // `npm run test:functions` instead.
-    exclude: ['node_modules/**', 'dist/**', 'supabase/functions/**'],
+    // supabase/functions/** is Deno code; `npm run test:functions` runs it.
+    include: ['{src,scripts}/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       // Explicit include so files no test ever imports still count — without
