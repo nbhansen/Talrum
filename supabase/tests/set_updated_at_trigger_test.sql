@@ -10,7 +10,8 @@ VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'alice@test.local');
 
 -- A board of Alice's, backdated one hour. Setup runs as postgres so RLS
 -- does not apply; the kid comes from the starter library handle_new_user
--- seeded on the INSERT above.
+-- seeded on the INSERT above. The trigger also fires on INSERT (#665).
+ALTER TABLE public.boards DISABLE TRIGGER boards_set_updated_at;
 INSERT INTO public.boards (id, owner_id, kid_id, name, kind, voice_mode,
                            accent, updated_at)
 VALUES ('eeeeeeee-0000-4000-8000-000000000401',
@@ -19,12 +20,13 @@ VALUES ('eeeeeeee-0000-4000-8000-000000000401',
           WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' LIMIT 1),
         'Backdated', 'sequence', 'tts', 'sky',
         now() - interval '1 hour');
+ALTER TABLE public.boards ENABLE TRIGGER boards_set_updated_at;
 
 SELECT is(
   (SELECT updated_at FROM public.boards
     WHERE id = 'eeeeeeee-0000-4000-8000-000000000401'),
   now() - interval '1 hour',
-  'setup: INSERT keeps the explicit backdated updated_at (no BEFORE UPDATE fire)'
+  'setup: the board starts backdated'
 );
 
 -- ── 1-2. A plain UPDATE bumps updated_at to now ────────────────────────────
