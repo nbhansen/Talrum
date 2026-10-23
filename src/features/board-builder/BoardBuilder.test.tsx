@@ -28,6 +28,11 @@ vi.mock('@/lib/queries/boards', () => ({
   useDeleteBoard: () => ({ mutateAsync: deleteBoardMock, isPending: false }),
 }));
 
+const leaveBoardMock = vi.fn();
+vi.mock('@/lib/queries/board-members', () => ({
+  useLeaveBoard: () => ({ mutateAsync: leaveBoardMock, isPending: false }),
+}));
+
 vi.mock('@/lib/queries/pictograms', () => ({
   usePictograms: () => ({ data: [] }),
   usePictogramsById: () => pictogramsById,
@@ -102,7 +107,7 @@ describe('BoardBuilder title', () => {
           onBack={noop}
           onOpenPicker={noop}
           onOpenShare={noop}
-          onDeleted={noop}
+          onRemoved={noop}
           onKidMode={noop}
         />,
       );
@@ -132,7 +137,7 @@ describe('BoardBuilder blank title', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -194,7 +199,7 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -210,7 +215,7 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -227,7 +232,7 @@ describe('BoardBuilder Share button', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={onOpenShare}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -246,7 +251,7 @@ describe('BoardBuilder Delete board (#520)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -270,6 +275,35 @@ describe('BoardBuilder Delete board (#520)', () => {
   });
 });
 
+describe('BoardBuilder Leave board (#666)', () => {
+  const renderOwner = (isOwner: boolean): void => {
+    render(
+      <BoardBuilder
+        board={baseBoard}
+        isOwner={isOwner}
+        setStepIds={stepIdsResult}
+        onBack={noop}
+        onOpenPicker={noop}
+        onOpenShare={noop}
+        onRemoved={noop}
+        onKidMode={noop}
+      />,
+    );
+  };
+
+  it('hides the Leave board button on an own board', () => {
+    renderOwner(true);
+    expect(screen.queryByRole('button', { name: 'Leave board' })).not.toBeInTheDocument();
+  });
+
+  it('opens the confirm dialog on a shared board without leaving', async () => {
+    renderOwner(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Leave board' }));
+    expect(screen.getByRole('dialog', { name: /leave "morning routine"/i })).toBeInTheDocument();
+    expect(leaveBoardMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('BoardBuilder kind switch confirm (#233)', () => {
   it('clicking the other kind tab opens a confirm modal without mutating', async () => {
     render(
@@ -280,7 +314,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -299,7 +333,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -319,7 +353,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -338,7 +372,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -358,7 +392,7 @@ describe('BoardBuilder track (#522)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -416,7 +450,7 @@ describe('BoardBuilder steps with a missing pictogram', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );
@@ -459,7 +493,7 @@ describe('BoardBuilder Quick add section (#234)', () => {
         onBack={noop}
         onOpenPicker={noop}
         onOpenShare={noop}
-        onDeleted={noop}
+        onRemoved={noop}
         onKidMode={noop}
       />,
     );

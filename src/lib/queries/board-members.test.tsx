@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { Database } from '@/types/supabase';
 
 type Row = Database['public']['Tables']['board_members']['Row'];
@@ -31,8 +32,12 @@ const {
   rowToBoardMember,
   useAddBoardMember,
   useBoardMembers,
+  useLeaveBoard,
   useRemoveBoardMember,
 } = await import('./board-members');
+const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
+const { kidsQueryKey } = await import('./kids');
+const { pictogramsQueryKey } = await import('./pictograms.read');
 
 const makeWrapper = (qc: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
@@ -170,6 +175,35 @@ describe('useRemoveBoardMember', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: boardMembersQueryKey('b1'),
     });
+  });
+});
+
+describe('useLeaveBoard', () => {
+  beforeEach(() => {
+    deleteEq2Mock.mockReset();
+    deleteEq1Mock.mockClear();
+  });
+
+  it("deletes the session user's own row and refreshes every list the board fed", async () => {
+    deleteEq2Mock.mockResolvedValueOnce({ error: null });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('b1'), { id: 'b1' });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
+      <TestSessionProvider>{makeWrapper(qc)({ children })}</TestSessionProvider>
+    );
+
+    const { result } = renderHook(() => useLeaveBoard(), { wrapper });
+    await act(() => result.current.mutateAsync({ boardId: 'b1' }));
+
+    expect(deleteEq1Mock).toHaveBeenCalledWith('board_id', 'b1');
+    expect(deleteEq2Mock).toHaveBeenCalledWith('user_id', '00000000-0000-0000-0000-0000000000aa');
+    expect(qc.getQueryData(boardQueryKey('b1'))).toBeUndefined();
+    for (const queryKey of [boardsQueryKey, kidsQueryKey, pictogramsQueryKey]) {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey });
+    }
   });
 });
 

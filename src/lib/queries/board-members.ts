@@ -6,7 +6,11 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { useSessionUser } from '@/lib/auth/session';
 import { hasPgCode } from '@/lib/hasPgCode';
+import { boardQueryKey, boardsQueryKey } from '@/lib/queries/boards.read';
+import { kidsQueryKey } from '@/lib/queries/kids';
+import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
 
@@ -86,19 +90,36 @@ interface RemoveBoardMemberInput {
   userId: string;
 }
 
+const removeMember = async ({ boardId, userId }: RemoveBoardMemberInput): Promise<void> => {
+  const { error } = await supabase
+    .from('board_members')
+    .delete()
+    .eq('board_id', boardId)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
 export const useRemoveBoardMember = (): UseMutationResult<void, Error, RemoveBoardMemberInput> => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ boardId, userId }) => {
-      const { error } = await supabase
-        .from('board_members')
-        .delete()
-        .eq('board_id', boardId)
-        .eq('user_id', userId);
-      if (error) throw error;
-    },
+    mutationFn: removeMember,
     onSuccess: (_data, { boardId }) => {
       qc.invalidateQueries({ queryKey: boardMembersQueryKey(boardId) });
+    },
+  });
+};
+
+/** Leaving can also hide the owner's kids and pictograms, so all three lists refetch. */
+export const useLeaveBoard = (): UseMutationResult<void, Error, { boardId: string }> => {
+  const qc = useQueryClient();
+  const userId = useSessionUser().id;
+  return useMutation({
+    mutationFn: ({ boardId }) => removeMember({ boardId, userId }),
+    onSuccess: (_data, { boardId }) => {
+      qc.removeQueries({ queryKey: boardQueryKey(boardId) });
+      for (const queryKey of [boardsQueryKey, kidsQueryKey, pictogramsQueryKey]) {
+        qc.invalidateQueries({ queryKey });
+      }
     },
   });
 };
