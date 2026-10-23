@@ -335,6 +335,52 @@ describe('AuthGate', () => {
     });
   });
 
+  it('scrubs when a different user signs in after a signed-out boot (#645)', async () => {
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    localStorage.setItem('talrum:store-owner', 'user-a-id');
+    localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
+    localStorage.setItem('talrum:last-board', '{"id":"a-board","kind":"choice"}');
+
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('login screen')).toBeInTheDocument();
+    });
+
+    act(() => {
+      lastAuthListener?.('SIGNED_IN', makeSession('user-b-id', 'b@example.com'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
+      expect(localStorage.getItem('talrum:last-board')).toBeNull();
+    });
+  });
+
+  it('keeps the stores when the same owner signs in after a signed-out boot', async () => {
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    localStorage.setItem('talrum:store-owner', 'user-a-id');
+    localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
+
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('login screen')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      lastAuthListener?.('SIGNED_IN', makeSession('user-a-id', 'a@example.com'));
+    });
+    expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    expect(localStorage.getItem('talrum:pin-hash')).toBe('user-a-pin-hash');
+  });
+
   // A token refresh fires SIGNED_IN with the same id, and scrubbing on every
   // one would flicker the app on a routine refresh.
   it('does NOT scrub on SIGNED_IN with the same user.id (token refresh)', async () => {

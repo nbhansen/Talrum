@@ -28,7 +28,7 @@ const makeHttpError = (status: number, body: unknown): FunctionsHttpError => {
     typeof body === 'string' ? new Response(body, init) : new Response(JSON.stringify(body), init);
   return new FunctionsHttpError(response);
 };
-const signOutMock = vi.fn<() => Promise<{ error: null }>>(async () => ({ error: null }));
+const signOutMock = vi.fn<() => Promise<{ error: Error | null }>>(async () => ({ error: null }));
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -84,6 +84,15 @@ describe('useDeleteMyAccount', () => {
 
     expect(order).toEqual(['clear', 'signOut']);
     expect(qc.getQueryData(['boards'])).toBeUndefined();
+  });
+
+  it('still succeeds when sign-out fails after the deletion (#645)', async () => {
+    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    signOutMock.mockResolvedValueOnce({ error: new Error('Failed to fetch') });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useDeleteMyAccount(), { wrapper: makeWrapper(qc) });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
   // DeleteAccountSection relies on this order: signOut fires SIGNED_OUT

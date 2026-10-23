@@ -13,3 +13,4 @@ export {
   STOCK_PATH_PREFIX,
   uploadBlob,
 } from './storage';
+export { clearSignedUrlMemCache } from './storage-cache';

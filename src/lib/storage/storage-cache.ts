@@ -8,8 +8,8 @@ export interface SignedUrlEntry {
 
 export const signedUrlMemCache = new Map<string, SignedUrlEntry>();
 
-// Test-only: vitest.setup.ts calls this in a global afterEach so module-level
-// state cannot leak between tests. Pairs with idb-keyval's `clear()`.
-export const __resetSignedUrlCache = (): void => {
+// Also called by vitest.setup.ts after each test, so module-level state cannot
+// leak between tests.
+export const clearSignedUrlMemCache = (): void => {
   signedUrlMemCache.clear();
 };

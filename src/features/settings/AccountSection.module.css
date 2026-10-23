@@ -12,3 +12,9 @@
 .actions {
   margin-top: var(--tal-space-3);
 }
+
+.error {
+  margin: var(--tal-space-2) 0 0;
+  font-size: 14px;
+  color: var(--tal-danger);
+}

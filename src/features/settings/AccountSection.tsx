@@ -9,10 +9,16 @@ export const AccountSection = (): JSX.Element => {
   const email = useUserEmail();
   const signOut = useSignOut();
   const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
 
+  // On success AuthGate unmounts this section, so only a failure needs state.
   const handleSignOut = (): void => {
     setPending(true);
-    void signOut().finally(() => setPending(false));
+    setFailed(false);
+    signOut().catch(() => {
+      setFailed(true);
+      setPending(false);
+    });
   };
 
   return (
@@ -28,6 +34,11 @@ export const AccountSection = (): JSX.Element => {
           {pending ? 'Signing out…' : 'Sign out'}
         </Button>
       </div>
+      {failed && (
+        <p role="alert" className={styles.error}>
+          Could not sign out. Check your connection and try again.
+        </p>
+      )}
     </section>
   );
 };

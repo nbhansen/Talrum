@@ -12,7 +12,7 @@ import { afterEach, vi } from 'vitest';
 import { __resetBoardClockForTests } from './src/lib/outbox/board-clock';
 import { __resetDrainForTests } from './src/lib/outbox/drain-state';
 import { __resetSpeechForTests } from './src/lib/platform/speech';
-import { __resetSignedUrlCache } from './src/lib/storage/storage-cache';
+import { clearSignedUrlMemCache } from './src/lib/storage/storage-cache';
 
 // A floor mock for every test file. Without it, a test that seeds the cache
 // but does not mock the client races its own mount-time refetch (#24). Files
@@ -68,7 +68,7 @@ console.error = (...args: unknown[]): void => {
 // afterEach in reverse, so the guard alone would skip these resets on failure.
 afterEach(async () => {
   await clear();
-  __resetSignedUrlCache();
+  clearSignedUrlMemCache();
   __resetSpeechForTests();
   __resetDrainForTests();
   __resetBoardClockForTests();
