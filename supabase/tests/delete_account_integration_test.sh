@@ -58,7 +58,7 @@ curl -fsS -X POST "${API_URL}/rest/v1/kids" \
 curl -fsS -X POST "${API_URL}/rest/v1/pictograms" \
   -H "apikey: ${ANON_KEY}" -H "Authorization: Bearer ${USER_JWT}" \
   -H "Content-Type: application/json" -H "Prefer: return=representation" \
-  -d "{\"owner_id\":\"${USER_ID}\",\"label\":\"apple\",\"style\":\"illus\",\"glyph\":\"A\",\"tint\":\"red\"}" > /dev/null
+  -d "{\"owner_id\":\"${USER_ID}\",\"label\":\"apple\",\"style\":\"illus\",\"glyph\":\"apple\",\"tint\":\"oklch(88% 0.05 20)\"}" > /dev/null
 
 echo "==> 3/8 upload storage objects"
 echo "fake-audio" > "$AUDIO_FILE"

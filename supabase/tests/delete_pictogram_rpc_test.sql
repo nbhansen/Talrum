@@ -14,7 +14,7 @@ VALUES
 -- that array_remove strips all occurrences, not just the first.
 INSERT INTO public.pictograms (id, owner_id, label, style, glyph, tint)
 VALUES ('dddddddd-0000-4000-8000-000000000280',
-        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Doomed', 'illus', 'star', 'sun');
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Doomed', 'illus', 'sun', 'oklch(90% 0.06 90)');
 
 UPDATE public.boards
    SET step_ids = step_ids || ARRAY['dddddddd-0000-4000-8000-000000000280',

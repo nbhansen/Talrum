@@ -11,8 +11,7 @@ type BoardRow = Database['public']['Tables']['boards']['Row'];
 
 /**
  * DB columns for `kind`, `voice_mode`, `accent` are plain `text`. The casts
- * below are safe because writes flow through the mutation layer which only
- * ever supplies domain-typed values.
+ * below are safe because DB CHECK constraints hold each one to its union.
  */
 export const rowToBoard = (row: BoardRow): Board => ({
   id: row.id,
