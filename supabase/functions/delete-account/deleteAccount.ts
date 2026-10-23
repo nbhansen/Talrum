@@ -1,3 +1,4 @@
+import { logFailure } from '../_shared/http.ts';
 import {
   AUDIO_BUCKET,
   DeletionError,
@@ -100,11 +101,17 @@ export const deleteAccount = async (
     if (!notFound) throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
   }
 
-  // An upload can land between the first purge and deleteUser; none can
-  // land after it, because storage writes need a live user (#639, #659).
-  const second = await purgeBoth(client, userId);
-  return {
-    audioCount: first.audioCount + second.audioCount,
-    imageCount: first.imageCount + second.imageCount,
-  };
+  // An upload can land between the first purge and deleteUser. None can land
+  // after it: is_pictogram_storage_writable needs an auth.users row (#639).
+  // The user is gone now, so a failure here must not fail the request (#659).
+  try {
+    const second = await purgeBoth(client, userId);
+    return {
+      audioCount: first.audioCount + second.audioCount,
+      imageCount: first.imageCount + second.imageCount,
+    };
+  } catch (err) {
+    logFailure('delete_account_repurge_failed', userId, 'storage_repurge', err);
+    return first;
+  }
 };

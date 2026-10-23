@@ -283,3 +283,24 @@ Deno.test('deleteAccount: purges an object that lands just before deleteUser', a
   assertEquals(images.size, 0);
   assertEquals(result, { audioCount: 1, imageCount: 1 });
 });
+
+Deno.test('deleteAccount: a failed purge after deleteUser still resolves', async () => {
+  const { client, calls } = createFakeClient({
+    buckets: {
+      'pictogram-audio': {
+        listResponses: [{ data: [] }, { error: { message: 'network blip' } }],
+        removeResponses: [],
+      },
+      'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
+    },
+    authDelete: { ok: true },
+  });
+
+  const result = await deleteAccount(client, UID);
+
+  assertEquals(result, { audioCount: 0, imageCount: 0 });
+  assertEquals(
+    calls.some((c) => c.kind === 'auth.admin.deleteUser'),
+    true,
+  );
+});
