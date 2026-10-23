@@ -17,10 +17,16 @@ Deno.test('deleteAccount: happy path with empty buckets', async () => {
 
   await deleteAccount(client, UID);
 
-  // Each bucket gets one list (returns empty) — no removes needed.
-  // Then auth.admin.deleteUser is called.
+  // Each bucket gets one list (returns empty) — no removes needed — before
+  // and after auth.admin.deleteUser.
   const kinds = calls.map((c) => c.kind);
-  assertEquals(kinds, ['storage.list', 'storage.list', 'auth.admin.deleteUser']);
+  assertEquals(kinds, [
+    'storage.list',
+    'storage.list',
+    'auth.admin.deleteUser',
+    'storage.list',
+    'storage.list',
+  ]);
 });
 
 Deno.test('deleteAccount: audio bucket has 5 objects → list+remove called once', async () => {
@@ -74,13 +80,13 @@ Deno.test('deleteAccount: 1500 objects → list+remove looped twice', async () =
   const result = await deleteAccount(client, UID);
 
   const audioCalls = calls.filter((c) => c.bucket === 'pictogram-audio');
-  // 3 lists (page1, page2, empty) + 2 removes
-  assertEquals(audioCalls.filter((c) => c.kind === 'storage.list').length, 3);
+  // 3 lists (page1, page2, empty) + 2 removes, then 1 empty list after deleteUser
+  assertEquals(audioCalls.filter((c) => c.kind === 'storage.list').length, 4);
   assertEquals(audioCalls.filter((c) => c.kind === 'storage.remove').length, 2);
   assertEquals(result.audioCount, 1500);
 });
 
-Deno.test('deleteAccount: ordering invariant — all storage calls precede auth call', async () => {
+Deno.test('deleteAccount: ordering invariant — purge precedes auth call', async () => {
   const { client, calls } = createFakeClient({
     buckets: {
       'pictogram-audio': {
@@ -98,15 +104,11 @@ Deno.test('deleteAccount: ordering invariant — all storage calls precede auth 
   await deleteAccount(client, UID);
 
   const authIndex = calls.findIndex((c) => c.kind === 'auth.admin.deleteUser');
-  const lastStorageIndex = calls.findLastIndex(
-    (c) => c.kind === 'storage.list' || c.kind === 'storage.remove',
-  );
-  // auth.admin.deleteUser must come after the last storage call.
-  if (authIndex <= lastStorageIndex) {
-    throw new Error(
-      `Ordering invariant violated: auth at ${authIndex}, last storage at ${lastStorageIndex}`,
-    );
-  }
+  const removedBeforeAuth = calls
+    .slice(0, authIndex)
+    .filter((c) => c.kind === 'storage.remove')
+    .map((c) => c.bucket);
+  assertEquals(removedBeforeAuth, ['pictogram-audio', 'pictogram-images']);
 });
 
 Deno.test(
@@ -258,4 +260,26 @@ Deno.test('deleteAccount: purges an object in a subfolder, then deletes the user
     calls.some((c) => c.kind === 'auth.admin.deleteUser'),
     true,
   );
+});
+
+Deno.test('deleteAccount: purges an object that lands just before deleteUser', async () => {
+  const { client, stores } = createFakeClient({
+    buckets: {
+      'pictogram-audio': { objects: [`${UID}/a.mp3`] },
+      'pictogram-images': { objects: [] },
+    },
+    authDelete: { ok: true },
+  });
+  const images = stores['pictogram-images'];
+  if (!images) throw new Error('fixture: no images store');
+  const deleteUser = client.auth.admin.deleteUser;
+  client.auth.admin.deleteUser = (uid) => {
+    images.add(`${UID}/late.jpg`);
+    return deleteUser(uid);
+  };
+
+  const result = await deleteAccount(client, UID);
+
+  assertEquals(images.size, 0);
+  assertEquals(result, { audioCount: 1, imageCount: 1 });
 });

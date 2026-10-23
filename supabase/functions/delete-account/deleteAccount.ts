@@ -82,19 +82,29 @@ const purgeBucket = async (
   );
 };
 
+const purgeBoth = async (client: AdminClient, userId: string) => ({
+  audioCount: await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio'),
+  imageCount: await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images'),
+});
+
 export const deleteAccount = async (
   client: AdminClient,
   userId: string,
 ): Promise<{ audioCount: number; imageCount: number }> => {
-  const audioCount = await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio');
-  const imageCount = await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images');
+  const first = await purgeBoth(client, userId);
 
   const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
     const notFound =
       error.code === 'user_not_found' || error.message.toLowerCase().includes('not found');
-    if (notFound) return { audioCount, imageCount };
-    throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
+    if (!notFound) throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
   }
-  return { audioCount, imageCount };
+
+  // An upload can land between the first purge and deleteUser; none can
+  // land after it, because storage writes need a live user (#639, #659).
+  const second = await purgeBoth(client, userId);
+  return {
+    audioCount: first.audioCount + second.audioCount,
+    imageCount: first.imageCount + second.imageCount,
+  };
 };
