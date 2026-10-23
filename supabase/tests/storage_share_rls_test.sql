@@ -3,7 +3,7 @@
 -- bug fixed in 20260425020000. DELETE is not testable from SQL
 -- (protect_delete fires before RLS). Run with: supabase test db
 BEGIN;
-SELECT plan(16);
+SELECT plan(17);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -197,6 +197,20 @@ SELECT is(
   (SELECT count(*)::int FROM ins),
   1,
   'policy: editor CAN INSERT into owner prefix'
+);
+
+-- ── A deleted user's token cannot write its old prefix (#639) ─────────────
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"ffffffff-ffff-4fff-8fff-ffffffffffff","role":"authenticated"}';
+SELECT throws_ok(
+  $$ INSERT INTO storage.objects (bucket_id, name, owner)
+     VALUES ('pictogram-audio',
+             'ffffffff-ffff-4fff-8fff-ffffffffffff/after-delete.webm',
+             'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid) $$,
+  '42501',
+  NULL,
+  'policy: a sub with no auth.users row cannot INSERT into its own prefix'
 );
 
 -- ── A malformed path fails the check, not a uuid cast ─────────────────────
