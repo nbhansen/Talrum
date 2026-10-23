@@ -39,7 +39,7 @@ export type FakeClient = AdminClient;
 
 export const createFakeClient = (
   options: FakeOptions,
-): { client: FakeClient; calls: CallLogEntry[] } => {
+): { client: FakeClient; calls: CallLogEntry[]; stores: Record<string, Set<string>> } => {
   const calls: CallLogEntry[] = [];
   const remainingList: Record<string, BucketScript['listResponses']> = {};
   const remainingRemove: Record<string, BucketScript['removeResponses']> = {};
@@ -104,5 +104,5 @@ export const createFakeClient = (
       },
     },
   };
-  return { client, calls };
+  return { client, calls, stores };
 };

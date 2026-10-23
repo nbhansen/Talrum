@@ -1,3 +1,4 @@
+import { logFailure } from '../_shared/http.ts';
 import {
   AUDIO_BUCKET,
   DeletionError,
@@ -82,19 +83,35 @@ const purgeBucket = async (
   );
 };
 
+const purgeBoth = async (client: AdminClient, userId: string) => ({
+  audioCount: await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio'),
+  imageCount: await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images'),
+});
+
 export const deleteAccount = async (
   client: AdminClient,
   userId: string,
 ): Promise<{ audioCount: number; imageCount: number }> => {
-  const audioCount = await purgeBucket(client, AUDIO_BUCKET, userId, 'storage_purge_audio');
-  const imageCount = await purgeBucket(client, IMAGES_BUCKET, userId, 'storage_purge_images');
+  const first = await purgeBoth(client, userId);
 
   const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
     const notFound =
       error.code === 'user_not_found' || error.message.toLowerCase().includes('not found');
-    if (notFound) return { audioCount, imageCount };
-    throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
+    if (!notFound) throw new DeletionError('auth_delete_failed', 'auth_delete', error.message);
   }
-  return { audioCount, imageCount };
+
+  // An upload can land between the first purge and deleteUser. None can land
+  // after it: is_pictogram_storage_writable needs an auth.users row (#639).
+  // The user is gone now, so a failure here must not fail the request (#659).
+  try {
+    const second = await purgeBoth(client, userId);
+    return {
+      audioCount: first.audioCount + second.audioCount,
+      imageCount: first.imageCount + second.imageCount,
+    };
+  } catch (err) {
+    logFailure('delete_account_repurge_failed', userId, 'storage_repurge', err);
+    return first;
+  }
 };
