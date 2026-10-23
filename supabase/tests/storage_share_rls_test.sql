@@ -199,20 +199,6 @@ SELECT is(
   'policy: editor CAN INSERT into owner prefix'
 );
 
--- ── A deleted user's token cannot write its old prefix (#639) ─────────────
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"ffffffff-ffff-4fff-8fff-ffffffffffff","role":"authenticated"}';
-SELECT throws_ok(
-  $$ INSERT INTO storage.objects (bucket_id, name, owner)
-     VALUES ('pictogram-audio',
-             'ffffffff-ffff-4fff-8fff-ffffffffffff/after-delete.webm',
-             'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid) $$,
-  '42501',
-  NULL,
-  'policy: a sub with no auth.users row cannot INSERT into its own prefix'
-);
-
 -- ── A malformed path fails the check, not a uuid cast ─────────────────────
 
 SELECT is(
@@ -230,6 +216,20 @@ SELECT is(
 SELECT volatility_is(
   'private', 'storage_owner_id', ARRAY['text'], 'stable',
   'helper: storage_owner_id is stable, not immutable'
+);
+
+-- ── A deleted user's token cannot write its old prefix (#639) ─────────────
+
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"ffffffff-ffff-4fff-8fff-ffffffffffff","role":"authenticated"}';
+SELECT throws_ok(
+  $$ INSERT INTO storage.objects (bucket_id, name, owner)
+     VALUES ('pictogram-audio',
+             'ffffffff-ffff-4fff-8fff-ffffffffffff/after-delete.webm',
+             'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid) $$,
+  '42501',
+  NULL,
+  'policy: a sub with no auth.users row cannot INSERT into its own prefix'
 );
 
 SELECT * FROM finish();
