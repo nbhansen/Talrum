@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { type JSX, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Login } from '@/features/login/Login';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
@@ -37,27 +37,43 @@ const clearStores = (): void => {
 // SIGNED_OUT we saw, the next sign-in must still detect a new user (#179, #645).
 const STORE_OWNER_KEY = 'talrum:store-owner';
 
-// An unreadable owner counts as a change, so the check fails closed.
-const claimStores = (userId: string): void => {
+// Unreadable storage reads as no owner, so the first sign-in clears.
+const readStoredOwner = (): string | null => {
   try {
-    if (localStorage.getItem(STORE_OWNER_KEY) === userId) return;
-    localStorage.setItem(STORE_OWNER_KEY, userId);
+    return localStorage.getItem(STORE_OWNER_KEY);
   } catch {
-    // Blocked storage: clear on every sign-in.
+    return null;
   }
-  clearStores();
+};
+
+const writeStoredOwner = (userId: string | null): void => {
+  try {
+    if (userId === null) localStorage.removeItem(STORE_OWNER_KEY);
+    else localStorage.setItem(STORE_OWNER_KEY, userId);
+  } catch {
+    // Blocked storage: the per-tab owner still guards this tab.
+  }
 };
 
 /** The sole subscriber to Supabase auth. Descendants read `useSession()`. */
 export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const [retryCount, setRetryCount] = useState(0);
+  // Owner of this tab's in-memory data. Per tab, because another tab can
+  // rewrite the stored owner without clearing this tab's query cache (#663).
+  const ownerRef = useRef(readStoredOwner());
 
   useEffect(() => {
     let cancelled = false;
     // getSession can resolve late (network token refresh). An auth event that
     // lands first is newer — the stale result must not overwrite it.
     let sawAuthEvent = false;
+    const claimStores = (userId: string): void => {
+      if (ownerRef.current === userId) return;
+      ownerRef.current = userId;
+      writeStoredOwner(userId);
+      clearStores();
+    };
     // A deliberate sync reset for an async init effect, not a cascading render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ status: 'loading' });
@@ -80,8 +96,13 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       sawAuthEvent = true;
       const newUserId = session?.user.id ?? null;
-      if (event === 'SIGNED_OUT') clearStores();
-      else if (newUserId !== null) claimStores(newUserId);
+      if (event === 'SIGNED_OUT') {
+        clearStores();
+        ownerRef.current = null;
+        writeStoredOwner(null);
+      } else if (newUserId !== null) {
+        claimStores(newUserId);
+      }
       // The same listener as the sweep, so the queue's owner and the boundary
       // that wipes it can never disagree (#446).
       setOutboxOwner(newUserId);

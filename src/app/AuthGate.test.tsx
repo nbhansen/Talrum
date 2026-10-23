@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
 type AuthChangeListener = (event: string, session: Session | null) => void;
@@ -379,6 +379,74 @@ describe('AuthGate', () => {
     });
     expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
     expect(localStorage.getItem('talrum:pin-hash')).toBe('user-a-pin-hash');
+  });
+
+  it('scrubs this tab when another tab already claimed the stores for a new user (#663)', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: { session: makeSession('user-a-id', 'a@example.com') },
+    });
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    });
+    localStorage.setItem('talrum:store-owner', 'user-b-id');
+    localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
+
+    act(() => {
+      lastAuthListener?.('SIGNED_IN', makeSession('user-b-id', 'b@example.com'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
+    });
+  });
+
+  it('does not scrub on a token refresh when the owner cannot be read (#663)', async () => {
+    const getItem = localStorage.getItem.bind(localStorage);
+    const spy = vi.spyOn(localStorage, 'getItem').mockImplementation((key) => {
+      if (key === 'talrum:store-owner') throw new Error('blocked');
+      return getItem(key);
+    });
+    onTestFinished(() => spy.mockRestore());
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    });
+    localStorage.setItem('talrum:pin-hash', 'should-survive-refresh');
+
+    await act(async () => {
+      lastAuthListener?.('TOKEN_REFRESHED', sessionA);
+    });
+    expect(localStorage.getItem('talrum:pin-hash')).toBe('should-survive-refresh');
+  });
+
+  it('removes the stored owner on SIGNED_OUT (#663)', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: { session: makeSession('user-a-id', 'a@example.com') },
+    });
+    render(
+      <AuthGate>
+        <UserIdProbe />
+      </AuthGate>,
+    );
+    await waitFor(() => {
+      expect(localStorage.getItem('talrum:store-owner')).toBe('user-a-id');
+    });
+
+    act(() => {
+      lastAuthListener?.('SIGNED_OUT', null);
+    });
+    expect(localStorage.getItem('talrum:store-owner')).toBeNull();
   });
 
   // A token refresh fires SIGNED_IN with the same id, and scrubbing on every
