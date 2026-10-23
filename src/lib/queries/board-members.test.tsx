@@ -38,6 +38,7 @@ const {
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { kidsQueryKey } = await import('./kids');
 const { pictogramsQueryKey } = await import('./pictograms.read');
+const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 
 const makeWrapper = (qc: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
@@ -204,6 +205,24 @@ describe('useLeaveBoard', () => {
     for (const queryKey of [boardsQueryKey, kidsQueryKey, pictogramsQueryKey]) {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey });
     }
+  });
+
+  it.each([
+    ['clears the last-board pointer when it names the board left', 'b1', null],
+    ['keeps the last-board pointer when it names another board', 'b2', 'b2'],
+  ])('%s', async (_name, lastId, expected) => {
+    deleteEq2Mock.mockResolvedValueOnce({ error: null });
+    setLastBoard({ id: lastId, kind: 'sequence' });
+    const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
+      <TestSessionProvider>{makeWrapper(qc)({ children })}</TestSessionProvider>
+    );
+
+    const { result } = renderHook(() => useLeaveBoard(), { wrapper });
+    await act(() => result.current.mutateAsync({ boardId: 'b1' }));
+
+    expect(getLastBoard()?.id ?? null).toBe(expected);
+    clearLastBoard();
   });
 });
 
