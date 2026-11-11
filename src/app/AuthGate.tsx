@@ -137,7 +137,8 @@ const HUNG_GETSESSION_HINT_MS = 5000;
 
 /**
  * supabase-js usually rejects fast when offline, but a hung request would leave
- * the user on a forever-spinner with no escape (#30).
+ * the user on a forever-spinner with no escape (#30). Online, the exit is a
+ * reload: auth-js queues a second getSession behind the hung one (#678).
  */
 const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
   const online = useOnline();
@@ -164,6 +165,15 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
     <div className={styles.loading}>
       <Spinner />
       <p className={styles.loadingBody}>Loading…</p>
+      {hung && (
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className={styles.errorRetry}
+        >
+          Reload
+        </button>
+      )}
     </div>
   );
 };
