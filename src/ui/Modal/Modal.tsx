@@ -11,7 +11,7 @@ const FOCUSABLE =
 interface ModalProps {
   onClose: () => void;
   children: ReactNode;
-  labelledBy?: string;
+  labelledBy: string;
   size: ModalSize;
   /** Wraps the content in the standard dialog padding. */
   padded?: boolean;
@@ -83,7 +83,7 @@ export const Modal = ({
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        {...(labelledBy ? { 'aria-labelledby': labelledBy } : {})}
+        aria-labelledby={labelledBy}
       >
         {padded ? <div className={styles.padded}>{children}</div> : children}
       </div>

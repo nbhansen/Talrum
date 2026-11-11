@@ -31,7 +31,7 @@ export const TalrumLogo = ({
     <div
       className={styles.logo}
       style={{ width: size, height: size, background: tile ? cssVar(tile) : undefined }}
-      aria-label="Talrum"
+      aria-hidden="true"
     >
       {children ?? (
         <div

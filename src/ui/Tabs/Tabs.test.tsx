@@ -14,7 +14,14 @@ const ITEMS = [
 
 describe('Tabs', () => {
   it('renders a tablist with the selected tab marked', () => {
-    render(<Tabs id="t" items={ITEMS} value="upload" onChange={vi.fn()} />);
+    render(
+      <>
+        <Tabs id="t" items={ITEMS} value="upload" onChange={vi.fn()} />
+        <TabPanel tabsId="t" value="upload">
+          Panel
+        </TabPanel>
+      </>,
+    );
     expect(screen.getByRole('tablist')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /upload/i })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: /library/i })).toHaveAttribute('aria-selected', 'false');
@@ -22,7 +29,14 @@ describe('Tabs', () => {
 
   it('fires onChange with the tab id', async () => {
     const onChange = vi.fn();
-    render(<Tabs id="t" items={ITEMS} value="library" onChange={onChange} />);
+    render(
+      <>
+        <Tabs id="t" items={ITEMS} value="library" onChange={onChange} />
+        <TabPanel tabsId="t" value="library">
+          Panel
+        </TabPanel>
+      </>,
+    );
     await userEvent.click(screen.getByRole('tab', { name: /generate/i }));
     expect(onChange).toHaveBeenCalledWith('generate');
   });
@@ -56,7 +70,14 @@ describe('Tabs', () => {
   });
 
   it('puts only the selected tab in the Tab order', () => {
-    render(<Tabs id="t" items={ITEMS} value="upload" onChange={vi.fn()} />);
+    render(
+      <>
+        <Tabs id="t" items={ITEMS} value="upload" onChange={vi.fn()} />
+        <TabPanel tabsId="t" value="upload">
+          Panel
+        </TabPanel>
+      </>,
+    );
     expect(screen.getByRole('tab', { name: /upload/i })).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('tab', { name: /library/i })).toHaveAttribute('tabindex', '-1');
   });
