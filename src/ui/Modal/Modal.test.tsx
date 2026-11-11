@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { JSX } from 'react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Modal } from './Modal';
@@ -116,5 +118,78 @@ describe('Modal', () => {
     unmount();
     await userEvent.keyboard('{Escape}');
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+const Harness = ({ autoFocus = false }: { autoFocus?: boolean }): JSX.Element => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Open
+      </button>
+      {open && (
+        <Modal onClose={() => setOpen(false)} size="sm">
+          <button type="button" autoFocus={autoFocus}>
+            First
+          </button>
+          <button type="button">Last</button>
+        </Modal>
+      )}
+    </>
+  );
+};
+
+describe('Modal focus (#680)', () => {
+  it('moves focus into the dialog on open', async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByRole('dialog')).toHaveFocus();
+  });
+
+  it('leaves focus on a child that took it on mount', () => {
+    render(
+      <Modal onClose={vi.fn()} size="sm">
+        <input aria-label="Name" autoFocus />
+      </Modal>,
+    );
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus();
+  });
+
+  it('keeps Tab and Shift+Tab inside the dialog', async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus();
+  });
+
+  it('keeps Tab inside the top dialog when modals nest', async () => {
+    render(
+      <Modal onClose={vi.fn()} size="full">
+        <button type="button">Parent action</button>
+        <Modal onClose={vi.fn()} size="sm">
+          <button type="button">Child action</button>
+        </Modal>
+      </Modal>,
+    );
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Child action' })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Child action' })).toHaveFocus();
+  });
+
+  it.each([false, true])('returns focus to the trigger on close (autoFocus %s)', async (auto) => {
+    render(<Harness autoFocus={auto} />);
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    await userEvent.click(trigger);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 });
