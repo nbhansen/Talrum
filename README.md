@@ -247,3 +247,6 @@ review is fixed in the PR and a `COMMENT` review permits merge.
 Strict TypeScript. Edit existing files before adding new ones. Delete dead
 code instead of leaving it. Tests assert what users see, not internal state.
 See [AGENTS.md](./AGENTS.md) for the full operating rules.
+
+To contribute, read [CONTRIBUTING.md](./CONTRIBUTING.md) first. Report a
+security defect in private: [SECURITY.md](./SECURITY.md).
