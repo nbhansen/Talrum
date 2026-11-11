@@ -1,5 +1,6 @@
 import { type JSX, useMemo, useState } from 'react';
 
+import { captureException } from '@/lib/platform/telemetry';
 import { useBoards } from '@/lib/queries/boards.read';
 import {
   referencingBoardIds,
@@ -67,7 +68,8 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
       await renameMut.mutateAsync({ pictogramId: picto.id, label: trimmedLabel });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rename failed.');
+      captureException(err, { tags: { component: 'PictogramSheet', op: 'rename' } });
+      setError('Rename failed.');
     }
   };
 
@@ -82,7 +84,8 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Photo replace failed.');
+      captureException(err, { tags: { component: 'PictogramSheet', op: 'replace-photo' } });
+      setError('Photo replace failed.');
     }
   };
 
@@ -92,7 +95,8 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
       await deleteMut.mutateAsync({ pictogramId: picto.id });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed.');
+      captureException(err, { tags: { component: 'PictogramSheet', op: 'delete' } });
+      setError('Delete failed.');
     }
   };
 

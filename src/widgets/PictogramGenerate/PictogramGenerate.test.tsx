@@ -161,7 +161,7 @@ describe('PictogramGenerate · generate flow', () => {
     await typeAndGenerate(user);
     await screen.findByRole('button', { name: 'Add to library' });
     await user.click(screen.getByRole('button', { name: 'Add to library' }));
-    await screen.findByRole('alert');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Save failed\.$/);
     await user.click(screen.getByRole('button', { name: 'Discard' }));
 
     // No stale error next to an empty preview.

@@ -1,5 +1,6 @@
 import { type JSX, useState } from 'react';
 
+import { captureException } from '@/lib/platform/telemetry';
 import { useCreatePhotoPictogram, usePictograms } from '@/lib/queries/pictograms';
 import { isUploadedStoragePath } from '@/lib/storage';
 import { useImagePicker } from '@/lib/useImagePicker';
@@ -61,7 +62,8 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
       });
       reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
+      captureException(err, { tags: { component: 'PictogramUpload', op: 'upload' } });
+      setError('Upload failed.');
     } finally {
       setUploading(false);
     }
