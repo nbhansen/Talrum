@@ -17,14 +17,8 @@ Follow the [Quick start](./README.md#quick-start) in the README.
 
 ## Checks
 
-Run these before you push. CI runs the same checks.
-
-```sh
-npm run typecheck
-npm run lint && npm run lint:css && npm run lint:comments
-npm run test
-npm run test:db        # only if you changed supabase/
-```
+Run the checks in the README [Commands](./README.md#commands) table before
+you push. `.github/workflows/ci.yml` is the full list, and it must be green.
 
 After a migration change, run `supabase db reset && npm run types:db` and
 commit the migration and `src/types/supabase.ts` together.

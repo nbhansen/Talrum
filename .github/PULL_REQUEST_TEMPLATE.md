@@ -10,4 +10,4 @@ Closes #
 
 - [ ] The maintainer agreed to this work in the issue ([CONTRIBUTING.md](https://github.com/nbhansen/Talrum/blob/main/CONTRIBUTING.md)).
 - [ ] The branch is from `main`.
-- [ ] `npm run typecheck`, `npm run lint` and `npm run test` pass.
+- [ ] CI is green.
