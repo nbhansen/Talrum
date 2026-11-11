@@ -174,6 +174,7 @@ export const BoardBuilder = ({
 
       <input
         className={styles.titleInput}
+        aria-label="Board name"
         value={titleDraft}
         onChange={(e) => queueTitleWrite(e.target.value)}
         onBlur={restoreTitleIfBlank}

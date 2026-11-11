@@ -65,6 +65,7 @@
     "@typescript-eslint/parser": "^8.60.0",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.10",
+    "axe-core": "^4.14.0",
     "eslint": "^10.4.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.1.0",

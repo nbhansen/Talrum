@@ -31,6 +31,7 @@ export const TalrumLogo = ({
     <div
       className={styles.logo}
       style={{ width: size, height: size, background: tile ? cssVar(tile) : undefined }}
+      role="img"
       aria-label="Talrum"
     >
       {children ?? (

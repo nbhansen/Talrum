@@ -6,8 +6,10 @@ import 'fake-indexeddb/auto';
 
 import { format } from 'node:util';
 
+import { act } from '@testing-library/react';
+import axe from 'axe-core';
 import { clear } from 'idb-keyval';
-import { afterEach, vi } from 'vitest';
+import { afterEach, expect, vi } from 'vitest';
 
 import { __resetBoardClockForTests } from './src/lib/outbox/board-clock';
 import { __resetDrainForTests } from './src/lib/outbox/drain-state';
@@ -85,4 +87,19 @@ afterEach(async () => {
       // gibberish at exactly the moment someone needs to understand it.
       calls.map((args) => format(...args)).join('\n'),
   );
+});
+
+// Each test's final DOM must pass axe (#684). afterEach hooks run in reverse
+// order, so this runs before the Testing Library cleanup. Off: color-contrast
+// and region (jsdom has no layout; tests render fragments),
+// nested-interactive (#728), image-redundant-alt (#729).
+const AXE_OFF = ['color-contrast', 'region', 'nested-interactive', 'image-redundant-alt'];
+afterEach(async () => {
+  // In act: the tree is still mounted, so a timer or a query can set state.
+  const { violations } = await act(() =>
+    axe.run(document.body, {
+      rules: Object.fromEntries(AXE_OFF.map((id) => [id, { enabled: false }])),
+    }),
+  );
+  expect(violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
 });
