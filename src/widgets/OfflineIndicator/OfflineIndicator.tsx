@@ -1,12 +1,20 @@
 import type { JSX } from 'react';
 
 import { discardEntry, listEntries, retryFailed, useOutboxStatus } from '@/lib/outbox';
+import { captureException } from '@/lib/platform/telemetry';
+import { queryClient } from '@/lib/queryClient';
 
 import styles from './OfflineIndicator.module.css';
 
 const discardAllFailed = async (): Promise<void> => {
-  const entries = await listEntries();
-  await Promise.all(entries.filter((e) => e.status === 'failed').map((e) => discardEntry(e.id)));
+  try {
+    const entries = await listEntries();
+    await Promise.all(entries.filter((e) => e.status === 'failed').map((e) => discardEntry(e.id)));
+    // The discarded edit is still in the cache as an optimistic patch (#677).
+    await queryClient.invalidateQueries();
+  } catch (err) {
+    captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'discard' } });
+  }
 };
 
 /**
