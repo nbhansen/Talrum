@@ -5,12 +5,21 @@ const useOutboxStatusMock = vi.fn();
 const retryFailedMock = vi.fn();
 const listEntriesMock = vi.fn();
 const discardEntryMock = vi.fn();
+const invalidateQueriesMock = vi.fn();
+const captureExceptionMock = vi.fn();
 
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
   retryFailed: (...args: unknown[]) => retryFailedMock(...args),
   listEntries: (...args: unknown[]) => listEntriesMock(...args),
   discardEntry: (...args: unknown[]) => discardEntryMock(...args),
+}));
+
+vi.mock('@/lib/queryClient', () => ({
+  queryClient: { invalidateQueries: () => invalidateQueriesMock() },
+}));
+vi.mock('@/lib/platform/telemetry', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 
 const { OfflineIndicator } = await import('./OfflineIndicator');
@@ -20,6 +29,8 @@ afterEach(() => {
   retryFailedMock.mockReset();
   listEntriesMock.mockReset();
   discardEntryMock.mockReset();
+  invalidateQueriesMock.mockReset();
+  captureExceptionMock.mockReset();
 });
 
 describe('OfflineIndicator', () => {
@@ -184,5 +195,28 @@ describe('OfflineIndicator', () => {
     await waitFor(() => expect(discardEntryMock).toHaveBeenCalledWith('a'));
     expect(discardEntryMock).not.toHaveBeenCalledWith('b');
     expect(retryFailedMock).not.toHaveBeenCalled();
+  });
+
+  it('Discard refetches, so the server value replaces the discarded edit (#677)', async () => {
+    useOutboxStatusMock.mockReturnValue({ online: true, pendingCount: 0, failedCount: 1 });
+    listEntriesMock.mockResolvedValue([{ id: 'a', status: 'failed' }]);
+    discardEntryMock.mockImplementation(async () => {
+      expect(invalidateQueriesMock).not.toHaveBeenCalled();
+    });
+    render(<OfflineIndicator />);
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(invalidateQueriesMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('reports a Discard that cannot read the queue (#677)', async () => {
+    useOutboxStatusMock.mockReturnValue({ online: true, pendingCount: 0, failedCount: 1 });
+    const unreadable = new Error('idb unreadable');
+    listEntriesMock.mockRejectedValue(unreadable);
+    render(<OfflineIndicator />);
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() =>
+      expect(captureExceptionMock).toHaveBeenCalledWith(unreadable, expect.anything()),
+    );
+    expect(invalidateQueriesMock).not.toHaveBeenCalled();
   });
 });
