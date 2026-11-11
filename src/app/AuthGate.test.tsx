@@ -131,6 +131,30 @@ describe('AuthGate', () => {
     }
   });
 
+  it('offers Retry after 5s if getSession hangs while online (#678)', async () => {
+    getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(
+        <AuthGate>
+          <div>app body</div>
+        </AuthGate>,
+      );
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.getByText('Loading…')).toBeInTheDocument();
+      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+      await waitFor(() => {
+        expect(screen.getByText('login screen')).toBeInTheDocument();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders children (not Login) when out and on a public path', async () => {
     const originalPath = window.location.pathname;
     history.replaceState(null, '', '/account-deleted');
