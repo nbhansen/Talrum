@@ -2,7 +2,7 @@
 -- transaction; SECURITY INVOKER, so RLS makes a stranger's call a no-op.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(6);
+SELECT plan(8);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -75,6 +75,43 @@ SELECT is(
     WHERE step_ids @> ARRAY['dddddddd-0000-4000-8000-000000000280']::uuid[]),
   0,
   'owner call scrubs every step_ids reference (including duplicates)'
+);
+
+-- ── 6-7. An editor's call scrubs boards the editor cannot see (#675) ───────
+
+INSERT INTO public.pictograms (id, owner_id, label, style, glyph, tint)
+VALUES ('dddddddd-0000-4000-8000-000000000675',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Shared', 'illus', 'sun', 'oklch(90% 0.06 90)');
+
+INSERT INTO public.boards (id, owner_id, kid_id, name, kind, voice_mode, accent, step_ids)
+SELECT b.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', k.id, b.name, 'sequence', 'tts', 'sky',
+       ARRAY['dddddddd-0000-4000-8000-000000000675']::uuid[]
+  FROM (VALUES ('eeeeeeee-0000-4000-8000-000000006751'::uuid, 'shared with Bob'),
+               ('eeeeeeee-0000-4000-8000-000000006752'::uuid, 'not shared')) AS b(id, name),
+       (SELECT id FROM public.kids
+         WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' LIMIT 1) k;
+
+INSERT INTO public.board_members (board_id, user_id, role)
+VALUES ('eeeeeeee-0000-4000-8000-000000006751',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'editor');
+
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO
+  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
+SELECT public.delete_pictogram('dddddddd-0000-4000-8000-000000000675');
+RESET ROLE;
+
+SELECT is(
+  (SELECT count(*)::int FROM public.pictograms
+    WHERE id = 'dddddddd-0000-4000-8000-000000000675'),
+  0,
+  'editor call deletes the pictogram row'
+);
+SELECT is(
+  (SELECT count(*)::int FROM public.boards
+    WHERE step_ids @> ARRAY['dddddddd-0000-4000-8000-000000000675']::uuid[]),
+  0,
+  'editor call scrubs the board that is not shared with the editor'
 );
 
 SELECT * FROM finish();
