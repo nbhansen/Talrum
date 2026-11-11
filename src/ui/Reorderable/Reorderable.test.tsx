@@ -71,4 +71,27 @@ describe('Reorderable', () => {
 
     await waitFor(() => expect(onReorder).toHaveBeenCalledWith(['b', 'a', 'c']));
   });
+
+  it('leaves Space on a button inside an item to that button', async () => {
+    const onRemove = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Reorderable
+        items={[{ id: 'a', label: 'Alpha' }]}
+        onReorder={() => undefined}
+        renderItem={(item, _i, drag) => (
+          <div key={item.id} ref={drag.setNodeRef} {...drag.attributes} {...drag.listeners}>
+            <button type="button" onClick={onRemove}>
+              Remove {item.label}
+            </button>
+          </div>
+        )}
+      />,
+    );
+
+    screen.getByText('Remove Alpha').focus();
+    await user.keyboard('[Space]');
+
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
 });

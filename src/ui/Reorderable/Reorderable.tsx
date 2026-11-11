@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { useCallback } from 'react';
 
 interface Identified {
   id: string;
@@ -79,9 +80,23 @@ interface SortableItemProps {
 }
 
 const SortableItem = ({ itemKey, children }: SortableItemProps): JSX.Element => {
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
-    id: itemKey,
-  });
+  const {
+    setNodeRef: setSortableRef,
+    setActivatorNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: itemKey });
+  // With no activator node, a key on a child button also starts a drag.
+  const setNodeRef = useCallback(
+    (node: HTMLElement | null): void => {
+      setSortableRef(node);
+      setActivatorNodeRef(node);
+    },
+    [setSortableRef, setActivatorNodeRef],
+  );
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
