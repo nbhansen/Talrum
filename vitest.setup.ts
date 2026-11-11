@@ -6,7 +6,7 @@ import 'fake-indexeddb/auto';
 
 import { format } from 'node:util';
 
-import { act } from '@testing-library/react';
+import { act, cleanup } from '@testing-library/react';
 import axe from 'axe-core';
 import { clear } from 'idb-keyval';
 import { afterEach, expect, vi } from 'vitest';
@@ -64,11 +64,25 @@ console.error = (...args: unknown[]): void => {
   originalConsoleError(...args);
 };
 
+// Each test's final DOM must pass axe (#684). Off: color-contrast and region
+// (jsdom has no layout; tests render fragments), nested-interactive (#728),
+// image-redundant-alt (#729).
+const AXE_OFF = ['color-contrast', 'region', 'nested-interactive', 'image-redundant-alt'];
+
 // Module-level caches in storage, outbox/drain and speech outlive an `it()`
 // block, a flake class whose failure depends on test order (#144, #168). One
 // hook, not two, with the console check last: `sequence.hooks: 'stack'` runs
 // afterEach in reverse, so the guard alone would skip these resets on failure.
 afterEach(async () => {
+  // In act: the tree is still mounted, so a timer or a query can set state.
+  const { violations } = await act(() =>
+    axe.run(document.body, {
+      rules: Object.fromEntries(AXE_OFF.map((id) => [id, { enabled: false }])),
+    }),
+  );
+  // Unmount before the resets, as when each test file registered the cleanup.
+  cleanup();
+
   await clear();
   clearSignedUrlMemCache();
   __resetSpeechForTests();
@@ -76,7 +90,10 @@ afterEach(async () => {
   __resetBoardClockForTests();
 
   const calls = consoleErrorCalls.splice(0);
-  if (calls.length === 0) return;
+  if (calls.length === 0) {
+    expect(violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+    return;
+  }
   throw new Error(
     `console.error was called ${calls.length} time(s) during this test.\n` +
       'React reports correctness warnings this way, so treat it as the bug it is. ' +
@@ -87,19 +104,4 @@ afterEach(async () => {
       // gibberish at exactly the moment someone needs to understand it.
       calls.map((args) => format(...args)).join('\n'),
   );
-});
-
-// Each test's final DOM must pass axe (#684). afterEach hooks run in reverse
-// order, so this runs before the Testing Library cleanup. Off: color-contrast
-// and region (jsdom has no layout; tests render fragments),
-// nested-interactive (#728), image-redundant-alt (#729).
-const AXE_OFF = ['color-contrast', 'region', 'nested-interactive', 'image-redundant-alt'];
-afterEach(async () => {
-  // In act: the tree is still mounted, so a timer or a query can set state.
-  const { violations } = await act(() =>
-    axe.run(document.body, {
-      rules: Object.fromEntries(AXE_OFF.map((id) => [id, { enabled: false }])),
-    }),
-  );
-  expect(violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
 });
