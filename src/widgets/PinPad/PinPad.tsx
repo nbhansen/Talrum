@@ -94,7 +94,11 @@ export const PinPad = ({
         titleId={PIN_PAD_TITLE_ID}
         onClose={onCancel}
       />
-      <div className={styles.dots}>
+      <div
+        className={styles.dots}
+        role="img"
+        aria-label={`${digits.length} of ${PIN_LENGTH} digits entered`}
+      >
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
@@ -119,14 +123,17 @@ export const PinPad = ({
         ))}
       </div>
       <div className={styles.error}>
-        {locked && lock
-          ? // Clamped to the lock ceiling: the first locked paint still holds
-            // a `now` from before the lock, and an unclamped difference would
-            // flash an impossible number until the zero-delay tick lands.
-            lock.message(
+        <span role="alert">{locked ? '' : (error ?? '')}</span>
+        {locked && lock && (
+          // A timer, not the alert: the alert would read each tick aloud. Clamped
+          // to the lock ceiling, because the first locked paint holds a `now`
+          // from before the lock and would flash an impossible number.
+          <span role="timer">
+            {lock.message(
               Math.min(Math.max(1, Math.ceil((lockedUntil - now) / 1000)), MAX_LOCK_MS / 1000),
-            )
-          : (error ?? '')}
+            )}
+          </span>
+        )}
       </div>
     </div>
   );
