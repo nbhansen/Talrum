@@ -1,5 +1,6 @@
 import { type JSX, useState } from 'react';
 
+import { captureException } from '@/lib/platform/telemetry';
 import {
   setActiveKidId,
   useActiveKid,
@@ -50,7 +51,8 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
       await renameMut.mutateAsync({ kidId: kid.id, name: trimmedName });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rename failed.');
+      captureException(err, { tags: { component: 'KidSheet', op: 'rename' } });
+      setError('Rename failed.');
     }
   };
 
@@ -65,7 +67,8 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
       await deleteMut.mutateAsync({ kidId: kid.id });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed.');
+      captureException(err, { tags: { component: 'KidSheet', op: 'delete' } });
+      setError('Delete failed.');
     }
   };
 

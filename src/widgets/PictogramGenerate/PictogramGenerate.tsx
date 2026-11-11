@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
+import { captureException } from '@/lib/platform/telemetry';
 import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
 import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
 import { useBlobPreview } from '@/lib/useBlobPreview';
@@ -66,7 +67,8 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
       clearPreview();
       setLabel('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed.');
+      captureException(err, { tags: { component: 'PictogramGenerate', op: 'save' } });
+      setError('Save failed.');
     } finally {
       setBusy(null);
     }

@@ -52,6 +52,15 @@ describe('KidSheet', () => {
     });
   });
 
+  it('shows fixed copy, not the server text, when the rename is rejected (#679)', async () => {
+    renameMock.mockRejectedValue(new Error('db 42501: row-level-security'));
+    render(<KidSheet kid={liam} boardCount={0} onClose={() => undefined} />);
+    fireEvent.change(screen.getByDisplayValue('Liam'), { target: { value: 'Liam Jr.' } });
+    fireEvent.click(screen.getByRole('button', { name: /save name/i }));
+    expect(await screen.findByText('Rename failed.')).toBeInTheDocument();
+    expect(screen.queryByText(/42501/)).toBeNull();
+  });
+
   it('disables Save when the name is unchanged or empty', () => {
     render(<KidSheet kid={liam} boardCount={0} onClose={() => undefined} />);
     expect(screen.getByRole('button', { name: /save name/i })).toBeDisabled();
