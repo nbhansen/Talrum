@@ -2,13 +2,14 @@ import { type JSX, useState } from 'react';
 
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
-import { type TabItem, Tabs } from '@/ui/Tabs/Tabs';
+import { type TabItem, TabPanel, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 
 import styles from './NewPictogramModal.module.css';
 
 const TITLE_ID = 'new-pictogram-modal-title';
+const TABS_ID = 'new-pictogram-modal-tabs';
 
 type Source = 'upload' | 'generate';
 
@@ -34,9 +35,11 @@ export const NewPictogramModal = ({ onClose }: NewPictogramModalProps): JSX.Elem
         />
       </div>
       <div className={styles.tabs}>
-        <Tabs items={TABS} value={source} onChange={setSource} />
+        <Tabs id={TABS_ID} items={TABS} value={source} onChange={setSource} />
       </div>
-      {source === 'upload' ? <PictogramUpload /> : <PictogramGenerate />}
+      <TabPanel tabsId={TABS_ID} value={source}>
+        {source === 'upload' ? <PictogramUpload /> : <PictogramGenerate />}
+      </TabPanel>
     </Modal>
   );
 };

@@ -40,7 +40,7 @@ export const SettingsRow = ({
   onKidReorderableChange,
 }: SettingsRowProps): JSX.Element => (
   <div className={styles.row}>
-    <Segmented value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
+    <Segmented label="Board kind" value={kind} onChange={onKindChange} options={KIND_OPTIONS} />
     <Toggle label="Labels" value={labelsVisible} onChange={onLabelsChange} />
     {kind === 'sequence' && (
       <Toggle label="Kid can reorder" value={kidReorderable} onChange={onKidReorderableChange} />
