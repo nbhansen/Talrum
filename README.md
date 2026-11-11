@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/talrum-logo.png" alt="Talrum" width="180" />
+  <img src="src/assets/talrum-logo.png" alt="Talrum" width="180" />
 </p>
 
 # Talrum
@@ -115,7 +115,6 @@ Email-OTP via Supabase. The full flow and how to read OTPs locally are in
 ## Deployment
 
 Backend is a Supabase Cloud project. The web SPA deploys to Cloudflare Pages.
-Mobile clients use the Supabase SDK and hit the same project.
 
 **One-time setup**
 
@@ -137,7 +136,7 @@ Mobile clients use the Supabase SDK and hit the same project.
    uploads `dist` with `wrangler pages deploy`. Build env vars set in the
    Pages dashboard are never read.
 5. In Supabase _Auth → URL Configuration_ set the Site URL to the Cloudflare
-   Pages URL and add the mobile app deep-link to Additional Redirect URLs.
+   Pages URL.
    The dashboard is the source of truth for production auth —
    `supabase/config.toml` configures local dev only, and must not be pushed
    (see [docs/runbooks/deploy.md](./docs/runbooks/deploy.md#configuration-what-is-local-what-is-production)).
