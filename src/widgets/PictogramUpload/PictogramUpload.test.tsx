@@ -148,7 +148,8 @@ describe('PictogramUpload · upload flow', () => {
     await user.type(await screen.findByLabelText('Label'), 'Cereal bowl');
     await user.click(screen.getByRole('button', { name: 'Add to library' }));
 
-    expect(await screen.findByText(/42501/)).toBeInTheDocument();
+    expect(await screen.findByText('Upload failed.')).toBeInTheDocument();
+    expect(screen.queryByText(/42501/)).toBeNull();
     // The orphan stays: a rollback here could fire concurrently with its own
     // retry and delete the blob that retry just re-uploaded (#414).
     expect(removeMock).not.toHaveBeenCalled();

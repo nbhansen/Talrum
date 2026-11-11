@@ -122,6 +122,15 @@ describe('PictogramSheet', () => {
     });
   });
 
+  it('shows fixed copy, not the server text, when the rename is rejected (#679)', async () => {
+    renameMock.mockRejectedValue(new Error('db 42501: row-level-security'));
+    render(<PictogramSheet picto={illusPicto} onClose={() => undefined} />);
+    fireEvent.change(screen.getByDisplayValue('Apple'), { target: { value: 'Big apple' } });
+    fireEvent.click(screen.getByRole('button', { name: /save label/i }));
+    expect(await screen.findByText('Rename failed.')).toBeInTheDocument();
+    expect(screen.queryByText(/42501/)).toBeNull();
+  });
+
   it('disables Save when the label is unchanged or empty', () => {
     render(<PictogramSheet picto={illusPicto} onClose={() => undefined} />);
     expect(screen.getByRole('button', { name: /save label/i })).toBeDisabled();
