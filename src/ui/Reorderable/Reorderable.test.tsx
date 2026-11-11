@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Reorderable } from './Reorderable';
 
@@ -29,5 +30,45 @@ describe('Reorderable', () => {
     expect(screen.getByTestId('item-a')).toHaveTextContent('Alpha');
     expect(screen.getByTestId('item-b')).toHaveTextContent('Bravo');
     expect(screen.getByTestId('item-c')).toHaveTextContent('Charlie');
+  });
+
+  it('reorders an item with the keyboard (#681)', async () => {
+    // jsdom has no layout; give each item a row so dnd-kit can find a target.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const row = ['a', 'b', 'c'].indexOf(this.getAttribute('data-testid')?.slice(5) ?? '');
+      return new DOMRect(0, Math.max(row, 0) * 50, 100, 40);
+    });
+    const onReorder = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Reorderable
+        items={[
+          { id: 'a', label: 'Alpha' },
+          { id: 'b', label: 'Bravo' },
+          { id: 'c', label: 'Charlie' },
+        ]}
+        onReorder={onReorder}
+        renderItem={(item, _i, drag) => (
+          <div
+            key={item.id}
+            ref={drag.setNodeRef}
+            data-testid={`item-${item.id}`}
+            {...drag.attributes}
+            {...drag.listeners}
+          >
+            {item.label}
+          </div>
+        )}
+      />,
+    );
+
+    screen.getByTestId('item-a').focus();
+    await user.keyboard('[Space]');
+    await user.keyboard('[ArrowDown]');
+    await user.keyboard('[Space]');
+
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(['b', 'a', 'c']));
   });
 });

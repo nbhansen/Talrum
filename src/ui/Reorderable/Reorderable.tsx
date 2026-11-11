@@ -2,11 +2,18 @@ import {
   closestCenter,
   DndContext,
   type DragEndEvent,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
@@ -29,7 +36,7 @@ interface ReorderableProps<T extends Identified> {
 }
 
 /**
- * Pointer-based, because HTML5 drag-and-drop does not work on iPad touch.
+ * Pointer and keyboard, because HTML5 drag-and-drop does not work on iPad touch.
  * @dnd-kit stays behind the API: callers see items, onReorder and DragBindings.
  */
 export const Reorderable = <T extends Identified>({
@@ -38,7 +45,10 @@ export const Reorderable = <T extends Identified>({
   renderItem,
 }: ReorderableProps<T>): JSX.Element => {
   const keys = items.map((item) => item.id);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleDragEnd = (event: DragEndEvent): void => {
     const { active, over } = event;
