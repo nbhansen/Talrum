@@ -47,13 +47,15 @@ milestones.
 
 ## Quick start
 
-You need Node 22+, Docker, and the [Supabase CLI](https://github.com/supabase/cli/releases).
+You need Node 24 (the version in `.nvmrc` and in CI), Docker, and the
+[Supabase CLI](https://github.com/supabase/cli/releases) 2.105.0 (the
+version CI pins).
 
 ```sh
-git clone <repo> && cd Talrum
+git clone https://github.com/nbhansen/Talrum.git && cd Talrum
 npm install
-cp .env.example .env                  # paste the key from `supabase status`
 supabase start                        # Postgres + Auth + Studio in Docker
+cp .env.example .env                  # paste the key from `supabase status`
 supabase db reset                     # migrations + 4 demo boards
 npm run dev
 ```
