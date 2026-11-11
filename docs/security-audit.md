@@ -25,7 +25,6 @@ Read this before a change to RLS, storage policies, edge functions, auth, or CI.
 |---|---|
 | #634 | The outbox removes the storage path stored in a row, with no owner check, before the RLS-checked delete. |
 | #635 | An editor can delete the owner's board through the `boards.kid_id` cascade. |
-| #636 | The OpenWiki workflow installs an unpinned npm package with a write token. |
 | #434 | The generate functions have no per-user budget. The audit extended this issue to generate-image. |
 | #637 | OTP sign-up has no CAPTCHA. Anonymous requests can use up the email budget. |
 | #638 | One nested storage object blocks account deletion. |
