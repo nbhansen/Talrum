@@ -318,7 +318,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onKidMode={noop}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: /Choice/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Switch to Choice/i })).toBeInTheDocument();
     expect(setBoardKindMock).not.toHaveBeenCalled();
@@ -337,7 +337,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onKidMode={noop}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: /Choice/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: /Switch to Choice/i }));
     expect(setBoardKindMock).toHaveBeenCalledTimes(1);
     expect(setBoardKindMock).toHaveBeenCalledWith({ boardId: baseBoard.id, kind: 'choice' });
@@ -357,7 +357,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onKidMode={noop}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: /Choice/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(setBoardKindMock).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -376,7 +376,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
         onKidMode={noop}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: /Sequence/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /Sequence/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(setBoardKindMock).not.toHaveBeenCalled();
   });

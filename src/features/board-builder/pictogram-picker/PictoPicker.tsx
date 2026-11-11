@@ -5,7 +5,7 @@ import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
-import { type TabItem, Tabs } from '@/ui/Tabs/Tabs';
+import { type TabItem, TabPanel, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramGrid } from '@/widgets/PictogramGrid/PictogramGrid';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
@@ -23,6 +23,7 @@ interface PictoPickerProps {
 }
 
 const TITLE_ID = 'tal-picker-title';
+const TABS_ID = 'tal-picker-tabs';
 
 export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): JSX.Element => {
   const [tab, setTab] = useState<PickerTab>('library');
@@ -67,9 +68,9 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
         />
       </div>
       <div className={styles.tabs}>
-        <Tabs items={tabs} value={tab} onChange={setTab} />
+        <Tabs id={TABS_ID} items={tabs} value={tab} onChange={setTab} />
       </div>
-      <div className={styles.body}>
+      <TabPanel tabsId={TABS_ID} value={tab} className={styles.body}>
         {tab === 'library' && (
           <div className={styles.libraryTab}>
             <PictogramGrid
@@ -86,7 +87,7 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
         )}
         {tab === 'upload' && <PictogramUpload {...(ownerId ? { ownerId } : {})} />}
         {tab === 'generate' && <PictogramGenerate {...(ownerId ? { ownerId } : {})} />}
-      </div>
+      </TabPanel>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>
         <div className={styles.footerActions}>
