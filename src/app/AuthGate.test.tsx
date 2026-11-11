@@ -131,9 +131,14 @@ describe('AuthGate', () => {
     }
   });
 
-  it('offers Retry after 5s if getSession hangs while online (#678)', async () => {
+  it('offers a page reload after 5s if getSession hangs while online (#678)', async () => {
+    const originalLocation = window.location;
+    const reload = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    });
     getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
-    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       render(
@@ -141,17 +146,16 @@ describe('AuthGate', () => {
           <div>app body</div>
         </AuthGate>,
       );
-      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Reload' })).not.toBeInTheDocument();
       act(() => {
         vi.advanceTimersByTime(5000);
       });
       expect(screen.getByText('Loading…')).toBeInTheDocument();
-      await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-      await waitFor(() => {
-        expect(screen.getByText('login screen')).toBeInTheDocument();
-      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Reload' }));
+      expect(reload).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
     }
   });
 
