@@ -55,7 +55,7 @@ BEGIN
   -- Exercises both cascade paths at once (user_id direct; board_id via
   -- boards). Either path removing the row satisfies the assertion.
   INSERT INTO public.board_members (board_id, user_id, role)
-  SELECT b.id, test_uid, 'owner'
+  SELECT b.id, test_uid, 'editor'
   FROM public.boards b WHERE b.owner_id = test_uid LIMIT 1;
 END $$;
 

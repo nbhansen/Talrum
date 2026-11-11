@@ -3,7 +3,7 @@
 -- expectation. Same user shape as the sibling share tests.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(20);
+SELECT plan(21);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -27,6 +27,20 @@ SELECT id, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'viewer'
   FROM public.boards
  WHERE owner_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
  ORDER BY id LIMIT 1;
+
+-- 'owner' is boards.owner_id, never a membership role (#676).
+SELECT throws_ok(
+  $$
+    INSERT INTO public.board_members (board_id, user_id, role)
+    SELECT id, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'owner'
+      FROM public.boards
+     WHERE owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+     ORDER BY id LIMIT 1
+  $$,
+  '23514',
+  NULL,
+  'board_members: role owner is rejected (CHECK)'
+);
 
 -- Captured as postgres so the assertions don't hardcode the number of
 -- seeded template boards. GRANT needed: authenticated doesn't get SELECT

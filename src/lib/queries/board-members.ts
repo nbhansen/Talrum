@@ -17,7 +17,7 @@ import type { Database } from '@/types/supabase';
 
 type BoardMemberRow = Database['public']['Tables']['board_members']['Row'];
 
-export type BoardMemberRole = 'owner' | 'editor' | 'viewer';
+export type BoardMemberRole = 'editor' | 'viewer';
 
 export interface BoardMember {
   boardId: string;
