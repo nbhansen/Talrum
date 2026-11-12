@@ -184,6 +184,18 @@ describe('PictogramGenerate · generate flow', () => {
     ).toBeInTheDocument();
   });
 
+  it('says that generation is not set up for a not_configured response (#687)', async () => {
+    const user = userEvent.setup();
+    invokeMock.mockRejectedValue(new CodedError('not_configured', 'no keys'));
+    renderGenerate();
+
+    await typeAndGenerate(user);
+
+    expect(
+      await screen.findByText('Image generation is not set up on this server.'),
+    ).toBeInTheDocument();
+  });
+
   it('shows the retry copy, not the connection copy, when the returned bytes cannot be decoded', async () => {
     const user = userEvent.setup();
     cropMock.mockRejectedValue(new Error('could not decode image'));

@@ -4,6 +4,7 @@
  * `supabase secrets set`: AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.
  */
 
+import { NotConfiguredError } from '../_shared/generateHandler.ts';
 import { SynthesisError, type Synthesize, type VoiceLanguage } from './types.ts';
 
 /**
@@ -36,7 +37,7 @@ export const synthesizeWithAzure: Synthesize = async (label, language) => {
   const key = Deno.env.get('AZURE_SPEECH_KEY');
   const region = Deno.env.get('AZURE_SPEECH_REGION');
   if (!key || !region) {
-    throw new SynthesisError('AZURE_SPEECH_KEY and AZURE_SPEECH_REGION must be set');
+    throw new NotConfiguredError('AZURE_SPEECH_KEY and AZURE_SPEECH_REGION must be set');
   }
 
   let res: Response;
