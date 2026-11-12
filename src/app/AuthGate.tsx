@@ -116,7 +116,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
 
   const retry = useCallback(() => setRetryCount((n) => n + 1), []);
 
-  if (state.status === 'loading') return <AuthGateLoading key={retryCount} onRetry={retry} />;
+  if (state.status === 'loading') return <AuthGateLoading />;
   if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
   if (state.status === 'out') {
     // No SessionProvider on this branch, so anything routed here must not call
@@ -135,12 +135,18 @@ const AuthGateOfflineHint = (): JSX.Element | null => {
 
 const HUNG_GETSESSION_HINT_MS = 5000;
 
+const reloadButton = (
+  <button type="button" onClick={() => window.location.reload()} className={styles.errorRetry}>
+    Reload
+  </button>
+);
+
 /**
  * supabase-js usually rejects fast when offline, but a hung request would leave
- * the user on a forever-spinner with no escape (#30). Online, the exit is a
- * reload: auth-js queues a second getSession behind the hung one (#678).
+ * the user on a forever-spinner with no escape (#30). The exit is a reload:
+ * auth-js queues a second getSession behind the hung one (#678).
  */
-const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
+const AuthGateLoading = (): JSX.Element => {
   const online = useOnline();
   const [hung, setHung] = useState(false);
   useEffect(() => {
@@ -153,11 +159,10 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
       <div className={styles.error}>
         <h1 className={styles.errorTitle}>You're offline</h1>
         <p className={styles.errorBody}>
-          We can't reach the server right now. Retry once your connection is back.
+          We can't reach the server right now. Reload once your connection is back.
         </p>
-        <button type="button" onClick={onRetry} className={styles.errorRetry}>
-          Retry
-        </button>
+        {/* Without a worker, an offline reload gives the browser error page (#714). */}
+        {navigator.serviceWorker?.controller && reloadButton}
       </div>
     );
   }
@@ -165,15 +170,7 @@ const AuthGateLoading = ({ onRetry }: { onRetry: () => void }): JSX.Element => {
     <div className={styles.loading}>
       <Spinner />
       <p className={styles.loadingBody}>Loading…</p>
-      {hung && (
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className={styles.errorRetry}
-        >
-          Reload
-        </button>
-      )}
+      {hung && reloadButton}
     </div>
   );
 };
