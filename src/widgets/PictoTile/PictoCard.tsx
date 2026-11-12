@@ -28,7 +28,7 @@ export const PictoCard = ({
   const labelSize = Math.max(13, size * 0.11);
   return (
     <div className={styles.tile} style={{ width: size, ...style }}>
-      <PictogramMedia picto={picto} size={size} selected={selected} />
+      <PictogramMedia picto={picto} size={size} selected={selected} labelShown={showLabel} />
       {showLabel && (
         <span className={styles.label} style={{ fontSize: labelSize, maxWidth: size }}>
           {picto.label}

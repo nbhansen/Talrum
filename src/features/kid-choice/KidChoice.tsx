@@ -86,7 +86,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                     {String.fromCharCode(65 + idx)}
                   </span>
                   <div className={styles.mediaWrap} style={mediaStyle}>
-                    <PictogramMedia picto={p} size={260} radius="0" />
+                    <PictogramMedia picto={p} size={260} radius="0" labelShown />
                     {isPicked && (
                       <div
                         className={styles.pickedBadge}

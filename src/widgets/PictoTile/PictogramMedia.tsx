@@ -12,6 +12,8 @@ interface PictogramMediaProps {
   picto: Pictogram;
   size: number;
   selected?: boolean | undefined;
+  /** The label is next to the photo as text or as a name, so alt text would repeat it (#729). */
+  labelShown?: boolean | undefined;
   /** Override border radius (rarely needed). */
   radius?: string | undefined;
   className?: string | undefined;
@@ -22,6 +24,7 @@ export const PictogramMedia = ({
   picto,
   size,
   selected = false,
+  labelShown = false,
   radius,
   className,
 }: PictogramMediaProps): JSX.Element => {
@@ -57,7 +60,7 @@ export const PictogramMedia = ({
             className={styles.photoImg}
             crossOrigin="anonymous"
             src={photoSrc}
-            alt={picto.label}
+            alt={labelShown ? '' : picto.label}
           />
         ) : (
           <PhotoPlaceholder label={picto.label} />
