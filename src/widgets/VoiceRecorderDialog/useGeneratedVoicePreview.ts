@@ -70,10 +70,13 @@ export const useGeneratedVoicePreview = (
       // Only a request that never got a response blames the connection;
       // a server-side failure told to "check your connection" sends the
       // parent chasing wifi that is fine.
+      const code = isGenerateVoiceError(err) ? err.code : 'network';
       report(
-        isGenerateVoiceError(err) && err.code !== 'network'
-          ? 'Voice generation failed. Try again in a moment.'
-          : 'Could not generate a voice. Check your connection and try again.',
+        code === 'not_configured'
+          ? 'Voice generation is not set up on this server.'
+          : code === 'network'
+            ? 'Could not generate a voice. Check your connection and try again.'
+            : 'Voice generation failed. Try again in a moment.',
       );
     } finally {
       setStatus('idle');

@@ -19,6 +19,9 @@ export interface GeneratedMedia {
   mimeType: string;
 }
 
+/** Thrown by a provider when the server has no credentials for it (#687). */
+export class NotConfiguredError extends Error {}
+
 export type ParseResult<Input> = { ok: true; input: Input } | { ok: false; message: string };
 
 export interface GenerateConfig<Input> {
@@ -83,6 +86,10 @@ export const handleGenerate = async <Input>(
     const { bytes, mimeType } = await cfg.run(parsed.input);
     return jsonResponse({ ok: true, mimeType, [cfg.envelopeKey]: encodeBase64(bytes) }, 200);
   } catch (err) {
+    if (err instanceof NotConfiguredError) {
+      logFailure(cfg.failureEvent, userId, 'config', err);
+      return errorResponse('not_configured', 'generation is not set up on this server', 503);
+    }
     if (cfg.providerError.is(err)) {
       logFailure(cfg.failureEvent, userId, 'provider', err);
       return errorResponse(cfg.providerError.code, cfg.providerError.message, 502);

@@ -448,5 +448,18 @@ describe('VoiceRecorderDialog', () => {
       ).toBeInTheDocument();
       expect(screen.queryByText(/Check your connection/)).not.toBeInTheDocument();
     });
+
+    it('says that generation is not set up for a not_configured response (#687)', async () => {
+      const user = userEvent.setup();
+      const { CodedError } = await import('@/lib/queries/edgeFunction');
+      invokeMock.mockRejectedValue(new CodedError('not_configured', 'no keys'));
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(
+        await screen.findByText('Voice generation is not set up on this server.'),
+      ).toBeInTheDocument();
+    });
   });
 });
