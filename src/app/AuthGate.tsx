@@ -91,7 +91,10 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       })
       .catch((err: unknown) => {
         if (cancelled || sawAuthEvent) return;
-        captureException(err, { tags: { component: 'AuthGate', op: 'getSession' } });
+        captureException(err, {
+          level: 'warning',
+          tags: { component: 'AuthGate', op: 'getSession' },
+        });
         setState({ status: 'error' });
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {

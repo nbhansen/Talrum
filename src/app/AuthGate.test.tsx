@@ -105,6 +105,7 @@ describe('AuthGate', () => {
     expect(screen.getByText('Talrum could not start your session.')).toBeInTheDocument();
     expect(screen.queryByText(/fetch failed/)).not.toBeInTheDocument();
     expect(captureExceptionMock).toHaveBeenCalledWith(failure, {
+      level: 'warning',
       tags: { component: 'AuthGate', op: 'getSession' },
     });
     expect(screen.queryByText('app body')).not.toBeInTheDocument();

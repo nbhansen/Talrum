@@ -126,7 +126,7 @@ provider in sync if either changes.
 
 The provider is swappable by design, mirroring `generate-voice` (see
 [speech.md](./speech.md)): the client knows only the function name and the
-`{ label }` wire contract (`src/lib/queries/generateImage.ts`); inside the
+`{ label, language }` wire contract (`src/lib/queries/generateImage.ts`); inside the
 function, the `GenerateImage` type in
 `supabase/functions/generate-image/types.ts` is the seam and `azure.ts`
 (Azure OpenAI) is the only file in the repository that knows which vendor
