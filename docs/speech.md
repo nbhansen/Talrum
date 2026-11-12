@@ -31,26 +31,14 @@ choice to ignore recordings on that board (#575). Recordings are
 captured with `src/lib/platform/recording.ts` (a MediaRecorder wrapper) in parent
 mode and uploaded via the outbox; playback here only needs the Storage path.
 
-## Two languages, deliberately not one
+## One language, set by the parent
 
-The heart of the subsystem is a split in `src/lib/language.ts` (#304):
-
-- **`getAppLanguage()`** — the language of Talrum's own kid-visible copy.
-  Clamped to `APP_LANGUAGES` (`'en' | 'da'`): explicit pref, else the device
-  locale _when we have copy for it_, else English. We can't show Swedish
-  strings we never wrote, so the clamp is what keeps a Swedish iPad from
-  rendering blank UI.
-- **`getVoiceLanguage()`** — the target language for TTS voice matching.
-  Explicit pref, else the device locale's primary subtag, **unclamped**. A
-  Swedish household's pictogram labels are written by the parents in Swedish;
-  the browser very likely has a Swedish voice even though Talrum has no
-  Swedish copy. Clamping here would force those labels through an English
-  voice (#312).
-
-`primarySubtag` normalises `da-DK` / `da_DK` / `da` to `da` before comparing.
-Both resolvers read the same explicit pref (`getLanguagePref` /
-`setLanguagePref`, `null` = follow the device locale), set from
-`features/settings/LanguageSection.tsx` (#313).
+`getAppLanguage()` in `src/lib/language.ts` is the one language for kid
+copy, TTS voice matching and generated media (#745). It is the parent's
+choice (`'en' | 'da'`), never the device locale. `LanguageGate`
+(`src/app/LanguageGate.tsx`) asks for the choice after sign-in on a device
+that has none stored; `features/settings/LanguageSection.tsx` changes it.
+Before the choice, the language is English.
 
 ## Where preferences live: this device, not this account
 
@@ -74,7 +62,7 @@ next tap or render, no reload.
 arrive later via `voiceschanged`. `ensureVoice` in `speech.ts` handles this:
 pick from whatever list exists now, or attach a one-shot listener and pick
 when the list lands. The pick (`pickVoice`) prefers voices matching
-`getVoiceLanguage()`, then English (the app's own copy), then anything, with
+`getAppLanguage()`, then English (the app's own copy), then anything, with
 a bias toward common female system voices. The result is cached keyed on the
 target language, so a language change in settings invalidates it on the next
 tap while ordinary taps skip the lookup. A saved `voiceURI` from prefs
@@ -131,7 +119,8 @@ flow that gates kid-mode exit is in, because the kid sees it.
   compile error.
 - **New app language:** add the code to `APP_LANGUAGES` in `language.ts` and
   a full table in `kidCopy.ts`; the type system walks you through the rest.
-  `getVoiceLanguage()` needs nothing — it already handles every locale.
+  Add the language to `LanguageGate`, `LanguageSection` and the two generate
+  functions too.
 - **Touching playback:** keep the `speakPictogram` ordering — recorded audio
   is the caregiver's explicit choice, TTS is the fallback, and silence only
   ever happens when the caregiver set `voiceMode: 'none'` or the platform has

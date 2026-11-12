@@ -14,40 +14,31 @@ export const isAppLanguage = (v: unknown): v is AppLanguage =>
 /** Primary BCP-47 subtag, lowercased: 'da-DK', 'da_DK' (Android), 'da' → 'da'. */
 export const primarySubtag = (lang: string): string => lang.toLowerCase().split(/[-_]/)[0] ?? '';
 
-/** The explicit user choice, or null when following the device locale. */
+// Blocked storage: the choice still applies for this page.
+let pagePref: AppLanguage | null = null;
+
+/** The parent's choice, or null before the first choice on this device. */
 export const getLanguagePref = (): AppLanguage | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return isAppLanguage(raw) ? raw : null;
   } catch {
-    return null;
+    return pagePref;
   }
 };
 
-/** null = follow the device locale again. */
-export const setLanguagePref = (lang: AppLanguage | null): void => {
+export const setLanguagePref = (lang: AppLanguage): void => {
+  pagePref = lang;
   try {
-    if (lang === null) localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, lang);
+    localStorage.setItem(STORAGE_KEY, lang);
   } catch {
     // ignore quota / privacy mode errors — feature is best-effort
   }
 };
 
 /**
- * Resolved language for kid-facing copy: explicit pref, else the device
- * locale when we have copy for it, else English.
+ * The one language for kid copy, the reading voice and generated media. The
+ * device locale never decides it; LanguageGate asks after sign-in (#745).
+ * English covers the screens before that choice.
  */
-export const getAppLanguage = (): AppLanguage => {
-  const pref = getLanguagePref();
-  if (pref) return pref;
-  const device = primarySubtag(navigator.language);
-  return isAppLanguage(device) ? device : 'en';
-};
-
-/**
- * Not clamped to APP_LANGUAGES, unlike `getAppLanguage`: a voice can match any
- * device locale even where there is no copy for it.
- */
-export const getVoiceLanguage = (): string =>
-  getLanguagePref() ?? primarySubtag(navigator.language);
+export const getAppLanguage = (): AppLanguage => getLanguagePref() ?? 'en';

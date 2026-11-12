@@ -57,10 +57,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const stubDeviceLocale = (locale: string): void => {
-  vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(locale);
-};
-
 describe('speak()', () => {
   it('cancels in-flight speech and speaks the requested text', () => {
     const { synth, utters, cancel, speakFn } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
@@ -89,8 +85,8 @@ describe('speak()', () => {
     expect(isSpeechSupported()).toBe(false);
   });
 
-  it('prefers an English voice on an English-locale device', () => {
-    stubDeviceLocale('en-US');
+  it('prefers an English voice when no language is stored, on any device', () => {
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('nl-NL');
     const { synth, utters } = makeFakeSynth([
       { name: 'Xander', lang: 'nl-NL' },
       { name: 'Karen', lang: 'en-AU' },
@@ -102,34 +98,7 @@ describe('speak()', () => {
     expect(utters[0]?.voice?.name).toBe('Karen');
   });
 
-  it('prefers a voice matching the device locale over English (#304)', () => {
-    stubDeviceLocale('da-DK');
-    const { synth, utters } = makeFakeSynth([
-      { name: 'Samantha', lang: 'en-US' },
-      { name: 'Sara', lang: 'da-DK' },
-    ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
-
-    speak('støj');
-
-    expect(utters[0]?.voice?.name).toBe('Sara');
-  });
-
-  it('matches the locale language across region and separator variants', () => {
-    stubDeviceLocale('da');
-    const { synth, utters } = makeFakeSynth([
-      { name: 'Samantha', lang: 'en-US' },
-      { name: 'Sara', lang: 'da_DK' },
-    ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
-
-    speak('støj');
-
-    expect(utters[0]?.voice?.name).toBe('Sara');
-  });
-
-  it('lets an explicit language pref override the device locale (#304)', () => {
-    stubDeviceLocale('en-US');
+  it('prefers a voice in the chosen language over English (#304)', () => {
     setLanguagePref('da');
     const { synth, utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US' },
@@ -142,8 +111,21 @@ describe('speak()', () => {
     expect(utters[0]?.voice?.name).toBe('Sara');
   });
 
-  it('re-picks the voice when the language pref changes between taps (#304)', () => {
-    stubDeviceLocale('en-US');
+  it('matches the voice language across region and separator variants', () => {
+    setLanguagePref('da');
+    const { synth, utters } = makeFakeSynth([
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Sara', lang: 'da_DK' },
+    ]);
+    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+
+    speak('støj');
+
+    expect(utters[0]?.voice?.name).toBe('Sara');
+  });
+
+  it('re-picks the voice when the language changes between taps (#304)', () => {
+    setLanguagePref('en');
     const { synth, utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US' },
       { name: 'Sara', lang: 'da-DK' },
@@ -158,8 +140,8 @@ describe('speak()', () => {
     expect(utters[1]?.voice?.name).toBe('Sara');
   });
 
-  it('falls back to an English voice when nothing matches the device locale', () => {
-    stubDeviceLocale('da-DK');
+  it('falls back to an English voice when no voice matches the chosen language', () => {
+    setLanguagePref('da');
     const { synth, utters } = makeFakeSynth([
       { name: 'Xander', lang: 'nl-NL' },
       { name: 'Karen', lang: 'en-AU' },
