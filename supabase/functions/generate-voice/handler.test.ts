@@ -57,6 +57,13 @@ Deno.test('returns the provider clip as a base64 JSON envelope on success', asyn
   assertEquals(got, { label: 'spise', language: 'da' });
 });
 
+Deno.test('answers not_configured when the Azure variables are absent (#687)', async () => {
+  for (const name of ['AZURE_SPEECH_KEY', 'AZURE_SPEECH_REGION']) Deno.env.delete(name);
+  const res = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin);
+  assertEquals(res.status, 503);
+  assertEquals((await res.json()).error, 'not_configured');
+});
+
 Deno.test('maps a provider failure to synthesis_failed without leaking detail', async () => {
   const synth: Synthesize = async () => {
     throw new SynthesisError('azure responded 401: secret detail');

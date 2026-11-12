@@ -54,6 +54,7 @@ functions).
 | `SUPABASE_PROJECT_REF`   | every job; the build derives the URL | dashboard → Project settings → General          |
 | `VITE_SUPABASE_ANON_KEY` | SPA build                            | dashboard → Project settings → API              |
 | `VITE_SENTRY_DSN`        | SPA build (embedded in the bundle)   | Sentry → project → Client Keys                  |
+| `VITE_PRIVACY_CONTACT_EMAIL` | SPA build (shown in the privacy policy) | the address that answers privacy requests |
 | `SENTRY_AUTH_TOKEN`      | SPA build, source-map upload         | Sentry org auth token, `project:releases` scope |
 | `SENTRY_ORG`             | SPA build, source-map upload         | Sentry org slug                                 |
 | `SENTRY_PROJECT`         | SPA build, source-map upload         | Sentry project slug                             |
@@ -147,18 +148,12 @@ supabase functions serve delete-account
 
 This is what `npm run test:e2e:delete-account` and CI rely on.
 
-`generate-voice` and `generate-image` need custom secrets. Put them in
-`supabase/functions/.env.local` (gitignored) and pass the file:
-
-```
-AZURE_SPEECH_KEY=…
-AZURE_SPEECH_REGION=northeurope
-```
-
-Then: `supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
-Without the secrets the function boots but every call returns
-`synthesis_failed`. `generate-image` works the same way with its three
-secrets; without them every call returns `generation_failed`.
+`generate-voice` and `generate-image` need custom secrets. Copy
+`supabase/functions/.env.example` to `supabase/functions/.env.local`
+(gitignored), fill it in, and pass the file:
+`supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
+Without the secrets each function boots but every call returns
+`not_configured`, and the app says that generation is not set up.
 
 ## Manual fallback if workflows are broken
 

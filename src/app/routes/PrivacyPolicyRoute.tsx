@@ -1,5 +1,11 @@
 import type { JSX } from 'react';
 
+const Contact = (): JSX.Element => {
+  const email: unknown = import.meta.env.VITE_PRIVACY_CONTACT_EMAIL;
+  if (typeof email !== 'string' || email === '') return <>the operator of this site</>;
+  return <a href={`mailto:${email}`}>{email}</a>;
+};
+
 export const PrivacyPolicyRoute = (): JSX.Element => (
   <main role="main" data-testid="privacy-policy-route">
     <h1>Privacy Policy</h1>
@@ -16,8 +22,7 @@ export const PrivacyPolicyRoute = (): JSX.Element => (
     <h2>1. Who we are</h2>
     <p>
       This service is operated by Nicolai Brodersen Hansen, as an individual. For privacy questions
-      or to exercise any of the rights described below, contact{' '}
-      <a href="mailto:nbhansen@gmail.com">nbhansen@gmail.com</a>.
+      or to exercise any of the rights described below, contact <Contact />.
     </p>
     <h2>2. What we collect</h2>
     <h3>Account data</h3>
@@ -112,8 +117,8 @@ export const PrivacyPolicyRoute = (): JSX.Element => (
         be undone (section 8).
       </li>
       <li>
-        <strong>Email:</strong> <a href="mailto:nbhansen@gmail.com">nbhansen@gmail.com</a>. The
-        operator commits to a 30-day response window for email deletion requests.
+        <strong>Email:</strong> <Contact />. The operator commits to a 30-day response window for
+        email deletion requests.
       </li>
     </ul>
     <h2>8. There is no restore</h2>
@@ -128,9 +133,8 @@ export const PrivacyPolicyRoute = (): JSX.Element => (
     </p>
     <h2>9. Data export (GDPR Article 20)</h2>
     <p>
-      To request a copy of your data, email{' '}
-      <a href="mailto:nbhansen@gmail.com">nbhansen@gmail.com</a>; we will respond within 30 days.
-      This process is manual until an in-app export ships.
+      To request a copy of your data, email <Contact />; we will respond within 30 days. This
+      process is manual until an in-app export ships.
     </p>
     <h2>10. Children's data</h2>
     <p>

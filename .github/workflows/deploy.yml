@@ -83,7 +83,7 @@ jobs:
           ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
       - run: npm run build
@@ -91,6 +91,7 @@ jobs:
           VITE_SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_PRIVACY_CONTACT_EMAIL: ${{ secrets.VITE_PRIVACY_CONTACT_EMAIL }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}

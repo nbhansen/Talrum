@@ -43,10 +43,13 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
       // Only a request that got no response blames the connection. Telling a
       // parent to check wifi that is fine sends them chasing the wrong thing.
       // Retry stays the advice either way: generation is non-deterministic.
+      const code = isGenerateImageError(err) ? err.code : null;
       setError(
-        isGenerateImageError(err) && err.code === 'network'
-          ? 'Could not generate an image. Check your connection and try again.'
-          : 'Image generation failed. Try again in a moment.',
+        code === 'not_configured'
+          ? 'Image generation is not set up on this server.'
+          : code === 'network'
+            ? 'Could not generate an image. Check your connection and try again.'
+            : 'Image generation failed. Try again in a moment.',
       );
     } finally {
       setBusy(null);

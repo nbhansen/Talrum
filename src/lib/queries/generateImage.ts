@@ -23,6 +23,7 @@ export const GENERATE_IMAGE_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
   'bad_request',
+  'not_configured',
   'generation_failed',
   'internal_error',
 ] as const;

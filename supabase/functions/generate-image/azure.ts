@@ -5,6 +5,7 @@
  * AZURE_OPENAI_IMAGE_DEPLOYMENT (the deployment name, gpt-image-1).
  */
 
+import { NotConfiguredError } from '../_shared/generateHandler.ts';
 import { type GenerateImage, GenerationError } from './types.ts';
 
 const API_VERSION = '2025-04-01-preview';
@@ -27,7 +28,7 @@ export const generateWithAzure: GenerateImage = async (prompt) => {
   const endpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
   const deployment = Deno.env.get('AZURE_OPENAI_IMAGE_DEPLOYMENT');
   if (!key || !endpoint || !deployment) {
-    throw new GenerationError(
+    throw new NotConfiguredError(
       'AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_IMAGE_DEPLOYMENT must be set',
     );
   }

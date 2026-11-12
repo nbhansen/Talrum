@@ -85,6 +85,19 @@ Deno.test('rejects a language outside the closed set', async () => {
   }
 });
 
+Deno.test('answers not_configured when the Azure variables are absent (#687)', async () => {
+  for (const name of [
+    'AZURE_OPENAI_KEY',
+    'AZURE_OPENAI_ENDPOINT',
+    'AZURE_OPENAI_IMAGE_DEPLOYMENT',
+  ]) {
+    Deno.env.delete(name);
+  }
+  const res = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin);
+  assertEquals(res.status, 503);
+  assertEquals((await res.json()).error, 'not_configured');
+});
+
 Deno.test('maps a provider failure to generation_failed without leaking detail', async () => {
   const generate: GenerateImage = async () => {
     throw new GenerationError('azure responded 401: secret detail');

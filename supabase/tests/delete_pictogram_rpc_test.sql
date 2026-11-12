@@ -1,5 +1,6 @@
--- delete_pictogram RPC (#280): server-side scrub + delete in one
--- transaction; SECURITY INVOKER, so RLS makes a stranger's call a no-op.
+-- delete_pictogram RPC (#280): deletes the row, and the
+-- pictograms_scrub_step_ids trigger scrubs step_ids in the same transaction
+-- (#675). SECURITY INVOKER, so RLS makes a stranger's call a no-op.
 -- Run with: supabase test db
 BEGIN;
 SELECT plan(8);
@@ -29,7 +30,7 @@ GRANT SELECT ON expected TO authenticated;
 SELECT cmp_ok((SELECT boards FROM expected), '>', 0,
   'setup: Alice has at least one seeded board to scrub');
 
--- ── 1-2. A stranger's call is a no-op (RLS floor) ──────────────────────────
+-- ── 2-3. A stranger's call is a no-op (RLS floor) ──────────────────────────
 
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO
@@ -50,7 +51,7 @@ SELECT is(
   'stranger call leaves board references intact'
 );
 
--- ── 3-5. The owner's call scrubs and deletes atomically ────────────────────
+-- ── 4-6. The owner's call scrubs and deletes atomically ────────────────────
 
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO
@@ -77,7 +78,7 @@ SELECT is(
   'owner call scrubs every step_ids reference (including duplicates)'
 );
 
--- ── 6-7. An editor's call scrubs boards the editor cannot see (#675) ───────
+-- ── 7-8. An editor's call scrubs boards the editor cannot see (#675) ───────
 
 INSERT INTO public.pictograms (id, owner_id, label, style, glyph, tint)
 VALUES ('dddddddd-0000-4000-8000-000000000675',
