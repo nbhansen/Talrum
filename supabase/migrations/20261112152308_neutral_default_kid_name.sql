@@ -1,0 +1,62 @@
+-- A new account got a kid named after the first operator's child (#686).
+-- The body is the 20260517120000 one; only the name differs. Existing kids
+-- keep their names.
+
+create or replace function private.handle_new_user() returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_kid_id       uuid;
+  tp             record;
+  tb             record;
+  slug_to_uuid   jsonb := '{}'::jsonb;
+  new_picto_id   uuid;
+  remapped_steps uuid[];
+begin
+  if exists (select 1 from public.kids where owner_id = new.id) then
+    return new;
+  end if;
+
+  insert into public.kids (owner_id, name)
+  values (new.id, 'My child')
+  returning id into v_kid_id;
+
+  for tp in select * from public.template_pictograms loop
+    insert into public.pictograms
+      (owner_id, slug, label, style, glyph, tint, image_path, audio_path)
+    values
+      (new.id, tp.slug, tp.label, tp.style, tp.glyph, tp.tint, tp.image_path, tp.audio_path)
+    returning id into new_picto_id;
+    slug_to_uuid := slug_to_uuid || jsonb_build_object(tp.slug, new_picto_id::text);
+  end loop;
+
+  for tb in select * from public.template_boards loop
+    -- `with ordinality` + `order by` pins step order: bare `unnest` has no
+    -- order guarantee. Board step order is user-facing (morning routine),
+    -- so we can't rely on planner behavior.
+    remapped_steps := array(
+      select (slug_to_uuid ->> s)::uuid
+      from unnest(tb.step_slugs) with ordinality as t(s, ord)
+      where slug_to_uuid ? s
+      order by t.ord
+    );
+    -- Raise loudly if a template_boards slug doesn't resolve. Silent short
+    -- boards would mask drift between template_pictograms and template_boards.
+    if coalesce(array_length(remapped_steps, 1), 0)
+       <> coalesce(array_length(tb.step_slugs, 1), 0) then
+      raise exception
+        'handle_new_user: template_boards.slug=% references unknown pictogram slugs in %',
+        tb.slug, tb.step_slugs;
+    end if;
+    insert into public.boards
+      (owner_id, kid_id, slug, name, kind, labels_visible, voice_mode,
+       step_ids, kid_reorderable, accent)
+    values
+      (new.id, v_kid_id, tb.slug, tb.name, tb.kind, tb.labels_visible, tb.voice_mode,
+       remapped_steps, tb.kid_reorderable, tb.accent);
+  end loop;
+
+  return new;
+end;
+$$;
