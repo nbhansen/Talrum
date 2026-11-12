@@ -78,9 +78,11 @@ describe('Reorderable', () => {
     render(
       <Reorderable
         items={[{ id: 'a', label: 'Alpha' }]}
+        handle
         onReorder={() => undefined}
         renderItem={(item, _i, drag) => (
-          <div key={item.id} ref={drag.setNodeRef} {...drag.attributes} {...drag.listeners}>
+          <div key={item.id} ref={drag.setNodeRef} {...drag.listeners}>
+            <span ref={drag.setHandleRef} {...drag.attributes} aria-label="Reorder" />
             <button type="button" onClick={onRemove}>
               Remove {item.label}
             </button>
