@@ -102,7 +102,9 @@ describe('PictogramGenerate · generate flow', () => {
     await waitFor(() => {
       expect(container.querySelector('img[src="blob:preview"]')).toBeInTheDocument();
     });
-    expect(invokeMock).toHaveBeenCalledWith('generate-image', { body: { label: 'Vente' } });
+    expect(invokeMock).toHaveBeenCalledWith('generate-image', {
+      body: { label: 'Vente', language: 'en' },
+    });
     // The crop input is the decoded generated blob, not the raw envelope.
     const cropInput = cropMock.mock.calls[0]?.[0] as Blob;
     expect(cropInput.type).toBe('image/jpeg');

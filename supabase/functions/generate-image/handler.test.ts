@@ -28,7 +28,11 @@ Deno.test('returns the provider image as a base64 JSON envelope on success', asy
     got = prompt;
     return { bytes: new Uint8Array([9, 9]), mimeType: 'image/jpeg' };
   };
-  const res = await handleRequest(request({ label: ' spise ' }), goodAdmin, generate);
+  const res = await handleRequest(
+    request({ label: ' spise ', language: 'da' }),
+    goodAdmin,
+    generate,
+  );
   assertEquals(res.status, 200);
   assertEquals(res.headers.get('access-control-allow-origin'), '*');
   // JSON, deliberately: supabase-js reads image/* responses as text and
@@ -37,7 +41,7 @@ Deno.test('returns the provider image as a base64 JSON envelope on success', asy
   const body = await res.json();
   assertEquals(body, { ok: true, mimeType: 'image/jpeg', imageBase64: btoa('\x09\x09') });
   // Trimmed and passed through the style template before the provider sees it.
-  assertEquals(got, buildImagePrompt('spise'));
+  assertEquals(got, buildImagePrompt('spise', 'da'));
 });
 
 Deno.test('every prompt goes through the fixed style template (#422)', async () => {
@@ -46,7 +50,7 @@ Deno.test('every prompt goes through the fixed style template (#422)', async () 
     got = prompt;
     return { bytes: new Uint8Array([1]), mimeType: 'image/jpeg' };
   };
-  await handleRequest(request({ label: 'i morgen' }), goodAdmin, generate);
+  await handleRequest(request({ label: 'i morgen', language: 'da' }), goodAdmin, generate);
   const prompt = got as unknown as string;
   assertStringIncludes(prompt, 'i morgen');
   assertStringIncludes(prompt, 'Flat vector illustration style');
@@ -56,6 +60,29 @@ Deno.test('every prompt goes through the fixed style template (#422)', async () 
   // short Danish phrases as English ("i bad" → a sad child, not a bath).
   assertStringIncludes(prompt, 'usually Danish');
   assertStringIncludes(prompt, '"i morgen"');
+});
+
+Deno.test('the prompt names the language of the account (#686)', async () => {
+  let got: string | null = null;
+  const generate: GenerateImage = async (prompt) => {
+    got = prompt;
+    return { bytes: new Uint8Array([1]), mimeType: 'image/jpeg' };
+  };
+  await handleRequest(request({ label: 'bath', language: 'en' }), goodAdmin, generate);
+  const prompt = got as unknown as string;
+  assertStringIncludes(prompt, 'usually English');
+  assertEquals(prompt.includes('Danish'), false);
+});
+
+Deno.test('rejects a language outside the closed set', async () => {
+  const generate: GenerateImage = async () => {
+    throw new Error('the provider must not run');
+  };
+  for (const body of [{ label: 'spise' }, { label: 'spise', language: 'fr' }]) {
+    const res = await handleRequest(request(body), goodAdmin, generate);
+    assertEquals(res.status, 400);
+    assertEquals((await res.json()).error, 'bad_request');
+  }
 });
 
 Deno.test('answers not_configured when the Azure variables are absent (#687)', async () => {
@@ -75,7 +102,7 @@ Deno.test('maps a provider failure to generation_failed without leaking detail',
   const generate: GenerateImage = async () => {
     throw new GenerationError('azure responded 401: secret detail');
   };
-  const res = await handleRequest(request({ label: 'spise' }), goodAdmin, generate);
+  const res = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin, generate);
   assertEquals(res.status, 502);
   const body = await res.json();
   assertEquals(body.error, 'generation_failed');

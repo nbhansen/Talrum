@@ -31,7 +31,7 @@ const wrapper = ({ children }: { children: ReactNode }): React.ReactElement =>
 
 const runMutation = async (): Promise<InstanceType<typeof CodedError<string>>> => {
   const { result } = renderHook(() => useGenerateImage(), { wrapper });
-  result.current.mutate({ label: 'spise' });
+  result.current.mutate({ label: 'spise', language: 'da' });
   await waitFor(() => {
     expect(result.current.isError).toBe(true);
   });
@@ -50,7 +50,7 @@ describe('useGenerateImage envelope decoding', () => {
       error: null,
     });
     const { result } = renderHook(() => useGenerateImage(), { wrapper });
-    result.current.mutate({ label: 'spise' });
+    result.current.mutate({ label: 'spise', language: 'da' });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
