@@ -36,14 +36,15 @@ export const StepTile = ({
   // object because of the `setNodeRef` name; this is the documented dnd-kit usage.
   /* eslint-disable react-hooks/refs */
   return (
-    <div
-      ref={drag.setNodeRef}
-      className={styles.step}
-      style={drag.style}
-      {...drag.attributes}
-      {...drag.listeners}
-    >
-      <div className={styles.marker}>{marker}</div>
+    <div ref={drag.setNodeRef} className={styles.step} style={drag.style} {...drag.listeners}>
+      <div
+        ref={drag.setHandleRef}
+        className={styles.marker}
+        {...drag.attributes}
+        aria-label={`Reorder ${picto.label}`}
+      >
+        {marker}
+      </div>
       <div className={styles.body}>
         <PictoCard picto={picto} size={116} showLabel={labelsVisible} />
       </div>

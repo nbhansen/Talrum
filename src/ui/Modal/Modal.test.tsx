@@ -182,6 +182,24 @@ describe('Modal focus (#680)', () => {
     expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus();
   });
 
+  it('wraps Tab when the last match is a hidden input (#718)', async () => {
+    render(
+      <Modal onClose={vi.fn()} labelledBy="t16" size="sm">
+        <h2 id="t16">Dialog 16</h2>
+        <button type="button">First</button>
+        <button type="button">Last</button>
+        <div style={{ display: 'none' }}>
+          <input type="file" aria-label="File" />
+        </div>
+      </Modal>,
+    );
+    screen.getByRole('button', { name: 'Last' }).focus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus();
+  });
+
   it('keeps Tab inside the top dialog when modals nest', async () => {
     render(
       <Modal onClose={vi.fn()} labelledBy="t14" size="full">

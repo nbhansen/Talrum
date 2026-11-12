@@ -8,6 +8,14 @@ type ModalSize = 'sm' | 'md' | 'full';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// A `display: none` element matches FOCUSABLE but cannot take focus (#718).
+const isDisplayed = (el: HTMLElement, root: HTMLElement): boolean => {
+  for (let node: HTMLElement | null = el; node && node !== root; node = node.parentElement) {
+    if (getComputedStyle(node).display === 'none') return false;
+  }
+  return true;
+};
+
 interface ModalProps {
   onClose: () => void;
   children: ReactNode;
@@ -42,7 +50,9 @@ export const Modal = ({
         onClose();
         return;
       }
-      const items = dialog.querySelectorAll<HTMLElement>(FOCUSABLE);
+      const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) =>
+        isDisplayed(el, dialog),
+      );
       const first = items[0];
       const last = items[items.length - 1];
       const active = document.activeElement;
