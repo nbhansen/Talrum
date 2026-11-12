@@ -24,6 +24,8 @@ interface Identified {
 
 export interface DragBindings {
   setNodeRef: (node: HTMLElement | null) => void;
+  /** With `handle`: put this and `attributes` on the handle element. */
+  setHandleRef: (node: HTMLElement | null) => void;
   style: CSSProperties;
   attributes: ReturnType<typeof useSortable>['attributes'];
   listeners: ReturnType<typeof useSortable>['listeners'];
@@ -34,6 +36,8 @@ interface ReorderableProps<T extends Identified> {
   items: readonly T[];
   onReorder: (nextIds: string[]) => void;
   renderItem: (item: T, index: number, drag: DragBindings) => ReactNode;
+  /** Set when an item holds buttons, so the item itself has no button role (#728). */
+  handle?: boolean;
 }
 
 /**
@@ -44,6 +48,7 @@ export const Reorderable = <T extends Identified>({
   items,
   onReorder,
   renderItem,
+  handle = false,
 }: ReorderableProps<T>): JSX.Element => {
   const keys = items.map((item) => item.id);
   const sensors = useSensors(
@@ -65,7 +70,7 @@ export const Reorderable = <T extends Identified>({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={keys} strategy={rectSortingStrategy}>
         {items.map((item, i) => (
-          <SortableItem key={keys[i]} itemKey={keys[i] ?? item.id}>
+          <SortableItem key={keys[i]} itemKey={keys[i] ?? item.id} handle={handle}>
             {(drag) => renderItem(item, i, drag)}
           </SortableItem>
         ))}
@@ -76,10 +81,11 @@ export const Reorderable = <T extends Identified>({
 
 interface SortableItemProps {
   itemKey: string;
+  handle: boolean;
   children: (drag: DragBindings) => ReactNode;
 }
 
-const SortableItem = ({ itemKey, children }: SortableItemProps): JSX.Element => {
+const SortableItem = ({ itemKey, handle, children }: SortableItemProps): JSX.Element => {
   const {
     setNodeRef: setSortableRef,
     setActivatorNodeRef,
@@ -93,14 +99,25 @@ const SortableItem = ({ itemKey, children }: SortableItemProps): JSX.Element => 
   const setNodeRef = useCallback(
     (node: HTMLElement | null): void => {
       setSortableRef(node);
-      setActivatorNodeRef(node);
+      if (!handle) setActivatorNodeRef(node);
     },
-    [setSortableRef, setActivatorNodeRef],
+    [setSortableRef, setActivatorNodeRef, handle],
   );
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
   };
-  return <>{children({ setNodeRef, style, attributes, listeners, isDragging })}</>;
+  return (
+    <>
+      {children({
+        setNodeRef,
+        setHandleRef: setActivatorNodeRef,
+        style,
+        attributes,
+        listeners,
+        isDragging,
+      })}
+    </>
+  );
 };
