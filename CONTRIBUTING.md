@@ -33,6 +33,7 @@ commit the migration and `src/types/supabase.ts` together.
   able to explain each line. Do not put AI-session links or AI co-author
   trailers in commits or in the pull request text; `pr-hygiene` rejects them.
 - The maintainer squash-merges.
+- Your contribution has the same license as the project (AGPL-3.0).
 
 [AGENTS.md](./AGENTS.md) has the full code rules. They apply to people too.
 

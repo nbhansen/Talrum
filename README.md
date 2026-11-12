@@ -250,3 +250,11 @@ See [AGENTS.md](./AGENTS.md) for the full operating rules.
 
 To contribute, read [CONTRIBUTING.md](./CONTRIBUTING.md) first. Report a
 security defect in private: [SECURITY.md](./SECURITY.md).
+
+## License
+
+Copyright (C) 2026 Nicolai Brodersen Hansen.
+
+Talrum is free software under the GNU Affero General Public License, version
+3 ([LICENSE](./LICENSE)). If you run a changed copy as a service for other
+people, you must offer them your source code.
