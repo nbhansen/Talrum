@@ -65,9 +65,8 @@ console.error = (...args: unknown[]): void => {
 };
 
 // Each test's final DOM must pass axe (#684). Off: color-contrast and region
-// (jsdom has no layout; tests render fragments), nested-interactive (#728),
-// image-redundant-alt (#729).
-const AXE_OFF = ['color-contrast', 'region', 'nested-interactive', 'image-redundant-alt'];
+// (jsdom has no layout; tests render fragments), nested-interactive (#728).
+const AXE_OFF = ['color-contrast', 'region', 'nested-interactive'];
 
 // Module-level caches in storage, outbox/drain and speech outlive an `it()`
 // block, a flake class whose failure depends on test order (#144, #168). One

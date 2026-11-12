@@ -81,6 +81,7 @@ const SequenceTile = ({
           picto={step.picto}
           size={isCurrent ? CURRENT_MEDIA_SIZE : MEDIA_SIZE}
           className={styles.media}
+          labelShown
         />
         <div
           className={[styles.speakBadge, isSpeaking && styles.speakBadgeActive]
