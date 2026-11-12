@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { clearPin, hasPin, pinGateDisabled, setPin, subscribePin, verifyPin } from '@/lib/pin';
+import { captureException } from '@/lib/platform/telemetry';
 import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
 import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/PinPad/PinPad';
@@ -45,7 +46,10 @@ export const PinManagementSection = ({
   };
 
   const handleVerify = async (pin: string): Promise<boolean> => {
-    const ok = await verifyPin(pin);
+    const ok = await verifyPin(pin).catch((err: unknown) => {
+      captureException(err, { tags: { component: 'PinManagementSection', op: 'verifyPin' } });
+      throw new Error('Talrum cannot check the PIN on this device. Reload the page and try again.');
+    });
     if (ok) setModal({ kind: 'pin', stage: 'enter-new' });
     return ok;
   };

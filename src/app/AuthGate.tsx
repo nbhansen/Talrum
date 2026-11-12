@@ -16,7 +16,7 @@ import { SessionProvider } from './SessionProvider';
 
 type AuthState =
   | { status: 'loading' }
-  | { status: 'error'; message: string }
+  | { status: 'error' }
   | { status: 'out' }
   | { status: 'in'; session: Session };
 
@@ -90,8 +90,8 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       })
       .catch((err: unknown) => {
         if (cancelled || sawAuthEvent) return;
-        const message = err instanceof Error ? err.message : 'Could not reach auth service.';
-        setState({ status: 'error', message });
+        captureException(err, { tags: { component: 'AuthGate', op: 'getSession' } });
+        setState({ status: 'error' });
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       sawAuthEvent = true;
@@ -117,7 +117,7 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
   const retry = useCallback(() => setRetryCount((n) => n + 1), []);
 
   if (state.status === 'loading') return <AuthGateLoading />;
-  if (state.status === 'error') return <AuthGateError message={state.message} onRetry={retry} />;
+  if (state.status === 'error') return <AuthGateError onRetry={retry} />;
   if (state.status === 'out') {
     // No SessionProvider on this branch, so anything routed here must not call
     // a session hook.
@@ -175,16 +175,10 @@ const AuthGateLoading = (): JSX.Element => {
   );
 };
 
-const AuthGateError = ({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}): JSX.Element => (
+const AuthGateError = ({ onRetry }: { onRetry: () => void }): JSX.Element => (
   <div className={styles.error}>
     <h1 className={styles.errorTitle}>Could not reach the server</h1>
-    <p className={styles.errorBody}>{message}</p>
+    <p className={styles.errorBody}>Talrum could not start your session.</p>
     <AuthGateOfflineHint />
     <button type="button" onClick={onRetry} className={styles.errorRetry}>
       Retry
