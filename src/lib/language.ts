@@ -14,26 +14,31 @@ export const isAppLanguage = (v: unknown): v is AppLanguage =>
 /** Primary BCP-47 subtag, lowercased: 'da-DK', 'da_DK' (Android), 'da' → 'da'. */
 export const primarySubtag = (lang: string): string => lang.toLowerCase().split(/[-_]/)[0] ?? '';
 
-// Blocked storage: the choice still applies for this page.
+// Set only after a failed write, so it is newer than the stored value.
 let pagePref: AppLanguage | null = null;
 
 /** The parent's choice, or null before the first choice on this device. */
 export const getLanguagePref = (): AppLanguage | null => {
+  if (pagePref) return pagePref;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return isAppLanguage(raw) ? raw : null;
   } catch {
-    return pagePref;
+    return null;
   }
 };
 
 export const setLanguagePref = (lang: AppLanguage): void => {
-  pagePref = lang;
   try {
     localStorage.setItem(STORAGE_KEY, lang);
+    pagePref = null;
   } catch {
-    // ignore quota / privacy mode errors — feature is best-effort
+    pagePref = lang;
   }
+};
+
+export const __resetLanguageForTests = (): void => {
+  pagePref = null;
 };
 
 /**
