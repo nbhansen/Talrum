@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getAppLanguage, getLanguagePref, setLanguagePref } from './language';
+import {
+  __resetLanguageForTests,
+  getAppLanguage,
+  getLanguagePref,
+  setLanguagePref,
+} from './language';
 
 const stubDeviceLocale = (locale: string): void => {
   vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(locale);
@@ -8,6 +13,7 @@ const stubDeviceLocale = (locale: string): void => {
 
 beforeEach(() => {
   window.localStorage.removeItem('talrum:language');
+  __resetLanguageForTests();
 });
 
 afterEach(() => {
@@ -35,6 +41,14 @@ describe('language pref storage', () => {
     });
     vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError');
+    });
+    setLanguagePref('da');
+    expect(getLanguagePref()).toBe('da');
+  });
+
+  it('keeps the choice for this page when only the write fails (#747)', () => {
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
     });
     setLanguagePref('da');
     expect(getLanguagePref()).toBe('da');
