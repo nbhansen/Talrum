@@ -32,7 +32,7 @@ VALUES
   ('11111111-1111-1111-1111-111111111111', 'a@example.test'),
   ('22222222-2222-2222-2222-222222222222', 'b@example.test');
 
--- 1–2: each user gets exactly one kid named "Liam".
+-- 1–2: each user gets exactly one kid named "My child".
 SELECT is(
   (SELECT count(*)::int FROM public.kids WHERE owner_id = '11111111-1111-1111-1111-111111111111'),
   1,
@@ -40,8 +40,8 @@ SELECT is(
 );
 SELECT is(
   (SELECT name FROM public.kids WHERE owner_id = '22222222-2222-2222-2222-222222222222'),
-  'Liam',
-  'user B kid is named Liam'
+  'My child',
+  'user B kid is named My child'
 );
 
 -- 3–4: pictogram counts match the template library, per-user.
