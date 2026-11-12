@@ -130,6 +130,10 @@ Mobile clients use the Supabase SDK and hit the same project.
    ```
 3. In GitHub _Settings → Secrets and variables → Actions_ add every secret in
    [docs/runbooks/deploy.md](./docs/runbooks/deploy.md#required-github-secrets).
+   `VITE_PRIVACY_CONTACT_EMAIL` is the contact address in the privacy policy.
+   The policy text in `src/app/routes/PrivacyPolicyRoute.tsx` names the
+   operator of the original deployment. Review that text and change it for
+   your deployment.
 
 4. Create the Cloudflare Pages project (`talrum`). Leave its build settings
    empty — Pages is used purely as static hosting. CI runs `npm run build`
