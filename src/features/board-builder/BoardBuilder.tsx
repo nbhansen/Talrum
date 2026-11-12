@@ -200,6 +200,7 @@ export const BoardBuilder = ({
         <div className={styles.trackRow}>
           <div className={`${styles.rail} tal-scroll`}>
             <Reorderable
+              handle
               items={steps}
               onReorder={reorder}
               renderItem={(step, i, drag) => (
