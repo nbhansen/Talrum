@@ -6,7 +6,7 @@
 
 // Relative (not @/lib) imports: vitest.setup.ts imports this module, and
 // tsconfig.node.json has no @ path alias. Same constraint as storage-cache.ts.
-import { getVoiceLanguage, primarySubtag } from '../language';
+import { getAppLanguage, primarySubtag } from '../language';
 import { getSpeechPrefs } from '../speechPrefs';
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
@@ -17,10 +17,8 @@ const getSynth = (): SpeechSynthesis | null =>
   typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 
 /**
- * Default-voice heuristic: prefer the target language (chosen app language,
- * else device locale — a Danish household's iPad should read Danish labels
- * with a Danish voice, #304), then English (the app's own copy), then
- * anything.
+ * Default-voice heuristic: prefer the chosen app language (#304), then
+ * English (the app's own copy), then anything.
  */
 const pickVoice = (
   voices: readonly SpeechSynthesisVoice[],
@@ -36,7 +34,7 @@ const pickVoice = (
 };
 
 const ensureVoice = (synth: SpeechSynthesis): void => {
-  const targetLang = getVoiceLanguage();
+  const targetLang = getAppLanguage();
   if (cachedVoice && cachedVoiceLang === targetLang) return;
   const voices = synth.getVoices();
   if (voices.length > 0) {
@@ -49,7 +47,7 @@ const ensureVoice = (synth: SpeechSynthesis): void => {
   synth.addEventListener(
     'voiceschanged',
     () => {
-      const lang = getVoiceLanguage();
+      const lang = getAppLanguage();
       cachedVoice = pickVoice(synth.getVoices(), lang);
       cachedVoiceLang = lang;
     },

@@ -11,33 +11,21 @@ beforeEach(() => {
 });
 
 describe('LanguageSection', () => {
-  it('defaults to Automatic when no pref is stored', () => {
+  it('offers only Dansk and English (#745)', () => {
+    window.localStorage.setItem('talrum:language', 'da');
     render(<LanguageSection />);
     const select = screen.getByLabelText(/language/i) as HTMLSelectElement;
-    expect(select.value).toBe('');
-    expect(screen.getByRole('option', { name: /automatic/i })).toBeInTheDocument();
+    expect(select.value).toBe('da');
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(['Dansk', 'English']);
   });
 
-  it('persists an explicit choice', async () => {
-    const user = userEvent.setup();
-    render(<LanguageSection />);
-
-    await user.selectOptions(screen.getByLabelText(/language/i), 'da');
-
-    expect(getLanguagePref()).toBe('da');
-  });
-
-  it('reflects a stored pref on mount and can return to Automatic', async () => {
+  it('persists a new choice', async () => {
     window.localStorage.setItem('talrum:language', 'da');
     const user = userEvent.setup();
     render(<LanguageSection />);
 
-    const select = screen.getByLabelText(/language/i) as HTMLSelectElement;
-    expect(select.value).toBe('da');
+    await user.selectOptions(screen.getByLabelText(/language/i), 'en');
 
-    await user.selectOptions(select, '');
-
-    expect(getLanguagePref()).toBeNull();
-    expect(window.localStorage.getItem('talrum:language')).toBeNull();
+    expect(getLanguagePref()).toBe('en');
   });
 });

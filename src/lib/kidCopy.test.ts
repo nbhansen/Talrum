@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { getKidCopy } from './kidCopy';
 import { setLanguagePref } from './language';
@@ -7,23 +7,14 @@ beforeEach(() => {
   window.localStorage.removeItem('talrum:language');
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe('getKidCopy', () => {
-  it('serves English copy by default (en device locale, no pref)', () => {
+  it('serves English copy when no language is stored', () => {
     expect(getKidCopy().choice.title).toBe('Pick one');
   });
 
   it('serves Danish copy when the language pref is da (#304)', () => {
     setLanguagePref('da');
     expect(getKidCopy().emptyBoard.title).toBe('Denne tavle er tom');
-  });
-
-  it('serves Danish copy on a Danish-locale device with no pref', () => {
-    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('da-DK');
-    expect(getKidCopy().choice.title).toBe('Vælg ét');
   });
 
   it('interpolates the picked label into the confirm CTA in both languages', () => {
