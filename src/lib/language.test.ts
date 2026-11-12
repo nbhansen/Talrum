@@ -53,6 +53,15 @@ describe('language pref storage', () => {
     setLanguagePref('da');
     expect(getLanguagePref()).toBe('da');
   });
+
+  it('lets a failed write of a new choice win over the stored choice', () => {
+    setLanguagePref('en');
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    setLanguagePref('da');
+    expect(getLanguagePref()).toBe('da');
+  });
 });
 
 describe('getAppLanguage()', () => {
