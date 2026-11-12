@@ -34,7 +34,7 @@ export const PinPad = ({
 }: PinPadProps): JSX.Element => {
   const lockedUntil = lock?.until ?? 0;
   const [digits, setDigits] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; lockedUntil: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const locked = lockedUntil > now;
@@ -57,11 +57,14 @@ export const PinPad = ({
     setBusy(true);
     try {
       if (!(await onSubmit(pin))) {
-        setError(errorMessage ?? 'Wrong PIN');
+        setError({ text: errorMessage ?? 'Wrong PIN', lockedUntil });
         setDigits('');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+      setError({
+        text: err instanceof Error ? err.message : 'Something went wrong. Try again.',
+        lockedUntil,
+      });
       setDigits('');
     } finally {
       setBusy(false);
@@ -94,11 +97,10 @@ export const PinPad = ({
         titleId={PIN_PAD_TITLE_ID}
         onClose={onCancel}
       />
-      <div
-        className={styles.dots}
-        role="img"
-        aria-label={`${digits.length} of ${PIN_LENGTH} digits entered`}
-      >
+      <div className={styles.dots} role="status">
+        <span className={styles.count}>
+          {digits.length} of {PIN_LENGTH} digits entered
+        </span>
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
@@ -123,7 +125,10 @@ export const PinPad = ({
         ))}
       </div>
       <div className={styles.error}>
-        <span role="alert">{locked ? '' : (error ?? '')}</span>
+        {/* An error from before a new lock is stale when that lock ends (#726). */}
+        <span role="alert">
+          {error && !locked && error.lockedUntil === lockedUntil ? error.text : ''}
+        </span>
         {locked && lock && (
           // A timer, not the alert: the alert would read each tick aloud. Clamped
           // to the lock ceiling, because the first locked paint holds a `now`

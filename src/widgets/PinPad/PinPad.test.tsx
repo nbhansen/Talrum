@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { JSX } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PinPad } from './PinPad';
@@ -24,13 +25,35 @@ describe('PinPad announcements (#683)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong PIN');
   });
 
-  it('gives the count of entered digits', async () => {
+  it('reads the count of entered digits after each key (#727)', async () => {
     const user = userEvent.setup();
     renderPad();
-    expect(screen.getByRole('img', { name: '0 of 4 digits entered' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '1' }));
     await user.click(screen.getByRole('button', { name: '2' }));
-    expect(screen.getByRole('img', { name: '2 of 4 digits entered' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 4 digits entered');
+  });
+
+  it('does not show a wrong PIN again when the lock ends (#726)', async () => {
+    const user = userEvent.setup();
+    const message = (s: number): string => `Wait ${s}s`;
+    const view = (lock?: { until: number; message: typeof message }): JSX.Element => (
+      <PinPad
+        title="Enter PIN"
+        subtitle="Parents only"
+        onSubmit={() => Promise.resolve(false)}
+        onCancel={vi.fn()}
+        {...(lock ? { lock } : {})}
+      />
+    );
+    const { rerender } = render(view());
+    for (const d of '1111') await user.click(screen.getByRole('button', { name: d }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong PIN');
+
+    rerender(view({ until: Date.now() + 300, message }));
+    expect(screen.getByRole('timer')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('timer')).not.toBeInTheDocument());
+
+    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
   });
 
   // A countdown in the alert would be read aloud again on each tick.
