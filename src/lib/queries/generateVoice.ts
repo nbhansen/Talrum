@@ -25,6 +25,7 @@ export const GENERATE_VOICE_ERROR_CODES = [
   'unauthorized',
   'method_not_allowed',
   'bad_request',
+  'not_configured',
   'synthesis_failed',
   'internal_error',
 ] as const;

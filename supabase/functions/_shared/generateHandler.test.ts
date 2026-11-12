@@ -5,6 +5,7 @@ import {
   type GenerateConfig,
   handleGenerate,
   MAX_LABEL_LENGTH,
+  NotConfiguredError,
 } from './generateHandler.ts';
 
 class StubProviderError extends Error {}
@@ -176,6 +177,20 @@ Deno.test('maps a provider failure to the configured code without leaking detail
   const body = await res.json();
   assertEquals(body.error, 'provider_failed');
   assertEquals(body.message.includes('secret detail'), false);
+});
+
+Deno.test('maps a provider with no credentials to not_configured (#687)', async () => {
+  const res = await handleGenerate(
+    request({ label: 'spise' }),
+    goodAdmin,
+    config({
+      run: async () => {
+        throw new NotConfiguredError('STUB_KEY must be set');
+      },
+    }),
+  );
+  assertEquals(res.status, 503);
+  assertEquals(await errorCode(res), 'not_configured');
 });
 
 Deno.test('maps any other throw to internal_error', async () => {

@@ -6,6 +6,11 @@ import { hasPin, setPin } from '@/lib/pin';
 
 import { PinManagementSection } from './PinManagementSection';
 
+const captureExceptionMock = vi.fn();
+vi.mock('@/lib/platform/telemetry', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
+}));
+
 const enterPin = async (user: ReturnType<typeof userEvent.setup>, pin: string): Promise<void> => {
   for (const digit of pin) {
     await user.click(screen.getByRole('button', { name: digit }));
@@ -75,6 +80,26 @@ describe('PinManagementSection', () => {
       expect(screen.getByRole('button', { name: '1' })).toBeEnabled();
     } finally {
       setItem.mockRestore();
+    }
+  });
+
+  it('shows fixed copy and reports when the device cannot check the PIN (#715)', async () => {
+    const user = userEvent.setup();
+    await setPin('1234');
+    const failure = new Error('digest exploded');
+    const digest = vi.spyOn(crypto.subtle, 'digest').mockRejectedValueOnce(failure);
+    try {
+      render(<PinManagementSection />);
+      await user.click(screen.getByRole('button', { name: /change pin/i }));
+      await enterPin(user, '1234');
+
+      expect(await screen.findByText(/cannot check the PIN on this device/i)).toBeInTheDocument();
+      expect(screen.queryByText(/digest exploded/)).not.toBeInTheDocument();
+      expect(captureExceptionMock).toHaveBeenCalledWith(failure, {
+        tags: { component: 'PinManagementSection', op: 'verifyPin' },
+      });
+    } finally {
+      digest.mockRestore();
     }
   });
 

@@ -87,7 +87,8 @@ describe('AuthGate', () => {
   });
 
   it('shows an error screen with Retry when getSession rejects', async () => {
-    getSessionMock.mockRejectedValueOnce(new Error('fetch failed: net::ERR'));
+    const failure = new Error('fetch failed: net::ERR');
+    getSessionMock.mockRejectedValueOnce(failure);
     render(
       <AuthGate>
         <div>app body</div>
@@ -96,7 +97,11 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(screen.getByText('Could not reach the server')).toBeInTheDocument();
     });
-    expect(screen.getByText('fetch failed: net::ERR')).toBeInTheDocument();
+    expect(screen.getByText('Talrum could not start your session.')).toBeInTheDocument();
+    expect(screen.queryByText(/fetch failed/)).not.toBeInTheDocument();
+    expect(captureExceptionMock).toHaveBeenCalledWith(failure, {
+      tags: { component: 'AuthGate', op: 'getSession' },
+    });
     expect(screen.queryByText('app body')).not.toBeInTheDocument();
 
     getSessionMock.mockResolvedValueOnce({ data: { session: null } });
@@ -106,12 +111,23 @@ describe('AuthGate', () => {
     });
   });
 
-  it('swaps the spinner for an offline hint after 5s if getSession hangs while offline (#30)', async () => {
-    const originalOnline = navigator.onLine;
-    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
-    getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
+  describe('getSession hangs while offline', () => {
+    const renderHungOffline = async (): Promise<ReturnType<typeof vi.fn>> => {
+      const originalOnline = navigator.onLine;
+      const originalLocation = window.location;
+      const reload = vi.fn();
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: { ...window.location, reload },
+      });
+      getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      onTestFinished(() => {
+        vi.useRealTimers();
+        Object.defineProperty(navigator, 'onLine', { value: originalOnline, configurable: true });
+        Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+      });
       render(
         <AuthGate>
           <div>app body</div>
@@ -121,14 +137,27 @@ describe('AuthGate', () => {
       act(() => {
         vi.advanceTimersByTime(5000);
       });
-      await waitFor(() => {
-        expect(screen.getByText("You're offline")).toBeInTheDocument();
+      await screen.findByText("You're offline");
+      return reload;
+    };
+
+    it('reloads the page from the offline screen when a service worker controls it (#714)', async () => {
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: { controller: {} },
       });
-      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-      Object.defineProperty(navigator, 'onLine', { value: originalOnline, configurable: true });
-    }
+      onTestFinished(() => {
+        Reflect.deleteProperty(navigator, 'serviceWorker');
+      });
+      const reload = await renderHungOffline();
+      await userEvent.click(screen.getByRole('button', { name: 'Reload' }));
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers no reload when no service worker can serve the app shell (#714)', async () => {
+      await renderHungOffline();
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    });
   });
 
   it('offers a page reload after 5s if getSession hangs while online (#678)', async () => {

@@ -148,18 +148,12 @@ supabase functions serve delete-account
 
 This is what `npm run test:e2e:delete-account` and CI rely on.
 
-`generate-voice` and `generate-image` need custom secrets. Put them in
-`supabase/functions/.env.local` (gitignored) and pass the file:
-
-```
-AZURE_SPEECH_KEY=…
-AZURE_SPEECH_REGION=northeurope
-```
-
-Then: `supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
-Without the secrets the function boots but every call returns
-`synthesis_failed`. `generate-image` works the same way with its three
-secrets; without them every call returns `generation_failed`.
+`generate-voice` and `generate-image` need custom secrets. Copy
+`supabase/functions/.env.example` to `supabase/functions/.env.local`
+(gitignored), fill it in, and pass the file:
+`supabase functions serve generate-voice --env-file supabase/functions/.env.local`.
+Without the secrets each function boots but every call returns
+`not_configured`, and the app says that generation is not set up.
 
 ## Manual fallback if workflows are broken
 

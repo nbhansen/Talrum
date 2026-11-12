@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/talrum-logo.png" alt="Talrum" width="180" />
+  <img src="src/assets/talrum-logo.png" alt="Talrum" width="180" />
 </p>
 
 # Talrum
@@ -47,13 +47,14 @@ milestones.
 
 ## Quick start
 
-You need Node 22+, Docker, and the [Supabase CLI](https://github.com/supabase/cli/releases).
+You need Node 24 (see `.nvmrc`), Docker, and the
+[Supabase CLI](https://github.com/supabase/cli/releases). CI uses Supabase CLI 2.105.0.
 
 ```sh
-git clone <repo> && cd Talrum
+git clone https://github.com/nbhansen/Talrum.git && cd Talrum
 npm install
-cp .env.example .env                  # paste the key from `supabase status`
 supabase start                        # Postgres + Auth + Studio in Docker
+cp .env.example .env                  # paste the publishable key that `supabase start` printed
 supabase db reset                     # migrations + 4 demo boards
 npm run dev
 ```
@@ -115,7 +116,6 @@ Email-OTP via Supabase. The full flow and how to read OTPs locally are in
 ## Deployment
 
 Backend is a Supabase Cloud project. The web SPA deploys to Cloudflare Pages.
-Mobile clients use the Supabase SDK and hit the same project.
 
 **One-time setup**
 
@@ -141,7 +141,7 @@ Mobile clients use the Supabase SDK and hit the same project.
    uploads `dist` with `wrangler pages deploy`. Build env vars set in the
    Pages dashboard are never read.
 5. In Supabase _Auth → URL Configuration_ set the Site URL to the Cloudflare
-   Pages URL and add the mobile app deep-link to Additional Redirect URLs.
+   Pages URL.
    The dashboard is the source of truth for production auth —
    `supabase/config.toml` configures local dev only, and must not be pushed
    (see [docs/runbooks/deploy.md](./docs/runbooks/deploy.md#configuration-what-is-local-what-is-production)).
