@@ -9,7 +9,12 @@ import type { SharedErrorCode } from '../_shared/http.ts';
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode = SharedErrorCode | 'bad_request' | 'generation_failed' | 'internal_error';
+export type ErrorCode =
+  | SharedErrorCode
+  | 'bad_request'
+  | 'not_configured'
+  | 'generation_failed'
+  | 'internal_error';
 
 export interface ErrorResponse {
   ok: false;

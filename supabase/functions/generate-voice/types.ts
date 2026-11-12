@@ -13,7 +13,12 @@ export type VoiceLanguage = (typeof VOICE_LANGUAGES)[number];
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode = SharedErrorCode | 'bad_request' | 'synthesis_failed' | 'internal_error';
+export type ErrorCode =
+  | SharedErrorCode
+  | 'bad_request'
+  | 'not_configured'
+  | 'synthesis_failed'
+  | 'internal_error';
 
 export interface ErrorResponse {
   ok: false;
