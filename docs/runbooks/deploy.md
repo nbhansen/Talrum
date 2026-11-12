@@ -54,6 +54,7 @@ functions).
 | `SUPABASE_PROJECT_REF`   | every job; the build derives the URL | dashboard → Project settings → General          |
 | `VITE_SUPABASE_ANON_KEY` | SPA build                            | dashboard → Project settings → API              |
 | `VITE_SENTRY_DSN`        | SPA build (embedded in the bundle)   | Sentry → project → Client Keys                  |
+| `VITE_PRIVACY_CONTACT_EMAIL` | SPA build (shown in the privacy policy) | the address that answers privacy requests |
 | `SENTRY_AUTH_TOKEN`      | SPA build, source-map upload         | Sentry org auth token, `project:releases` scope |
 | `SENTRY_ORG`             | SPA build, source-map upload         | Sentry org slug                                 |
 | `SENTRY_PROJECT`         | SPA build, source-map upload         | Sentry project slug                             |
