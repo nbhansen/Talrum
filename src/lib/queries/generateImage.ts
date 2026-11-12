@@ -36,6 +36,8 @@ export const isGenerateImageError = (err: unknown): err is GenerateImageError =>
 
 interface GenerateImageInput {
   label: string;
+  /** Mirrors the function's closed language set. */
+  language: 'da' | 'en';
 }
 
 export const useGenerateImage = (): UseMutationResult<
@@ -44,11 +46,11 @@ export const useGenerateImage = (): UseMutationResult<
   GenerateImageInput
 > =>
   useMutation({
-    mutationFn: ({ label }) =>
+    mutationFn: ({ label, language }) =>
       invokeBlobFunction({
         functionName: GENERATE_IMAGE_FUNCTION_NAME,
         telemetryComponent: 'generateImage',
-        body: { label },
+        body: { label, language },
         knownCodes: GENERATE_IMAGE_ERROR_CODES,
         // Base64-in-JSON: supabase-js reads image/* bodies as text and
         // exposes no response headers to carry a MIME type beside raw bytes.

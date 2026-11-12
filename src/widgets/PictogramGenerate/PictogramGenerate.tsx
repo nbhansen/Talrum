@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
+import { getAppLanguage } from '@/lib/language';
 import { captureException } from '@/lib/platform/telemetry';
 import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
 import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
@@ -35,7 +36,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
     setError(null);
     setBusy('generating');
     try {
-      const blob = await genMut.mutateAsync({ label: trimmed });
+      const blob = await genMut.mutateAsync({ label: trimmed, language: getAppLanguage() });
       const processed = await cropToSquareJpeg(blob);
       showPreview(processed);
     } catch (err) {

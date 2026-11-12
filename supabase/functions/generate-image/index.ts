@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { type AuthLike, handleGenerate } from '../_shared/generateHandler.ts';
 import { generateWithAzure } from './azure.ts';
-import { buildImagePrompt } from './prompt.ts';
+import { buildImagePrompt, isPromptLanguage } from './prompt.ts';
 import { type GenerateImage, GenerationError } from './types.ts';
 
 /**
@@ -22,7 +22,10 @@ export const handleRequest = (
     failureEvent: 'generate_image_failed',
     // The prompt is built here, because the style template is app policy and
     // not provider knowledge.
-    parseInput: (label) => ({ ok: true, input: buildImagePrompt(label) }),
+    parseInput: (label, body) =>
+      isPromptLanguage(body.language)
+        ? { ok: true, input: buildImagePrompt(label, body.language) }
+        : { ok: false, message: 'language must be one of: da, en' },
     run: generate,
     envelopeKey: 'imageBase64',
     providerError: {
