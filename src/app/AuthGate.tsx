@@ -11,6 +11,7 @@ import { useOnline } from '@/lib/useOnline';
 import { Spinner } from '@/ui/Spinner/Spinner';
 
 import styles from './AuthGate.module.css';
+import { LanguageGate } from './LanguageGate';
 import { PUBLIC_PATHS } from './publicPaths';
 import { SessionProvider } from './SessionProvider';
 
@@ -127,7 +128,11 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     if (PUBLIC_PATHS.has(normalizePath(window.location.pathname))) return <>{children}</>;
     return <Login />;
   }
-  return <SessionProvider session={state.session}>{children}</SessionProvider>;
+  return (
+    <SessionProvider session={state.session}>
+      <LanguageGate>{children}</LanguageGate>
+    </SessionProvider>
+  );
 };
 
 const AuthGateOfflineHint = (): JSX.Element | null => {

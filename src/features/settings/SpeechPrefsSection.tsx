@@ -1,6 +1,6 @@
 import { type JSX, useEffect, useState } from 'react';
 
-import { getVoiceLanguage, primarySubtag } from '@/lib/language';
+import { getAppLanguage, primarySubtag } from '@/lib/language';
 import {
   getAvailableVoices,
   isSpeechSupported,
@@ -26,9 +26,9 @@ interface VoiceOption {
 }
 
 const toVoiceOptions = (voices: readonly SpeechSynthesisVoice[]): VoiceOption[] => {
-  // Likely-wanted voices first: the target language (chosen app language,
-  // else device locale — #304), then English, then the rest.
-  const target = getVoiceLanguage();
+  // Likely-wanted voices first: the chosen app language (#304), then English,
+  // then the rest.
+  const target = getAppLanguage();
   const rank = (lang: string): number =>
     primarySubtag(lang) === target ? 0 : primarySubtag(lang) === 'en' ? 1 : 2;
   const sorted = [...voices].sort((a, b) => {

@@ -71,7 +71,7 @@ describe('SettingsRoute', () => {
   it('renders the Language section (#304)', () => {
     renderRoute();
     expect(screen.getByRole('heading', { name: 'Language' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /automatic/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Dansk' })).toBeInTheDocument();
   });
 
   it('renders the Delete-my-account section', () => {

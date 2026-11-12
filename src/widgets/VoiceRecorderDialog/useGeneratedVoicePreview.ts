@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { getVoiceLanguage, isAppLanguage } from '@/lib/language';
+import { getAppLanguage } from '@/lib/language';
 import { extensionForMime } from '@/lib/platform/recording';
 import {
   isGenerateVoiceError,
@@ -56,14 +56,9 @@ export const useGeneratedVoicePreview = (
     }
     setStatus('generating');
     try {
-      // getVoiceLanguage, not getAppLanguage: the voice should match what
-      // the TTS fallback would speak, not the language of parent-UI copy.
-      // Clamped to the function's closed set — for a locale we have no
-      // neural voice for, English is the least-wrong default.
-      const voiceLang = getVoiceLanguage();
       const blob = await genMut.mutateAsync({
         label: picto.label,
-        language: isAppLanguage(voiceLang) ? voiceLang : 'en',
+        language: getAppLanguage(),
       });
       show({ blob, previewUrl: URL.createObjectURL(blob) });
     } catch (err) {
