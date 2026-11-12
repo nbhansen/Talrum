@@ -20,6 +20,7 @@ describe('PrivacyPolicyRoute', () => {
     vi.stubEnv('VITE_PRIVACY_CONTACT_EMAIL', '');
     render(<PrivacyPolicyRoute />);
     expect(screen.queryByRole('link', { name: /@/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText(/the operator of this site/)).toHaveLength(3);
+    expect(screen.getAllByText(/the operator of this site/)).toHaveLength(2);
+    expect(screen.queryByText('Email:')).not.toBeInTheDocument();
   });
 });

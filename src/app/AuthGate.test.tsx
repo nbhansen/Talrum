@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
 type AuthChangeListener = (event: string, session: Session | null) => void;
@@ -66,6 +66,11 @@ const { useSessionUser } = await import('@/lib/auth/session');
 
 const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSessionUser().id}</div>;
 
+// A stored language, so LanguageGate shows the children.
+beforeEach(() => {
+  window.localStorage.setItem('talrum:language', 'en');
+});
+
 afterEach(() => {
   getSessionMock.mockReset();
   onAuthStateChangeMock.mockClear();
@@ -100,6 +105,7 @@ describe('AuthGate', () => {
     expect(screen.getByText('Talrum could not start your session.')).toBeInTheDocument();
     expect(screen.queryByText(/fetch failed/)).not.toBeInTheDocument();
     expect(captureExceptionMock).toHaveBeenCalledWith(failure, {
+      level: 'warning',
       tags: { component: 'AuthGate', op: 'getSession' },
     });
     expect(screen.queryByText('app body')).not.toBeInTheDocument();

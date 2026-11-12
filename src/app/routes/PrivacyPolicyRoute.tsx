@@ -1,8 +1,13 @@
 import type { JSX } from 'react';
 
-const Contact = (): JSX.Element => {
+const contactEmail = (): string | null => {
   const email: unknown = import.meta.env.VITE_PRIVACY_CONTACT_EMAIL;
-  if (typeof email !== 'string' || email === '') return <>the operator of this site</>;
+  return typeof email === 'string' && email !== '' ? email : null;
+};
+
+const Contact = (): JSX.Element => {
+  const email = contactEmail();
+  if (email === null) return <>the operator of this site</>;
   return <a href={`mailto:${email}`}>{email}</a>;
 };
 
@@ -116,10 +121,12 @@ export const PrivacyPolicyRoute = (): JSX.Element => (
         <strong>In-app:</strong> Settings → Delete my account. The deletion is immediate and cannot
         be undone (section 8).
       </li>
-      <li>
-        <strong>Email:</strong> <Contact />. The operator commits to a 30-day response window for
-        email deletion requests.
-      </li>
+      {contactEmail() !== null && (
+        <li>
+          <strong>Email:</strong> <Contact />. The operator commits to a 30-day response window for
+          email deletion requests.
+        </li>
+      )}
     </ul>
     <h2>8. There is no restore</h2>
     <p>

@@ -29,11 +29,15 @@ describe('language pref storage', () => {
     expect(getLanguagePref()).toBeNull();
   });
 
-  it('setLanguagePref(null) clears the stored choice', () => {
+  it('keeps the choice for this page when storage is blocked', () => {
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
     setLanguagePref('da');
-    setLanguagePref(null);
-    expect(getLanguagePref()).toBeNull();
-    expect(window.localStorage.getItem('talrum:language')).toBeNull();
+    expect(getLanguagePref()).toBe('da');
   });
 });
 
@@ -44,13 +48,8 @@ describe('getAppLanguage()', () => {
     expect(getAppLanguage()).toBe('da');
   });
 
-  it('follows a Danish device locale when unset', () => {
+  it('does not read the device language when unset', () => {
     stubDeviceLocale('da-DK');
-    expect(getAppLanguage()).toBe('da');
-  });
-
-  it('falls back to English for locales without copy', () => {
-    stubDeviceLocale('nl-NL');
     expect(getAppLanguage()).toBe('en');
   });
 });
