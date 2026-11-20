@@ -304,6 +304,7 @@ describe('VoiceRecorderDialog', () => {
     await user.click(await screen.findByRole('button', { name: /stop/i }));
 
     expect(await screen.findByText('Recording failed. Try again.')).toBeInTheDocument();
+    expect(recording.cancel).toHaveBeenCalledTimes(1); // releases the microphone (#763)
     expect(uploadMock).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /record/i })).toBeEnabled();
   });

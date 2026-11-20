@@ -44,6 +44,7 @@ export const useVoiceRecording = (
     try {
       blob = await rec.stop();
     } catch {
+      setRec(null);
       setStatus('idle');
       report('Recording failed. Try again.');
       return;
