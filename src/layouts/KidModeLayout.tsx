@@ -1,8 +1,7 @@
 import type { JSX, ReactNode } from 'react';
 
-import { TalrumLogo } from '@/layouts/TalrumLogo';
+import { type LogoTile, TalrumLogo } from '@/layouts/TalrumLogo';
 import { getKidCopy } from '@/lib/kidCopy';
-import type { ColorToken } from '@/theme/tokens';
 import { LockIcon } from '@/ui/icons';
 
 import styles from './KidModeLayout.module.css';
@@ -12,9 +11,7 @@ interface KidModeLayoutProps {
   title: string;
   titleSize?: 'default' | 'large';
   onExit: () => void;
-  logoTint?: ColorToken;
-  logoTintInk?: ColorToken;
-  logoContent?: ReactNode;
+  logo?: LogoTile | undefined;
   children: ReactNode;
 }
 
@@ -23,20 +20,13 @@ export const KidModeLayout = ({
   title,
   titleSize = 'default',
   onExit,
-  logoTint,
-  logoTintInk,
-  logoContent,
+  logo,
   children,
 }: KidModeLayoutProps): JSX.Element => (
   <div className={styles.layout}>
     <div className={styles.topBar}>
       <div className={styles.titleBlock}>
-        <TalrumLogo
-          {...(logoTint ? { tile: logoTint } : {})}
-          {...(logoTintInk ? { tileInk: logoTintInk } : {})}
-        >
-          {logoContent}
-        </TalrumLogo>
+        <TalrumLogo tile={logo} />
         <div>
           <div className={styles.eyebrow}>{eyebrow}</div>
           <div

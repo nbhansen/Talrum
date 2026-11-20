@@ -181,9 +181,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
       eyebrow={board.name.toUpperCase()}
       title={steps.length === 0 ? '' : title}
       titleSize="large"
-      {...(allDone
-        ? { logoTint: 'sage', logoTintInk: 'sage-ink', logoContent: <CheckIcon size={22} /> }
-        : {})}
+      logo={allDone ? { tint: 'sage', content: <CheckIcon size={22} /> } : undefined}
       onExit={onExit}
     >
       {steps.length === 0 ? (

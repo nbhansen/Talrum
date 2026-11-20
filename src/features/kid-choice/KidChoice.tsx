@@ -43,9 +43,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
       title={kidCopy.choice.title}
       titleSize="large"
       onExit={onExit}
-      logoTint="sky"
-      logoTintInk="sky-ink"
-      logoContent={<ChoiceConnectorIcon size={22} />}
+      logo={{ tint: 'sky', content: <ChoiceConnectorIcon size={22} /> }}
     >
       {options.length === 0 ? (
         <EmptyState title={kidCopy.emptyBoard.title} body={kidCopy.emptyBoard.body} />

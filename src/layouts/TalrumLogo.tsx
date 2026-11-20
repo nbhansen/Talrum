@@ -6,43 +6,26 @@ import { cssVar } from '@/theme/tokens';
 import styles from './TalrumLogo.module.css';
 import { TalrumMark } from './TalrumMark';
 
-interface TalrumLogoProps {
-  size?: number;
-  /** Override the default brand mark with a tinted tile — used by screens
-   * that repurpose the logo slot as a semantic marker (e.g. the choice
-   * connector on KidChoice). */
-  tile?: ColorToken;
-  tileInk?: ColorToken;
-  /** Ignored unless an override tile is requested. */
-  children?: ReactNode;
+/** A tinted tile that repurposes the logo slot as a marker, e.g. KidChoice's connector. */
+export interface LogoTile {
+  tint: ColorToken;
+  content: ReactNode;
 }
 
-export const TalrumLogo = ({
-  size = 44,
-  tile,
-  tileInk,
-  children,
-}: TalrumLogoProps): JSX.Element => {
-  const override = tile !== undefined || children !== undefined;
-  if (!override) return <TalrumMark size={size} />;
+interface TalrumLogoProps {
+  size?: number;
+  tile?: LogoTile | undefined;
+}
 
-  const diamondSize = Math.round(size * 0.41);
+export const TalrumLogo = ({ size = 44, tile }: TalrumLogoProps): JSX.Element => {
+  if (!tile) return <TalrumMark size={size} />;
   return (
     <div
       className={styles.logo}
-      style={{ width: size, height: size, background: tile ? cssVar(tile) : undefined }}
+      style={{ width: size, height: size, background: cssVar(tile.tint) }}
       aria-hidden="true"
     >
-      {children ?? (
-        <div
-          className={styles.diamond}
-          style={{
-            width: diamondSize,
-            height: diamondSize,
-            background: tileInk ? cssVar(tileInk) : undefined,
-          }}
-        />
-      )}
+      {tile.content}
     </div>
   );
 };
