@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { generationErrorMessage } from '@/lib/generationErrorMessage';
 import { getAppLanguage } from '@/lib/language';
-import { extensionForMime } from '@/lib/platform/recording';
-import {
-  isGenerateVoiceError,
-  MAX_LABEL_LENGTH,
-  useGenerateVoice,
-} from '@/lib/queries/generateVoice';
-import { useSetPictogramAudio } from '@/lib/queries/pictograms';
+import { MAX_LABEL_LENGTH, useGenerateVoice } from '@/lib/queries/generateVoice';
 import { useBlobPreview } from '@/lib/useBlobPreview';
 import type { Pictogram } from '@/types/domain';
 
-type PreviewStatus = 'idle' | 'generating' | 'uploading';
+type PreviewStatus = 'idle' | 'generating';
 
 /** A generated clip held for preview. Nothing is saved until the parent accepts. */
 interface GeneratedPreview {
@@ -30,12 +25,12 @@ interface GeneratedVoicePreview {
 
 export const useGeneratedVoicePreview = (
   picto: Pictogram,
+  save: (blob: Blob) => Promise<boolean>,
   report: (message: string | null) => void,
 ): GeneratedVoicePreview => {
   const [status, setStatus] = useState<PreviewStatus>('idle');
   const { preview, show, clear } = useBlobPreview<GeneratedPreview>();
   const genMut = useGenerateVoice();
-  const saveMut = useSetPictogramAudio();
 
   // The playing element for the current preview, so Listen taps replace the
   // clip instead of layering voices. Playback must not outlive the preview.
@@ -62,17 +57,7 @@ export const useGeneratedVoicePreview = (
       });
       show({ blob, previewUrl: URL.createObjectURL(blob) });
     } catch (err) {
-      // Only a request that never got a response blames the connection;
-      // a server-side failure told to "check your connection" sends the
-      // parent chasing wifi that is fine.
-      const code = isGenerateVoiceError(err) ? err.code : 'network';
-      report(
-        code === 'not_configured'
-          ? 'Voice generation is not set up on this server.'
-          : code === 'network'
-            ? 'Could not generate a voice. Check your connection and try again.'
-            : 'Voice generation failed. Try again in a moment.',
-      );
+      report(generationErrorMessage('voice', err));
     } finally {
       setStatus('idle');
     }
@@ -89,24 +74,9 @@ export const useGeneratedVoicePreview = (
     });
   };
 
-  const save = async (): Promise<void> => {
-    if (!preview) return;
-    setStatus('uploading');
-    try {
-      await saveMut.mutateAsync({
-        pictogramId: picto.id,
-        blob: preview.blob,
-        // From the blob's MIME type, not a literal: the provider MIME type
-        // is the one piece of provider knowledge the seam propagates.
-        extension: extensionForMime(preview.blob.type),
-      });
-      clear();
-      setStatus('idle');
-    } catch {
-      setStatus('idle');
-      report('Upload failed. Check your connection and try again.');
-    }
+  const savePreview = async (): Promise<void> => {
+    if (preview && (await save(preview.blob))) clear();
   };
 
-  return { status, preview, generate, listen, save, discard: clear };
+  return { status, preview, generate, listen, save: savePreview, discard: clear };
 };

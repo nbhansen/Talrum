@@ -1,9 +1,10 @@
 import { type JSX, useState } from 'react';
 
+import { generationErrorMessage } from '@/lib/generationErrorMessage';
 import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { getAppLanguage } from '@/lib/language';
 import { captureException } from '@/lib/platform/telemetry';
-import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
+import { useGenerateImage } from '@/lib/queries/generateImage';
 import { useAddPhotoPictogram } from '@/lib/queries/pictograms';
 import { useBlobPreview } from '@/lib/useBlobPreview';
 import { Button } from '@/ui/Button/Button';
@@ -44,17 +45,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
       const processed = await cropToSquareJpeg(blob);
       showPreview(processed);
     } catch (err) {
-      // Only a request that got no response blames the connection. Telling a
-      // parent to check wifi that is fine sends them chasing the wrong thing.
-      // Retry stays the advice either way: generation is non-deterministic.
-      const code = isGenerateImageError(err) ? err.code : null;
-      setError(
-        code === 'not_configured'
-          ? 'Image generation is not set up on this server.'
-          : code === 'network'
-            ? 'Could not generate an image. Check your connection and try again.'
-            : 'Image generation failed. Try again in a moment.',
-      );
+      setError(generationErrorMessage('image', err));
     } finally {
       setGenerating(false);
     }

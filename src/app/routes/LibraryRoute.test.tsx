@@ -14,9 +14,9 @@ vi.mock('@/lib/queries/pictograms', () => ({
     data: [{ id: 'p1', label: 'Apple', style: 'illus', glyph: 'apple', tint: '#ff0000' }],
     isPending: false,
   }),
-  // NewPictogramModal renders the upload flow, which needs the create hook.
-  useCreatePhotoPictogram: (): { mutateAsync: () => Promise<void>; isPending: boolean } => ({
-    mutateAsync: vi.fn(),
+  // NewPictogramModal renders the upload flow, which needs the add hook.
+  useAddPhotoPictogram: (): { add: () => Promise<void>; isPending: boolean } => ({
+    add: vi.fn(),
     isPending: false,
   }),
 }));

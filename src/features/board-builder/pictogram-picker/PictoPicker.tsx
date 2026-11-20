@@ -36,11 +36,6 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
     { id: 'upload', label: 'Upload', sub: 'Photo / image' },
     { id: 'generate', label: 'Generate', sub: 'AI image' },
   ];
-  // Keep the dialog's pictogram in sync with the query cache so `audio_path`
-  // updates (record → save, delete) flow through without remounting.
-  const editingVoiceLive = editingVoice
-    ? (pictograms.find((p) => p.id === editingVoice.id) ?? editingVoice)
-    : null;
 
   const toggle = (id: string): void => {
     setSelected((prev) => {
@@ -99,8 +94,8 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
           </Button>
         </div>
       </footer>
-      {editingVoiceLive && (
-        <VoiceRecorderDialog picto={editingVoiceLive} onClose={() => setEditingVoice(null)} />
+      {editingVoice && (
+        <VoiceRecorderDialog picto={editingVoice} onClose={() => setEditingVoice(null)} />
       )}
     </Modal>
   );
