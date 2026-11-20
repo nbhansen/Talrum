@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,7 +33,7 @@ vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 // Import after the mock is registered.
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { boardMembersQueryKey } = await import('./board-members');
-const { useDeleteBoard, useRenameBoard, useSetStepIds } = await import('./boards.mutations');
+const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
 const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
 
@@ -51,6 +51,11 @@ const seed: Board = {
   updatedLabel: 'Edited just now',
 };
 
+const appendB = {
+  boardId: 'morning',
+  update: (b: Board) => ({ stepIds: [...b.stepIds, 'b'] }),
+};
+
 const makeWrapper = (qc: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
@@ -58,7 +63,7 @@ const makeWrapper = (qc: QueryClient) => {
   return Wrapper;
 };
 
-describe('useRenameBoard (useBoardPatch)', () => {
+describe('useUpdateBoard', () => {
   beforeEach(() => {
     eqMock.mockClear();
     unguardedSelectMock.mockReset();
@@ -80,10 +85,10 @@ describe('useRenameBoard (useBoardPatch)', () => {
     };
     unguardedSelectMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
 
-    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+      result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
     });
 
     await waitFor(() => {
@@ -109,18 +114,53 @@ describe('useRenameBoard (useBoardPatch)', () => {
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
-    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+      result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Morning routine');
   });
+  it('patches the cache while offline, when TanStack holds mutationFn back', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(boardQueryKey('morning'), seed);
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
+    onlineManager.setOnline(false);
+    try {
+      act(() => {
+        result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
+      });
+      await waitFor(() => {
+        expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Sunrise');
+      });
+      expect(updateMock).not.toHaveBeenCalled();
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
+  it('writes only the columns the update returns', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(boardQueryKey('morning'), seed);
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      result.current.mutate({
+        boardId: 'morning',
+        update: () => ({ voiceMode: 'parent', kidReorderable: true }),
+      });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(updateMock).toHaveBeenCalledWith({ voice_mode: 'parent', kid_reorderable: true });
+  });
 });
 
-describe('useBoardPatch conflict baseline (#281)', () => {
+describe('useUpdateBoard conflict baseline (#281)', () => {
   beforeEach(() => {
     eqMock.mockClear();
     unguardedSelectMock.mockReset();
@@ -147,9 +187,9 @@ describe('useBoardPatch conflict baseline (#281)', () => {
       error: null,
     });
 
-    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
     act(() => {
-      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+      result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -168,9 +208,9 @@ describe('useBoardPatch conflict baseline (#281)', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), seed);
 
-    const { result } = renderHook(() => useRenameBoard(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
     act(() => {
-      result.current.mutate({ boardId: 'morning', name: 'Sunrise' });
+      result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -179,7 +219,7 @@ describe('useBoardPatch conflict baseline (#281)', () => {
   });
 });
 
-describe('useSetStepIds', () => {
+describe('useUpdateBoard updater', () => {
   beforeEach(() => {
     eqMock.mockClear();
     unguardedSelectMock.mockReset();
@@ -200,32 +240,35 @@ describe('useSetStepIds', () => {
     });
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
-    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     // Simulate a concurrent edit landing in the cache *after* render but
     // *before* the mutate call (e.g. another tab pushed an append).
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a', 'b'] });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'c'] });
+      result.current.mutate({
+        boardId: 'morning',
+        update: (b) => ({ stepIds: [...b.stepIds, 'c'] }),
+      });
     });
 
     await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
     expect(updateMock).toHaveBeenCalledWith({ step_ids: ['a', 'b', 'c'] });
   });
 
-  it('reports a cache miss to telemetry instead of dropping the write silently (#365)', () => {
+  it('reports a cache miss to telemetry instead of dropping the write silently (#365)', async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
-    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+      result.current.mutate(appendB);
     });
 
+    await waitFor(() => expect(captureException).toHaveBeenCalledTimes(1));
     expect(updateMock).not.toHaveBeenCalled();
-    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it('exposes isError to the caller after a non-retryable DB error', async () => {
@@ -239,16 +282,16 @@ describe('useSetStepIds', () => {
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
-    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+      result.current.mutate(appendB);
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
 
-  it('retry() re-runs the last input against fresh cache', async () => {
+  it('a retry with the same input re-derives against fresh cache', async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -262,10 +305,10 @@ describe('useSetStepIds', () => {
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
-    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+      result.current.mutate(appendB);
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
 
@@ -273,7 +316,7 @@ describe('useSetStepIds', () => {
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a', 'x'] });
 
     act(() => {
-      result.current.retry();
+      result.current.mutate(appendB);
     });
 
     await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(2));
@@ -291,10 +334,10 @@ describe('useSetStepIds', () => {
       error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
     });
 
-    const { result } = renderHook(() => useSetStepIds(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      result.current.mutate({ boardId: 'morning', update: (prev) => [...prev, 'b'] });
+      result.current.mutate(appendB);
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
 

@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { formatUpdated } from '@/lib/formatUpdated';
 import { hasPgCode } from '@/lib/hasPgCode';
+import type { BoardRowPatch } from '@/lib/outbox';
 import { fetchAllRows } from '@/lib/queries/fetchAllRows';
 import { supabase } from '@/lib/supabase';
 import { type AccentBg } from '@/theme/tokens';
@@ -28,6 +29,21 @@ export const rowToBoard = (row: BoardRow): Board => ({
   accent: row.accent as AccentBg,
   updatedLabel: formatUpdated(row.updated_at),
   serverUpdatedAt: row.updated_at,
+});
+
+/** The board fields a parent can edit after create. */
+export type BoardFields = Pick<
+  Board,
+  'name' | 'kind' | 'labelsVisible' | 'voiceMode' | 'stepIds' | 'kidReorderable'
+>;
+
+export const boardFieldsToRow = (f: Partial<BoardFields>): BoardRowPatch => ({
+  ...(f.name === undefined ? {} : { name: f.name }),
+  ...(f.kind === undefined ? {} : { kind: f.kind }),
+  ...(f.labelsVisible === undefined ? {} : { labels_visible: f.labelsVisible }),
+  ...(f.voiceMode === undefined ? {} : { voice_mode: f.voiceMode }),
+  ...(f.stepIds === undefined ? {} : { step_ids: f.stepIds }),
+  ...(f.kidReorderable === undefined ? {} : { kid_reorderable: f.kidReorderable }),
 });
 
 export const boardsQueryKey = ['boards'] as const;

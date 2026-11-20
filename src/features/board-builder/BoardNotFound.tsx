@@ -10,7 +10,7 @@ type BoardLoadFailureVariant = 'not-found' | 'error';
 interface BoardNotFoundProps {
   variant: BoardLoadFailureVariant;
   onBack: () => void;
-  onRetry?: () => void;
+  onRetry: () => void;
 }
 
 const COPY: Record<BoardLoadFailureVariant, { title: string; body: string }> = {
@@ -35,7 +35,7 @@ export const BoardNotFound = ({ variant, onBack, onRetry }: BoardNotFoundProps):
           <Button variant="primary" onClick={onBack}>
             Back to boards
           </Button>
-          {variant === 'error' && onRetry && (
+          {variant === 'error' && (
             <Button variant="ghost" onClick={onRetry}>
               Retry
             </Button>

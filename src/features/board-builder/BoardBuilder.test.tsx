@@ -1,32 +1,36 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX, ReactNode } from 'react';
+import type { ComponentProps, JSX, ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Board, Pictogram } from '@/types/domain';
 
-const setBoardKindMock = vi.fn();
-const renameBoardMock = vi.fn();
+interface BoardUpdate {
+  boardId: string;
+  update: (b: Board) => Partial<Board>;
+}
 const deleteBoardMock = vi.fn();
-const setStepIdsMock = vi.fn();
-const stepIdsResult = {
-  mutate: setStepIdsMock,
-  retry: vi.fn(),
-  isError: false,
-  error: null,
-  isPending: false,
-  reset: vi.fn(),
-};
+const updateBoardMock = vi.fn<(input: BoardUpdate) => void>();
+const updateBoardResult: {
+  mutate: typeof updateBoardMock;
+  isError: boolean;
+  variables: BoardUpdate | undefined;
+  reset: () => void;
+} = { mutate: updateBoardMock, isError: false, variables: undefined, reset: vi.fn() };
 let pictogramsById = new Map<string, Pictogram>();
 
 vi.mock('@/lib/queries/boards', () => ({
-  useRenameBoard: () => ({ mutate: renameBoardMock }),
-  useSetBoardKind: () => ({ mutate: setBoardKindMock }),
-  useSetKidReorderable: () => ({ mutate: vi.fn() }),
-  useSetLabelsVisible: () => ({ mutate: vi.fn() }),
-  useSetVoiceMode: () => ({ mutate: vi.fn() }),
+  useUpdateBoard: () => updateBoardResult,
   useDeleteBoard: () => ({ mutateAsync: deleteBoardMock, isPending: false }),
 }));
+
+/** The fields the last write derives from `board`. */
+const writtenFields = (board: Board = baseBoard): Partial<Board> => {
+  const input = updateBoardMock.mock.calls.at(-1)?.[0];
+  expect(input?.boardId).toBe(board.id);
+  return input?.update(board) ?? {};
+};
 
 const leaveBoardMock = vi.fn();
 vi.mock('@/lib/queries/board-members', () => ({
@@ -34,8 +38,20 @@ vi.mock('@/lib/queries/board-members', () => ({
 }));
 
 vi.mock('@/lib/queries/pictograms', () => ({
-  usePictograms: () => ({ data: [] }),
   usePictogramsById: () => pictogramsById,
+  usePictogramsBySlug: () => new Map(),
+}));
+
+vi.mock('./pictogram-picker/PictoPicker', () => ({
+  PictoPicker: (props: { onConfirm: (ids: readonly string[]) => void }): JSX.Element => (
+    <button type="button" onClick={() => props.onConfirm(['picked-1', 'picked-2'])}>
+      confirm picker
+    </button>
+  ),
+}));
+
+vi.mock('./ShareModal', () => ({
+  ShareModal: (): JSX.Element => <div role="dialog" aria-label="Share board" />,
 }));
 
 // Stub: a real drag needs pointer geometry jsdom does not have. The "reverse
@@ -89,8 +105,26 @@ const baseBoard: Board = {
 
 const noop = (): void => undefined;
 
+const BoardBuilderAt = ({
+  url = '/',
+  ...props
+}: Partial<ComponentProps<typeof BoardBuilder>> & { url?: string }): JSX.Element => (
+  <MemoryRouter initialEntries={[url]}>
+    <BoardBuilder
+      board={baseBoard}
+      isOwner
+      onBack={noop}
+      onRemoved={noop}
+      onKidMode={noop}
+      {...props}
+    />
+  </MemoryRouter>
+);
+
 afterEach(() => {
   vi.clearAllMocks();
+  updateBoardResult.isError = false;
+  updateBoardResult.variables = undefined;
 });
 
 describe('BoardBuilder title', () => {
@@ -99,28 +133,17 @@ describe('BoardBuilder title', () => {
   it('flushes a pending rename when it unmounts', () => {
     vi.useFakeTimers();
     try {
-      const { unmount } = render(
-        <BoardBuilder
-          board={baseBoard}
-          isOwner
-          setStepIds={stepIdsResult}
-          onBack={noop}
-          onOpenPicker={noop}
-          onOpenShare={noop}
-          onRemoved={noop}
-          onKidMode={noop}
-        />,
-      );
+      const { unmount } = render(<BoardBuilderAt board={baseBoard} isOwner />);
       fireEvent.change(screen.getByDisplayValue('Morning routine'), {
         target: { value: 'Evening routine' },
       });
-      expect(renameBoardMock).not.toHaveBeenCalled();
+      expect(updateBoardMock).not.toHaveBeenCalled();
 
       unmount();
 
-      expect(renameBoardMock).toHaveBeenCalledWith({ boardId: 'board-1', name: 'Evening routine' });
+      expect(writtenFields()).toEqual({ name: 'Evening routine' });
       vi.runAllTimers();
-      expect(renameBoardMock).toHaveBeenCalledTimes(1);
+      expect(updateBoardMock).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
@@ -129,18 +152,7 @@ describe('BoardBuilder title', () => {
 
 describe('BoardBuilder blank title', () => {
   const renderBuilder = (): ReturnType<typeof render> =>
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
 
   // A blank name reached the row on a 300 ms pause or a back tap, and the
   // create path refuses one (#480).
@@ -155,7 +167,7 @@ describe('BoardBuilder blank title', () => {
       vi.runAllTimers();
       unmount();
 
-      expect(renameBoardMock).not.toHaveBeenCalled();
+      expect(updateBoardMock).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -171,7 +183,7 @@ describe('BoardBuilder blank title', () => {
 
       vi.runAllTimers();
 
-      expect(renameBoardMock).toHaveBeenCalledWith({ boardId: 'board-1', name: 'Evening routine' });
+      expect(writtenFields()).toEqual({ name: 'Evening routine' });
     } finally {
       vi.useRealTimers();
     }
@@ -191,70 +203,30 @@ describe('BoardBuilder blank title', () => {
 
 describe('BoardBuilder Share button', () => {
   it('renders the Share button when isOwner=true', () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
   });
 
   it('hides the Share button when isOwner=false', () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner={false}
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner={false} />);
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
   });
 
-  it('invokes onOpenShare when the button is clicked', () => {
-    const onOpenShare = vi.fn();
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={onOpenShare}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
-    screen.getByRole('button', { name: 'Share' }).click();
-    expect(onOpenShare).toHaveBeenCalledTimes(1);
+  it('opens the share dialog when the button is clicked', async () => {
+    render(<BoardBuilderAt />);
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.getByRole('dialog', { name: 'Share board' })).toBeInTheDocument();
+  });
+
+  it('opens the share dialog from a ?share=1 link', () => {
+    render(<BoardBuilderAt url="/?share=1" />);
+    expect(screen.getByRole('dialog', { name: 'Share board' })).toBeInTheDocument();
   });
 });
 
 describe('BoardBuilder Delete board (#520)', () => {
   const renderOwner = (isOwner: boolean): void => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner={isOwner}
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner={isOwner} />);
   };
 
   it('renders the Delete board button when isOwner=true', () => {
@@ -277,18 +249,7 @@ describe('BoardBuilder Delete board (#520)', () => {
 
 describe('BoardBuilder Leave board (#666)', () => {
   const renderOwner = (isOwner: boolean): void => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner={isOwner}
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner={isOwner} />);
   };
 
   it('hides the Leave board button on an own board', () => {
@@ -306,96 +267,41 @@ describe('BoardBuilder Leave board (#666)', () => {
 
 describe('BoardBuilder kind switch confirm (#233)', () => {
   it('clicking the other kind tab opens a confirm modal without mutating', async () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Switch to Choice/i })).toBeInTheDocument();
-    expect(setBoardKindMock).not.toHaveBeenCalled();
+    expect(updateBoardMock).not.toHaveBeenCalled();
   });
 
   it('confirming the modal mutates the kind once', async () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: /Switch to Choice/i }));
-    expect(setBoardKindMock).toHaveBeenCalledTimes(1);
-    expect(setBoardKindMock).toHaveBeenCalledWith({ boardId: baseBoard.id, kind: 'choice' });
+    expect(updateBoardMock).toHaveBeenCalledTimes(1);
+    expect(writtenFields()).toEqual({ kind: 'choice' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('cancelling the modal leaves kind unchanged', async () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(setBoardKindMock).not.toHaveBeenCalled();
+    expect(updateBoardMock).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('clicking the already-active tab does not open the modal', async () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     await userEvent.click(screen.getByRole('radio', { name: /Sequence/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(setBoardKindMock).not.toHaveBeenCalled();
+    expect(updateBoardMock).not.toHaveBeenCalled();
   });
 });
 
 describe('BoardBuilder track (#522)', () => {
   const renderKind = (kind: Board['kind'], stepIds: string[]): void => {
-    render(
-      <BoardBuilder
-        board={{ ...baseBoard, kind, stepIds }}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={{ ...baseBoard, kind, stepIds }} isOwner />);
   };
 
   it('shows the step count hint for sequence boards', () => {
@@ -442,32 +348,16 @@ describe('BoardBuilder steps with a missing pictogram', () => {
       [apple.id, apple],
       [cup.id, cup],
     ]);
-    render(
-      <BoardBuilder
-        board={{ ...baseBoard, stepIds }}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={{ ...baseBoard, stepIds }} isOwner />);
   };
 
   afterEach(() => {
     pictogramsById = new Map();
   });
 
-  const capturedUpdate = (): ((prev: string[]) => string[]) => {
-    expect(setStepIdsMock).toHaveBeenCalledTimes(1);
-    const arg = setStepIdsMock.mock.calls[0]?.[0] as {
-      boardId: string;
-      update: (prev: string[]) => string[];
-    };
-    expect(arg.boardId).toBe(baseBoard.id);
-    return arg.update;
+  const capturedUpdate = (): ((prev: string[]) => string[] | undefined) => (prev) => {
+    expect(updateBoardMock).toHaveBeenCalledTimes(1);
+    return writtenFields({ ...baseBoard, stepIds: prev }).stepIds;
   };
 
   it('removes the tapped step, not the step at its rendered position', async () => {
@@ -485,19 +375,42 @@ describe('BoardBuilder steps with a missing pictogram', () => {
 
 describe('BoardBuilder Quick add section (#234)', () => {
   it('hides the "Add from the library" section when no slugs resolve', () => {
-    render(
-      <BoardBuilder
-        board={baseBoard}
-        isOwner
-        setStepIds={stepIdsResult}
-        onBack={noop}
-        onOpenPicker={noop}
-        onOpenShare={noop}
-        onRemoved={noop}
-        onKidMode={noop}
-      />,
-    );
+    render(<BoardBuilderAt board={baseBoard} isOwner />);
     expect(screen.queryByRole('heading', { name: /add from the library/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /browse all/i })).toBeNull();
+  });
+});
+
+describe('BoardBuilder picker', () => {
+  it('opens from a ?picker=1 link and appends the confirmed pictograms', async () => {
+    render(<BoardBuilderAt url="/?picker=1" board={{ ...baseBoard, stepIds: ['a'] }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'confirm picker' }));
+    expect(writtenFields({ ...baseBoard, stepIds: ['a'] })).toEqual({
+      stepIds: ['a', 'picked-1', 'picked-2'],
+    });
+  });
+});
+
+describe('BoardBuilder write error', () => {
+  it('shows no banner while the writes succeed', () => {
+    render(<BoardBuilderAt />);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('retries the failed write with the same input, so it re-derives from fresh cache', async () => {
+    const failed: BoardUpdate = { boardId: baseBoard.id, update: () => ({ labelsVisible: false }) };
+    updateBoardResult.isError = true;
+    updateBoardResult.variables = failed;
+    render(<BoardBuilderAt />);
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save change");
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(updateBoardMock).toHaveBeenCalledWith(failed);
+  });
+
+  it('dismisses the banner', async () => {
+    updateBoardResult.isError = true;
+    render(<BoardBuilderAt />);
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(updateBoardResult.reset).toHaveBeenCalledTimes(1);
   });
 });

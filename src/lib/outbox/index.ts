@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import { bestEffort } from './best-effort';
 import {
   drain,
+  entryAfterFailure,
   getStatus,
   type OutboxStatus,
   reconcileQueue,
@@ -21,7 +22,7 @@ import type { OutboxEntry } from './types';
 
 export { OUTBOX_KEY_PREFIX } from './store';
 export type { BoardRowPatch } from './types';
-export { listEntries, startOutbox };
+export { startOutbox };
 
 /**
  * Tell the outbox which account it works for. Draining is gated on a known
@@ -102,13 +103,8 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
         await bestEffort('delete-after-permanent-failure', () => deleteEntry(entry.id));
         throw err;
       }
-      const attempted: OutboxEntry = {
-        ...entry,
-        // Records the burnt attempt so the drain respects the retry ceiling.
-        status: 'pending',
-        attemptCount: 1,
-        lastError: err instanceof Error ? err.message : 'unknown error',
-      };
+      // Records the burnt attempt so the drain respects the retry ceiling.
+      const attempted = entryAfterFailure(entry, err);
       // With the entry already queued this put only records the attempt, which
       // the drain does not need. Without it, this put is the queue's only
       // record of the write and must be allowed to fail (#445).
@@ -165,12 +161,15 @@ export const retryFailed = async (): Promise<void> => {
 };
 
 /**
- * Drop one failed entry — the indicator's "Discard". Under the lock, or the
- * delete lands inside another tab's `retryFailed` loop and is re-created
- * (#289). Pushes status itself because nothing here drains (#290).
+ * Drop every failed entry — the indicator's "Discard". List and delete under
+ * one lock, or another tab's Retry between them is discarded (#289). Pushes
+ * status itself because nothing here drains (#290).
  */
-export const discardEntry = async (id: string): Promise<void> => {
-  await withCrossTabLock(() => deleteEntry(id));
+export const discardFailed = async (): Promise<void> => {
+  await withCrossTabLock(async () => {
+    const failed = (await listEntries()).filter((e) => e.status === 'failed');
+    for (const { id } of failed) await deleteEntry(id);
+  });
   await refreshStatus();
 };
 

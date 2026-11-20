@@ -132,16 +132,6 @@ const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
 };
 
 /**
- * Entries persisted before #415 derived a deterministic path at run time.
- * Replaying one reopens the late-IO clobber that versioned paths close, so it
- * fails permanently instead. Typed optional because the object predates it.
- */
-const entryPath = (entry: { path?: string }): string => {
-  if (typeof entry.path === 'string') return entry.path;
-  throw new UnretryableOutboxError('entry predates versioned storage paths — discard and redo');
-};
-
-/**
  * Which object this write supersedes, read from the row and never from a
  * client snapshot: the optimistic cache holds a `blob:` URL between enqueue
  * and refetch, so a snapshot orphans the superseded object (#418). FIFO replay
@@ -163,7 +153,7 @@ const handleCreatePhotoPictogram = async (
   entry: CreatePhotoPictogramEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  const path = entryPath(entry);
+  const { path } = entry;
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(IMAGES_BUCKET, path);
@@ -202,7 +192,7 @@ const replaceRowObject = async (
   signal: AbortSignal,
 ): Promise<void> => {
   const { bucket, column } = ROW_OBJECT[entry.kind];
-  const path = entryPath(entry);
+  const { path } = entry;
   await uploadBlob(bucket, path, entry.blob);
   throwIfCancelled(signal);
   invalidateSignedUrl(bucket, path);

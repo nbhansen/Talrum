@@ -3,15 +3,9 @@ import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import { ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
 import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
-import {
-  type SetStepIdsResult,
-  useRenameBoard,
-  useSetBoardKind,
-  useSetKidReorderable,
-  useSetLabelsVisible,
-  useSetVoiceMode,
-} from '@/lib/queries/boards';
-import { usePictograms, usePictogramsById } from '@/lib/queries/pictograms';
+import { type BoardFields, useUpdateBoard } from '@/lib/queries/boards';
+import { usePictogramsById, usePictogramsBySlug } from '@/lib/queries/pictograms';
+import { useSearchParamFlag } from '@/lib/useSearchParamFlag';
 import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ArrowLeftIcon, PlusIcon, StepArrowIcon } from '@/ui/icons';
@@ -24,7 +18,9 @@ import { BoardErrorBanner } from './BoardErrorBanner';
 import { DeleteBoardConfirm } from './DeleteBoardConfirm';
 import { KindSwitchConfirm } from './KindSwitchConfirm';
 import { LeaveBoardConfirm } from './LeaveBoardConfirm';
+import { PictoPicker } from './pictogram-picker/PictoPicker';
 import { SettingsRow } from './SettingsRow';
+import { ShareModal } from './ShareModal';
 import { StepTile } from './StepTile';
 
 const QUICK_ADD_SLUGS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
@@ -34,11 +30,7 @@ const TITLE_DEBOUNCE_MS = 300;
 interface BoardBuilderProps {
   board: Board;
   isOwner: boolean;
-  /** Shared with the route's picker confirm, so one banner covers every step write. */
-  setStepIds: SetStepIdsResult;
   onBack: () => void;
-  onOpenPicker: () => void;
-  onOpenShare: () => void;
   /** After the board is deleted or left. */
   onRemoved: () => void;
   onKidMode: () => void;
@@ -47,21 +39,18 @@ interface BoardBuilderProps {
 export const BoardBuilder = ({
   board,
   isOwner,
-  setStepIds,
   onBack,
-  onOpenPicker,
-  onOpenShare,
   onRemoved,
   onKidMode,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
-  const { data: allPictograms = [] } = usePictograms();
+  const pictogramsBySlug = usePictogramsBySlug();
+  const picker = useSearchParamFlag('picker');
+  const share = useSearchParamFlag('share');
 
-  const renameBoard = useRenameBoard();
-  const setKind = useSetBoardKind();
-  const setLabels = useSetLabelsVisible();
-  const setVoice = useSetVoiceMode();
-  const setKidReorderable = useSetKidReorderable();
+  const updateBoard = useUpdateBoard();
+  const writeBoard = (update: (current: Board) => Partial<BoardFields>): void =>
+    updateBoard.mutate({ boardId: board.id, update });
 
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
@@ -83,7 +72,7 @@ export const BoardBuilder = ({
     if (name === '') return;
     const write = (): void => {
       pendingTitleWrite.current = null;
-      renameBoard.mutate({ boardId: board.id, name });
+      writeBoard(() => ({ name }));
     };
     pendingTitleWrite.current = { timer: setTimeout(write, TITLE_DEBOUNCE_MS), write };
   };
@@ -106,31 +95,31 @@ export const BoardBuilder = ({
     [board.stepIds, pictogramsById],
   );
 
-  const quickAdd = useMemo(
-    () =>
-      QUICK_ADD_SLUGS.map((slug) => allPictograms.find((p) => p.slug === slug)).filter(
-        (p): p is Pictogram => Boolean(p),
-      ),
-    [allPictograms],
+  const quickAdd = QUICK_ADD_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
+    (p): p is Pictogram => Boolean(p),
   );
 
   const removeAt = (stepIndex: number): void =>
-    setStepIds.mutate({
-      boardId: board.id,
-      update: (prev) => prev.filter((_, i) => i !== stepIndex),
-    });
+    writeBoard((b) => ({ stepIds: b.stepIds.filter((_, i) => i !== stepIndex) }));
 
   const reorder = (nextKeys: string[]): void => {
     const { stepIds } = reorderBoardSteps(board.stepIds, steps, nextKeys);
-    setStepIds.mutate({ boardId: board.id, update: () => stepIds });
+    writeBoard(() => ({ stepIds }));
   };
 
-  const appendPicto = (pictoId: string): void =>
-    setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, pictoId] });
+  const appendPictos = (ids: readonly string[]): void => {
+    if (ids.length > 0) writeBoard((b) => ({ stepIds: [...b.stepIds, ...ids] }));
+  };
+
+  const retryWrite = (): void => {
+    if (updateBoard.variables) updateBoard.mutate(updateBoard.variables);
+  };
 
   return (
     <ParentShell active="home" onKidMode={onKidMode}>
-      <BoardErrorBanner mutation={setStepIds} />
+      {updateBoard.isError && (
+        <BoardErrorBanner onRetry={retryWrite} onDismiss={() => updateBoard.reset()} />
+      )}
       <div className={styles.breadcrumb}>
         <button type="button" onClick={onBack} className={styles.back}>
           <ArrowLeftIcon size={16} />
@@ -144,7 +133,7 @@ export const BoardBuilder = ({
               <Button variant="pill" onClick={() => setConfirmingDelete(true)}>
                 Delete board
               </Button>
-              <Button variant="pill" onClick={onOpenShare}>
+              <Button variant="pill" onClick={share.open}>
                 Share
               </Button>
             </>
@@ -184,13 +173,11 @@ export const BoardBuilder = ({
         kind={board.kind}
         onKindChange={setPendingKind}
         labelsVisible={board.labelsVisible}
-        onLabelsChange={(visible) => setLabels.mutate({ boardId: board.id, visible })}
+        onLabelsChange={(labelsVisible) => writeBoard(() => ({ labelsVisible }))}
         voiceMode={board.voiceMode}
-        onVoiceModeChange={(mode) => setVoice.mutate({ boardId: board.id, mode })}
+        onVoiceModeChange={(voiceMode) => writeBoard(() => ({ voiceMode }))}
         kidReorderable={board.kidReorderable}
-        onKidReorderableChange={(reorderable) =>
-          setKidReorderable.mutate({ boardId: board.id, reorderable })
-        }
+        onKidReorderableChange={(kidReorderable) => writeBoard(() => ({ kidReorderable }))}
       />
 
       <div className={styles.track}>
@@ -227,7 +214,7 @@ export const BoardBuilder = ({
               )}
             />
           </div>
-          <button type="button" className={styles.addTile} onClick={onOpenPicker}>
+          <button type="button" className={styles.addTile} onClick={picker.open}>
             <PlusIcon size={22} />
             Add picto
           </button>
@@ -238,13 +225,13 @@ export const BoardBuilder = ({
         <section className={styles.quickAdd}>
           <div className={styles.quickAddHeader}>
             <h2 className={styles.quickAddHeading}>Add from the library</h2>
-            <button type="button" className={styles.browseAll} onClick={onOpenPicker}>
+            <button type="button" className={styles.browseAll} onClick={picker.open}>
               Browse all →
             </button>
           </div>
           <div className={styles.quickAddGrid}>
             {quickAdd.map((p) => (
-              <PictoTile key={p.id} picto={p} size={88} onClick={() => appendPicto(p.id)} />
+              <PictoTile key={p.id} picto={p} size={88} onClick={() => appendPictos([p.id])} />
             ))}
           </div>
         </section>
@@ -256,11 +243,15 @@ export const BoardBuilder = ({
           next={pendingKind}
           onCancel={() => setPendingKind(null)}
           onConfirm={() => {
-            setKind.mutate({ boardId: board.id, kind: pendingKind });
+            writeBoard(() => ({ kind: pendingKind }));
             setPendingKind(null);
           }}
         />
       )}
+      {picker.isOpen && (
+        <PictoPicker ownerId={board.ownerId} onClose={picker.close} onConfirm={appendPictos} />
+      )}
+      {share.isOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={share.close} />}
     </ParentShell>
   );
 };

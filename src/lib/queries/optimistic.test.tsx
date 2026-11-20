@@ -310,18 +310,20 @@ describe('useOptimisticListMutation', () => {
     expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
   });
 
-  it('a custom settle replaces the default invalidation entirely', async () => {
+  it('runs beforeInvalidate, then the default invalidation', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const settle = vi.fn();
+    const beforeInvalidate = vi.fn(() => {
+      expect(invalidateSpy).not.toHaveBeenCalled();
+    });
 
     const { result } = renderHook(
       () =>
         useOptimisticListMutation({
           caches: [renameCache(itemsKey)],
           mutationFn: () => Promise.resolve(),
-          settle,
+          beforeInvalidate,
         }),
       { wrapper: makeWrapper(qc) },
     );
@@ -331,22 +333,22 @@ describe('useOptimisticListMutation', () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(settle).toHaveBeenCalledTimes(1);
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(beforeInvalidate).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: itemsKey });
   });
 
-  it('runs the custom settle on the error path too', async () => {
+  it('runs beforeInvalidate on the error path too', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const settle = vi.fn();
+    const beforeInvalidate = vi.fn();
 
     const { result } = renderHook(
       () =>
         useOptimisticListMutation({
           caches: [renameCache(itemsKey)],
           mutationFn: () => Promise.reject(new Error('server said no')),
-          settle,
+          beforeInvalidate,
         }),
       { wrapper: makeWrapper(qc) },
     );
@@ -357,7 +359,7 @@ describe('useOptimisticListMutation', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
-    expect(settle).toHaveBeenCalledTimes(1);
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(beforeInvalidate).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: itemsKey });
   });
 });

@@ -38,7 +38,7 @@ of comment is the price of an override.
 ## Mutations: the optimistic lifecycle
 
 Mutation hooks pair with the outbox in a fixed choreography. Two shared
-wrappers own it — `useBoardPatch` (`boards.mutations.ts`) for per-board
+wrappers own it — `useUpdateBoard` (`boards.mutations.ts`) for per-board
 writes, `useOptimisticListMutation` (`optimistic.ts`) for whole-list caches.
 Every outbox hook goes through one of them; no hook hand-rolls the
 lifecycle. The steps:
@@ -54,17 +54,16 @@ lifecycle. The steps:
 4. **`onSettled`** (or `onSuccess`): invalidate every key the write touched —
    per-id _and_ list — so the next refetch reconciles with the server.
 
-Every public board mutation (`useRenameBoard`, `useSetVoiceMode`, …) is a
-three-line wrapper over `useBoardPatch`, which also threads the board's
-`serverUpdatedAt` into the entry as the conflict-guard baseline (#281).
+Every board field edit goes through `useUpdateBoard`, which also threads the
+board's `serverUpdatedAt` into the entry as the conflict-guard baseline (#281).
 Mutations that touch two caches (`useDeletePictogram`, `useDeleteKid`)
 snapshot, patch, roll back, and invalidate both.
 
 Blob-planting hooks (`useSetPictogramAudio`, `useCreatePhotoPictogram`,
 `useReplacePictogramImage`) use two extra wrapper options: `beforeRollback`
 revokes the planted `blob:` URL while it is still in the cache — after the
-rollback the URL is unreachable and would leak — and `settle` sweeps stale
-blob URLs before invalidating.
+rollback the URL is unreachable and would leak — and `beforeInvalidate` sweeps
+stale blob URLs before the default invalidation.
 
 ### Accepted races in the blob sweep
 
@@ -83,7 +82,7 @@ scan, and each has a different symptom:
   this rarely surfaces.
 - **Error-path double sweep.** `beforeRollback` sweeps before the snapshot
   restore, because the failed mutation's own planted URL must be revoked while
-  the cache still references it. `settle` then sweeps again, and that second
+  the cache still references it. `beforeInvalidate` then sweeps again, and that second
   pass can revoke a URL the restore resurrected — one planted by an earlier,
   not-yet-reconciled mutation. Error paths only run on the online fast path, so
   the settle invalidation refetches real paths immediately; the cost is the same
@@ -96,10 +95,10 @@ patterns:
 
 **Outbox (the default).** Field edits, renames, reorders, deletes — anything
 where the row already exists and the user shouldn't be blocked by a flaky
-connection. `useRenameKid`, `useSetStepIds`, `useDeletePictogram`. If your
+connection. `useRenameKid`, `useUpdateBoard`, `useDeletePictogram`. If your
 write mutates existing state, it goes here: new entry kind in
 `outbox/types.ts`, handler in `outbox/handlers.ts`, hook following
-`useBoardPatch`.
+`useUpdateBoard`.
 
 **Direct Supabase writes for creates.** `useCreateBoard`, `useCreateKid`,
 `useAddBoardMember` / `useRemoveBoardMember` insert directly, no outbox, no
@@ -141,7 +140,7 @@ creates.
 3. Keep the hook thin; inherit the global defaults unless you can write the
    comment justifying an override (see `useBoard`).
 4. For writes: choose the pattern above. Outbox writes go through
-   `useBoardPatch` or `useOptimisticListMutation` (snapshot → patch →
+   `useUpdateBoard` or `useOptimisticListMutation` (snapshot → patch →
    rollback → invalidate) and need a `types.ts` entry kind plus an
    idempotent handler.
 5. Invalidate every cache the write touched, including lists.

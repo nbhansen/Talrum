@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
 
 const { deleteEntry, listEntries, putEntry } = await import('./store');
 const { drain, getStatus, refreshStatus, startOutbox, subscribeStatus } = await import('./drain');
-const { discardEntry, enqueueAndDrain, retryFailed, setOutboxOwner } = await import('./index');
+const { discardFailed, enqueueAndDrain, retryFailed, setOutboxOwner } = await import('./index');
 const { BOARD_CONFLICT_MESSAGE, HANDLER_TIMEOUT_MS } = await import('./handlers');
 const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
@@ -605,7 +605,7 @@ describe('cross-tab coordination (#278, #289)', () => {
     });
   });
 
-  it('discardEntry waits for the talrum-outbox lock (#289)', async () => {
+  it('discardFailed waits for the talrum-outbox lock (#289)', async () => {
     const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
     let release = (): void => undefined;
@@ -613,7 +613,7 @@ describe('cross-tab coordination (#278, #289)', () => {
       release = resolve;
     });
     void navigator.locks.request('talrum-outbox', () => held);
-    const discardDone = discardEntry('01HZZA');
+    const discardDone = discardFailed();
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await listEntries()).toHaveLength(1);
@@ -621,9 +621,32 @@ describe('cross-tab coordination (#278, #289)', () => {
     await discardDone;
     expect(await listEntries()).toEqual([]);
   });
+
+  it('lists inside the lock, so a Retry from another tab is not discarded (#289)', async () => {
+    const request = installFakeLocks();
+    await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    const discardDone = discardFailed();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await putEntry(baseEntry({ id: '01HZZA', status: 'pending', attemptCount: 0 }));
+    release();
+    await discardDone;
+    expect((await listEntries()).map((e) => e.status)).toEqual(['pending']);
+  });
 });
 
-describe('discardEntry', () => {
+describe('discardFailed', () => {
+  it('deletes only the failed entries', async () => {
+    await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
+    await putEntry(baseEntry({ id: '01HZZB', status: 'pending' }));
+    await discardFailed();
+    expect((await listEntries()).map((e) => e.id)).toEqual(['01HZZB']);
+  });
+
   it('emits a status refresh so the failed pill drops without another outbox event (#290)', async () => {
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
     const seen: number[] = [];
@@ -632,9 +655,9 @@ describe('discardEntry', () => {
     // drop is an observable transition, not just a coincidental end value.
     await refreshStatus();
     expect(seen[seen.length - 1]).toBe(1);
-    // No drain, no online/offline event follows — discardEntry must push the
+    // No drain, no online/offline event follows — discardFailed must push the
     // updated count itself, or the pill keeps its stale "1 failed".
-    await discardEntry('01HZZA');
+    await discardFailed();
     unsub();
     expect(seen[seen.length - 1]).toBe(0);
     expect(await listEntries()).toEqual([]);
