@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
 import { useSessionUser } from '@/lib/auth/session';
+import { kidPathFor } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
@@ -36,7 +37,7 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
       isOwner={board.ownerId === me.id}
       onBack={() => navigate('/')}
       onRemoved={() => navigate('/', { replace: true })}
-      onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
+      onKidMode={() => navigate(kidPathFor(board.id))}
     />
   );
 };

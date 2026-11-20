@@ -141,11 +141,11 @@ describe('kid routes require a device PIN (#353)', () => {
   const mountKidRoute = (): void => {
     const memRouter = createMemoryRouter(
       [
-        { path: '/kid/sequence/:boardId', element: wrap(<KidScreen />, 'kid') },
+        { path: '/kid/:boardId', element: wrap(<KidScreen />, 'kid') },
         { path: '/settings', element: <SettingsProbe /> },
         { path: '/boards/:boardId/edit', element: <div data-testid="board-builder" /> },
       ],
-      { initialEntries: ['/kid/sequence/b1'] },
+      { initialEntries: ['/kid/b1'] },
     );
     render(<RouterProvider router={memRouter} />);
   };

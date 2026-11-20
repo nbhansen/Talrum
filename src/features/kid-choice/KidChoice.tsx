@@ -1,6 +1,7 @@
 import { type JSX, useState } from 'react';
 
 import { KidModeLayout } from '@/layouts/KidModeLayout';
+import { buildBoardSteps } from '@/lib/boardSteps';
 import { getKidCopy } from '@/lib/kidCopy';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
@@ -20,21 +21,19 @@ interface KidChoiceProps {
 export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
   const kidCopy = getKidCopy();
   const pictogramsById = usePictogramsById();
-  const options: Pictogram[] = board.stepIds
-    .map((id) => pictogramsById.get(id))
-    .filter((p): p is Pictogram => Boolean(p));
-  // Selection is keyed by slot position, not pictogram id: a choice board may
-  // legitimately list the same pictogram twice, and an id-keyed selection
-  // would mark every identical tile as picked (#273).
-  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
-  const pickedPicto = pickedIndex === null ? null : (options[pickedIndex] ?? null);
+  const options = buildBoardSteps(board.stepIds, pictogramsById);
+  // Selection is keyed by slot, not pictogram id: a choice board may list the
+  // same pictogram twice, and an id-keyed selection would mark every identical
+  // tile as picked (#273).
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const pickedPicto = options.find((o) => o.key === pickedKey)?.picto ?? null;
 
   const speakPicked = (p: Pictogram): void => {
     void speakPictogram(p, board.voiceMode);
   };
 
-  const pick = (p: Pictogram, index: number): void => {
-    setPickedIndex(index);
+  const pick = (key: string, p: Pictogram): void => {
+    setPickedKey(key);
     speakPicked(p);
   };
 
@@ -53,10 +52,10 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
       ) : (
         <>
           <div className={styles.choices}>
-            {options.map((p, idx) => {
+            {options.map(({ key, picto: p }, idx) => {
               const accent = accentForIndex(idx);
-              const isPicked = pickedIndex === idx;
-              const isOther = pickedIndex !== null && !isPicked;
+              const isPicked = pickedKey === key;
+              const isOther = pickedKey !== null && !isPicked;
               const markerStyle = {
                 background: cssVar(accent.bg),
                 color: cssVar(accent.ink),
@@ -67,9 +66,9 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
               };
               return (
                 <button
-                  key={`${p.id}-${idx}`}
+                  key={key}
                   type="button"
-                  onClick={() => pick(p, idx)}
+                  onClick={() => pick(key, p)}
                   className={[
                     styles.choice,
                     isPicked && styles.choicePicked,

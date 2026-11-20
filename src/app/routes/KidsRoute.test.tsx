@@ -47,10 +47,7 @@ const renderRoute = (): void => {
         <MemoryRouter initialEntries={['/kids']}>
           <Routes>
             <Route path="/kids" element={<KidsRoute />} />
-            <Route
-              path="/kid/sequence/:boardId"
-              element={<div data-testid="kid-sequence-route" />}
-            />
+            <Route path="/kid/:boardId" element={<div data-testid="kid-sequence-route" />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>

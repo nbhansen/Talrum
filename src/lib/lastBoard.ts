@@ -1,29 +1,18 @@
-import type { BoardKind } from '@/types/domain';
-
 const STORAGE_KEY = 'talrum:last-board';
 const SESSION_KEY = 'talrum:auto-launched';
 
 interface LastBoard {
   id: string;
-  kind: BoardKind;
 }
-
-const isBoardKind = (v: unknown): v is BoardKind => v === 'sequence' || v === 'choice';
 
 export const getLastBoard = (): LastBoard | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'id' in parsed &&
-      'kind' in parsed &&
-      typeof (parsed as { id: unknown }).id === 'string' &&
-      isBoardKind((parsed as { kind: unknown }).kind)
-    ) {
-      return parsed as LastBoard;
+    if (typeof parsed === 'object' && parsed !== null && 'id' in parsed) {
+      const { id } = parsed;
+      if (typeof id === 'string') return { id };
     }
     return null;
   } catch {
@@ -63,4 +52,4 @@ export const markAutoLaunched = (): void => {
   }
 };
 
-export const kidPathFor = (board: LastBoard): string => `/kid/${board.kind}/${board.id}`;
+export const kidPathFor = (boardId: string): string => `/kid/${boardId}`;

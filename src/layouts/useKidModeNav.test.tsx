@@ -68,7 +68,7 @@ describe('useKidModeNav', () => {
     useActiveKidMock.mockReturnValue(kid('k1'));
 
     run()?.();
-    expect(navigateMock).toHaveBeenCalledWith('/kid/choice/active-kid-board');
+    expect(navigateMock).toHaveBeenCalledWith('/kid/active-kid-board');
   });
 
   it("skips empty boards and falls back to another kid's non-empty board", () => {
@@ -81,14 +81,14 @@ describe('useKidModeNav', () => {
     useActiveKidMock.mockReturnValue(kid('k1'));
 
     run()?.();
-    expect(navigateMock).toHaveBeenCalledWith('/kid/sequence/other-kid-full');
+    expect(navigateMock).toHaveBeenCalledWith('/kid/other-kid-full');
   });
 
   it('routes by board kind', () => {
     useBoardsMock.mockReturnValue({ data: [board({ id: 'c1', kind: 'choice' })] });
 
     run()?.();
-    expect(navigateMock).toHaveBeenCalledWith('/kid/choice/c1');
+    expect(navigateMock).toHaveBeenCalledWith('/kid/c1');
   });
 
   it('returns undefined when every board is empty, so the KID button can disable', () => {

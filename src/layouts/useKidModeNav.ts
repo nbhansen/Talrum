@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { kidPathFor } from '@/lib/lastBoard';
 import { useBoards } from '@/lib/queries/boards';
 import { useActiveKid } from '@/lib/queries/kids';
 
@@ -13,7 +14,7 @@ export const useKidModeNav = (): (() => void) | undefined => {
   const activeKid = useActiveKid();
   const nonEmpty = boardsQuery.data?.filter((b) => b.stepIds.length > 0) ?? [];
   const target = nonEmpty.find((b) => b.kidId === activeKid?.id) ?? nonEmpty[0];
-  const targetPath = target ? `/kid/${target.kind}/${target.id}` : undefined;
+  const targetPath = target ? kidPathFor(target.id) : undefined;
   const go = useCallback(() => {
     if (targetPath) navigate(targetPath);
   }, [navigate, targetPath]);

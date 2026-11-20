@@ -152,7 +152,7 @@ describe('clearPersistedCache', () => {
     // Simulate user A's device state.
     queryClient.setQueryData(['boards'], [{ id: 'b1' }]);
     await setPin('1234');
-    setLastBoard({ id: 'b1', kind: 'sequence' });
+    setLastBoard({ id: 'b1' });
     await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
     await set('signed-url:pictogram-images/o/p.jpg', { url: 'https://x', expiresAt: 1 });
     await set('talrum-react-query', '{"clientState":{}}');

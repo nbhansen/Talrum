@@ -424,7 +424,7 @@ describe('useDeleteBoard (#520)', () => {
     });
     qc.setQueryData(boardsQueryKey, [seed, other]);
     deleteEqMock.mockResolvedValue({ error: null });
-    setLastBoard({ id: 'bedtime', kind: 'sequence' });
+    setLastBoard({ id: 'bedtime' });
 
     const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
     act(() => {

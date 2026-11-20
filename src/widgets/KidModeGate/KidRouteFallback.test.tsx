@@ -27,9 +27,9 @@ afterEach(() => {
 const renderFallback = (): { user: ReturnType<typeof userEvent.setup> } => {
   const user = userEvent.setup();
   render(
-    <MemoryRouter initialEntries={['/kid/sequence/b1']}>
+    <MemoryRouter initialEntries={['/kid/b1']}>
       <Routes>
-        <Route path="/kid/sequence/:boardId" element={<KidRouteFallback />} />
+        <Route path="/kid/:boardId" element={<KidRouteFallback />} />
         <Route path="/" element={<div data-testid="parent-home" />} />
       </Routes>
     </MemoryRouter>,
