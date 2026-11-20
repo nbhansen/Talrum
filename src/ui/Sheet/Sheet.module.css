@@ -26,13 +26,7 @@
   border-top: 1px solid var(--tal-line);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tal-space-1);
-}
-
-.fieldLabel {
+.label {
   font-size: 13px;
   font-weight: 700;
   color: var(--tal-ink-muted);
@@ -40,29 +34,13 @@
   letter-spacing: 0.04em;
 }
 
-.input {
-  width: 100%;
-  padding: var(--tal-space-2) var(--tal-space-3);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  font-size: 16px;
-  font-family: inherit;
-  color: var(--tal-ink);
-  background: var(--tal-surface);
-}
-
-.input:focus-visible {
-  outline: 2px solid var(--tal-focus);
-  outline-offset: 2px;
-}
-
-.sectionActions {
+.actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--tal-space-2);
 }
 
-.dangerHint {
+.hint {
   font-size: 13px;
   color: var(--tal-ink-muted);
   margin: 0;

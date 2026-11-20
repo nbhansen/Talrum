@@ -1,6 +1,5 @@
 import { type JSX, useMemo, useState } from 'react';
 
-import { captureException } from '@/lib/platform/telemetry';
 import { useBoards } from '@/lib/queries/boards.read';
 import {
   referencingBoardIds,
@@ -13,10 +12,10 @@ import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
-import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { FormError } from '@/ui/FormError/FormError';
 import { MicIcon, UploadIcon } from '@/ui/icons';
-import { Modal } from '@/ui/Modal/Modal';
+import { RenameSection, Sheet, SheetActions, SheetHint, SheetSection } from '@/ui/Sheet/Sheet';
+import { useSheetAction } from '@/ui/Sheet/useSheetAction';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
@@ -27,16 +26,14 @@ interface Props {
   onClose: () => void;
 }
 
-const TITLE_ID = 'tal-pictogram-sheet-title';
 const LABEL_MAX = 40;
 
 export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
-  const [label, setLabel] = useState(picto.label);
   const [recordingVoice, setRecordingVoice] = useState(false);
   // The hosts capture `picto` at tap time; audio saved while the sheet is
   // open lands in the pictograms cache, so the voice section follows that.
   const livePicto = usePictograms().data?.find((p) => p.id === picto.id) ?? picto;
-  const [error, setError] = useState<string | null>(null);
+  const { error, setError, run } = useSheetAction('PictogramSheet', onClose);
   const {
     fileInputRef,
     processed,
@@ -55,174 +52,119 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
     [picto.id, boards],
   );
 
-  const trimmedLabel = label.trim();
-  const labelDirty = trimmedLabel.length > 0 && trimmedLabel !== picto.label;
   const saving = renameMut.isPending || replaceMut.isPending || deleteMut.isPending;
   const busy = processing || saving;
   const shownError = error ?? pickError;
 
-  const onSaveLabel = async (): Promise<void> => {
-    if (!labelDirty) return;
-    setError(null);
-    try {
-      await renameMut.mutateAsync({ pictogramId: picto.id, label: trimmedLabel });
-      onClose();
-    } catch (err) {
-      captureException(err, { tags: { component: 'PictogramSheet', op: 'rename' } });
-      setError('Rename failed.');
-    }
-  };
-
-  const onSavePhoto = async (): Promise<void> => {
-    if (!processed || picto.style !== 'photo') return;
-    setError(null);
-    try {
-      await replaceMut.mutateAsync({
-        pictogramId: picto.id,
-        blob: processed.blob,
-        extension: processed.extension,
-      });
-      onClose();
-    } catch (err) {
-      captureException(err, { tags: { component: 'PictogramSheet', op: 'replace-photo' } });
-      setError('Photo replace failed.');
-    }
-  };
-
-  const onDelete = async (): Promise<void> => {
-    setError(null);
-    try {
-      await deleteMut.mutateAsync({ pictogramId: picto.id });
-      onClose();
-    } catch (err) {
-      captureException(err, { tags: { component: 'PictogramSheet', op: 'delete' } });
-      setError('Delete failed.');
-    }
-  };
-
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
-      <div className={styles.headerWrap}>
-        <DialogHeader
-          title="Edit pictogram"
-          subtitle="Rename, replace the photo, record a voice, or delete it."
-          titleId={TITLE_ID}
-          onClose={onClose}
-        />
+    <Sheet
+      title="Edit pictogram"
+      subtitle="Rename, replace the photo, record a voice, or delete it."
+      onClose={onClose}
+    >
+      <div className={styles.preview}>
+        <PictogramMedia picto={picto} size={140} />
       </div>
 
-      <div className={styles.body}>
-        <div className={styles.preview}>
-          <PictogramMedia picto={picto} size={140} />
-        </div>
+      <RenameSection
+        label="Label"
+        initial={picto.label}
+        maxLength={LABEL_MAX}
+        saveLabel="Save label"
+        saving={renameMut.isPending}
+        disabled={busy}
+        onSave={(label) =>
+          run('rename', 'Rename failed.', () =>
+            renameMut.mutateAsync({ pictogramId: picto.id, label }),
+          )
+        }
+      />
 
-        <section className={styles.section}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Label</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              maxLength={LABEL_MAX}
+      {picto.style === 'photo' && (
+        <SheetSection label="Photo">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className={styles.fileInput}
+            onChange={(e) => {
+              // Picking a file starts a fresh attempt, so stale errors go.
+              setError(null);
+              onInputChange(e);
+            }}
+          />
+          {processed ? (
+            <div className={styles.photoPreview}>
+              <img src={processed.previewUrl} alt="" className={styles.photoPreviewImg} />
+              <Button variant="ghost" onClick={pickFile} disabled={busy}>
+                Choose another
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              icon={<UploadIcon size={16} />}
+              onClick={pickFile}
               disabled={busy}
-            />
-          </label>
-          <div className={styles.sectionActions}>
+            >
+              {processing ? 'Preparing…' : 'Choose a new photo'}
+            </Button>
+          )}
+          <SheetActions>
             <Button
               variant="primary"
               onClick={() => {
-                void onSaveLabel();
+                if (!processed) return;
+                run('replace-photo', 'Photo replace failed.', () =>
+                  replaceMut.mutateAsync({
+                    pictogramId: picto.id,
+                    blob: processed.blob,
+                    extension: processed.extension,
+                  }),
+                );
               }}
-              disabled={!labelDirty || busy}
+              disabled={!processed || busy}
             >
-              {renameMut.isPending ? 'Saving…' : 'Save label'}
+              Replace photo
             </Button>
-          </div>
-        </section>
+          </SheetActions>
+        </SheetSection>
+      )}
 
-        {picto.style === 'photo' && (
-          <section className={styles.section}>
-            <div className={styles.fieldLabel}>Photo</div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className={styles.fileInput}
-              onChange={(e) => {
-                // Picking a file starts a fresh attempt, so stale errors go.
-                setError(null);
-                onInputChange(e);
-              }}
-            />
-            {processed ? (
-              <div className={styles.photoPreview}>
-                <img src={processed.previewUrl} alt="" className={styles.photoPreviewImg} />
-                <Button variant="ghost" onClick={pickFile} disabled={busy}>
-                  Choose another
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<UploadIcon size={16} />}
-                onClick={pickFile}
-                disabled={busy}
-              >
-                {processing ? 'Preparing…' : 'Choose a new photo'}
-              </Button>
-            )}
-            <div className={styles.sectionActions}>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  void onSavePhoto();
-                }}
-                disabled={!processed || busy}
-              >
-                Replace photo
-              </Button>
-            </div>
-          </section>
-        )}
-
-        <section className={styles.section}>
-          <div className={styles.fieldLabel}>Voice</div>
-          <div className={styles.sectionActions}>
-            <Button
-              variant="ghost"
-              icon={<MicIcon size={14} />}
-              onClick={() => setRecordingVoice(true)}
-              disabled={busy}
-            >
-              {livePicto.audioPath ? 'Edit recording' : 'Record voice'}
-            </Button>
-          </div>
-        </section>
-
-        <section className={styles.dangerSection}>
-          <div className={styles.fieldLabel}>Delete</div>
-          {referencedBoardIds.length > 0 && (
-            <p className={styles.dangerHint}>
-              Used on {referencedBoardIds.length} board
-              {referencedBoardIds.length === 1 ? '' : 's'}. Deleting removes it from{' '}
-              {referencedBoardIds.length === 1 ? 'that board' : 'those boards'} too.
-            </p>
-          )}
-          <ConfirmDeleteRow
-            label="Delete pictogram"
-            onConfirm={() => {
-              void onDelete();
-            }}
+      <SheetSection label="Voice">
+        <SheetActions>
+          <Button
+            variant="ghost"
+            icon={<MicIcon size={14} />}
+            onClick={() => setRecordingVoice(true)}
             disabled={busy}
-          />
-        </section>
+          >
+            {livePicto.audioPath ? 'Edit recording' : 'Record voice'}
+          </Button>
+        </SheetActions>
+      </SheetSection>
 
-        {shownError && <FormError>{shownError}</FormError>}
-      </div>
+      <SheetSection label="Delete" danger>
+        {referencedBoardIds.length > 0 && (
+          <SheetHint>
+            Used on {referencedBoardIds.length} board
+            {referencedBoardIds.length === 1 ? '' : 's'}. Deleting removes it from{' '}
+            {referencedBoardIds.length === 1 ? 'that board' : 'those boards'} too.
+          </SheetHint>
+        )}
+        <ConfirmDeleteRow
+          label="Delete pictogram"
+          onConfirm={() =>
+            run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ pictogramId: picto.id }))
+          }
+          disabled={busy}
+        />
+      </SheetSection>
+
+      {shownError && <FormError>{shownError}</FormError>}
       {recordingVoice && (
         <VoiceRecorderDialog picto={livePicto} onClose={() => setRecordingVoice(false)} />
       )}
-    </Modal>
+    </Sheet>
   );
 };
