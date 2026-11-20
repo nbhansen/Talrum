@@ -40,15 +40,17 @@ export const useVoiceRecording = (
   const stop = useCallback(async (): Promise<void> => {
     if (!rec) return;
     setStatus('stopping');
+    let blob: Blob;
     try {
-      const blob = await rec.stop();
-      setRec(null);
-      setStatus('idle');
-      await save(blob);
+      blob = await rec.stop();
     } catch {
       setStatus('idle');
-      report('Upload failed. Check your connection and try again.');
+      report('Recording failed. Try again.');
+      return;
     }
+    setRec(null);
+    setStatus('idle');
+    await save(blob);
   }, [rec, save, report]);
 
   // The recorder stops itself at MAX_RECORDING_MS either way. Without this
