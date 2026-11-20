@@ -4,15 +4,19 @@
  * `supabase secrets set`: AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.
  */
 
-import { NotConfiguredError } from '../_shared/generateHandler.ts';
-import { SynthesisError, type Synthesize, type VoiceLanguage } from './types.ts';
+import {
+  type GenerateLanguage,
+  NotConfiguredError,
+  ProviderError,
+} from '../_shared/generateHandler.ts';
+import type { Synthesize } from './types.ts';
 
 /**
  * One fixed neural voice per language. Fixed on purpose: a generated voice
  * becomes part of a learned symbol system, so the same label must sound the
  * same on every generation.
  */
-const VOICES: Record<VoiceLanguage, { locale: string; name: string }> = {
+const VOICES: Record<GenerateLanguage, { locale: string; name: string }> = {
   da: { locale: 'da-DK', name: 'da-DK-ChristelNeural' },
   en: { locale: 'en-US', name: 'en-US-JennyNeural' },
 };
@@ -28,7 +32,7 @@ const escapeXml = (text: string): string =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;');
 
-export const buildSsml = (label: string, language: VoiceLanguage): string => {
+export const buildSsml = (label: string, language: GenerateLanguage): string => {
   const voice = VOICES[language];
   return `<speak version="1.0" xml:lang="${voice.locale}"><voice name="${voice.name}">${escapeXml(label)}</voice></speak>`;
 };
@@ -57,7 +61,7 @@ export const synthesizeWithAzure: Synthesize = async (label, language) => {
       signal: AbortSignal.timeout(15_000),
     });
   } catch (err) {
-    throw new SynthesisError(
+    throw new ProviderError(
       `azure fetch failed: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
@@ -67,7 +71,7 @@ export const synthesizeWithAzure: Synthesize = async (label, language) => {
     // message; the privacy policy's "we do not log the label" must stay
     // unconditionally true. The request id is what Azure support asks for.
     const requestId = res.headers.get('apim-request-id') ?? 'unknown';
-    throw new SynthesisError(`azure responded ${res.status} (request ${requestId})`);
+    throw new ProviderError(`azure responded ${res.status} (request ${requestId})`);
   }
   return { bytes: new Uint8Array(await res.arrayBuffer()), mimeType: 'audio/mpeg' };
 };

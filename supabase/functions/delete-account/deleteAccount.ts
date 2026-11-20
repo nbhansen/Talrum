@@ -1,4 +1,4 @@
-import { logFailure } from '../_shared/http.ts';
+import { type AuthLike, logFailure } from '../_shared/http.ts';
 import {
   AUDIO_BUCKET,
   DeletionError,
@@ -22,11 +22,7 @@ export interface AdminClient {
       ) => Promise<{ data: { name: string }[] | null; error: { message: string } | null }>;
     };
   };
-  auth: {
-    getUser: (jwt: string | undefined) => Promise<{
-      data: { user: { id: string } | null };
-      error: unknown;
-    }>;
+  auth: AuthLike['auth'] & {
     admin: {
       deleteUser: (uid: string) => Promise<{
         error: { message: string; code?: string } | null;

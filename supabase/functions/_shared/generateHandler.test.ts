@@ -3,12 +3,12 @@ import { assertEquals } from 'std/assert';
 import {
   type AuthLike,
   type GenerateConfig,
+  type GenerateInput,
   handleGenerate,
   MAX_LABEL_LENGTH,
   NotConfiguredError,
+  ProviderError,
 } from './generateHandler.ts';
-
-class StubProviderError extends Error {}
 
 const goodAdmin: AuthLike = {
   auth: {
@@ -22,16 +22,14 @@ const noUserAdmin: AuthLike = {
   },
 };
 
-const config = (overrides: Partial<GenerateConfig<string>> = {}): GenerateConfig<string> => ({
+const config = (
+  overrides: Partial<GenerateConfig<'provider_failed'>> = {},
+): GenerateConfig<'provider_failed'> => ({
   failureEvent: 'stub_failed',
-  parseInput: (label) => ({ ok: true, input: label }),
   run: async () => ({ bytes: new Uint8Array([9, 9]), mimeType: 'stub/type' }),
   envelopeKey: 'imageBase64',
-  providerError: {
-    is: (err) => err instanceof StubProviderError,
-    code: 'provider_failed',
-    message: 'provider failed, try again',
-  },
+  providerCode: 'provider_failed',
+  providerMessage: 'provider failed, try again',
   ...overrides,
 });
 
@@ -62,7 +60,7 @@ Deno.test('answers the CORS preflight before any auth check (#435)', async () =>
 Deno.test('every response carries the CORS origin header (#435)', async () => {
   const err = await handleGenerate(request({ label: '' }), goodAdmin, config());
   assertEquals(err.headers.get('access-control-allow-origin'), '*');
-  const ok = await handleGenerate(request({ label: 'spise' }), goodAdmin, config());
+  const ok = await handleGenerate(request({ label: 'spise', language: 'da' }), goodAdmin, config());
   assertEquals(ok.headers.get('access-control-allow-origin'), '*');
 });
 
@@ -89,7 +87,7 @@ Deno.test('rejects a missing Authorization header without an auth round-trip', a
   const res = await handleGenerate(
     new Request('http://localhost/generate-stub', {
       method: 'POST',
-      body: JSON.stringify({ label: 'spise' }),
+      body: JSON.stringify({ label: 'spise', language: 'da' }),
     }),
     admin,
     config(),
@@ -99,7 +97,11 @@ Deno.test('rejects a missing Authorization header without an auth round-trip', a
 });
 
 Deno.test('rejects an invalid JWT', async () => {
-  const res = await handleGenerate(request({ label: 'spise' }), noUserAdmin, config());
+  const res = await handleGenerate(
+    request({ label: 'spise', language: 'da' }),
+    noUserAdmin,
+    config(),
+  );
   assertEquals(res.status, 401);
   assertEquals(await errorCode(res), 'unauthorized');
 });
@@ -132,21 +134,22 @@ Deno.test('rejects a label over the length cap', async () => {
   assertEquals(res.status, 400);
 });
 
-Deno.test('rejects when parseInput rejects, with its message', async () => {
-  const res = await handleGenerate(
-    request({ label: 'spise' }),
-    goodAdmin,
-    config({ parseInput: () => ({ ok: false, message: 'nope' }) }),
-  );
-  assertEquals(res.status, 400);
-  const body = await res.json();
-  assertEquals(body, { ok: false, error: 'bad_request', message: 'nope' });
+Deno.test('rejects a missing language or one outside the closed set', async () => {
+  for (const body of [{ label: 'spise' }, { label: 'spise', language: 'fr' }]) {
+    const res = await handleGenerate(request(body), goodAdmin, config());
+    assertEquals(res.status, 400);
+    assertEquals(await res.json(), {
+      ok: false,
+      error: 'bad_request',
+      message: 'language must be one of: da, en',
+    });
+  }
 });
 
 Deno.test('trims the label and returns the media under the configured envelope key', async () => {
-  let got: string | null = null;
+  let got: GenerateInput | null = null;
   const res = await handleGenerate(
-    request({ label: ' spise ' }),
+    request({ label: ' spise ', language: 'en' }),
     goodAdmin,
     config({
       envelopeKey: 'audioBase64',
@@ -160,16 +163,16 @@ Deno.test('trims the label and returns the media under the configured envelope k
   assertEquals(res.headers.get('content-type'), 'application/json');
   const body = await res.json();
   assertEquals(body, { ok: true, mimeType: 'stub/type', audioBase64: btoa('\x09\x09') });
-  assertEquals(got, 'spise');
+  assertEquals(got, { label: 'spise', language: 'en' });
 });
 
 Deno.test('maps a provider failure to the configured code without leaking detail', async () => {
   const res = await handleGenerate(
-    request({ label: 'spise' }),
+    request({ label: 'spise', language: 'da' }),
     goodAdmin,
     config({
       run: async () => {
-        throw new StubProviderError('upstream responded 401: secret detail');
+        throw new ProviderError('upstream responded 401: secret detail');
       },
     }),
   );
@@ -181,7 +184,7 @@ Deno.test('maps a provider failure to the configured code without leaking detail
 
 Deno.test('maps a provider with no credentials to not_configured (#687)', async () => {
   const res = await handleGenerate(
-    request({ label: 'spise' }),
+    request({ label: 'spise', language: 'da' }),
     goodAdmin,
     config({
       run: async () => {
@@ -195,7 +198,7 @@ Deno.test('maps a provider with no credentials to not_configured (#687)', async 
 
 Deno.test('maps any other throw to internal_error', async () => {
   const res = await handleGenerate(
-    request({ label: 'spise' }),
+    request({ label: 'spise', language: 'da' }),
     goodAdmin,
     config({
       run: async () => {

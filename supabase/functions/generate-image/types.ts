@@ -1,38 +1,14 @@
-import type { SharedErrorCode } from '../_shared/http.ts';
+import type { GenerateErrorCode } from '../_shared/generateHandler.ts';
 
 /**
  * Wire contract for the generate-image edge function. The client mirrors
- * these literals in `src/lib/queries/generateImage.ts` — tsconfig does not
- * include supabase/, so a cross-import is not possible. Change one side,
- * change the other.
+ * these codes in `src/lib/queries/generateImage.ts`, and wireContract.test.ts
+ * pins the two copies together.
  */
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode =
-  | SharedErrorCode
-  | 'bad_request'
-  | 'not_configured'
-  | 'generation_failed'
-  | 'internal_error';
-
-export interface ErrorResponse {
-  ok: false;
-  error: ErrorCode;
-  message: string;
-}
-
-/**
- * Success is a JSON envelope, not raw image bytes — the same reason as
- * generate-voice: supabase-js parses responses by a content-type allow-list
- * and exposes no response headers, so base64-in-JSON keeps the image and its
- * real MIME type in one self-describing shape.
- */
-export interface SuccessResponse {
-  ok: true;
-  mimeType: string;
-  imageBase64: string;
-}
+export type ErrorCode = GenerateErrorCode | 'generation_failed';
 
 /**
  * The provider seam. The prompt arrives fully built, because the style template
@@ -42,11 +18,3 @@ export interface SuccessResponse {
 export type GenerateImage = (
   prompt: string,
 ) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
-
-/** Thrown by a provider when the upstream service fails. */
-export class GenerationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'GenerationError';
-  }
-}

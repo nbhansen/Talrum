@@ -1,8 +1,9 @@
 import { assertEquals, assertStringIncludes } from 'std/assert';
 
+import { ProviderError } from '../_shared/generateHandler.ts';
 import { buildSsml } from './azure.ts';
 import { handleRequest } from './index.ts';
-import { SynthesisError, type Synthesize } from './types.ts';
+import type { Synthesize } from './types.ts';
 
 // The shared HTTP shell (CORS, method, auth, body and label validation) is
 // covered in _shared/generateHandler.test.ts. These tests pin what is
@@ -49,7 +50,7 @@ Deno.test('returns the provider clip as a base64 JSON envelope on success', asyn
   assertEquals(res.status, 200);
   assertEquals(res.headers.get('access-control-allow-origin'), '*');
   // JSON, deliberately: supabase-js reads audio/* responses as text and
-  // exposes no headers — see SuccessResponse in types.ts.
+  // exposes no headers — see envelopeKey in _shared/generateHandler.ts.
   assertEquals(res.headers.get('content-type'), 'application/json');
   const body = await res.json();
   assertEquals(body, { ok: true, mimeType: 'audio/mpeg', audioBase64: btoa('\x09\x09') });
@@ -66,7 +67,7 @@ Deno.test('answers not_configured when the Azure variables are absent (#687)', a
 
 Deno.test('maps a provider failure to synthesis_failed without leaking detail', async () => {
   const synth: Synthesize = async () => {
-    throw new SynthesisError('azure responded 401: secret detail');
+    throw new ProviderError('azure responded 401: secret detail');
   };
   const res = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin, synth);
   assertEquals(res.status, 502);

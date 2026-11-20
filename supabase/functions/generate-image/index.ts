@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 import { type AuthLike, handleGenerate } from '../_shared/generateHandler.ts';
 import { generateWithAzure } from './azure.ts';
-import { buildImagePrompt, isPromptLanguage } from './prompt.ts';
-import { type GenerateImage, GenerationError } from './types.ts';
+import { buildImagePrompt } from './prompt.ts';
+import type { ErrorCode, GenerateImage } from './types.ts';
 
 /**
  * Turns a pictogram label into an image (#422). The shared handler owns auth,
@@ -22,17 +22,10 @@ export const handleRequest = (
     failureEvent: 'generate_image_failed',
     // The prompt is built here, because the style template is app policy and
     // not provider knowledge.
-    parseInput: (label, body) =>
-      isPromptLanguage(body.language)
-        ? { ok: true, input: buildImagePrompt(label, body.language) }
-        : { ok: false, message: 'language must be one of: da, en' },
-    run: generate,
+    run: ({ label, language }) => generate(buildImagePrompt(label, language)),
     envelopeKey: 'imageBase64',
-    providerError: {
-      is: (err) => err instanceof GenerationError,
-      code: 'generation_failed',
-      message: 'image generation failed, try again',
-    },
+    providerCode: 'generation_failed' satisfies ErrorCode,
+    providerMessage: 'image generation failed, try again',
   });
 
 if (import.meta.main) {

@@ -159,8 +159,8 @@ New entry kind? Add the interface in `types.ts`, the handler in `handlers.ts`, a
 
 - **Idempotent.** A drain can replay an entry that already partly succeeded, so
   re-running must converge, not error. Server-side `array_remove`,
-  `ON DELETE CASCADE` and RPC no-ops are the usual tools; see `delete_pictogram`
-  (#280).
+  `ON DELETE CASCADE` and triggers are the usual tools; see the pictogram
+  delete and its `pictograms_scrub_step_ids` trigger (#675).
 
   Guarded `updateBoard` is the exception, by design. A reload starts with an
   empty board clock, so the replay still carries the `expectedUpdatedAt` its own
