@@ -1,6 +1,7 @@
 import { type QueryClient, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { useSessionUser } from '@/lib/auth/session';
+import type { ProcessedImage } from '@/lib/image';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
 import {
@@ -47,16 +48,6 @@ const revokePictogramBlobs = (qc: QueryClient): void => {
 
 export const __test_revokePictogramBlobs = revokePictogramBlobs;
 
-/**
- * Shared settle tail for blob-planting mutations: sweep stale `blob:` URLs,
- * then refetch so the cache picks up the real signed paths (success) or
- * drops the optimistic row (error). Runs on both outcomes via `onSettled`.
- */
-const revokeThenInvalidate = (qc: QueryClient) => (): void => {
-  revokePictogramBlobs(qc);
-  qc.invalidateQueries({ queryKey: pictogramsQueryKey });
-};
-
 interface ReplaceBlobInput {
   pictogramId: string;
   blob: Blob;
@@ -99,7 +90,7 @@ const useReplaceBlob = (
     // Revoke while the blob URL is still in the cache — the sweep walks
     // current cache state, and the rollback below removes the URL from it.
     beforeRollback: () => revokePictogramBlobs(qc),
-    settle: revokeThenInvalidate(qc),
+    beforeInvalidate: () => revokePictogramBlobs(qc),
   });
 };
 
@@ -167,8 +158,24 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
       return { id, imagePath: path };
     },
     beforeRollback: () => revokePictogramBlobs(qc),
-    settle: revokeThenInvalidate(qc),
+    beforeInvalidate: () => revokePictogramBlobs(qc),
   });
+};
+
+/** Adds a cropped photo to a library, minting the id the optimistic row needs. */
+export const useAddPhotoPictogram = (
+  ownerId?: string,
+): { add: (label: string, image: ProcessedImage) => Promise<unknown>; isPending: boolean } => {
+  const create = useCreatePhotoPictogram();
+  const add = (label: string, image: ProcessedImage): Promise<unknown> =>
+    create.mutateAsync({
+      id: crypto.randomUUID(),
+      label,
+      blob: image.blob,
+      extension: image.extension,
+      ...(ownerId ? { ownerId } : {}),
+    });
+  return { add, isPending: create.isPending };
 };
 
 interface RenameInput {
@@ -246,6 +253,6 @@ export const useClearPictogramAudio = (): UseMutationResult<
       ),
     ],
     mutationFn: ({ pictogramId }) => enqueueAndDrain({ kind: 'clearPictoAudio', pictogramId }),
-    settle: revokeThenInvalidate(qc),
+    beforeInvalidate: () => revokePictogramBlobs(qc),
   });
 };

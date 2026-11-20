@@ -3,32 +3,25 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { BoardBuilder } from '@/features/board-builder/BoardBuilder';
 import { BoardNotFound } from '@/features/board-builder/BoardNotFound';
-import { PictoPicker } from '@/features/board-builder/pictogram-picker/PictoPicker';
-import { ShareModal } from '@/features/board-builder/ShareModal';
 import { useSessionUser } from '@/lib/auth/session';
-import { isNotFoundError, useBoard, useSetStepIds } from '@/lib/queries/boards';
-import { useSearchParamFlag } from '@/lib/useSearchParamFlag';
+import { kidPathFor } from '@/lib/lastBoard';
+import { isNotFoundError, useBoard } from '@/lib/queries/boards';
 
 export const BoardBuilderRoute = (): JSX.Element | null => {
   const { boardId = '' } = useParams();
   const boardQuery = useBoard(boardId);
-  const setStepIds = useSetStepIds();
   const board = boardQuery.data;
   const navigate = useNavigate();
   const me = useSessionUser();
-  const picker = useSearchParamFlag('picker');
-  const share = useSearchParamFlag('share');
 
   // `.single()` raises PGRST116 when a row is missing or hidden by RLS
   // (e.g. a pasted URL from another account) — terminal, surface as
   // not-found. Any other error is transient (network, Supabase down);
   // offer Retry rather than mis-attributing to a not-found.
-  if (boardQuery.isError || (boardQuery.isSuccess && !board)) {
-    const variant =
-      isNotFoundError(boardQuery.error) || (boardQuery.isSuccess && !board) ? 'not-found' : 'error';
+  if (boardQuery.isError) {
     return (
       <BoardNotFound
-        variant={variant}
+        variant={isNotFoundError(boardQuery.error) ? 'not-found' : 'error'}
         onBack={() => navigate('/')}
         onRetry={() => void boardQuery.refetch()}
       />
@@ -37,32 +30,14 @@ export const BoardBuilderRoute = (): JSX.Element | null => {
 
   if (!board) return null;
 
-  const isOwner = board.ownerId === me.id;
-
   return (
-    <>
-      <BoardBuilder
-        key={board.id}
-        board={board}
-        isOwner={isOwner}
-        setStepIds={setStepIds}
-        onBack={() => navigate('/')}
-        onOpenPicker={picker.open}
-        onOpenShare={share.open}
-        onRemoved={() => navigate('/', { replace: true })}
-        onKidMode={() => navigate(`/kid/${board.kind}/${board.id}`)}
-      />
-      {picker.isOpen && (
-        <PictoPicker
-          ownerId={board.ownerId}
-          onClose={picker.close}
-          onConfirm={(ids) => {
-            if (ids.length === 0) return;
-            setStepIds.mutate({ boardId: board.id, update: (prev) => [...prev, ...ids] });
-          }}
-        />
-      )}
-      {share.isOpen && <ShareModal boardId={board.id} isOwner={isOwner} onClose={share.close} />}
-    </>
+    <BoardBuilder
+      key={board.id}
+      board={board}
+      isOwner={board.ownerId === me.id}
+      onBack={() => navigate('/')}
+      onRemoved={() => navigate('/', { replace: true })}
+      onKidMode={() => navigate(kidPathFor(board.id))}
+    />
   );
 };

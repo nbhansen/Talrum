@@ -20,7 +20,6 @@ vi.mock('@/lib/queries/kids', () => ({
   useActiveKid: () => KID,
   useRenameKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  setActiveKidId: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {
@@ -48,10 +47,7 @@ const renderRoute = (): void => {
         <MemoryRouter initialEntries={['/kids']}>
           <Routes>
             <Route path="/kids" element={<KidsRoute />} />
-            <Route
-              path="/kid/sequence/:boardId"
-              element={<div data-testid="kid-sequence-route" />}
-            />
+            <Route path="/kid/:boardId" element={<div data-testid="kid-sequence-route" />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>

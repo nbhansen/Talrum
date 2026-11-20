@@ -212,7 +212,7 @@ describe('useLeaveBoard', () => {
     ['keeps the last-board pointer when it names another board', 'b2', 'b2'],
   ])('%s', async (_name, lastId, expected) => {
     deleteEq2Mock.mockResolvedValueOnce({ error: null });
-    setLastBoard({ id: lastId, kind: 'sequence' });
+    setLastBoard({ id: lastId });
     const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
       <TestSessionProvider>{makeWrapper(qc)({ children })}</TestSessionProvider>

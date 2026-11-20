@@ -1,9 +1,10 @@
 import { Fragment, type JSX, type MouseEventHandler } from 'react';
 
 import { kindLabel } from '@/lib/boardKindVocab';
+import { buildBoardSteps } from '@/lib/boardSteps';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar, inkForAccent } from '@/theme/tokens';
-import type { Board, Pictogram } from '@/types/domain';
+import type { Board } from '@/types/domain';
 import { StepArrowIcon } from '@/ui/icons';
 import { PictoCard } from '@/widgets/PictoTile/PictoCard';
 
@@ -18,10 +19,7 @@ const PREVIEW_LIMIT = 4;
 
 export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
-  const previewSteps: Pictogram[] = board.stepIds
-    .slice(0, PREVIEW_LIMIT)
-    .map((id) => pictogramsById.get(id))
-    .filter((p): p is Pictogram => Boolean(p));
+  const previewSteps = buildBoardSteps(board.stepIds.slice(0, PREVIEW_LIMIT), pictogramsById);
 
   return (
     <button type="button" className={styles.card} onClick={onClick}>
@@ -36,9 +34,9 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
       </div>
       <span className={styles.name}>{board.name}</span>
       <div className={styles.preview}>
-        {previewSteps.map((p, i) => (
-          <Fragment key={`${p.id}-${i}`}>
-            <PictoCard picto={p} size={64} showLabel={false} />
+        {previewSteps.map((step, i) => (
+          <Fragment key={step.key}>
+            <PictoCard picto={step.picto} size={64} showLabel={false} />
             {i < previewSteps.length - 1 && (
               <span className={styles.previewArrow}>
                 <StepArrowIcon size={14} />

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/queries/pictograms', () => ({
   usePictograms: () => ({ data: [], isPending: false }),
-  useCreatePhotoPictogram: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useAddPhotoPictogram: () => ({ add: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/lib/queries/generateImage', () => ({

@@ -9,8 +9,7 @@ const useOutboxStatusMock = vi.fn();
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
   retryFailed: vi.fn(),
-  listEntries: vi.fn(),
-  discardEntry: vi.fn(),
+  discardFailed: vi.fn(),
 }));
 
 const kidModeNavMock = vi.fn((): (() => void) | undefined => undefined);

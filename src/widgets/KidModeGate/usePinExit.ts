@@ -10,7 +10,7 @@ import {
   subscribePinThrottle,
 } from '@/widgets/PinPad/pinThrottle';
 
-interface PinExit {
+export interface PinExit {
   verifying: boolean;
   /** Ask to leave kid mode: opens the pad, or exits outright when there is no PIN. */
   requestExit: () => void;

@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { getKidCopy } from '@/lib/kidCopy';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
-import { Modal } from '@/ui/Modal/Modal';
-import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/PinPad/PinPad';
 
+import { PinExitDialog } from './PinExitDialog';
 import { usePinExit } from './usePinExit';
 
 /**
@@ -19,23 +18,14 @@ export const KidRouteFallback = (): JSX.Element => {
   const navigate = useNavigate();
   // Parent home, not the builder where the normal exit lands: the board is a
   // plausible cause of the crash and the builder renders the same rows.
-  const { verifying, requestExit, cancel, verify, lockedUntil } = usePinExit(() => {
+  const exit = usePinExit(() => {
     void navigate('/', { replace: true });
   });
 
   return (
     <div role="alert" className={styles.kidFallback}>
-      {verifying ? (
-        <Modal onClose={cancel} labelledBy={PIN_PAD_TITLE_ID} size="sm">
-          <PinPad
-            title={kidCopy.pin.verifyTitle}
-            subtitle={kidCopy.pin.verifySubtitle}
-            onSubmit={verify}
-            onCancel={cancel}
-            errorMessage={kidCopy.pin.wrongPin}
-            lock={{ until: lockedUntil, message: kidCopy.pin.locked }}
-          />
-        </Modal>
+      {exit.verifying ? (
+        <PinExitDialog exit={exit} />
       ) : (
         <div className={styles.kidFallbackActions}>
           <button
@@ -45,7 +35,7 @@ export const KidRouteFallback = (): JSX.Element => {
           >
             {kidCopy.crashRetry}
           </button>
-          <button type="button" className={styles.kidFallbackExit} onClick={requestExit}>
+          <button type="button" className={styles.kidFallbackExit} onClick={exit.requestExit}>
             {kidCopy.exitButton}
           </button>
         </div>

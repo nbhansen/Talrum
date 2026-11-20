@@ -25,7 +25,7 @@ export const ParentHomeRoute = (): JSX.Element => {
     // yank the parent there on boot (#353).
     if (kidModeNeedsPinSetup()) return null;
     const last = getLastBoard();
-    return last ? kidPathFor(last) : null;
+    return last ? kidPathFor(last.id) : null;
   });
   useEffect(() => {
     markAutoLaunched();

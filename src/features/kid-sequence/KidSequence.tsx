@@ -3,7 +3,7 @@ import { type JSX, type PointerEvent, useEffect, useRef, useState } from 'react'
 import { KidModeLayout } from '@/layouts/KidModeLayout';
 import { type BoardStep, buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import { getKidCopy } from '@/lib/kidCopy';
-import { useSetStepIds } from '@/lib/queries/boards';
+import { useUpdateBoard } from '@/lib/queries/boards';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { useLongPress } from '@/lib/useLongPress';
 import { speakPictogram } from '@/lib/voiceOut';
@@ -110,7 +110,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
   // id-keyed flash would light up every identical tile at once (#273).
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
   const [doneKeys, setDoneKeys] = useState<ReadonlySet<string>>(() => new Set());
-  const setStepIds = useSetStepIds();
+  const updateBoard = useUpdateBoard();
 
   // Tracked so unmount cancels it, or a stray setState runs on a torn-down
   // tree. It also lets a rapid second tap reset the timer instead of stacking,
@@ -153,7 +153,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
           }),
         ),
     );
-    setStepIds.mutate({ boardId: board.id, update: () => stepIds });
+    updateBoard.mutate({ boardId: board.id, update: () => ({ stepIds }) });
   };
 
   const currentIndex = steps.findIndex((s) => !doneKeys.has(s.key));
@@ -181,9 +181,7 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
       eyebrow={board.name.toUpperCase()}
       title={steps.length === 0 ? '' : title}
       titleSize="large"
-      {...(allDone
-        ? { logoTint: 'sage', logoTintInk: 'sage-ink', logoContent: <CheckIcon size={22} /> }
-        : {})}
+      logo={allDone ? { tint: 'sage', content: <CheckIcon size={22} /> } : undefined}
       onExit={onExit}
     >
       {steps.length === 0 ? (

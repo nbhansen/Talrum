@@ -449,6 +449,18 @@ describe('VoiceRecorderDialog', () => {
       expect(screen.queryByText(/Check your connection/)).not.toBeInTheDocument();
     });
 
+    it('an error with no code says generation failed, like the image path', async () => {
+      const user = userEvent.setup();
+      invokeMock.mockRejectedValue(new Error('unexpected'));
+      renderDialog(pictoWithoutAudio);
+
+      await user.click(screen.getByRole('button', { name: /generate voice/i }));
+
+      expect(
+        await screen.findByText('Voice generation failed. Try again in a moment.'),
+      ).toBeInTheDocument();
+    });
+
     it('says that generation is not set up for a not_configured response (#687)', async () => {
       const user = userEvent.setup();
       const { CodedError } = await import('@/lib/queries/edgeFunction');

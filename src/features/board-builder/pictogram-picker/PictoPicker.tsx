@@ -17,9 +17,9 @@ type PickerTab = 'library' | 'upload' | 'generate';
 
 interface PictoPickerProps {
   /** Owner of the board being edited; new pictograms join their library (#490). */
-  ownerId?: string;
+  ownerId: string;
   onClose: () => void;
-  onConfirm?: (selectedIds: readonly string[]) => void;
+  onConfirm: (selectedIds: readonly string[]) => void;
 }
 
 const TITLE_ID = 'tal-picker-title';
@@ -36,11 +36,6 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
     { id: 'upload', label: 'Upload', sub: 'Photo / image' },
     { id: 'generate', label: 'Generate', sub: 'AI image' },
   ];
-  // Keep the dialog's pictogram in sync with the query cache so `audio_path`
-  // updates (record → save, delete) flow through without remounting.
-  const editingVoiceLive = editingVoice
-    ? (pictograms.find((p) => p.id === editingVoice.id) ?? editingVoice)
-    : null;
 
   const toggle = (id: string): void => {
     setSelected((prev) => {
@@ -52,7 +47,7 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
   };
 
   const confirm = (): void => {
-    onConfirm?.([...selected]);
+    onConfirm([...selected]);
     onClose();
   };
 
@@ -85,8 +80,8 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
             />
           </div>
         )}
-        {tab === 'upload' && <PictogramUpload {...(ownerId ? { ownerId } : {})} />}
-        {tab === 'generate' && <PictogramGenerate {...(ownerId ? { ownerId } : {})} />}
+        {tab === 'upload' && <PictogramUpload ownerId={ownerId} />}
+        {tab === 'generate' && <PictogramGenerate ownerId={ownerId} />}
       </TabPanel>
       <footer className={styles.footer}>
         <div className={styles.footerCount}>{selected.size} selected</div>
@@ -99,8 +94,8 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
           </Button>
         </div>
       </footer>
-      {editingVoiceLive && (
-        <VoiceRecorderDialog picto={editingVoiceLive} onClose={() => setEditingVoice(null)} />
+      {editingVoice && (
+        <VoiceRecorderDialog picto={editingVoice} onClose={() => setEditingVoice(null)} />
       )}
     </Modal>
   );

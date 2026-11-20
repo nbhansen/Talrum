@@ -2,7 +2,7 @@ import { type JSX, useState } from 'react';
 
 import { playPictogramAudio } from '@/lib/platform/audio';
 import { isRecordingSupported, MAX_RECORDING_MS } from '@/lib/platform/recording';
-import { useClearPictogramAudio } from '@/lib/queries/pictograms';
+import { useClearPictogramAudio, usePictograms } from '@/lib/queries/pictograms';
 import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
@@ -13,6 +13,7 @@ import { Modal } from '@/ui/Modal/Modal';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 
 import { useGeneratedVoicePreview } from './useGeneratedVoicePreview';
+import { useSaveVoice } from './useSaveVoice';
 import { useVoiceRecording } from './useVoiceRecording';
 import styles from './VoiceRecorderDialog.module.css';
 
@@ -23,11 +24,14 @@ interface Props {
 
 const TITLE_ID = 'tal-voice-recorder-title';
 
-export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
+export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.Element => {
+  // Hosts capture the pictogram at tap time; saved audio lands in the cache.
+  const picto = usePictograms().data?.find((p) => p.id === snapshot.id) ?? snapshot;
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-  const recording = useVoiceRecording(picto.id, setError);
-  const generated = useGeneratedVoicePreview(picto, setError);
+  const saveVoice = useSaveVoice(picto.id, setError);
+  const recording = useVoiceRecording(saveVoice.save, setError);
+  const generated = useGeneratedVoicePreview(picto, saveVoice.save, setError);
   const clearMut = useClearPictogramAudio();
   const supported = isRecordingSupported();
   const hasAudio = Boolean(picto.audioPath);
@@ -59,8 +63,9 @@ export const VoiceRecorderDialog = ({ picto, onClose }: Props): JSX.Element => {
 
   const busy =
     recording.status === 'starting' ||
-    recording.status === 'uploading' ||
+    recording.status === 'stopping' ||
     generated.status !== 'idle' ||
+    saveVoice.isPending ||
     playing ||
     clearMut.isPending;
 

@@ -113,6 +113,19 @@ export const reconcileQueue = async (): Promise<OutboxEntry[]> => {
   return kept;
 };
 
+/** The entry an attempt that threw leaves behind, on both write paths. */
+export const entryAfterFailure = (current: OutboxEntry, err: unknown): OutboxEntry => {
+  const attemptCount = current.attemptCount + 1;
+  const lastError = err instanceof Error ? err.message : 'unknown error';
+  if (err instanceof UnretryableOutboxError) {
+    return { ...current, attemptCount, status: 'failed', lastError, failureKind: err.failureKind };
+  }
+  if (attemptCount >= MAX_ATTEMPTS_BEFORE_FAILED) {
+    return { ...current, attemptCount, status: 'failed', lastError, failureKind: 'permanent' };
+  }
+  return { ...current, attemptCount, status: 'pending', lastError };
+};
+
 type RunOutcome = 'ok' | 'ok-uncleared' | 'transient' | 'failed';
 
 const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
@@ -128,30 +141,9 @@ const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
     // Rewrite from the fresh IDB copy, not the loop's snapshot: an earlier
     // entry in this same drain pass may have forwarded this entry's conflict
     // baseline (#281), and `entry` predates that.
-    const attemptCount = current.attemptCount + 1;
-    const message = err instanceof Error ? err.message : 'unknown error';
-    if (err instanceof UnretryableOutboxError) {
-      await putEntry({
-        ...current,
-        attemptCount,
-        status: 'failed',
-        lastError: message,
-        failureKind: err.failureKind,
-      });
-      return 'failed';
-    }
-    if (attemptCount >= MAX_ATTEMPTS_BEFORE_FAILED) {
-      await putEntry({
-        ...current,
-        attemptCount,
-        status: 'failed',
-        lastError: message,
-        failureKind: 'permanent',
-      });
-      return 'failed';
-    }
-    await putEntry({ ...current, attemptCount, status: 'pending', lastError: message });
-    return 'transient';
+    const next = entryAfterFailure(current, err);
+    await putEntry(next);
+    return next.status === 'failed' ? 'failed' : 'transient';
   }
   // Outside the try: a failed delete is not a failed handler. Inside, it took
   // the transient branch and replayed a write the server had accepted (#449).

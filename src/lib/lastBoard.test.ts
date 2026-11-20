@@ -23,14 +23,14 @@ describe('lastBoard', () => {
     expect(getLastBoard()).toBeNull();
   });
 
-  it('round-trips a sequence board', () => {
-    setLastBoard({ id: 'abc', kind: 'sequence' });
-    expect(getLastBoard()).toEqual({ id: 'abc', kind: 'sequence' });
+  it('round-trips a board id', () => {
+    setLastBoard({ id: 'abc' });
+    expect(getLastBoard()).toEqual({ id: 'abc' });
   });
 
-  it('round-trips a choice board', () => {
-    setLastBoard({ id: 'xyz', kind: 'choice' });
-    expect(getLastBoard()).toEqual({ id: 'xyz', kind: 'choice' });
+  it('reads only the id of a record that also stores a kind', () => {
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'abc', kind: 'choice' }));
+    expect(getLastBoard()).toEqual({ id: 'abc' });
   });
 
   it('returns null on malformed JSON', () => {
@@ -38,13 +38,13 @@ describe('lastBoard', () => {
     expect(getLastBoard()).toBeNull();
   });
 
-  it('returns null when stored kind is unknown', () => {
-    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'a', kind: 'unknown' }));
+  it('returns null when the stored id is not a string', () => {
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 7 }));
     expect(getLastBoard()).toBeNull();
   });
 
   it('clearLastBoard removes the entry', () => {
-    setLastBoard({ id: 'a', kind: 'sequence' });
+    setLastBoard({ id: 'a' });
     clearLastBoard();
     expect(getLastBoard()).toBeNull();
   });
@@ -56,7 +56,6 @@ describe('lastBoard', () => {
   });
 
   it('kidPathFor builds the correct route', () => {
-    expect(kidPathFor({ id: 'b1', kind: 'sequence' })).toBe('/kid/sequence/b1');
-    expect(kidPathFor({ id: 'b2', kind: 'choice' })).toBe('/kid/choice/b2');
+    expect(kidPathFor('b1')).toBe('/kid/b1');
   });
 });

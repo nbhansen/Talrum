@@ -447,27 +447,6 @@ describe('runHandler · createPhotoPicto', () => {
   });
 });
 
-describe('runHandler · legacy blob entries (#415)', () => {
-  it('fails an entry persisted before versioned paths permanently, with an instruction', async () => {
-    // Pre-#415 persisted shape: extension, no path. Replaying it would
-    // re-derive the deterministic path new writes no longer own.
-    const legacy = {
-      ...baseProps,
-      kind: 'createPhotoPicto',
-      pictogramId: 'p-1',
-      ownerId: 'o-1',
-      label: 'Park',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      extension: 'jpg',
-    } as unknown as CreatePhotoPictogramEntry;
-    await expect(runHandler(legacy)).rejects.toMatchObject({
-      name: 'UnretryableOutboxError',
-      message: expect.stringContaining('discard and redo') as unknown,
-    });
-    expect(uploadMock).not.toHaveBeenCalled();
-  });
-});
-
 describe('runHandler · setPictoAudio', () => {
   it('uploads, updates the row, and removes the recording the row pointed at', async () => {
     // The superseded path comes from the row read, not a client snapshot

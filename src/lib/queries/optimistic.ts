@@ -31,7 +31,7 @@ export interface OptimisticListContext {
 }
 
 /**
- * List-keyed sibling of `useBoardPatch` (boards.mutations.ts): the
+ * List-keyed sibling of `useUpdateBoard` (boards.mutations.ts): the
  * cancel → snapshot → patch → rollback → invalidate triad for whole-list
  * caches, over one or more caches per mutation.
  */
@@ -46,14 +46,11 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
    * planted `blob:` URLs, which are unreachable once the rollback lands.
    */
   beforeRollback?: () => void;
-  /**
-   * REPLACES the default settle (invalidate every cache key) — it does not
-   * run in addition. A custom settle must invalidate every cache itself.
-   */
-  settle?: (input: Input, error: Error | null) => void;
+  /** Runs in onSettled, before every cache key is invalidated. */
+  beforeInvalidate?: (input: Input, error: Error | null) => void;
 }): UseMutationResult<Result, Error, Input, OptimisticListContext> => {
   const qc = useQueryClient();
-  const { caches, mutationFn, onMutateSideEffect, beforeRollback, settle } = options;
+  const { caches, mutationFn, onMutateSideEffect, beforeRollback, beforeInvalidate } = options;
   return useMutation({
     mutationFn,
     onMutate: async (input) => {
@@ -77,10 +74,7 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
       });
     },
     onSettled: (_result, err, input) => {
-      if (settle) {
-        settle(input, err);
-        return;
-      }
+      beforeInvalidate?.(input, err);
       for (const c of caches) qc.invalidateQueries({ queryKey: c.queryKey });
     },
   });

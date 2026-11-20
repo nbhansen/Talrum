@@ -18,8 +18,7 @@ export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
   const { data: pictograms = [] } = usePictograms();
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<Pictogram | null>(null);
-  const [voiceTargetId, setVoiceTargetId] = useState<string | null>(null);
-  const voiceTarget = pictograms.find((p) => p.id === voiceTargetId);
+  const [voiceTarget, setVoiceTarget] = useState<Pictogram | null>(null);
 
   if (pictograms.length === 0) {
     return (
@@ -44,11 +43,11 @@ export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
         placeholder="Search apple, park, happy…"
         tileSize={120}
         onTileClick={setTarget}
-        onEditVoice={(p) => setVoiceTargetId(p.id)}
+        onEditVoice={setVoiceTarget}
       />
       {target && <PictogramSheet picto={target} onClose={() => setTarget(null)} />}
       {voiceTarget && (
-        <VoiceRecorderDialog picto={voiceTarget} onClose={() => setVoiceTargetId(null)} />
+        <VoiceRecorderDialog picto={voiceTarget} onClose={() => setVoiceTarget(null)} />
       )}
     </>
   );

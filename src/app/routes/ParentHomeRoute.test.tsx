@@ -34,7 +34,6 @@ vi.mock('@/lib/queries/kids', () => ({
   useKids: () => useKidsMock(),
   useCreateKid: () => ({ mutate: vi.fn(), isPending: false }),
   useActiveKid: () => useKidsMock().data?.[0] ?? null,
-  setActiveKidId: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {
@@ -83,11 +82,7 @@ const makeWrap = (initialPath: string): (() => JSX.Element) => {
             <Route path="/library" element={<div data-testid="library-route" />} />
             <Route path="/kids" element={<div data-testid="kids-route" />} />
             <Route path="/settings" element={<div data-testid="settings-route" />} />
-            <Route
-              path="/kid/sequence/:boardId"
-              element={<div data-testid="kid-sequence-route" />}
-            />
-            <Route path="/kid/choice/:boardId" element={<div data-testid="kid-choice-route" />} />
+            <Route path="/kid/:boardId" element={<div data-testid="kid-route" />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -115,44 +110,35 @@ describe('ParentHomeRoute auto-launch', () => {
   it('renders ParentHome when no last board is recorded', () => {
     const Wrap = makeWrap('/');
     render(<Wrap />);
-    expect(screen.queryByTestId('kid-sequence-route')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('kid-choice-route')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
 
-  it('redirects into the last sequence board on first visit per session', async () => {
+  it('redirects into the last board on first visit per session', async () => {
     await setPin('1234');
-    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
-    expect(screen.getByTestId('kid-sequence-route')).toBeInTheDocument();
-  });
-
-  it('redirects into the last choice board on first visit per session', async () => {
-    await setPin('1234');
-    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-cho', kind: 'choice' }));
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
-    expect(screen.getByTestId('kid-choice-route')).toBeInTheDocument();
+    expect(screen.getByTestId('kid-route')).toBeInTheDocument();
   });
 
   // Auto-launch is the one entry into kid mode with no user gesture, so it must
   // respect the PIN precondition too, or boot lands on a bounce to Settings
   // (#353).
   it('does not auto-launch into kid mode when no PIN is set (#353)', () => {
-    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
     const Wrap = makeWrap('/');
     render(<Wrap />);
-    expect(screen.queryByTestId('kid-sequence-route')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
 
   it('does not redirect when the session has already auto-launched', () => {
-    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq', kind: 'sequence' }));
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
     sessionStorage.setItem('talrum:auto-launched', '1');
     const Wrap = makeWrap('/');
     render(<Wrap />);
-    expect(screen.queryByTestId('kid-sequence-route')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
 });

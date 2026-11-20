@@ -1,22 +1,14 @@
-import { type JSX, useState } from 'react';
+import type { JSX } from 'react';
 
-import { captureException } from '@/lib/platform/telemetry';
-import {
-  setActiveKidId,
-  useActiveKid,
-  useDeleteKid,
-  useKids,
-  useRenameKid,
-} from '@/lib/queries/kids';
+import { setActiveKidId } from '@/lib/activeKid';
+import { useActiveKid, useDeleteKid, useKids, useRenameKid } from '@/lib/queries/kids';
 import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
-import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { FormError } from '@/ui/FormError/FormError';
 import { CheckIcon } from '@/ui/icons';
-import { Modal } from '@/ui/Modal/Modal';
-
-import styles from './KidSheet.module.css';
+import { RenameSection, Sheet, SheetActions, SheetHint, SheetSection } from '@/ui/Sheet/Sheet';
+import { useSheetAction } from '@/ui/Sheet/useSheetAction';
 
 interface Props {
   kid: Kid;
@@ -25,141 +17,90 @@ interface Props {
   onClose: () => void;
 }
 
-const TITLE_ID = 'tal-kid-sheet-title';
 const NAME_MAX = 40;
 
 export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
-  const [name, setName] = useState(kid.name);
-  const [error, setError] = useState<string | null>(null);
-
   const renameMut = useRenameKid();
   const deleteMut = useDeleteKid();
   const { data: kids = [] } = useKids();
   const activeKid = useActiveKid();
+  const { error, run } = useSheetAction('KidSheet', onClose);
 
   const isLastKid = kids.length <= 1;
   const isActive = activeKid?.id === kid.id;
-
-  const trimmedName = name.trim();
-  const nameDirty = trimmedName.length > 0 && trimmedName !== kid.name;
   const saving = renameMut.isPending || deleteMut.isPending;
-
-  const onSaveName = async (): Promise<void> => {
-    if (!nameDirty) return;
-    setError(null);
-    try {
-      await renameMut.mutateAsync({ kidId: kid.id, name: trimmedName });
-      onClose();
-    } catch (err) {
-      captureException(err, { tags: { component: 'KidSheet', op: 'rename' } });
-      setError('Rename failed.');
-    }
-  };
 
   const onSetActive = (): void => {
     setActiveKidId(kid.id);
     onClose();
   };
 
-  const onDelete = async (): Promise<void> => {
-    setError(null);
-    try {
-      await deleteMut.mutateAsync({ kidId: kid.id });
-      onClose();
-    } catch (err) {
-      captureException(err, { tags: { component: 'KidSheet', op: 'delete' } });
-      setError('Delete failed.');
-    }
-  };
-
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
-      <div className={styles.headerWrap}>
-        <DialogHeader
-          title="Edit kid"
-          subtitle={
-            <>
-              Rename, set active, or delete <strong>{kid.name}</strong>.
-            </>
-          }
-          titleId={TITLE_ID}
-          onClose={onClose}
-        />
-      </div>
+    <Sheet
+      title="Edit kid"
+      subtitle={
+        <>
+          Rename, set active, or delete <strong>{kid.name}</strong>.
+        </>
+      }
+      onClose={onClose}
+    >
+      <RenameSection
+        label="Name"
+        initial={kid.name}
+        maxLength={NAME_MAX}
+        saveLabel="Save name"
+        saving={renameMut.isPending}
+        disabled={saving}
+        onSave={(name) =>
+          run('rename', 'Rename failed.', () => renameMut.mutateAsync({ kidId: kid.id, name }))
+        }
+      />
 
-      <div className={styles.body}>
-        <section className={styles.section}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Name</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={NAME_MAX}
-              disabled={saving}
-            />
-          </label>
-          <div className={styles.sectionActions}>
-            <Button
-              variant="primary"
-              onClick={() => {
-                void onSaveName();
-              }}
-              disabled={!nameDirty || saving}
-            >
-              {renameMut.isPending ? 'Saving…' : 'Save name'}
-            </Button>
-          </div>
-        </section>
-
-        {!isLastKid && (
-          <section className={styles.section}>
-            <div className={styles.fieldLabel}>Active kid</div>
-            {isActive ? (
-              <p className={styles.dangerHint}>
-                <strong>{kid.name}</strong> is the active kid. Parent home shows their boards.
-              </p>
-            ) : (
-              <>
-                <p className={styles.dangerHint}>Parent home filters boards by active kid.</p>
-                <div className={styles.sectionActions}>
-                  <Button
-                    variant="ghost"
-                    icon={<CheckIcon size={14} />}
-                    onClick={onSetActive}
-                    disabled={saving}
-                  >
-                    Set as active
-                  </Button>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        <section className={styles.dangerSection}>
-          <div className={styles.fieldLabel}>Delete</div>
-          {isLastKid ? (
-            <p className={styles.dangerHint}>You need at least one kid.</p>
+      {!isLastKid && (
+        <SheetSection label="Active kid">
+          {isActive ? (
+            <SheetHint>
+              <strong>{kid.name}</strong> is the active kid. Parent home shows their boards.
+            </SheetHint>
           ) : (
-            boardCount > 0 && (
-              <p className={styles.dangerHint}>
-                Also deletes {boardCount} board{boardCount === 1 ? '' : 's'} for this kid.
-              </p>
-            )
+            <>
+              <SheetHint>Parent home filters boards by active kid.</SheetHint>
+              <SheetActions>
+                <Button
+                  variant="ghost"
+                  icon={<CheckIcon size={14} />}
+                  onClick={onSetActive}
+                  disabled={saving}
+                >
+                  Set as active
+                </Button>
+              </SheetActions>
+            </>
           )}
-          <ConfirmDeleteRow
-            label="Delete kid"
-            onConfirm={() => {
-              void onDelete();
-            }}
-            disabled={saving || isLastKid}
-          />
-        </section>
+        </SheetSection>
+      )}
 
-        {error && <FormError>{error}</FormError>}
-      </div>
-    </Modal>
+      <SheetSection label="Delete" danger>
+        {isLastKid ? (
+          <SheetHint>You need at least one kid.</SheetHint>
+        ) : (
+          boardCount > 0 && (
+            <SheetHint>
+              Also deletes {boardCount} board{boardCount === 1 ? '' : 's'} for this kid.
+            </SheetHint>
+          )
+        )}
+        <ConfirmDeleteRow
+          label="Delete kid"
+          onConfirm={() =>
+            run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ kidId: kid.id }))
+          }
+          disabled={saving || isLastKid}
+        />
+      </SheetSection>
+
+      {error && <FormError>{error}</FormError>}
+    </Sheet>
   );
 };
