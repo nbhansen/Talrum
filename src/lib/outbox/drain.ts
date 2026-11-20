@@ -57,7 +57,7 @@ const emit = async (): Promise<void> => {
   drainSubscribers.forEach((fn) => fn(next));
 };
 
-/** For `discardEntry`, which does no draining and so must push counts (#290). */
+/** For `discardFailed`, which does no draining and so must push counts (#290). */
 export const refreshStatus = (): Promise<void> => emit();
 
 export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => {

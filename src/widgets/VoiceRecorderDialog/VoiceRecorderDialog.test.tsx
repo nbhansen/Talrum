@@ -293,6 +293,21 @@ describe('VoiceRecorderDialog', () => {
     expect(screen.getByRole('button', { name: /record/i })).toBeEnabled();
   });
 
+  it('blames the recorder, not the connection, when the recorder fails to stop (#759)', async () => {
+    const user = userEvent.setup();
+    const recording = fakeRecording();
+    recording.stop.mockRejectedValue(new DOMException('stopped', 'InvalidStateError'));
+    startMock.mockResolvedValue(recording);
+    renderDialog(pictoWithoutAudio);
+
+    await user.click(screen.getByRole('button', { name: /record/i }));
+    await user.click(await screen.findByRole('button', { name: /stop/i }));
+
+    expect(await screen.findByText('Recording failed. Try again.')).toBeInTheDocument();
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /record/i })).toBeEnabled();
+  });
+
   it('deletes the recording from storage and clears the row path', async () => {
     const user = userEvent.setup();
     maybeSingleMock.mockResolvedValue({
