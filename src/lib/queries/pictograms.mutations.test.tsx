@@ -26,8 +26,8 @@ const eqMock = vi.fn<(col: string, val: string) => Promise<MockResult>>();
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 // Photo creation upserts the row after the storage upload (#393).
 const upsertMock = vi.fn<(row: Record<string, unknown>, opts?: unknown) => Promise<MockResult>>();
-// Delete runs server-side through the `delete_pictogram` RPC.
-const rpcMock = vi.fn<(fn: string, args: Record<string, unknown>) => Promise<MockResult>>();
+// Delete: from('pictograms').delete().eq('id', ...) — a trigger scrubs the boards.
+const deleteEqMock = vi.fn<(col: string, val: string) => Promise<MockResult>>();
 // Blob-planting mutations upload through the outbox before touching the row.
 const uploadMock = vi.fn<(path: string, blob: Blob, opts: unknown) => Promise<MockResult>>();
 // Clear-audio best-effort removes the recording from storage before the row update.
@@ -48,8 +48,8 @@ vi.mock('@/lib/supabase', () => ({
       update: updateMock,
       upsert: upsertMock,
       select: () => ({ eq: () => ({ maybeSingle: maybeSingleMock }) }),
+      delete: () => ({ eq: deleteEqMock }),
     }),
-    rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args),
     storage: { from: () => ({ remove: removeMock, upload: uploadMock }) },
   },
 }));
@@ -146,7 +146,7 @@ beforeEach(() => {
   eqMock.mockReset();
   updateMock.mockClear();
   upsertMock.mockReset();
-  rpcMock.mockReset();
+  deleteEqMock.mockReset();
   uploadMock.mockReset();
   removeMock.mockReset();
   // Default: the row exists with no prior uploads — no storage cleanup.
@@ -211,10 +211,10 @@ describe('useDeletePictogram', () => {
     qc.setQueryData(boardsQueryKey, boardSeed());
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    let resolveRpc: (v: MockResult) => void = () => {
+    let resolveDelete: (v: MockResult) => void = () => {
       throw new Error('resolver not assigned');
     };
-    rpcMock.mockReturnValue(new Promise((r) => (resolveRpc = r)));
+    deleteEqMock.mockReturnValue(new Promise((r) => (resolveDelete = r)));
 
     const { result } = renderHook(() => useDeletePictogram(), { wrapper: makeWrapper(qc) });
 
@@ -230,9 +230,9 @@ describe('useDeletePictogram', () => {
     // A board that never referenced the pictogram keeps its steps untouched.
     expect(boards?.find((b) => b.id === 'evening')?.stepIds).toEqual(['p2']);
 
-    resolveRpc({ error: null });
+    resolveDelete({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(rpcMock).toHaveBeenCalledWith('delete_pictogram', { p_pictogram_id: 'p1' });
+    expect(deleteEqMock).toHaveBeenCalledWith('id', 'p1');
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
   });
@@ -241,7 +241,7 @@ describe('useDeletePictogram', () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     qc.setQueryData(boardsQueryKey, boardSeed());
-    rpcMock.mockResolvedValueOnce({ error: rlsError });
+    deleteEqMock.mockResolvedValueOnce({ error: rlsError });
 
     const { result } = renderHook(() => useDeletePictogram(), { wrapper: makeWrapper(qc) });
 

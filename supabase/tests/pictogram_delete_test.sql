@@ -1,9 +1,9 @@
--- delete_pictogram RPC (#280): deletes the row, and the
--- pictograms_scrub_step_ids trigger scrubs step_ids in the same transaction
--- (#675). SECURITY INVOKER, so RLS makes a stranger's call a no-op.
+-- A plain pictogram DELETE: the pictograms_scrub_step_ids trigger scrubs
+-- step_ids in the same transaction (#675), and RLS makes a stranger's delete
+-- a no-op. The delete_pictogram RPC that wrapped it is gone.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(8);
+SELECT plan(9);
 
 INSERT INTO auth.users (id, email)
 VALUES
@@ -30,38 +30,38 @@ GRANT SELECT ON expected TO authenticated;
 SELECT cmp_ok((SELECT boards FROM expected), '>', 0,
   'setup: Alice has at least one seeded board to scrub');
 
--- ── 2-3. A stranger's call is a no-op (RLS floor) ──────────────────────────
+-- ── 2-3. A stranger's delete is a no-op (RLS floor) ──────────────────────────
 
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT public.delete_pictogram('dddddddd-0000-4000-8000-000000000280');
+DELETE FROM public.pictograms WHERE id = 'dddddddd-0000-4000-8000-000000000280';
 RESET ROLE;
 
 SELECT is(
   (SELECT count(*)::int FROM public.pictograms
     WHERE id = 'dddddddd-0000-4000-8000-000000000280'),
   1,
-  'stranger call leaves the pictogram row intact'
+  'stranger delete leaves the pictogram row intact'
 );
 SELECT is(
   (SELECT count(*)::int FROM public.boards
     WHERE step_ids @> ARRAY['dddddddd-0000-4000-8000-000000000280']::uuid[]),
   (SELECT boards FROM expected),
-  'stranger call leaves board references intact'
+  'stranger delete leaves board references intact'
 );
 
--- ── 4-6. The owner's call scrubs and deletes atomically ────────────────────
+-- ── 4-6. The owner's delete scrubs and deletes atomically ────────────────────
 
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
-SELECT public.delete_pictogram('dddddddd-0000-4000-8000-000000000280');
+DELETE FROM public.pictograms WHERE id = 'dddddddd-0000-4000-8000-000000000280';
 
 -- Idempotent: a retry after success (outbox redelivery) must not error.
 SELECT lives_ok(
-  $$SELECT public.delete_pictogram('dddddddd-0000-4000-8000-000000000280')$$,
-  'repeat call after deletion is a no-op'
+  $$DELETE FROM public.pictograms WHERE id = 'dddddddd-0000-4000-8000-000000000280'$$,
+  'repeat delete after deletion is a no-op'
 );
 RESET ROLE;
 
@@ -69,16 +69,16 @@ SELECT is(
   (SELECT count(*)::int FROM public.pictograms
     WHERE id = 'dddddddd-0000-4000-8000-000000000280'),
   0,
-  'owner call deletes the pictogram row'
+  'owner delete deletes the pictogram row'
 );
 SELECT is(
   (SELECT count(*)::int FROM public.boards
     WHERE step_ids @> ARRAY['dddddddd-0000-4000-8000-000000000280']::uuid[]),
   0,
-  'owner call scrubs every step_ids reference (including duplicates)'
+  'owner delete scrubs every step_ids reference (including duplicates)'
 );
 
--- ── 7-8. An editor's call scrubs boards the editor cannot see (#675) ───────
+-- ── 7-8. An editor's delete scrubs boards the editor cannot see (#675) ───────
 
 INSERT INTO public.pictograms (id, owner_id, label, style, glyph, tint)
 VALUES ('dddddddd-0000-4000-8000-000000000675',
@@ -99,21 +99,24 @@ VALUES ('eeeeeeee-0000-4000-8000-000000006751',
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT public.delete_pictogram('dddddddd-0000-4000-8000-000000000675');
+DELETE FROM public.pictograms WHERE id = 'dddddddd-0000-4000-8000-000000000675';
 RESET ROLE;
 
 SELECT is(
   (SELECT count(*)::int FROM public.pictograms
     WHERE id = 'dddddddd-0000-4000-8000-000000000675'),
   0,
-  'editor call deletes the pictogram row'
+  'editor delete deletes the pictogram row'
 );
 SELECT is(
   (SELECT count(*)::int FROM public.boards
     WHERE step_ids @> ARRAY['dddddddd-0000-4000-8000-000000000675']::uuid[]),
   0,
-  'editor call scrubs the board that is not shared with the editor'
+  'editor delete scrubs the board that is not shared with the editor'
 );
+
+SELECT hasnt_function('public', 'delete_pictogram', ARRAY['uuid'],
+  'the delete_pictogram RPC is not part of the REST surface');
 
 SELECT * FROM finish();
 ROLLBACK;

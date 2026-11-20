@@ -248,9 +248,9 @@ const handleDeletePictogram = async (
   entry: DeletePictogramEntry,
   signal: AbortSignal,
 ): Promise<void> => {
-  // The boards scrub and the row delete run in one server-side transaction,
-  // with the referencing boards recomputed at execution time (#280). Storage
-  // cleanup runs first so a transient storage failure retries the whole entry.
+  // A trigger scrubs every referencing board in the delete's transaction
+  // (#675). Storage cleanup runs first so a transient storage failure retries
+  // the whole entry.
   const row = await readRowPaths(entry.pictogramId);
   throwIfCancelled(signal);
   const imagePath = row?.image_path ?? undefined;
@@ -265,9 +265,7 @@ const handleDeletePictogram = async (
     throwIfCancelled(signal);
     invalidateSignedUrl(AUDIO_BUCKET, audioPath);
   }
-  const { error } = await supabase.rpc('delete_pictogram', {
-    p_pictogram_id: entry.pictogramId,
-  });
+  const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
   if (error) throw error;
 };
 

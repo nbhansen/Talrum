@@ -2,7 +2,7 @@
 -- contracts: a migration that revokes or over-grants would otherwise only
 -- surface as a 42501 in production. Run with: supabase test db
 BEGIN;
-SELECT plan(24);
+SELECT plan(17);
 
 -- Every check below walks pg_tables, so a new public table is covered
 -- without an edit here. has_table_privilege (not role_table_grants) so a
@@ -42,33 +42,22 @@ SELECT is_empty(
       WHERE has_table_privilege('anon', qual, priv) $$,
   'anon has no SELECT/INSERT/UPDATE/DELETE on any table');
 
--- 5–7: EXECUTE on delete_pictogram, per role (20260610110409). anon
--- lacking EXECUTE also proves the PUBLIC revoke held — a PUBLIC grant
--- would flow to anon.
-SELECT ok(has_function_privilege('authenticated', 'public.delete_pictogram(uuid)', 'EXECUTE'), 'authenticated can EXECUTE delete_pictogram');
-SELECT ok(has_function_privilege('service_role',  'public.delete_pictogram(uuid)', 'EXECUTE'), 'service_role can EXECUTE delete_pictogram');
-SELECT ok(NOT has_function_privilege('anon',      'public.delete_pictogram(uuid)', 'EXECUTE'), 'anon cannot EXECUTE delete_pictogram');
-
--- 8–21: the private RLS helpers KEEP EXECUTE (#91): policies call them
+-- 5–14: the private RLS helpers KEEP EXECUTE (#91): policies call them
 -- during evaluation, and revoking EXECUTE there crashes the backend
 -- mid-query (verified empirically). The advisor's revoke remediation must
 -- fail here, loudly. Trigger/event functions need no grant and are excluded.
-SELECT ok(has_function_privilege('authenticated', 'private.is_board_owner(uuid)',                'EXECUTE'), 'authenticated keeps EXECUTE on is_board_owner (RLS evaluation)');
-SELECT ok(has_function_privilege('authenticated', 'private.is_board_member(uuid)',               'EXECUTE'), 'authenticated keeps EXECUTE on is_board_member (RLS evaluation)');
-SELECT ok(has_function_privilege('authenticated', 'private.is_board_editor(uuid)',               'EXECUTE'), 'authenticated keeps EXECUTE on is_board_editor (RLS evaluation)');
-SELECT ok(has_function_privilege('authenticated', 'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'authenticated keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
-SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
-SELECT ok(has_function_privilege('authenticated', 'private.is_editor_for_owner(uuid)',           'EXECUTE'), 'authenticated keeps EXECUTE on is_editor_for_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_board_owner(uuid)', 'EXECUTE'), 'authenticated keeps EXECUTE on is_board_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.has_board_membership(uuid, boolean)', 'EXECUTE'), 'authenticated keeps EXECUTE on has_board_membership (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.has_owner_access(uuid, boolean)', 'EXECUTE'), 'authenticated keeps EXECUTE on has_owner_access (RLS evaluation)');
+SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_visible(text)', 'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
 SELECT ok(has_function_privilege('authenticated', 'private.is_pictogram_storage_writable(text)', 'EXECUTE'), 'authenticated keeps EXECUTE on is_pictogram_storage_writable (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_board_owner(uuid)',                'EXECUTE'), 'anon keeps EXECUTE on is_board_owner (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_board_member(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_member (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_board_editor(uuid)',               'EXECUTE'), 'anon keeps EXECUTE on is_board_editor (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_owner_shared_with_me(uuid)',       'EXECUTE'), 'anon keeps EXECUTE on is_owner_shared_with_me (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_visible(text)',  'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_editor_for_owner(uuid)',           'EXECUTE'), 'anon keeps EXECUTE on is_editor_for_owner (RLS evaluation)');
-SELECT ok(has_function_privilege('anon',          'private.is_pictogram_storage_writable(text)', 'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_writable (RLS evaluation)');
+SELECT ok(has_function_privilege('anon', 'private.is_board_owner(uuid)', 'EXECUTE'), 'anon keeps EXECUTE on is_board_owner (RLS evaluation)');
+SELECT ok(has_function_privilege('anon', 'private.has_board_membership(uuid, boolean)', 'EXECUTE'), 'anon keeps EXECUTE on has_board_membership (RLS evaluation)');
+SELECT ok(has_function_privilege('anon', 'private.has_owner_access(uuid, boolean)', 'EXECUTE'), 'anon keeps EXECUTE on has_owner_access (RLS evaluation)');
+SELECT ok(has_function_privilege('anon', 'private.is_pictogram_storage_visible(text)', 'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_visible (RLS evaluation)');
+SELECT ok(has_function_privilege('anon', 'private.is_pictogram_storage_writable(text)', 'EXECUTE'), 'anon keeps EXECUTE on is_pictogram_storage_writable (RLS evaluation)');
 
--- 22–24: USAGE on `private` — the other half of the same crash contract:
+-- 15–17: USAGE on `private` — the other half of the same crash contract:
 -- without USAGE the role cannot resolve the qualified name during policy
 -- evaluation. The EXECUTE pins stay green through a schema-level revoke.
 SELECT ok(has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated keeps USAGE on private (RLS evaluation)');
