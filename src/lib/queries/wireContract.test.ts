@@ -22,18 +22,23 @@ const functionSource = (dir: string, file = 'types.ts'): string => {
   return source;
 };
 
-const unionCodes = (source: string, name: string): string[] => {
-  const union = new RegExp(`export type ${name} =([^;]+);`).exec(source)?.[1] ?? '';
-  return [...union.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '');
+// The shared unions a function's ErrorCode may name, and the file of each.
+const SHARED_UNIONS: Record<string, string> = {
+  SharedErrorCode: 'http.ts',
+  GenerateErrorCode: 'generateHandler.ts',
 };
 
-const serverErrorCodes = (dir: string): string[] => {
-  const own = unionCodes(functionSource(dir), 'ErrorCode');
-  const shared = /\bSharedErrorCode\b/.test(functionSource(dir))
-    ? unionCodes(functionSource('_shared', 'http.ts'), 'SharedErrorCode')
-    : [];
-  return [...own, ...shared].sort();
+const unionCodes = (source: string, name: string): string[] => {
+  const union = new RegExp(`export type ${name} =([^;]+);`).exec(source)?.[1] ?? '';
+  const own = [...union.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '');
+  const named = Object.entries(SHARED_UNIONS)
+    .filter(([shared]) => new RegExp(`\\b${shared}\\b`).test(union))
+    .flatMap(([shared, file]) => unionCodes(functionSource('_shared', file), shared));
+  return [...own, ...named];
 };
+
+const serverErrorCodes = (dir: string): string[] =>
+  unionCodes(functionSource(dir), 'ErrorCode').sort();
 
 describe('edge-function wire contract', () => {
   it.each([

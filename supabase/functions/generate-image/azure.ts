@@ -5,8 +5,8 @@
  * AZURE_OPENAI_IMAGE_DEPLOYMENT (the deployment name, gpt-image-1).
  */
 
-import { NotConfiguredError } from '../_shared/generateHandler.ts';
-import { type GenerateImage, GenerationError } from './types.ts';
+import { NotConfiguredError, ProviderError } from '../_shared/generateHandler.ts';
+import type { GenerateImage } from './types.ts';
 
 const API_VERSION = '2025-04-01-preview';
 
@@ -49,7 +49,7 @@ export const generateWithAzure: GenerateImage = async (prompt) => {
       signal: AbortSignal.timeout(60_000),
     });
   } catch (err) {
-    throw new GenerationError(
+    throw new ProviderError(
       `azure fetch failed: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
@@ -59,18 +59,18 @@ export const generateWithAzure: GenerateImage = async (prompt) => {
     // message; the privacy policy's "we do not log the label" must stay
     // unconditionally true. The request id is what Azure support asks for.
     const requestId = res.headers.get('apim-request-id') ?? 'unknown';
-    throw new GenerationError(`azure responded ${res.status} (request ${requestId})`);
+    throw new ProviderError(`azure responded ${res.status} (request ${requestId})`);
   }
 
   let payload: unknown;
   try {
     payload = await res.json();
   } catch {
-    throw new GenerationError('azure returned a non-JSON body');
+    throw new ProviderError('azure returned a non-JSON body');
   }
   const b64 = (payload as { data?: { b64_json?: unknown }[] }).data?.[0]?.b64_json;
   if (typeof b64 !== 'string' || b64.length === 0) {
-    throw new GenerationError('azure returned no image data');
+    throw new ProviderError('azure returned no image data');
   }
   // Decode here so a malformed payload fails inside the provider, mapped to
   // generation_failed, instead of surfacing as internal_error in the shell.
@@ -78,7 +78,7 @@ export const generateWithAzure: GenerateImage = async (prompt) => {
   try {
     bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   } catch {
-    throw new GenerationError('azure returned invalid base64 image data');
+    throw new ProviderError('azure returned invalid base64 image data');
   }
   return { bytes, mimeType: 'image/jpeg' };
 };

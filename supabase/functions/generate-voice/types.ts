@@ -1,41 +1,14 @@
-import type { SharedErrorCode } from '../_shared/http.ts';
+import type { GenerateErrorCode, GenerateLanguage } from '../_shared/generateHandler.ts';
 
 /**
  * Wire contract for the generate-voice edge function. The client mirrors
- * these literals in `src/lib/queries/generateVoice.ts` — tsconfig does not
- * include supabase/, so a cross-import is not possible. Change one side,
- * change the other.
+ * these codes in `src/lib/queries/generateVoice.ts`, and wireContract.test.ts
+ * pins the two copies together.
  */
-
-/** Languages the function accepts. A closed set: the value picks a voice. */
-export const VOICE_LANGUAGES = ['da', 'en'] as const;
-export type VoiceLanguage = (typeof VOICE_LANGUAGES)[number];
 
 export { MAX_LABEL_LENGTH } from '../_shared/generateHandler.ts';
 
-export type ErrorCode =
-  | SharedErrorCode
-  | 'bad_request'
-  | 'not_configured'
-  | 'synthesis_failed'
-  | 'internal_error';
-
-export interface ErrorResponse {
-  ok: false;
-  error: ErrorCode;
-  message: string;
-}
-
-/**
- * A JSON envelope, not raw bytes: supabase-js reads any content type outside
- * its allow-list as text, and exposes no headers to carry a MIME type beside
- * octet-stream. Base64-in-JSON is self-describing, and clips are seconds long.
- */
-export interface SuccessResponse {
-  ok: true;
-  mimeType: string;
-  audioBase64: string;
-}
+export type ErrorCode = GenerateErrorCode | 'synthesis_failed';
 
 /**
  * The provider seam. To swap providers, implement this signature in a new file
@@ -44,13 +17,5 @@ export interface SuccessResponse {
  */
 export type Synthesize = (
   label: string,
-  language: VoiceLanguage,
+  language: GenerateLanguage,
 ) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
-
-/** Thrown by a provider when the upstream service fails. */
-export class SynthesisError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SynthesisError';
-  }
-}

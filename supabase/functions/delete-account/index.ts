@@ -90,10 +90,10 @@ if (import.meta.main) {
   if (!url || !key) {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   }
-  // One cast at the env boundary: AdminClient is the hand-rolled structural
-  // subset of the supabase-js client this function actually uses.
-  const admin = createClient(url, key, {
+  // AdminClient is the structural subset of the supabase-js client this
+  // function uses, so the real client is assignable without a cast.
+  const admin: AdminClient = createClient(url, key, {
     auth: { persistSession: false },
-  }) as unknown as AdminClient;
+  });
   Deno.serve((req) => handleRequest(req, admin, (uid) => deleteAccount(admin, uid)));
 }

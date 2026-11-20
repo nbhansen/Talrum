@@ -2,16 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 import { type AuthLike, handleGenerate } from '../_shared/generateHandler.ts';
 import { synthesizeWithAzure } from './azure.ts';
-import { SynthesisError, type Synthesize, VOICE_LANGUAGES, type VoiceLanguage } from './types.ts';
+import type { ErrorCode, Synthesize } from './types.ts';
 
 /**
  * Turns a pictogram label into spoken audio (#422). The shared handler owns
  * auth, validation and error codes; the provider behind the Synthesize seam
  * owns everything vendor-specific.
  */
-
-const isVoiceLanguage = (v: unknown): v is VoiceLanguage =>
-  typeof v === 'string' && (VOICE_LANGUAGES as readonly string[]).includes(v);
 
 // Exported so handler.test.ts can drive it directly without a live server.
 // The synthesize parameter is the provider seam; tests pass a stub.
@@ -22,17 +19,10 @@ export const handleRequest = (
 ): Promise<Response> =>
   handleGenerate(req, admin, {
     failureEvent: 'generate_voice_failed',
-    parseInput: (label, body) =>
-      isVoiceLanguage(body.language)
-        ? { ok: true, input: { label, language: body.language } }
-        : { ok: false, message: `language must be one of: ${VOICE_LANGUAGES.join(', ')}` },
     run: ({ label, language }) => synthesize(label, language),
     envelopeKey: 'audioBase64',
-    providerError: {
-      is: (err) => err instanceof SynthesisError,
-      code: 'synthesis_failed',
-      message: 'voice generation failed, try again',
-    },
+    providerCode: 'synthesis_failed' satisfies ErrorCode,
+    providerMessage: 'voice generation failed, try again',
   });
 
 if (import.meta.main) {

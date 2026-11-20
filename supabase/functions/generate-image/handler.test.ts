@@ -1,8 +1,9 @@
 import { assertEquals, assertStringIncludes } from 'std/assert';
 
+import { ProviderError } from '../_shared/generateHandler.ts';
 import { handleRequest } from './index.ts';
 import { buildImagePrompt } from './prompt.ts';
-import { type GenerateImage, GenerationError } from './types.ts';
+import type { GenerateImage } from './types.ts';
 
 // The shared HTTP shell (CORS, method, auth, body and label validation) is
 // covered in _shared/generateHandler.test.ts. These tests pin what is
@@ -36,7 +37,7 @@ Deno.test('returns the provider image as a base64 JSON envelope on success', asy
   assertEquals(res.status, 200);
   assertEquals(res.headers.get('access-control-allow-origin'), '*');
   // JSON, deliberately: supabase-js reads image/* responses as text and
-  // exposes no headers — see SuccessResponse in types.ts.
+  // exposes no headers — see envelopeKey in _shared/generateHandler.ts.
   assertEquals(res.headers.get('content-type'), 'application/json');
   const body = await res.json();
   assertEquals(body, { ok: true, mimeType: 'image/jpeg', imageBase64: btoa('\x09\x09') });
@@ -100,7 +101,7 @@ Deno.test('answers not_configured when the Azure variables are absent (#687)', a
 
 Deno.test('maps a provider failure to generation_failed without leaking detail', async () => {
   const generate: GenerateImage = async () => {
-    throw new GenerationError('azure responded 401: secret detail');
+    throw new ProviderError('azure responded 401: secret detail');
   };
   const res = await handleRequest(request({ label: 'spise', language: 'da' }), goodAdmin, generate);
   assertEquals(res.status, 502);
