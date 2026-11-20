@@ -131,8 +131,8 @@ budget is sized against the schedule, so change them only together.
 
 All classification lives in `classifyAndThrow` in `handlers.ts`.
 
-- **Transient** (network `TypeError`, 5xx, and an allowlist of retryable
-  Postgres codes, #394): the entry stays `pending` and retries on a bounded
+- **Transient** (no response: a `TypeError` or a postgrest error with an empty
+  code, #756; 5xx; and an allowlist of retryable Postgres codes, #394): the entry stays `pending` and retries on a bounded
   budget, then flips to `failed` so it cannot retry forever. On the fast path
   the same classification queues the write instead of failing it — the mutation
   promise resolves and the optimistic patch stands.

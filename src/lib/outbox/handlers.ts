@@ -69,6 +69,8 @@ const classifyAndThrow = (err: unknown): never => {
   const message = typeof rawMessage === 'string' ? rawMessage : String(err);
   if (typeof err === 'object' && err !== null) {
     const code = (err as { code?: unknown }).code;
+    // postgrest-js reports a fetch that got no response with an empty code.
+    if (code === '') throw new Error(`network: ${message}`, { cause: err });
     if (typeof code === 'string') {
       if (isTransientDbCode(code)) {
         // A raw rethrow would drop the SQLSTATE from `lastError`, or record

@@ -1,4 +1,4 @@
-import { type Query, QueryObserver } from '@tanstack/react-query';
+import { MutationObserver, onlineManager, type Query, QueryObserver } from '@tanstack/react-query';
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
 import { del, get, keys, set } from 'idb-keyval';
@@ -18,6 +18,18 @@ describe('queryClient defaults', () => {
     expect(queries?.staleTime).toBe(30_000);
     expect(queries?.refetchOnWindowFocus).toBe(false);
     expect(queries?.retry).toBe(1);
+  });
+
+  it('runs a mutation while the device is offline, so the outbox can queue it (#756)', async () => {
+    const mutationFn = vi.fn(() => Promise.resolve('queued'));
+    onlineManager.setOnline(false);
+    try {
+      const result = await new MutationObserver(queryClient, { mutationFn }).mutate();
+      expect(result).toBe('queued');
+    } finally {
+      onlineManager.setOnline(true);
+    }
+    expect(mutationFn).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -308,6 +308,26 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
     },
   );
 
+  it('keeps a request that got no response pending (#756)', async () => {
+    // postgrest-js resolves a failed fetch to this shape, with status 0.
+    const dbError = {
+      code: '',
+      message: 'TypeError: Failed to fetch',
+      details: '',
+      hint: '',
+    };
+    eqMock.mockResolvedValue({ error: dbError });
+    let caught: unknown;
+    try {
+      await runHandler(entry);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe('network: TypeError: Failed to fetch');
+  });
+
   it.each(['23514', '08P01'])('keeps the blanket permanent rule for %s', async (code) => {
     // 08P01 (protocol_violation) shares the 08 class prefix but is a
     // malformed request — retrying it cannot succeed.

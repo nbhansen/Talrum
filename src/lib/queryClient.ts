@@ -21,6 +21,10 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
     },
+    // A paused mutation lives only in memory, and nothing resumes it after a
+    // reload (#756). The outbox handles offline itself, and other writes
+    // should fail at once rather than wait.
+    mutations: { networkMode: 'always' },
   },
 });
 
