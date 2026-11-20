@@ -27,66 +27,6 @@
   display: none;
 }
 
-.preview {
-  display: flex;
-  gap: var(--tal-space-6);
-  align-items: stretch;
-  background: var(--tal-surface);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-lg);
-  padding: var(--tal-space-5);
-}
-
-.previewImg {
-  width: 200px;
-  height: 200px;
-  object-fit: cover;
-  border-radius: var(--tal-r-md);
-  background: var(--tal-surface-alt);
-}
-
-.previewSide {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--tal-space-4);
-}
-
-.labelField {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tal-space-2);
-}
-
-.labelHint {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--tal-ink-soft);
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-}
-
-.labelInput {
-  font: inherit;
-  padding: var(--tal-space-3);
-  border: 1px solid var(--tal-line);
-  border-radius: var(--tal-r-md);
-  background: var(--tal-bg);
-  color: var(--tal-ink);
-}
-
-.labelInput:focus {
-  outline: none;
-  border-color: var(--tal-sky-ink);
-}
-
-.previewActions {
-  display: flex;
-  gap: var(--tal-space-3);
-  margin-top: auto;
-  justify-content: flex-end;
-}
-
 .iconCircle {
   width: 64px;
   height: 64px;

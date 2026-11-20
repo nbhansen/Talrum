@@ -4,11 +4,13 @@ import { cropToSquareJpeg, type ProcessedImage } from '@/lib/image';
 import { getAppLanguage } from '@/lib/language';
 import { captureException } from '@/lib/platform/telemetry';
 import { isGenerateImageError, useGenerateImage } from '@/lib/queries/generateImage';
-import { useCreatePhotoPictogram } from '@/lib/queries/pictograms';
+import { useAddPhotoPictogram } from '@/lib/queries/pictograms';
 import { useBlobPreview } from '@/lib/useBlobPreview';
 import { Button } from '@/ui/Button/Button';
 import { FormError } from '@/ui/FormError/FormError';
 import { SparkleIcon } from '@/ui/icons';
+import { PhotoPreviewCard } from '@/ui/PhotoPreviewCard/PhotoPreviewCard';
+import { TextField } from '@/ui/TextField/TextField';
 
 import styles from './PictogramGenerate.module.css';
 
@@ -25,16 +27,18 @@ interface PictogramGenerateProps {
 export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Element => {
   const [label, setLabel] = useState('');
   const { preview, show: showPreview, clear: clearPreview } = useBlobPreview<ProcessedImage>();
-  const [busy, setBusy] = useState<'generating' | 'saving' | null>(null);
+  // Not genMut.isPending: the crop after the request is part of generating.
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const genMut = useGenerateImage();
-  const createPhoto = useCreatePhotoPictogram();
+  const { add, isPending: saving } = useAddPhotoPictogram(ownerId);
+  const busy = generating || saving;
 
   const generate = async (): Promise<void> => {
     const trimmed = label.trim();
     if (!trimmed) return;
     setError(null);
-    setBusy('generating');
+    setGenerating(true);
     try {
       const blob = await genMut.mutateAsync({ label: trimmed, language: getAppLanguage() });
       const processed = await cropToSquareJpeg(blob);
@@ -52,29 +56,20 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
             : 'Image generation failed. Try again in a moment.',
       );
     } finally {
-      setBusy(null);
+      setGenerating(false);
     }
   };
 
   const save = async (): Promise<void> => {
     if (!preview) return;
     setError(null);
-    setBusy('saving');
     try {
-      await createPhoto.mutateAsync({
-        id: crypto.randomUUID(),
-        label: label.trim(),
-        blob: preview.blob,
-        extension: preview.extension,
-        ...(ownerId ? { ownerId } : {}),
-      });
+      await add(label.trim(), preview);
       clearPreview();
       setLabel('');
     } catch (err) {
       captureException(err, { tags: { component: 'PictogramGenerate', op: 'save' } });
       setError('Save failed.');
-    } finally {
-      setBusy(null);
     }
   };
 
@@ -86,16 +81,11 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
   return (
     <div className={styles.wrap}>
       {preview ? (
-        <div className={styles.preview}>
-          <img src={preview.previewUrl} alt="" className={styles.previewImg} />
-          <div className={styles.previewSide}>
-            <div className={styles.title}>{label.trim()}</div>
-            <div className={styles.hint}>
-              This is how the pictogram will look. Save it, or discard and generate again.
-            </div>
-            {error && <FormError>{error}</FormError>}
-            <div className={styles.previewActions}>
-              <Button variant="ghost" onClick={discard} disabled={busy !== null}>
+        <PhotoPreviewCard
+          src={preview.previewUrl}
+          actions={
+            <>
+              <Button variant="ghost" onClick={discard} disabled={busy}>
                 Discard
               </Button>
               <Button
@@ -103,13 +93,19 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
                 onClick={() => {
                   void save();
                 }}
-                disabled={busy !== null}
+                disabled={busy}
               >
-                {busy === 'saving' ? 'Saving…' : 'Add to library'}
+                {saving ? 'Saving…' : 'Add to library'}
               </Button>
-            </div>
+            </>
+          }
+        >
+          <div className={styles.title}>{label.trim()}</div>
+          <div className={styles.hint}>
+            This is how the pictogram will look. Save it, or discard and generate again.
           </div>
-        </div>
+          {error && <FormError>{error}</FormError>}
+        </PhotoPreviewCard>
       ) : (
         <div className={styles.form}>
           <div className={styles.iconCircle}>
@@ -120,18 +116,17 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
             Type what the pictogram shows. We draw it in the same flat style every time, so
             generated pictograms look like one set.
           </div>
-          <label className={styles.labelField}>
-            <span className={styles.labelHint}>Label</span>
-            <input
+          <div className={styles.labelField}>
+            <TextField
+              label="Label"
               type="text"
-              className={styles.labelInput}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Vente (waiting)"
               maxLength={40}
-              disabled={busy !== null}
+              disabled={busy}
             />
-          </label>
+          </div>
           {error && <FormError>{error}</FormError>}
           <div className={styles.formActions}>
             <Button
@@ -139,12 +134,12 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
               onClick={() => {
                 void generate();
               }}
-              disabled={busy !== null || !label.trim()}
+              disabled={busy || !label.trim()}
             >
-              <SparkleIcon size={14} /> {busy === 'generating' ? 'Generating…' : 'Generate image'}
+              <SparkleIcon size={14} /> {generating ? 'Generating…' : 'Generate image'}
             </Button>
           </div>
-          {busy === 'generating' && (
+          {generating && (
             <div className={styles.hint} aria-live="polite">
               This can take up to a minute.
             </div>

@@ -1,6 +1,7 @@
 import { type QueryClient, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { useSessionUser } from '@/lib/auth/session';
+import type { ProcessedImage } from '@/lib/image';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
 import {
@@ -159,6 +160,22 @@ export const useCreatePhotoPictogram = (): UseMutationResult<
     beforeRollback: () => revokePictogramBlobs(qc),
     beforeInvalidate: () => revokePictogramBlobs(qc),
   });
+};
+
+/** Adds a cropped photo to a library, minting the id the optimistic row needs. */
+export const useAddPhotoPictogram = (
+  ownerId?: string,
+): { add: (label: string, image: ProcessedImage) => Promise<unknown>; isPending: boolean } => {
+  const create = useCreatePhotoPictogram();
+  const add = (label: string, image: ProcessedImage): Promise<unknown> =>
+    create.mutateAsync({
+      id: crypto.randomUUID(),
+      label,
+      blob: image.blob,
+      extension: image.extension,
+      ...(ownerId ? { ownerId } : {}),
+    });
+  return { add, isPending: create.isPending };
 };
 
 interface RenameInput {

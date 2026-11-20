@@ -1,13 +1,15 @@
 import { type JSX, useState } from 'react';
 
 import { captureException } from '@/lib/platform/telemetry';
-import { useCreatePhotoPictogram, usePictograms } from '@/lib/queries/pictograms';
+import { useAddPhotoPictogram, usePictograms } from '@/lib/queries/pictograms';
 import { isUploadedStoragePath } from '@/lib/storage';
 import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { FormError } from '@/ui/FormError/FormError';
 import { UploadIcon } from '@/ui/icons';
+import { PhotoPreviewCard } from '@/ui/PhotoPreviewCard/PhotoPreviewCard';
+import { TextField } from '@/ui/TextField/TextField';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './PictogramUpload.module.css';
@@ -30,10 +32,9 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
     reset: resetPick,
   } = useImagePicker();
   const [label, setLabel] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: pictograms = [] } = usePictograms();
-  const createPhoto = useCreatePhotoPictogram();
+  const { add, isPending: uploading } = useAddPhotoPictogram(ownerId);
 
   const shownError = error ?? pickError;
 
@@ -50,22 +51,13 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
       setError('Give the photo a short label.');
       return;
     }
-    setUploading(true);
     setError(null);
     try {
-      await createPhoto.mutateAsync({
-        id: crypto.randomUUID(),
-        label: trimmed,
-        blob: processed.blob,
-        extension: processed.extension,
-        ...(ownerId ? { ownerId } : {}),
-      });
+      await add(trimmed, processed);
       reset();
     } catch (err) {
       captureException(err, { tags: { component: 'PictogramUpload', op: 'upload' } });
       setError('Upload failed.');
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -90,22 +82,10 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
         onChange={onInputChange}
       />
       {processed ? (
-        <div className={styles.preview}>
-          <img src={processed.previewUrl} alt="" className={styles.previewImg} />
-          <div className={styles.previewSide}>
-            <label className={styles.labelField}>
-              <span className={styles.labelHint}>Label</span>
-              <input
-                type="text"
-                className={styles.labelInput}
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Cereal bowl"
-                maxLength={40}
-              />
-            </label>
-            {shownError && <FormError>{shownError}</FormError>}
-            <div className={styles.previewActions}>
+        <PhotoPreviewCard
+          src={processed.previewUrl}
+          actions={
+            <>
               <Button variant="ghost" onClick={reset} disabled={uploading}>
                 Choose another
               </Button>
@@ -118,9 +98,19 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
               >
                 {uploading ? 'Uploading…' : 'Add to library'}
               </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <TextField
+            label="Label"
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Cereal bowl"
+            maxLength={40}
+          />
+          {shownError && <FormError>{shownError}</FormError>}
+        </PhotoPreviewCard>
       ) : (
         <button type="button" className={styles.dropzone} onClick={pickFile} disabled={processing}>
           <div className={styles.iconCircle}>
