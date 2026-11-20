@@ -20,7 +20,6 @@ vi.mock('@/lib/queries/kids', () => ({
   useActiveKid: () => KID,
   useRenameKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteKid: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  setActiveKidId: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/boards', async (importOriginal) => {

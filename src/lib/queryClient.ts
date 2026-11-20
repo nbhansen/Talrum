@@ -3,10 +3,10 @@ import { QueryClient } from '@tanstack/react-query';
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { del, get, keys, set } from 'idb-keyval';
 
+import { setActiveKidId } from './activeKid';
 import { clearLastBoard } from './lastBoard';
 import { OUTBOX_KEY_PREFIX } from './outbox';
 import { clearPin } from './pin';
-import { setActiveKidId } from './queries/kids';
 import { clearSignedUrlMemCache, SIGNED_URL_KEY_PREFIX } from './storage';
 
 /**

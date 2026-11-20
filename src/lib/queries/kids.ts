@@ -7,9 +7,9 @@ import {
 } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
+import { getStoredActiveKidId, setActiveKidId, subscribeActiveKid } from '@/lib/activeKid';
 import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
-import { captureException } from '@/lib/platform/telemetry';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
 import { byCreatedAt, fetchAllRows } from '@/lib/queries/fetchAllRows';
 import {
@@ -65,70 +65,6 @@ export const useCreateKid = (): UseMutationResult<Kid, Error, CreateKidInput> =>
       qc.invalidateQueries({ queryKey: kidsQueryKey });
     },
   });
-};
-
-const ACTIVE_KID_KEY = 'talrum:active-kid-id';
-const activeKidListeners = new Set<() => void>();
-
-if (typeof window !== 'undefined') {
-  // Cross-tab writes hit `storage`; same-tab writes notify via setActiveKidId.
-  window.addEventListener('storage', (e) => {
-    if (e.key === ACTIVE_KID_KEY) {
-      for (const cb of activeKidListeners) cb();
-    }
-  });
-}
-
-const subscribeActiveKid = (cb: () => void): (() => void) => {
-  activeKidListeners.add(cb);
-  return () => {
-    activeKidListeners.delete(cb);
-  };
-};
-
-// A blocked localStorage blocks persistently (privacy mode, "block all
-// storage"), and this read is the getSnapshot of a useSyncExternalStore —
-// it runs on every render. Latch the report so the signal arrives once per
-// session instead of once per render.
-let reportedReadFailure = false;
-let reportedWriteFailure = false;
-
-const getStoredActiveKidId = (): string | null => {
-  try {
-    return localStorage.getItem(ACTIVE_KID_KEY);
-  } catch (err) {
-    // Falling back to the first kid is fine for the user, but not silently:
-    // this is app state, not a preference — losing it changes which boards
-    // the parent sees (#359).
-    if (!reportedReadFailure) {
-      reportedReadFailure = true;
-      captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'read' } });
-    }
-    return null;
-  }
-};
-
-/**
- * Set the per-device active-kid id. Pass `null` to clear (e.g. when the
- * active kid is deleted — `useActiveKid` then falls back to the first kid).
- * Skips work and the fan-out when the value is unchanged so consumers don't
- * re-render on no-op writes (e.g. tapping the already-active switcher pill).
- */
-export const setActiveKidId = (id: string | null): void => {
-  if (getStoredActiveKidId() === id) return;
-  try {
-    if (id == null) localStorage.removeItem(ACTIVE_KID_KEY);
-    else localStorage.setItem(ACTIVE_KID_KEY, id);
-  } catch (err) {
-    // Quota / privacy mode: stay best-effort for the user, but report it —
-    // latched like the read path, because the block is persistent and every
-    // kid-switcher tap runs this write (#359).
-    if (!reportedWriteFailure) {
-      reportedWriteFailure = true;
-      captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'write' } });
-    }
-  }
-  for (const cb of activeKidListeners) cb();
 };
 
 /**

@@ -1,13 +1,8 @@
 import { type JSX, useState } from 'react';
 
+import { setActiveKidId } from '@/lib/activeKid';
 import { captureException } from '@/lib/platform/telemetry';
-import {
-  setActiveKidId,
-  useActiveKid,
-  useDeleteKid,
-  useKids,
-  useRenameKid,
-} from '@/lib/queries/kids';
+import { useActiveKid, useDeleteKid, useKids, useRenameKid } from '@/lib/queries/kids';
 import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';

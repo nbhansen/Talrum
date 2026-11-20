@@ -14,6 +14,8 @@ vi.mock('@/lib/queries/kids', () => ({
   useDeleteKid: () => ({ mutateAsync: deleteMock, isPending: false }),
   useKids: () => useKidsMock(),
   useActiveKid: () => useActiveKidMock(),
+}));
+vi.mock('@/lib/activeKid', () => ({
   setActiveKidId: (id: string | null) => setActiveKidIdMock(id),
 }));
 

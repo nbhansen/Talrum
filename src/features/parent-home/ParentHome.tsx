@@ -1,8 +1,9 @@
 import type { JSX } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
+import { setActiveKidId } from '@/lib/activeKid';
 import { useBoards } from '@/lib/queries/boards';
-import { setActiveKidId, useActiveKid, useKids } from '@/lib/queries/kids';
+import { useActiveKid, useKids } from '@/lib/queries/kids';
 import { usePictogramsBySlug } from '@/lib/queries/pictograms';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
