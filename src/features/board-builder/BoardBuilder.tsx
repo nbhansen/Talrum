@@ -56,13 +56,16 @@ export const BoardBuilder = ({
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
-  // Seeded once: the route keys this component on board.id, and a re-sync on
-  // board.name would clobber typing when the previous debounced write lands.
   const [titleDraft, setTitleDraft] = useState(board.name);
   const pendingTitleWrite = useRef<{
     timer: ReturnType<typeof setTimeout>;
     write: () => void;
   } | null>(null);
+  // A refetch can bring a newer name (#766). While a rename waits, the
+  // user's typing wins: their write will replace the server name anyway.
+  useEffect(() => {
+    if (!pendingTitleWrite.current) setTitleDraft(board.name);
+  }, [board.name]);
   const queueTitleWrite = (next: string): void => {
     setTitleDraft(next);
     if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current.timer);
