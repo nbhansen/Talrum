@@ -43,6 +43,14 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
  * definition; the opposite error hydrates a stale cache into new code and is
  * silent (#356). CI fails the build if the sha falls back to `'dev'`.
  */
+/**
+ * `throttleTime` can drop the last saves before a reload, so a restored entry
+ * may predate the latest write yet still look fresh (#757). Mark all of them
+ * stale: each refetches when it mounts, and offline the restored data stays.
+ */
+export const onCacheRestored = (): Promise<void> =>
+  queryClient.invalidateQueries({ refetchType: 'none' });
+
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,
   maxAge: ONE_WEEK_MS,

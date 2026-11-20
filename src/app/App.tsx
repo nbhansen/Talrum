@@ -2,7 +2,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import type { JSX } from 'react';
 import { RouterProvider } from 'react-router-dom';
 
-import { persistOptions, queryClient } from '@/lib/queryClient';
+import { onCacheRestored, persistOptions, queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
 
@@ -25,7 +25,11 @@ const AppRootFallback = (): JSX.Element => (
 );
 
 export const App = (): React.JSX.Element => (
-  <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+  <PersistQueryClientProvider
+    client={queryClient}
+    persistOptions={persistOptions}
+    onSuccess={onCacheRestored}
+  >
     <AuthGate>
       <ErrorBoundary fallback={() => <AppRootFallback />}>
         <RouterProvider router={router} />

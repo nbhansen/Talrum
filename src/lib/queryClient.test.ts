@@ -1,4 +1,4 @@
-import type { Query } from '@tanstack/react-query';
+import { type Query, QueryObserver } from '@tanstack/react-query';
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
 import { del, get, keys, set } from 'idb-keyval';
@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getLastBoard, setLastBoard } from './lastBoard';
 import { hasPin, setPin } from './pin';
-import { clearPersistedCache, persistOptions, queryClient } from './queryClient';
+import { clearPersistedCache, onCacheRestored, persistOptions, queryClient } from './queryClient';
 import { signedUrlMemCache } from './storage/storage-cache';
 
 const fakeQuery = (status: 'success' | 'pending' | 'error', data: unknown): Query =>
@@ -74,6 +74,21 @@ describe('persistOptions.buster (#356)', () => {
     await restore();
 
     expect(queryClient.getQueryData(['boards'])).toEqual([{ id: 'b1' }]);
+  });
+
+  it('refetches a restored query on mount although its save is younger than staleTime (#757)', async () => {
+    await persistDirectly(dehydrated(__APP_COMMIT__));
+    await restore();
+    await onCacheRestored();
+
+    const queryFn = vi.fn(() => Promise.resolve([{ id: 'b1' }, { id: 'b2' }]));
+    const observer = new QueryObserver(queryClient, { queryKey: ['boards'], queryFn });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await vi.waitFor(() => {
+      expect(queryClient.getQueryData(['boards'])).toEqual([{ id: 'b1' }, { id: 'b2' }]);
+    });
+    unsubscribe();
+    expect(queryFn).toHaveBeenCalledTimes(1);
   });
 });
 
