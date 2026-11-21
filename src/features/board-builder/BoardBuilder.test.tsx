@@ -150,6 +150,34 @@ describe('BoardBuilder title', () => {
   });
 });
 
+describe('BoardBuilder title after a refetch (#766)', () => {
+  it('shows the refetched name when no rename is waiting', () => {
+    const { rerender } = render(<BoardBuilderAt board={baseBoard} isOwner />);
+
+    rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} isOwner />);
+
+    expect(screen.getByDisplayValue('Server name')).toBeInTheDocument();
+  });
+
+  it('keeps what the user types while their rename waits', () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender, unmount } = render(<BoardBuilderAt board={baseBoard} isOwner />);
+      fireEvent.change(screen.getByDisplayValue('Morning routine'), {
+        target: { value: 'Evening routine' },
+      });
+
+      rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} isOwner />);
+
+      expect(screen.getByDisplayValue('Evening routine')).toBeInTheDocument();
+      unmount();
+      expect(writtenFields()).toEqual({ name: 'Evening routine' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('BoardBuilder blank title', () => {
   const renderBuilder = (): ReturnType<typeof render> =>
     render(<BoardBuilderAt board={baseBoard} isOwner />);
