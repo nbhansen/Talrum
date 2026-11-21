@@ -1,18 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeBoard } from '@/lib/queries/queries.test-utils';
 import type { Board, Pictogram } from '@/types/domain';
 
 const renameMock = vi.fn<(input: { pictogramId: string; label: string }) => Promise<void>>();
-const replaceMock =
-  vi.fn<
-    (input: {
-      pictogramId: string;
-      blob: Blob;
-      extension: string;
-      previousPath?: string;
-    }) => Promise<void>
-  >();
+const replaceMock = vi.fn();
 const deleteMock =
   vi.fn<
     (input: {
@@ -38,14 +31,6 @@ vi.mock('@/lib/queries/pictograms', () => ({
 
 vi.mock('@/lib/queries/boards.read', () => ({
   useBoards: () => useBoardsMock(),
-}));
-
-vi.mock('@/lib/image', () => ({
-  cropToSquareJpeg: vi.fn(async (_file: File) => ({
-    blob: new Blob(['cropped'], { type: 'image/jpeg' }),
-    extension: 'jpg' as const,
-    previewUrl: 'blob:preview',
-  })),
 }));
 
 vi.mock('@/lib/storage/useSignedUrl', () => ({
@@ -79,18 +64,7 @@ const photoPicto: Pictogram = {
   imagePath: 'stock:park',
 };
 
-const board = (id: string, stepIds: string[]): Board => ({
-  id,
-  ownerId: 'o',
-  kidId: 'k',
-  name: 'Saturday',
-  kind: 'choice',
-  labelsVisible: true,
-  voiceMode: 'tts',
-  stepIds,
-  kidReorderable: false,
-  accent: 'sage',
-});
+const board = (id: string, stepIds: string[]): Board => makeBoard({ id, stepIds });
 
 beforeEach(() => {
   renameMock.mockReset();

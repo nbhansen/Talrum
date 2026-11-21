@@ -12,7 +12,7 @@ import {
 import { runHandler, UnretryableOutboxError } from './handlers';
 import { isOnline } from './online';
 import { getOutboxOwner } from './owner';
-import { decideRetry } from './retry-decision';
+import { decideRetry, type DrainPass } from './retry-decision';
 import { deleteEntry, getEntry, listEntries, putEntry } from './store';
 import type { OutboxEntry } from './types';
 
@@ -28,10 +28,11 @@ export type { OutboxStatus };
 
 type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
 
-const emit = async (): Promise<void> => {
+/** Also for `discardFailed`, which does no draining and so must push counts (#290). */
+export const refreshStatus = async (): Promise<void> => {
   let counts: StatusCounts | undefined;
-  // `drain` awaits this outside its try, with `draining` already set, so a
-  // throw here left the flag set and the tab never drained again (#458).
+  // `drain` awaits this in its finally, where a throw would skip the flush
+  // and the follow-up drain (#458).
   await bestEffort('emit-list-entries', async () => {
     const entries = await listEntries();
     const failed = entries.filter((e) => e.status === 'failed');
@@ -52,18 +53,13 @@ const emit = async (): Promise<void> => {
     queueUnreadable: counts === undefined,
   };
   drainState.lastStatus = next;
-  // Unguarded on purpose: the only subscriber is a React `setState`, which
-  // cannot throw here, so a guard was error handling for an unreachable case
-  // (#465). `subscribeStatus` calls `fn` unguarded too.
-  drainSubscribers.forEach((fn) => fn(next));
+  // Unguarded on purpose: the only subscriber is React's store callback,
+  // which cannot throw here (#465).
+  drainSubscribers.forEach((fn) => fn());
 };
 
-/** For `discardFailed`, which does no draining and so must push counts (#290). */
-export const refreshStatus = (): Promise<void> => emit();
-
-export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => {
+export const subscribeStatus = (fn: () => void): (() => void) => {
   drainSubscribers.add(fn);
-  fn(drainState.lastStatus);
   return () => {
     drainSubscribers.delete(fn);
   };
@@ -240,24 +236,22 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
   // account's leftovers before the owner is known (#446). `setOutboxOwner`
   // runs the drain skipped here.
   if (getOutboxOwner() === null) {
-    await emit();
+    await refreshStatus();
     return;
   }
   if (!isOnline()) {
     cancelRetryOnOffline();
-    await emit();
+    await refreshStatus();
     return;
   }
-  let sawTransient = false;
   let sawProgress = false;
-  let sawUncleared = false;
-  let passThrew = false;
+  let stoppedBy: DrainPass['stoppedBy'];
   // Inside the try, so the finally owns `draining` whatever throws (#458).
   try {
     drainState.draining = true;
     drainState.timerDrain = fromTimer;
     clearRetryTimer();
-    await emit();
+    await refreshStatus();
     await withCrossTabLock(async () => {
       // The pre-drain check goes stale while another tab holds the lock, and
       // attempting on a dropped network burns the retry budget for nothing.
@@ -272,9 +266,10 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
           // An uncleared entry is still queued for replay, so anything behind
           // it must wait: landing the newer write first lets the replay put the
           // older one back on top of it (#449).
-          if (outcome === 'ok-uncleared') sawUncleared = true;
-          if (outcome === 'transient') sawTransient = true;
-          if (outcome === 'ok-uncleared' || outcome === 'transient') break pass;
+          if (outcome === 'ok-uncleared' || outcome === 'transient') {
+            stoppedBy = outcome === 'transient' ? 'transient' : 'uncleared';
+            break pass;
+          }
         }
         // Re-read: this pass deleted what it landed, and an enqueue may have
         // appended behind it.
@@ -283,20 +278,17 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     });
   } catch (err) {
     // `enqueueAndDrain` awaits a drain for a write it has already persisted,
-    // and a rejection rolls that patch back (#458). `sawTransient`, not
+    // and a rejection rolls that patch back (#458). `stoppedBy`, not
     // `bestEffort`: the failure decides the retry, so it changes something.
     captureException(err, { level: 'warning', tags: { component: 'outbox', op: 'drain-pass' } });
-    sawTransient = true;
-    passThrew = true;
+    stoppedBy = 'threw';
   } finally {
     // Decide the retry while `draining` is still true, or a fresh drain can
-    // start during the emit() await and get a stray timer armed under it.
+    // start during the refreshStatus() await and get a stray timer armed under it.
     const decision = decideRetry(
       {
-        sawTransient,
         sawProgress,
-        sawUncleared,
-        passThrew,
+        stoppedBy,
         fromTimer,
         online: isOnline(),
         pendingDrain: drainState.pendingDrain,
@@ -308,8 +300,8 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     if (decision.retryInMs !== undefined) scheduleRetry(decision.retryInMs);
     drainState.draining = false;
     drainState.timerDrain = false;
-    await emit();
-    if ((sawProgress || sawUncleared) && !(await hasQueuedWrites())) {
+    await refreshStatus();
+    if ((sawProgress || stoppedBy === 'uncleared') && !(await hasQueuedWrites())) {
       flushSubscribers.forEach((fn) => fn());
     }
     if (drainState.pendingDrain) {
@@ -326,7 +318,7 @@ export const startOutbox = (): void => {
   drainState.listenersAttached = true;
   // Prime lastStatus, or a cold boot with persisted entries renders "synced"
   // and snaps to "3 pending" once the first drain completes (#29).
-  void emit();
+  void refreshStatus();
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
       void drain();
@@ -334,7 +326,7 @@ export const startOutbox = (): void => {
     window.addEventListener('offline', () => {
       // No point waiting out a backoff on a dead network (#391).
       cancelRetryOnOffline();
-      void emit();
+      void refreshStatus();
     });
   }
   void drain();

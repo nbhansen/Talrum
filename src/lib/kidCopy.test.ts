@@ -1,11 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { getKidCopy } from './kidCopy';
 import { setLanguagePref } from './language';
-
-beforeEach(() => {
-  window.localStorage.removeItem('talrum:language');
-});
 
 describe('getKidCopy', () => {
   it('serves English copy when no language is stored', () => {

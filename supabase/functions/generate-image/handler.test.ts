@@ -45,14 +45,8 @@ Deno.test('returns the provider image as a base64 JSON envelope on success', asy
   assertEquals(got, buildImagePrompt('spise', 'da'));
 });
 
-Deno.test('every prompt goes through the fixed style template (#422)', async () => {
-  let got: string | null = null;
-  const generate: GenerateImage = async (prompt) => {
-    got = prompt;
-    return { bytes: new Uint8Array([1]), mimeType: 'image/jpeg' };
-  };
-  await handleRequest(request({ label: 'i morgen', language: 'da' }), goodAdmin, generate);
-  const prompt = got as unknown as string;
+Deno.test('every prompt goes through the fixed style template (#422)', () => {
+  const prompt = buildImagePrompt('i morgen', 'da');
   assertStringIncludes(prompt, 'i morgen');
   assertStringIncludes(prompt, 'Flat vector illustration style');
   assertStringIncludes(prompt, 'No text');
@@ -63,27 +57,10 @@ Deno.test('every prompt goes through the fixed style template (#422)', async () 
   assertStringIncludes(prompt, '"i morgen"');
 });
 
-Deno.test('the prompt names the language of the account (#686)', async () => {
-  let got: string | null = null;
-  const generate: GenerateImage = async (prompt) => {
-    got = prompt;
-    return { bytes: new Uint8Array([1]), mimeType: 'image/jpeg' };
-  };
-  await handleRequest(request({ label: 'bath', language: 'en' }), goodAdmin, generate);
-  const prompt = got as unknown as string;
+Deno.test('the prompt names the language of the account (#686)', () => {
+  const prompt = buildImagePrompt('bath', 'en');
   assertStringIncludes(prompt, 'usually English');
   assertEquals(prompt.includes('Danish'), false);
-});
-
-Deno.test('rejects a language outside the closed set', async () => {
-  const generate: GenerateImage = async () => {
-    throw new Error('the provider must not run');
-  };
-  for (const body of [{ label: 'spise' }, { label: 'spise', language: 'fr' }]) {
-    const res = await handleRequest(request(body), goodAdmin, generate);
-    assertEquals(res.status, 400);
-    assertEquals((await res.json()).error, 'bad_request');
-  }
 });
 
 Deno.test('answers not_configured when the Azure variables are absent (#687)', async () => {

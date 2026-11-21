@@ -8,7 +8,7 @@ const STORAGE_KEY = 'talrum:language';
 const APP_LANGUAGES = ['en', 'da'] as const;
 export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
-export const isAppLanguage = (v: unknown): v is AppLanguage =>
+const isAppLanguage = (v: unknown): v is AppLanguage =>
   typeof v === 'string' && (APP_LANGUAGES as readonly string[]).includes(v);
 
 /** Primary BCP-47 subtag, lowercased: 'da-DK', 'da_DK' (Android), 'da' → 'da'. */

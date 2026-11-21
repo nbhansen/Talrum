@@ -13,6 +13,7 @@ const createSignedUrlMock = vi.fn<
 
 const fromMock = vi.fn((_bucket: string) => ({
   createSignedUrl: createSignedUrlMock,
+  upload: () => Promise.resolve({ error: null }),
 }));
 
 const captureExceptionMock = vi.fn();
@@ -25,7 +26,7 @@ vi.mock('@/lib/platform/telemetry', () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 
-const { mintStoragePath, signedUrlFor } = await import('./storage');
+const { mintStoragePath, signedUrlFor, uploadBlob } = await import('./storage');
 
 // idb-keyval and the in-process memCache are wiped by the global afterEach in
 // vitest.setup.ts (#144) — only the per-test mock counter needs resetting here.
@@ -59,6 +60,17 @@ describe('signedUrlFor', () => {
     const b = await signedUrlFor('pictogram-images', 'a/test.jpg');
     expect(a).toBe(b);
     expect(createSignedUrlMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('mints again after an upload to the same path', async () => {
+    createSignedUrlMock
+      .mockResolvedValueOnce({ data: { signedUrl: 'https://example.test/old' }, error: null })
+      .mockResolvedValueOnce({ data: { signedUrl: 'https://example.test/new' }, error: null });
+    await signedUrlFor('pictogram-images', 'a/test.jpg');
+
+    await uploadBlob('pictogram-images', 'a/test.jpg', new Blob(['jpeg']));
+
+    expect(await signedUrlFor('pictogram-images', 'a/test.jpg')).toBe('https://example.test/new');
   });
 
   it('survives an in-process cache reset by reading IDB', async () => {

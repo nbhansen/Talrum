@@ -19,7 +19,7 @@ speakPictogram(picto, board.voiceMode)   src/lib/voiceOut.ts
   ▼
 speak(picto.label)                        src/lib/platform/speech.ts
   │ reads getSpeechPrefs() (rate, pitch, saved voiceURI) at call time
-  │ resolves a voice: saved voiceURI, else the cached heuristic pick
+  │ resolves a voice: saved voiceURI, else the heuristic pick
   ▼
 window.speechSynthesis                    (silent only if the browser has no
                                            speechSynthesis at all)

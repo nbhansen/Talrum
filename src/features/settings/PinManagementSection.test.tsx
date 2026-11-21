@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { hasPin, setPin } from '@/lib/pin';
 
@@ -16,10 +16,6 @@ const enterPin = async (user: ReturnType<typeof userEvent.setup>, pin: string): 
     await user.click(screen.getByRole('button', { name: digit }));
   }
 };
-
-beforeEach(() => {
-  window.localStorage.removeItem('talrum:pin-hash');
-});
 
 describe('PinManagementSection', () => {
   // The mid-render setState regression (#387) needs no test of its own: the

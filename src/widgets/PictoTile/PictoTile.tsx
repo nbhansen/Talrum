@@ -7,18 +7,18 @@ import styles from './PictoTile.module.css';
 
 interface PictoTileProps {
   picto: Pictogram;
-  size?: number;
+  size: number;
   selected?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
+  onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
 /**
- * A `<button>` around a `<PictoCard>`. Inside an existing interactive ancestor
- * use `<PictoCard>` directly — a nested button is invalid HTML.
+ * A `<button>` around a `<PictoCard>`. With no action, or inside an interactive
+ * ancestor, use `<PictoCard>` directly.
  */
 export const PictoTile = ({
   picto,
-  size = 140,
+  size,
   selected = false,
   onClick,
 }: PictoTileProps): JSX.Element => (

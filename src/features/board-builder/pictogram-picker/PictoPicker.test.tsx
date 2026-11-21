@@ -1,24 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX, ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms';
+import { makeClient, makeWrapper } from '@/lib/queries/queries.test-utils';
 import type { Pictogram } from '@/types/domain';
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signOut: vi.fn(),
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-    },
-  },
-}));
-
-const { PictoPicker } = await import('./PictoPicker');
+import { PictoPicker } from './PictoPicker';
 
 const SEED_PICTOGRAMS: Pictogram[] = [
   { id: 'p-apple', slug: 'apple', label: 'Apple', style: 'illus', glyph: 'heart', tint: '#fff' },
@@ -26,26 +14,17 @@ const SEED_PICTOGRAMS: Pictogram[] = [
   { id: 'p-shoes', slug: 'shoes', label: 'Shoes', style: 'illus', glyph: 'heart', tint: '#fff' },
 ];
 
-const wrap = (children: ReactNode): JSX.Element => {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  qc.setQueryData(pictogramsQueryKey, SEED_PICTOGRAMS);
-  return (
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    </TestSessionProvider>
-  );
+const renderPicker = (onConfirm = vi.fn(), onClose = vi.fn()): void => {
+  const client = makeClient();
+  client.setQueryData(pictogramsQueryKey, SEED_PICTOGRAMS);
+  render(<PictoPicker ownerId="owner-1" onClose={onClose} onConfirm={onConfirm} />, {
+    wrapper: makeWrapper(client),
+  });
 };
 
 describe('PictoPicker', () => {
-  beforeEach(() => {
-    document.body.innerHTML = '';
-  });
-  afterEach(() => {
-    document.body.innerHTML = '';
-  });
-
   it('renders the library tab by default with all seed pictograms', () => {
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={vi.fn()} onConfirm={vi.fn()} />));
+    renderPicker();
     expect(screen.getByRole('heading', { name: 'Add pictograms' })).toBeInTheDocument();
     expect(screen.getByText('Apple')).toBeInTheDocument();
     expect(screen.getByText('Cup')).toBeInTheDocument();
@@ -53,7 +32,7 @@ describe('PictoPicker', () => {
   });
 
   it('shows the real pictogram count in the Library tab sub, not a mockup', () => {
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={vi.fn()} onConfirm={vi.fn()} />));
+    renderPicker();
     const libraryTab = within(screen.getByRole('tablist')).getByRole('tab', { name: /Library/ });
     expect(libraryTab).toHaveTextContent(String(SEED_PICTOGRAMS.length));
     expect(libraryTab).not.toHaveTextContent('1,400');
@@ -61,7 +40,7 @@ describe('PictoPicker', () => {
 
   it('switches between library and upload tabs', async () => {
     const user = userEvent.setup();
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={vi.fn()} onConfirm={vi.fn()} />));
+    renderPicker();
     const tablist = screen.getByRole('tablist');
     const libraryTab = within(tablist).getByRole('tab', { name: /Library/ });
     const uploadTab = within(tablist).getByRole('tab', { name: /Upload/ });
@@ -80,7 +59,7 @@ describe('PictoPicker', () => {
 
   it('disables Add to board until a pictogram is selected (#523)', async () => {
     const user = userEvent.setup();
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={vi.fn()} onConfirm={vi.fn()} />));
+    renderPicker();
 
     expect(screen.getByRole('button', { name: 'Add to board' })).toBeDisabled();
 
@@ -92,7 +71,7 @@ describe('PictoPicker', () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
     const onClose = vi.fn();
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={onClose} onConfirm={onConfirm} />));
+    renderPicker(onConfirm, onClose);
 
     expect(screen.getByText('0 selected')).toBeInTheDocument();
 
@@ -113,7 +92,7 @@ describe('PictoPicker', () => {
 
   it('filters the library by search query', async () => {
     const user = userEvent.setup();
-    render(wrap(<PictoPicker ownerId="owner-1" onClose={vi.fn()} onConfirm={vi.fn()} />));
+    renderPicker();
     await user.type(screen.getByPlaceholderText(/Search eat, dress/), 'app');
     expect(screen.getByText('Apple')).toBeInTheDocument();
     expect(screen.queryByText('Cup')).not.toBeInTheDocument();

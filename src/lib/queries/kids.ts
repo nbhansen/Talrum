@@ -12,11 +12,7 @@ import { useSessionUser } from '@/lib/auth/session';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
 import { byCreatedAt, fetchAllRows } from '@/lib/queries/fetchAllRows';
-import {
-  listCache,
-  type OptimisticListContext,
-  useOptimisticListMutation,
-} from '@/lib/queries/optimistic';
+import { listCache, useOptimisticListMutation } from '@/lib/queries/optimistic';
 import { supabase } from '@/lib/supabase';
 import type { Board, Kid } from '@/types/domain';
 import type { Database } from '@/types/supabase';
@@ -83,12 +79,7 @@ interface RenameKidInput {
   name: string;
 }
 
-export const useRenameKid = (): UseMutationResult<
-  void,
-  Error,
-  RenameKidInput,
-  OptimisticListContext
-> =>
+export const useRenameKid = (): UseMutationResult<void, Error, RenameKidInput> =>
   useOptimisticListMutation({
     caches: [
       listCache<Kid, RenameKidInput>(kidsQueryKey, (list, { kidId, name }) =>
@@ -102,12 +93,7 @@ interface DeleteKidInput {
   kidId: string;
 }
 
-export const useDeleteKid = (): UseMutationResult<
-  void,
-  Error,
-  DeleteKidInput,
-  OptimisticListContext
-> =>
+export const useDeleteKid = (): UseMutationResult<void, Error, DeleteKidInput> =>
   useOptimisticListMutation({
     caches: [
       listCache<Kid, DeleteKidInput>(kidsQueryKey, (list, { kidId }) =>
@@ -117,11 +103,11 @@ export const useDeleteKid = (): UseMutationResult<
         list?.filter((b) => b.kidId !== kidId),
       ),
     ],
-    // Drop the stored id so useActiveKid's first-kid fallback picks up a
-    // remaining one. The error rollback doesn't restore it — at worst the
-    // active kid flickers back on the next render, which is fine.
-    onMutateSideEffect: ({ kidId }) => {
+    mutationFn: ({ kidId }) => {
+      // Drop the stored id so useActiveKid's first-kid fallback picks up a
+      // remaining one. The error rollback doesn't restore it — at worst the
+      // active kid flickers back on the next render, which is fine.
       if (getStoredActiveKidId() === kidId) setActiveKidId(null);
+      return enqueueAndDrain({ kind: 'deleteKid', kidId });
     },
-    mutationFn: ({ kidId }) => enqueueAndDrain({ kind: 'deleteKid', kidId }),
   });

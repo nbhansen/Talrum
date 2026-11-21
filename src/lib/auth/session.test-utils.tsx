@@ -1,7 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { JSX, ReactNode } from 'react';
 
-import { SessionProvider } from '@/app/SessionProvider';
+import { SessionContext } from './session';
 
 const FAKE_USER: User = {
   id: '00000000-0000-0000-0000-0000000000aa',
@@ -25,10 +25,10 @@ interface TestSessionProviderProps {
   session?: Session;
 }
 
-/** A SessionProvider with a fake authenticated user, for anything that reads it. */
+/** A fake authenticated user, for anything that reads the session. */
 export const TestSessionProvider = ({
   children,
   session = FAKE_SESSION,
 }: TestSessionProviderProps): JSX.Element => (
-  <SessionProvider session={session}>{children}</SessionProvider>
+  <SessionContext value={session}>{children}</SessionContext>
 );

@@ -109,7 +109,7 @@ export const PinManagementSection = ({
           one here.
         </p>
       )}
-      <div className={styles.actions}>
+      <div className={`${shared.actions} ${shared.row}`}>
         {!hasPinNow && (
           <Button variant="ghost" onClick={() => setFlow({ stage: 'enter-new' })}>
             Set a PIN

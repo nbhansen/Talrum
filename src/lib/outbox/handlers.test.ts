@@ -37,15 +37,6 @@ const updateMock = vi.fn(() => ({
 }));
 const upsertMock =
   vi.fn<(row: unknown, opts?: unknown) => Promise<{ error: MockPostgrestError | null }>>();
-const inMock = vi.fn<
-  (
-    c: string,
-    vs: readonly string[],
-  ) => Promise<{
-    data: { id: string; step_ids: string[] }[] | null;
-    error: MockPostgrestError | null;
-  }>
->();
 // Row-path reads (#418): select('image_path, audio_path').eq(...).maybeSingle().
 const maybeSingleMock = vi.fn<
   () => Promise<{
@@ -54,7 +45,7 @@ const maybeSingleMock = vi.fn<
   }>
 >();
 const selectEqMock = vi.fn((_c: string, _v: string) => ({ maybeSingle: maybeSingleMock }));
-const selectMock = vi.fn((_cols: string) => ({ in: inMock, eq: selectEqMock }));
+const selectMock = vi.fn((_cols: string) => ({ eq: selectEqMock }));
 const deleteEqMock =
   vi.fn<(c: string, v: string) => Promise<{ error: MockPostgrestError | null }>>();
 const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
@@ -68,11 +59,9 @@ const fromMock = vi.fn((_table: string) => ({
 const uploadMock =
   vi.fn<(path: string, blob: Blob, opts?: unknown) => Promise<{ error: Error | null }>>();
 const removeMock = vi.fn<(paths: string[]) => Promise<{ error: Error | null }>>();
-const createSignedUrlMock = vi.fn();
 const storageFromMock = vi.fn((_bucket: string) => ({
   upload: uploadMock,
   remove: removeMock,
-  createSignedUrl: createSignedUrlMock,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -103,6 +92,54 @@ const baseProps = {
   status: 'pending' as const,
 };
 
+const unguardedEntry: UpdateBoardEntry = {
+  ...baseProps,
+  kind: 'updateBoard',
+  boardId: 'b-1',
+  patch: { name: 'X' },
+};
+const photoEntry: CreatePhotoPictogramEntry = {
+  ...baseProps,
+  kind: 'createPhotoPicto',
+  pictogramId: 'p-1',
+  ownerId: 'o-1',
+  label: 'Park',
+  blob: new Blob(['x'], { type: 'image/jpeg' }),
+  path: 'o-1/p-1-01HV1JPG.jpg',
+};
+const setAudioEntry: SetPictogramAudioEntry = {
+  ...baseProps,
+  kind: 'setPictoAudio',
+  pictogramId: 'p-1',
+  blob: new Blob(['x'], { type: 'audio/webm' }),
+  path: 'o-1/p-1-01HV1WEBM.webm',
+};
+const clearAudioEntry: ClearPictogramAudioEntry = {
+  ...baseProps,
+  kind: 'clearPictoAudio',
+  pictogramId: 'p-1',
+};
+const replaceImageEntry: ReplacePictogramImageEntry = {
+  ...baseProps,
+  kind: 'replacePictoImage',
+  pictogramId: 'p-1',
+  blob: new Blob(['x'], { type: 'image/jpeg' }),
+  path: 'o-1/p-1-01HV1JPG.jpg',
+};
+const deletePictoEntry: DeletePictogramEntry = {
+  ...baseProps,
+  kind: 'deletePicto',
+  pictogramId: 'p-1',
+};
+const renameKidEntry: RenameKidEntry = {
+  ...baseProps,
+  kind: 'renameKid',
+  kidId: 'k-1',
+  name: 'Mia',
+};
+const deleteKidEntry: DeleteKidEntry = { ...baseProps, kind: 'deleteKid', kidId: 'k-1' };
+const deleteBoardEntry: DeleteBoardEntry = { ...baseProps, kind: 'deleteBoard', boardId: 'b-1' };
+
 beforeEach(() => {
   eqMock.mockReset();
   guardSelectMock.mockReset();
@@ -110,7 +147,6 @@ beforeEach(() => {
   matchMock.mockClear();
   updateMock.mockClear();
   upsertMock.mockReset();
-  inMock.mockReset();
   selectMock.mockClear();
   deleteEqMock.mockReset();
   deleteMock.mockClear();
@@ -126,7 +162,6 @@ beforeEach(() => {
     error: null,
   });
   upsertMock.mockResolvedValue({ error: null });
-  inMock.mockResolvedValue({ data: [], error: null });
   maybeSingleMock.mockReset();
   maybeSingleMock.mockResolvedValue({ data: null, error: null });
   deleteEqMock.mockResolvedValue({ error: null });
@@ -134,21 +169,12 @@ beforeEach(() => {
   removeMock.mockResolvedValue({ error: null });
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe('runHandler · updateBoard', () => {
   it('passes the patch through and resolves on success', async () => {
-    const entry: UpdateBoardEntry = {
-      ...baseProps,
-      kind: 'updateBoard',
-      boardId: 'b-1',
-      patch: { name: 'Sunrise' },
-    };
-    await runHandler(entry);
-    expect(updateMock).toHaveBeenCalledWith({ name: 'Sunrise' });
+    await runHandler(unguardedEntry);
+    expect(updateMock).toHaveBeenCalledWith({ name: 'X' });
     expect(eqMock).toHaveBeenCalledWith('id', 'b-1');
+    expect(matchMock).not.toHaveBeenCalled();
   });
 
   it('wraps coded DB errors in UnretryableOutboxError', async () => {
@@ -156,17 +182,11 @@ describe('runHandler · updateBoard', () => {
       data: null,
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
-    const entry: UpdateBoardEntry = {
-      ...baseProps,
-      kind: 'updateBoard',
-      boardId: 'b-1',
-      patch: { name: 'X' },
-    };
     // The instanceof check is what the drain branches on; the message is
     // user-visible via `lastError`, including extraction from a plain
     // (non-Error) PostgREST object. Pin both.
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
-    await expect(runHandler(entry)).rejects.toMatchObject({
+    await expect(runHandler(unguardedEntry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(unguardedEntry)).rejects.toMatchObject({
       message: 'db 42501: permission denied',
     });
   });
@@ -206,19 +226,6 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
     });
   });
 
-  it('keeps the unguarded path for entries without a baseline', async () => {
-    eqMock.mockResolvedValue({ error: null });
-    const entry: UpdateBoardEntry = {
-      ...baseProps,
-      kind: 'updateBoard',
-      boardId: 'b-1',
-      patch: { name: 'X' },
-    };
-    await runHandler(entry);
-    expect(eqMock).toHaveBeenCalledWith('id', 'b-1');
-    expect(matchMock).not.toHaveBeenCalled();
-  });
-
   it('replaces a stale baseline with the updated_at its own prior write produced', async () => {
     // Two entries enqueued against the same snapshot (offline chain): the
     // first replay bumps the server clock, so the second must guard against
@@ -248,7 +255,7 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
     // guard stripped) bumps the server clock like any other write. A queued
     // guarded entry for the same board must not self-conflict against it.
     unguardedSelectMock.mockResolvedValue({ data: [{ updated_at: T1 }], error: null });
-    await runHandler({ ...baseProps, kind: 'updateBoard', boardId: 'b-1', patch: { name: 'X' } });
+    await runHandler(unguardedEntry);
     guardSelectMock.mockResolvedValue({ data: [{ updated_at: T2 }], error: null });
     await runHandler(guarded(T0));
     expect(matchMock).toHaveBeenCalledWith({ id: 'b-1', updated_at: T1 });
@@ -256,9 +263,7 @@ describe('runHandler · updateBoard conflict guard (#281)', () => {
 
   it('keeps zero rows on the unguarded path a silent success (board already gone)', async () => {
     unguardedSelectMock.mockResolvedValue({ data: [], error: null });
-    await expect(
-      runHandler({ ...baseProps, kind: 'updateBoard', boardId: 'b-1', patch: { name: 'X' } }),
-    ).resolves.toBeUndefined();
+    await expect(runHandler(unguardedEntry)).resolves.toBeUndefined();
   });
 
   it('scopes produced timestamps per board', async () => {
@@ -295,12 +300,7 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
       // wrapper must be a real Error and must carry the SQLSTATE.
       const dbError = { code, message: 'try again', details: '', hint: '' };
       eqMock.mockResolvedValue({ error: dbError });
-      let caught: unknown;
-      try {
-        await runHandler(entry);
-      } catch (err) {
-        caught = err;
-      }
+      const caught = await runHandler(entry).catch((e: unknown) => e);
       expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
       expect(caught).toBeInstanceOf(Error);
       expect((caught as Error).message).toBe(`db ${code}: try again`);
@@ -317,12 +317,7 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
       hint: '',
     };
     eqMock.mockResolvedValue({ error: dbError });
-    let caught: unknown;
-    try {
-      await runHandler(entry);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await runHandler(entry).catch((e: unknown) => e);
     expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toBe('network: TypeError: Failed to fetch');
@@ -340,25 +335,15 @@ describe('runHandler · retryable Postgres codes stay transient (#394)', () => {
 
 describe('runHandler · createPhotoPicto', () => {
   it('uploads then inserts the row, ignoring a duplicate (#393)', async () => {
-    const blob = new Blob(['x'], { type: 'image/jpeg' });
-    const entry: CreatePhotoPictogramEntry = {
-      ...baseProps,
-      kind: 'createPhotoPicto',
-      pictogramId: 'p-1',
-      ownerId: 'o-1',
-      label: 'Park',
-      blob,
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    await runHandler(entry);
+    await runHandler(photoEntry);
     expect(uploadMock).toHaveBeenCalledWith(
       'o-1/p-1-01HV1JPG.jpg',
-      blob,
+      photoEntry.blob,
       expect.objectContaining({ upsert: true }),
     );
     // `ignoreDuplicates: true` is the idempotency contract: a replay of a
     // landed create hits ON CONFLICT DO NOTHING instead of a 23505, which
-    // classifyAndThrow would mark permanent and flip the entry to failed.
+    // classifyAndThrow would mark permanent and flip the photoEntry to failed.
     expect(upsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'p-1',
@@ -370,7 +355,7 @@ describe('runHandler · createPhotoPicto', () => {
     );
   });
 
-  it('converges when the same entry replays after the create landed (#393)', async () => {
+  it('converges when the same photoEntry replays after the create landed (#393)', async () => {
     // Stateful mock with real duplicate-key semantics: a second write of the
     // same id raises 23505 unless `ignoreDuplicates` is passed (ON CONFLICT
     // DO NOTHING). A revert to a plain `.insert` — or dropping the option —
@@ -386,20 +371,11 @@ describe('runHandler · createPhotoPicto', () => {
       inserted.add(id);
       return Promise.resolve({ error: null });
     });
-    const entry: CreatePhotoPictogramEntry = {
-      ...baseProps,
-      kind: 'createPhotoPicto',
-      pictogramId: 'p-1',
-      ownerId: 'o-1',
-      label: 'Park',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    // First attempt lands the row; the tab crashes before the entry is
+    // First attempt lands the row; the tab crashes before the photoEntry is
     // marked done. The replay re-uploads (storage upsert) and the row
     // upsert resolves without error under ON CONFLICT DO NOTHING.
-    await runHandler(entry);
-    await expect(runHandler(entry)).resolves.toBeUndefined();
+    await runHandler(photoEntry);
+    await expect(runHandler(photoEntry)).resolves.toBeUndefined();
     expect(upsertMock).toHaveBeenCalledTimes(2);
     // No cleanup: the blob belongs to the row that already exists.
     expect(removeMock).not.toHaveBeenCalled();
@@ -408,21 +384,7 @@ describe('runHandler · createPhotoPicto', () => {
   it('treats a 5xx storage error as transient — not Unretryable (#32)', async () => {
     const uploadErr = Object.assign(new Error('boom'), { statusCode: 500 });
     uploadMock.mockResolvedValue({ error: uploadErr });
-    const entry: CreatePhotoPictogramEntry = {
-      ...baseProps,
-      kind: 'createPhotoPicto',
-      pictogramId: 'p-1',
-      ownerId: 'o-1',
-      label: 'Park',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    let caught: unknown;
-    try {
-      await runHandler(entry);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await runHandler(photoEntry).catch((e: unknown) => e);
     expect(caught).toBeDefined();
     expect(caught).not.toBeInstanceOf(UnretryableOutboxError);
     // Lock in that the original storage error reaches the drain layer with
@@ -441,16 +403,7 @@ describe('runHandler · createPhotoPicto', () => {
     upsertMock.mockResolvedValue({
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
-    const entry: CreatePhotoPictogramEntry = {
-      ...baseProps,
-      kind: 'createPhotoPicto',
-      pictogramId: 'p-1',
-      ownerId: 'o-1',
-      label: 'Park',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(photoEntry)).rejects.toBeInstanceOf(UnretryableOutboxError);
     // No rollback delete (#414 review): a run abandoned by the handler
     // timeout could execute it concurrently with its own retry and delete
     // the blob the retry just re-uploaded — a permanently dangling
@@ -467,18 +420,10 @@ describe('runHandler · setPictoAudio', () => {
       data: { image_path: null, audio_path: 'o-1/p-1-01HV0OLD.m4a' },
       error: null,
     });
-    const blob = new Blob(['x'], { type: 'audio/webm' });
-    const entry: SetPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'setPictoAudio',
-      pictogramId: 'p-1',
-      blob,
-      path: 'o-1/p-1-01HV1WEBM.webm',
-    };
-    await runHandler(entry);
+    await runHandler(setAudioEntry);
     expect(uploadMock).toHaveBeenCalledWith(
       'o-1/p-1-01HV1WEBM.webm',
-      blob,
+      setAudioEntry.blob,
       expect.objectContaining({ upsert: true }),
     );
     expect(updateMock).toHaveBeenCalledWith({ audio_path: 'o-1/p-1-01HV1WEBM.webm' });
@@ -488,20 +433,12 @@ describe('runHandler · setPictoAudio', () => {
     );
   });
 
-  it("skips the remove when the row already points at this entry's path (replay)", async () => {
+  it("skips the remove when the row already points at this setAudioEntry's path (replay)", async () => {
     maybeSingleMock.mockResolvedValue({
       data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
       error: null,
     });
-    const entry: SetPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'setPictoAudio',
-      pictogramId: 'p-1',
-      blob: new Blob(['x'], { type: 'audio/webm' }),
-      path: 'o-1/p-1-01HV1WEBM.webm',
-    };
-    await runHandler(entry);
-    // A replay whose update already landed must not delete its own object.
+    await runHandler(setAudioEntry);
     expect(removeMock).not.toHaveBeenCalled();
   });
 });
@@ -512,12 +449,7 @@ describe('runHandler · clearPictoAudio', () => {
       data: { image_path: null, audio_path: 'o-1/p-1-01HV1WEBM.webm' },
       error: null,
     });
-    const entry: ClearPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'clearPictoAudio',
-      pictogramId: 'p-1',
-    };
-    await runHandler(entry);
+    await runHandler(clearAudioEntry);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1WEBM.webm']);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
   });
@@ -528,13 +460,7 @@ describe('runHandler · clearPictoAudio', () => {
       error: null,
     });
     removeMock.mockResolvedValue({ error: new Error('storage offline') });
-    const entry: ClearPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'clearPictoAudio',
-      pictogramId: 'p-1',
-    };
-    await runHandler(entry);
-    // Cleanup failure is swallowed — the row is still updated.
+    await runHandler(clearAudioEntry);
     expect(updateMock).toHaveBeenCalledWith({ audio_path: null });
     // ...but the leak is reported, not silent (#255).
     expect(captureExceptionMock).toHaveBeenCalledWith(
@@ -565,18 +491,10 @@ describe('runHandler · replacePictoImage', () => {
       data: { image_path: 'o-1/p-1-01HV0OLD.webp', audio_path: null },
       error: null,
     });
-    const blob = new Blob(['x'], { type: 'image/jpeg' });
-    const entry: ReplacePictogramImageEntry = {
-      ...baseProps,
-      kind: 'replacePictoImage',
-      pictogramId: 'p-1',
-      blob,
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    await runHandler(entry);
+    await runHandler(replaceImageEntry);
     expect(uploadMock).toHaveBeenCalledWith(
       'o-1/p-1-01HV1JPG.jpg',
-      blob,
+      replaceImageEntry.blob,
       expect.objectContaining({ upsert: true }),
     );
     expect(updateMock).toHaveBeenCalledWith({ image_path: 'o-1/p-1-01HV1JPG.jpg' });
@@ -591,32 +509,17 @@ describe('runHandler · replacePictoImage', () => {
       data: { image_path: 'stock:park', audio_path: null },
       error: null,
     });
-    const entry: ReplacePictogramImageEntry = {
-      ...baseProps,
-      kind: 'replacePictoImage',
-      pictogramId: 'p-1',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    await runHandler(entry);
+    await runHandler(replaceImageEntry);
     expect(uploadMock).toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
   });
 
-  it("skips removeFromBucket when the row already points at this entry's path (replay)", async () => {
+  it("skips removeFromBucket when the row already points at this replaceImageEntry's path (replay)", async () => {
     maybeSingleMock.mockResolvedValue({
       data: { image_path: 'o-1/p-1-01HV1JPG.jpg', audio_path: null },
       error: null,
     });
-    const entry: ReplacePictogramImageEntry = {
-      ...baseProps,
-      kind: 'replacePictoImage',
-      pictogramId: 'p-1',
-      blob: new Blob(['x'], { type: 'image/jpeg' }),
-      path: 'o-1/p-1-01HV1JPG.jpg',
-    };
-    await runHandler(entry);
-    // A replay whose update already landed — deleting would lose the image.
+    await runHandler(replaceImageEntry);
     expect(removeMock).not.toHaveBeenCalled();
   });
 });
@@ -627,12 +530,7 @@ describe('runHandler · deletePicto', () => {
       data: { image_path: 'o-1/p-1-01HV1JPG.jpg', audio_path: 'o-1/p-1-01HV1WEBM.webm' },
       error: null,
     });
-    const entry: DeletePictogramEntry = {
-      ...baseProps,
-      kind: 'deletePicto',
-      pictogramId: 'p-1',
-    };
-    await runHandler(entry);
+    await runHandler(deletePictoEntry);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1JPG.jpg']);
     expect(removeMock).toHaveBeenCalledWith(['o-1/p-1-01HV1WEBM.webm']);
     expect(fromMock).toHaveBeenCalledWith('pictograms');
@@ -646,17 +544,12 @@ describe('runHandler · deletePicto', () => {
       data: { image_path: 'stock:park', audio_path: null },
       error: null,
     });
-    const entry: DeletePictogramEntry = {
-      ...baseProps,
-      kind: 'deletePicto',
-      pictogramId: 'p-1',
-    };
-    await runHandler(entry);
+    await runHandler(deletePictoEntry);
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'p-1');
     expect(removeMock).not.toHaveBeenCalled();
     // Replay after the delete landed: the read yields null, nothing to remove.
     maybeSingleMock.mockResolvedValue({ data: null, error: null });
-    await runHandler(entry);
+    await runHandler(deletePictoEntry);
     expect(removeMock).not.toHaveBeenCalled();
   });
 
@@ -664,24 +557,13 @@ describe('runHandler · deletePicto', () => {
     deleteEqMock.mockResolvedValue({
       error: { code: '42501', message: 'denied', details: '', hint: '' },
     });
-    const entry: DeletePictogramEntry = {
-      ...baseProps,
-      kind: 'deletePicto',
-      pictogramId: 'p-1',
-    };
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(deletePictoEntry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
 describe('runHandler · renameKid', () => {
   it('updates the name column scoped to the kid id', async () => {
-    const entry: RenameKidEntry = {
-      ...baseProps,
-      kind: 'renameKid',
-      kidId: 'k-1',
-      name: 'Mia',
-    };
-    await runHandler(entry);
+    await runHandler(renameKidEntry);
     expect(fromMock).toHaveBeenCalledWith('kids');
     expect(updateMock).toHaveBeenCalledWith({ name: 'Mia' });
     expect(eqMock).toHaveBeenCalledWith('id', 'k-1');
@@ -691,36 +573,20 @@ describe('runHandler · renameKid', () => {
     eqMock.mockResolvedValue({
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
-    const entry: RenameKidEntry = {
-      ...baseProps,
-      kind: 'renameKid',
-      kidId: 'k-1',
-      name: 'Mia',
-    };
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(renameKidEntry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
 describe('runHandler · deleteKid', () => {
   it('deletes the kid row by id', async () => {
-    const entry: DeleteKidEntry = {
-      ...baseProps,
-      kind: 'deleteKid',
-      kidId: 'k-1',
-    };
-    await runHandler(entry);
+    await runHandler(deleteKidEntry);
     expect(fromMock).toHaveBeenCalledWith('kids');
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'k-1');
   });
 
   it('does not touch boards or storage — server-side cascade handles them', async () => {
-    const entry: DeleteKidEntry = {
-      ...baseProps,
-      kind: 'deleteKid',
-      kidId: 'k-1',
-    };
-    await runHandler(entry);
+    await runHandler(deleteKidEntry);
     // No boards SELECT/UPDATE — the FK cascade strips boards on the server.
     expect(selectMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
@@ -730,12 +596,7 @@ describe('runHandler · deleteKid', () => {
 
 describe('runHandler · deleteBoard', () => {
   it('deletes the board row by id and touches nothing else', async () => {
-    const entry: DeleteBoardEntry = {
-      ...baseProps,
-      kind: 'deleteBoard',
-      boardId: 'b-1',
-    };
-    await runHandler(entry);
+    await runHandler(deleteBoardEntry);
     expect(fromMock).toHaveBeenCalledWith('boards');
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'b-1');
@@ -744,14 +605,9 @@ describe('runHandler · deleteBoard', () => {
     expect(removeMock).not.toHaveBeenCalled();
   });
 
-  it('resolves again when the same entry replays (row already gone)', async () => {
-    const entry: DeleteBoardEntry = {
-      ...baseProps,
-      kind: 'deleteBoard',
-      boardId: 'b-1',
-    };
-    await runHandler(entry);
-    await expect(runHandler(entry)).resolves.toBeUndefined();
+  it('resolves again when the same deleteBoardEntry replays (row already gone)', async () => {
+    await runHandler(deleteBoardEntry);
+    await expect(runHandler(deleteBoardEntry)).resolves.toBeUndefined();
     expect(deleteMock).toHaveBeenCalledTimes(2);
   });
 
@@ -759,12 +615,7 @@ describe('runHandler · deleteBoard', () => {
     deleteEqMock.mockResolvedValue({
       error: { code: '42501', message: 'permission denied', details: '', hint: '' },
     });
-    const entry: DeleteBoardEntry = {
-      ...baseProps,
-      kind: 'deleteBoard',
-      boardId: 'b-1',
-    };
-    await expect(runHandler(entry)).rejects.toBeInstanceOf(UnretryableOutboxError);
+    await expect(runHandler(deleteBoardEntry)).rejects.toBeInstanceOf(UnretryableOutboxError);
   });
 });
 
@@ -778,27 +629,16 @@ describe('runHandler · handler IO timeout (#413)', () => {
     vi.useRealTimers();
   });
 
-  const photoEntry = (): CreatePhotoPictogramEntry => ({
-    ...baseProps,
-    kind: 'createPhotoPicto',
-    pictogramId: 'p-1',
-    ownerId: 'o-1',
-    label: 'Park',
-    blob: new Blob(['x'], { type: 'image/jpeg' }),
-    path: 'o-1/p-1-01HV1JPG.jpg',
-  });
-
   it('a hung row write rejects after HANDLER_TIMEOUT_MS with a transient error', async () => {
     eqMock.mockReturnValue(new Promise<{ error: MockPostgrestError | null }>(() => undefined));
-    const entry: RenameKidEntry = { ...baseProps, kind: 'renameKid', kidId: 'k-1', name: 'Mia' };
-    const outcome = runHandler(entry).then(
+    const outcome = runHandler(renameKidEntry).then(
       () => 'resolved',
       (err: unknown) => err,
     );
     await vi.advanceTimersByTimeAsync(HANDLER_TIMEOUT_MS);
     const err = await outcome;
     expect(err).toBeInstanceOf(Error);
-    // Transient, not Unretryable: the entry must stay pending and retry.
+    // Transient, not Unretryable: the renameKidEntry must stay pending and retry.
     expect(err).not.toBeInstanceOf(UnretryableOutboxError);
     expect((err as Error).message).toMatch(/timed out after 30s/);
   });
@@ -809,7 +649,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
     // into six doomed attempts and a permanent `failed` (#414).
     uploadMock.mockReturnValue(new Promise<{ error: Error | null }>(() => undefined));
     let settled = false;
-    const outcome = runHandler(photoEntry()).then(
+    const outcome = runHandler(photoEntry).then(
       () => 'resolved',
       (err: unknown) => err,
     );
@@ -832,7 +672,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
         rejectLate = reject;
       }),
     );
-    const outcome = runHandler(photoEntry()).then(
+    const outcome = runHandler(photoEntry).then(
       () => 'resolved',
       (err: unknown) => (err as Error).message,
     );
@@ -857,12 +697,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
           });
       }),
     );
-    const entry: ClearPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'clearPictoAudio',
-      pictogramId: 'p-1',
-    };
-    const outcome = runHandler(entry).then(
+    const outcome = runHandler(clearAudioEntry).then(
       () => 'resolved',
       (err: unknown) => (err as Error).message,
     );
@@ -870,8 +705,8 @@ describe('runHandler · handler IO timeout (#413)', () => {
     expect(await outcome).toMatch(/timed out/);
     // The hung row read finally lands. Without the between-step gate the
     // zombie would continue into its row update and null an audio_path a
-    // later setPictoAudio entry may have set since (#414 review) — and then
-    // remove that entry's recording.
+    // later setPictoAudio clearAudioEntry may have set since (#414 review) — and then
+    // remove that clearAudioEntry's recording.
     settleRead();
     await vi.advanceTimersByTimeAsync(0);
     expect(updateMock).not.toHaveBeenCalled();
@@ -885,14 +720,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
         settleUpload = () => resolve({ error: null });
       }),
     );
-    const entry: SetPictogramAudioEntry = {
-      ...baseProps,
-      kind: 'setPictoAudio',
-      pictogramId: 'p-1',
-      blob: new Blob(['x'], { type: 'audio/webm' }),
-      path: 'o-1/p-1-01HV1WEBM.webm',
-    };
-    const outcome = runHandler(entry).then(
+    const outcome = runHandler(setAudioEntry).then(
       () => 'resolved',
       (err: unknown) => (err as Error).message,
     );
@@ -905,13 +733,7 @@ describe('runHandler · handler IO timeout (#413)', () => {
   });
 
   it('a handler that settles in time clears its timeout timer', async () => {
-    const entry: RenameKidEntry = {
-      ...baseProps,
-      kind: 'renameKid',
-      kidId: 'k-1',
-      name: 'Mia',
-    };
-    await runHandler(entry);
+    await runHandler(renameKidEntry);
     // A leaked timer would fire a stray rejection 30 s into some later
     // handler run (and shows up here as a pending fake timer).
     expect(vi.getTimerCount()).toBe(0);

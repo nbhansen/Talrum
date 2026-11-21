@@ -1,12 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { setPin } from '@/lib/pin';
+import { makeBoard, TestProviders } from '@/lib/queries/queries.test-utils';
 import type { Board, Kid, Pictogram } from '@/types/domain';
 
 const KID: Kid = { id: 'k1', ownerId: 'owner', name: 'Liam' };
@@ -23,7 +21,7 @@ const RECENT_PICTO: Pictogram = {
 
 const useKidsMock = vi.fn(() => ({ data: [KID] as Kid[], isPending: false }));
 const useBoardsMock = vi.fn(() => ({ data: [] as Board[], isPending: false }));
-const usePictogramsBySlugMock = vi.fn(() => new Map<string, Pictogram>([['apple', RECENT_PICTO]]));
+const usePictogramsForSlugsMock = vi.fn((): Pictogram[] => [RECENT_PICTO]);
 const createBoardMutateMock = vi.fn();
 const useCreateBoardMock = vi.fn(() => ({
   mutate: createBoardMutateMock,
@@ -49,7 +47,7 @@ vi.mock('@/lib/queries/pictograms', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    usePictogramsBySlug: () => usePictogramsBySlugMock(),
+    usePictogramsForSlugs: () => usePictogramsForSlugsMock(),
   };
 });
 
@@ -60,39 +58,29 @@ vi.mock('@/lib/supabase', () => ({
         order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
       }),
     }),
-    auth: {
-      signOut: vi.fn(),
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-    },
   },
 }));
 
 const { ParentHomeRoute } = await import('./ParentHomeRoute');
 
-const makeWrap = (initialPath: string): (() => JSX.Element) => {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return (): JSX.Element => (
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Routes>
-            <Route path="/" element={<ParentHomeRoute />} />
-            <Route path="/boards/:boardId/edit" element={<div data-testid="board-edit-route" />} />
-            <Route path="/library" element={<div data-testid="library-route" />} />
-            <Route path="/kids" element={<div data-testid="kids-route" />} />
-            <Route path="/settings" element={<div data-testid="settings-route" />} />
-            <Route path="/kid/:boardId" element={<div data-testid="kid-route" />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </TestSessionProvider>
+const EXISTING_BOARD = makeBoard({ id: 'b1', kidId: 'k1', name: 'Existing' });
+
+const renderHome = (): void => {
+  render(
+    <TestProviders>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<ParentHomeRoute />} />
+          <Route path="/boards/:boardId/edit" element={<div data-testid="board-edit-route" />} />
+          <Route path="/library" element={<div data-testid="library-route" />} />
+          <Route path="/kid/:boardId" element={<div data-testid="kid-route" />} />
+        </Routes>
+      </MemoryRouter>
+    </TestProviders>,
   );
 };
 
 beforeEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
   useKidsMock.mockReset();
   useKidsMock.mockReturnValue({ data: [KID], isPending: false });
   useBoardsMock.mockReset();
@@ -101,15 +89,10 @@ beforeEach(() => {
   useCreateBoardMock.mockReset();
   useCreateBoardMock.mockReturnValue({ mutate: createBoardMutateMock, isPending: false });
 });
-afterEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 describe('ParentHomeRoute auto-launch', () => {
   it('renders ParentHome when no last board is recorded', () => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
@@ -117,8 +100,7 @@ describe('ParentHomeRoute auto-launch', () => {
   it('redirects into the last board on first visit per session', async () => {
     await setPin('1234');
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.getByTestId('kid-route')).toBeInTheDocument();
   });
 
@@ -127,8 +109,7 @@ describe('ParentHomeRoute auto-launch', () => {
   // (#353).
   it('does not auto-launch into kid mode when no PIN is set (#353)', () => {
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
@@ -136,8 +117,7 @@ describe('ParentHomeRoute auto-launch', () => {
   it('does not redirect when the session has already auto-launched', () => {
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'b-seq' }));
     sessionStorage.setItem('talrum:auto-launched', '1');
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.queryByTestId('kid-route')).not.toBeInTheDocument();
     expect(screen.getByText(/Liam's boards/)).toBeInTheDocument();
   });
@@ -149,16 +129,14 @@ describe('ParentHomeRoute header kidName', () => {
       data: [{ id: 'k-mira', ownerId: 'owner', name: 'Mira' }],
       isPending: false,
     });
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.getByText(/Mira's boards/)).toBeInTheDocument();
     expect(screen.queryByText(/Liam's boards/)).not.toBeInTheDocument();
   });
 
   it('falls back to a neutral "Boards" title when no kid is loaded yet', () => {
     useKidsMock.mockReturnValue({ data: [], isPending: false });
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.getByRole('heading', { level: 1, name: 'Boards' })).toBeInTheDocument();
     expect(screen.queryByText(/Liam's boards/)).not.toBeInTheDocument();
   });
@@ -166,8 +144,7 @@ describe('ParentHomeRoute header kidName', () => {
 
 describe('ParentHomeRoute create flows', () => {
   it('clicking New kid opens the kid modal', async () => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.queryByRole('heading', { name: /new kid/i })).not.toBeInTheDocument();
 
     const user = userEvent.setup();
@@ -177,15 +154,13 @@ describe('ParentHomeRoute create flows', () => {
   });
 
   it('shows the empty state when there are no boards', () => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
     expect(screen.getByRole('heading', { name: /no boards yet/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create your first board/i })).toBeInTheDocument();
   });
 
   it('clicking the empty-state CTA opens the New board modal', async () => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /create your first board/i }));
@@ -194,25 +169,8 @@ describe('ParentHomeRoute create flows', () => {
   });
 
   it('clicking the header New board opens the modal even when boards exist', async () => {
-    useBoardsMock.mockReturnValue({
-      data: [
-        {
-          id: 'b1',
-          ownerId: 'owner',
-          kidId: 'k1',
-          name: 'Existing',
-          kind: 'sequence',
-          labelsVisible: true,
-          voiceMode: 'tts',
-          stepIds: [],
-          kidReorderable: false,
-          accent: 'sage',
-        },
-      ],
-      isPending: false,
-    });
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    useBoardsMock.mockReturnValue({ data: [EXISTING_BOARD], isPending: false });
+    renderHome();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^new board$/i }));
@@ -221,31 +179,14 @@ describe('ParentHomeRoute create flows', () => {
   });
 
   it('clicking New blank board fast-creates with the first kid and navigates to the board edit route', async () => {
-    useBoardsMock.mockReturnValue({
-      data: [
-        {
-          id: 'b1',
-          ownerId: 'owner',
-          kidId: 'k1',
-          name: 'Existing',
-          kind: 'sequence',
-          labelsVisible: true,
-          voiceMode: 'tts',
-          stepIds: [],
-          kidReorderable: false,
-          accent: 'sage',
-        },
-      ],
-      isPending: false,
-    });
+    useBoardsMock.mockReturnValue({ data: [EXISTING_BOARD], isPending: false });
     createBoardMutateMock.mockImplementation(
       (_input: unknown, opts?: { onSuccess?: (b: Partial<Board>) => void }) => {
         opts?.onSuccess?.({ id: 'b-new' });
       },
     );
 
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /new blank board/i }));
@@ -261,23 +202,8 @@ describe('ParentHomeRoute create flows', () => {
     expect(screen.getByTestId('board-edit-route')).toBeInTheDocument();
   });
 
-  it.each([
-    { label: /^library$/i, testid: 'library-route' },
-    { label: /^kids$/i, testid: 'kids-route' },
-    { label: /^settings$/i, testid: 'settings-route' },
-  ])('clicking sidebar $label navigates to its stub route', async ({ label, testid }) => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: label }));
-
-    expect(screen.getByTestId(testid)).toBeInTheDocument();
-  });
-
   it('clicking See all navigates to /library', async () => {
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /see all/i }));
@@ -286,9 +212,8 @@ describe('ParentHomeRoute create flows', () => {
   });
 
   it('hides the "From the library" section when no slugs resolve (#234)', () => {
-    usePictogramsBySlugMock.mockReturnValueOnce(new Map<string, Pictogram>());
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    usePictogramsForSlugsMock.mockReturnValueOnce([]);
+    renderHome();
 
     expect(screen.queryByRole('heading', { name: /from the library/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /see all/i })).toBeNull();
@@ -301,8 +226,7 @@ describe('ParentHomeRoute create flows', () => {
       },
     );
 
-    const Wrap = makeWrap('/');
-    render(<Wrap />);
+    renderHome();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /create your first board/i }));

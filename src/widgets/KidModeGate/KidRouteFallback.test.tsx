@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearPin, setPin } from '@/lib/pin';
+import { tapDigits } from '@/widgets/PinPad/pinPad.test-utils';
 
 import { KidRouteFallback } from './KidRouteFallback';
 
@@ -35,15 +36,6 @@ const renderFallback = (): { user: ReturnType<typeof userEvent.setup> } => {
     </MemoryRouter>,
   );
   return { user };
-};
-
-const tapDigits = async (
-  user: ReturnType<typeof userEvent.setup>,
-  digits: string,
-): Promise<void> => {
-  for (const d of digits) {
-    await user.click(screen.getByRole('button', { name: d }));
-  }
 };
 
 describe('KidRouteFallback (#371)', () => {

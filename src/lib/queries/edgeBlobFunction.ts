@@ -18,8 +18,6 @@ interface InvokeBlobOptions<Code extends string> {
   knownCodes: readonly Code[];
   /** JSON field carrying the base64 payload ('imageBase64' / 'audioBase64'). */
   envelopeKey: string;
-  emptyMessage: string;
-  invalidMessage: string;
 }
 
 interface Envelope {
@@ -56,11 +54,11 @@ export const invokeBlobFunction = async <Code extends string>(
     throw new CodedError('network', error.message);
   }
   const envelope = asEnvelope(data, opts.envelopeKey);
-  if (!envelope) throw new CodedError('internal_error', opts.emptyMessage);
+  if (!envelope) throw new CodedError('internal_error', `${opts.functionName} returned no media`);
   try {
     const bytes = Uint8Array.from(atob(envelope.base64), (c) => c.charCodeAt(0));
     return new Blob([bytes], { type: envelope.mimeType });
   } catch {
-    throw new CodedError('internal_error', opts.invalidMessage);
+    throw new CodedError('internal_error', `${opts.functionName} returned invalid media`);
   }
 };

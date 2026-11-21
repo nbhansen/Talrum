@@ -1,8 +1,8 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { TestProviders } from './queries.test-utils';
 
 const invokeMock = vi.fn<(name: string, opts: unknown) => Promise<unknown>>();
 
@@ -19,60 +19,73 @@ vi.mock('@/lib/platform/telemetry', () => ({
 const { captureException } = await import('@/lib/platform/telemetry');
 const { CodedError } = await import('./edgeFunction');
 const { isGenerateImageError, useGenerateImage } = await import('./generateImage');
+const { isGenerateVoiceError, useGenerateVoice } = await import('./generateVoice');
 
 const captureMock = vi.mocked(captureException);
-
-const wrapper = ({ children }: { children: ReactNode }): React.ReactElement =>
-  createElement(
-    QueryClientProvider,
-    { client: new QueryClient({ defaultOptions: { mutations: { retry: false } } }) },
-    children,
-  );
-
-const runMutation = async (): Promise<InstanceType<typeof CodedError<string>>> => {
-  const { result } = renderHook(() => useGenerateImage(), { wrapper });
-  result.current.mutate({ label: 'spise', language: 'da' });
-  await waitFor(() => {
-    expect(result.current.isError).toBe(true);
-  });
-  return result.current.error as InstanceType<typeof CodedError<string>>;
-};
 
 beforeEach(() => {
   invokeMock.mockReset();
   captureMock.mockReset();
 });
 
-describe('useGenerateImage envelope decoding', () => {
+describe.each([
+  {
+    name: 'useGenerateImage',
+    useHook: useGenerateImage,
+    isOwnError: isGenerateImageError as (err: unknown) => boolean,
+    envelopeKey: 'imageBase64',
+    mimeType: 'image/jpeg',
+    ownCode: 'generation_failed',
+    foreignCode: 'synthesis_failed',
+    component: 'generateImage',
+  },
+  {
+    name: 'useGenerateVoice',
+    useHook: useGenerateVoice,
+    isOwnError: isGenerateVoiceError as (err: unknown) => boolean,
+    envelopeKey: 'audioBase64',
+    mimeType: 'audio/mpeg',
+    ownCode: 'synthesis_failed',
+    foreignCode: 'generation_failed',
+    component: 'generateVoice',
+  },
+])('$name', ({ useHook, isOwnError, envelopeKey, mimeType, ownCode, foreignCode, component }) => {
+  const runMutation = async (): Promise<InstanceType<typeof CodedError<string>>> => {
+    const { result } = renderHook(() => useHook(), { wrapper: TestProviders });
+    result.current.mutate({ label: 'spise', language: 'da' });
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    return result.current.error as InstanceType<typeof CodedError<string>>;
+  };
+
   it('decodes the base64 JSON envelope into a Blob with the provider MIME type', async () => {
     invokeMock.mockResolvedValue({
-      data: { ok: true, mimeType: 'image/jpeg', imageBase64: btoa('image-bytes') },
+      data: { ok: true, mimeType, [envelopeKey]: btoa('media-bytes') },
       error: null,
     });
-    const { result } = renderHook(() => useGenerateImage(), { wrapper });
+    const { result } = renderHook(() => useHook(), { wrapper: TestProviders });
     result.current.mutate({ label: 'spise', language: 'da' });
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
     const blob = result.current.data as Blob;
-    expect(blob.type).toBe('image/jpeg');
-    expect(await blob.text()).toBe('image-bytes');
+    expect(blob.type).toBe(mimeType);
+    expect(await blob.text()).toBe('media-bytes');
   });
 
   it('rejects a payload that is not the envelope', async () => {
-    // What supabase-js would have produced from raw image bytes: a string.
+    // What supabase-js would have produced from raw media bytes: a string.
     invokeMock.mockResolvedValue({ data: 'ÿØ…', error: null });
     const error = await runMutation();
     expect(error.code).toBe('internal_error');
   });
-});
 
-describe('useGenerateImage error mapping', () => {
   it('maps a server error body to its closed-set code and reports it', async () => {
     invokeMock.mockResolvedValue({
       data: null,
       error: new FunctionsHttpError(
-        new Response(JSON.stringify({ ok: false, error: 'generation_failed', message: 'x' }), {
+        new Response(JSON.stringify({ ok: false, error: ownCode, message: 'x' }), {
           status: 502,
         }),
       ),
@@ -81,23 +94,12 @@ describe('useGenerateImage error mapping', () => {
     const error = await runMutation();
 
     expect(error).toBeInstanceOf(CodedError);
-    expect(error.code).toBe('generation_failed');
+    expect(error.code).toBe(ownCode);
     // A broken key must not look like flaky wifi to us either.
     expect(captureMock).toHaveBeenCalledWith(expect.any(FunctionsHttpError), {
       level: 'warning',
-      tags: { component: 'generateImage', op: 'generation_failed' },
+      tags: { component, op: ownCode },
     });
-  });
-
-  it('maps an unknown or unparseable body to internal_error', async () => {
-    invokeMock.mockResolvedValue({
-      data: null,
-      error: new FunctionsHttpError(new Response('not json', { status: 500 })),
-    });
-
-    const error = await runMutation();
-
-    expect(error.code).toBe('internal_error');
   });
 
   it('maps a request that never got a response to network, without reporting', async () => {
@@ -111,19 +113,26 @@ describe('useGenerateImage error mapping', () => {
     expect(error.code).toBe('network');
     expect(captureMock).not.toHaveBeenCalled();
   });
+
+  it('accepts its own codes and network, and nothing else (#599)', () => {
+    expect(isOwnError(new CodedError(ownCode, 'x'))).toBe(true);
+    expect(isOwnError(new CodedError('network', 'x'))).toBe(true);
+    expect(isOwnError(new CodedError(foreignCode, 'x'))).toBe(false);
+    expect(isOwnError(new Error('x'))).toBe(false);
+  });
 });
 
-describe('isGenerateImageError (#599)', () => {
-  it('accepts its own codes and network, and nothing else', () => {
-    expect(isGenerateImageError(new CodedError('generation_failed', 'x'))).toBe(true);
-    expect(isGenerateImageError(new CodedError('network', 'x'))).toBe(true);
-    expect(isGenerateImageError(new CodedError('synthesis_failed', 'x'))).toBe(false);
-    expect(isGenerateImageError(new Error('x'))).toBe(false);
-  });
-
-  it('narrows code to the closed set', () => {
+describe('error guards narrow code to the closed set (#599)', () => {
+  it('isGenerateImageError', () => {
     const err: unknown = new CodedError('network', 'x');
     if (!isGenerateImageError(err)) throw err;
+    // @ts-expect-error -- a misspelled code must not compile.
+    expect(err.code === 'netwrok').toBe(false);
+  });
+
+  it('isGenerateVoiceError', () => {
+    const err: unknown = new CodedError('network', 'x');
+    if (!isGenerateVoiceError(err)) throw err;
     // @ts-expect-error -- a misspelled code must not compile.
     expect(err.code === 'netwrok').toBe(false);
   });

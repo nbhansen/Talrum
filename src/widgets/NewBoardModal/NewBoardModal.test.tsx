@@ -9,9 +9,12 @@ const KID_2: Kid = { id: 'k2', ownerId: 'owner', name: 'Mira' };
 
 const useKidsMock = vi.fn(() => ({ data: [KID_1] as Kid[], isPending: false }));
 const createBoardMutateMock = vi.fn();
+const resetMock = vi.fn();
 const useCreateBoardMock = vi.fn(() => ({
   mutate: createBoardMutateMock,
+  reset: resetMock,
   isPending: false,
+  isError: false,
 }));
 
 vi.mock('@/lib/queries/kids', () => ({
@@ -25,6 +28,7 @@ const { NewBoardModal } = await import('./NewBoardModal');
 
 afterEach(() => {
   createBoardMutateMock.mockReset();
+  resetMock.mockReset();
   // mockClear preserves the factory implementations; per-test overrides via
   // mockReturnValue still win for that test's invocations.
   useCreateBoardMock.mockClear();
@@ -116,22 +120,19 @@ describe('NewBoardModal', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
-  it('renders an inline error when the mutation fails', async () => {
-    const onCreated = vi.fn();
-    createBoardMutateMock.mockImplementation(
-      (_input: unknown, opts?: { onError?: (e: Error) => void }) => {
-        opts?.onError?.(new Error('boom'));
-      },
-    );
-
+  it('shows an inline error when the mutation fails, until the user types', async () => {
+    useCreateBoardMock.mockReturnValue({
+      mutate: createBoardMutateMock,
+      reset: resetMock,
+      isPending: false,
+      isError: true,
+    });
     const user = userEvent.setup();
-    render(<NewBoardModal onClose={vi.fn()} onCreated={onCreated} />);
-
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'X');
-    await user.click(screen.getByRole('button', { name: /save/i }));
+    render(<NewBoardModal onClose={vi.fn()} onCreated={vi.fn()} />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/couldn.?t create the board/i);
-    expect(onCreated).not.toHaveBeenCalled();
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'X');
+    expect(resetMock).toHaveBeenCalled();
   });
 
   it('Cancel calls onClose without saving', async () => {

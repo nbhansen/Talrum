@@ -7,7 +7,6 @@ import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
 import { PictogramGrid } from '@/widgets/PictogramGrid/PictogramGrid';
 import { PictogramSheet } from '@/widgets/PictogramSheet/PictogramSheet';
-import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 interface LibraryProps {
   /** Opens the New pictogram modal (owned by the route, like KidsRoute). */
@@ -18,7 +17,6 @@ export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
   const { data: pictograms = [] } = usePictograms();
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<Pictogram | null>(null);
-  const [voiceTarget, setVoiceTarget] = useState<Pictogram | null>(null);
 
   if (pictograms.length === 0) {
     return (
@@ -43,12 +41,8 @@ export const Library = ({ onAdd }: LibraryProps): JSX.Element => {
         placeholder="Search apple, park, happy…"
         tileSize={120}
         onTileClick={setTarget}
-        onEditVoice={setVoiceTarget}
       />
       {target && <PictogramSheet picto={target} onClose={() => setTarget(null)} />}
-      {voiceTarget && (
-        <VoiceRecorderDialog picto={voiceTarget} onClose={() => setVoiceTarget(null)} />
-      )}
     </>
   );
 };

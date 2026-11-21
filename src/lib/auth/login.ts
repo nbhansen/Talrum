@@ -15,36 +15,22 @@ export const useEmailCode = (): UseEmailCode => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendCode = async (email: string): Promise<boolean> => {
+  const run = async (
+    call: () => Promise<{ error: { message: string } | null }>,
+  ): Promise<boolean> => {
     setBusy(true);
     setError(null);
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: true },
-    });
+    const { error: authError } = await call();
     setBusy(false);
-    if (otpError) {
-      setError(otpError.message);
-      return false;
-    }
-    return true;
+    if (authError) setError(authError.message);
+    return !authError;
   };
 
-  const verifyCode = async (email: string, code: string): Promise<boolean> => {
-    setBusy(true);
-    setError(null);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: 'email',
-    });
-    setBusy(false);
-    if (verifyError) {
-      setError(verifyError.message);
-      return false;
-    }
-    return true;
-  };
+  const sendCode = (email: string): Promise<boolean> =>
+    run(() => supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } }));
+
+  const verifyCode = (email: string, code: string): Promise<boolean> =>
+    run(() => supabase.auth.verifyOtp({ email, token: code, type: 'email' }));
 
   const resetError = (): void => setError(null);
 

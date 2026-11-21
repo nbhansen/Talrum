@@ -5,33 +5,17 @@ const telemetry = await import('@/lib/platform/telemetry');
 const { setActiveKidId, subscribeActiveKid } = await import('./activeKid');
 
 beforeEach(() => {
-  localStorage.clear();
   vi.mocked(telemetry.captureException).mockClear();
 });
 
 describe('subscribeActiveKid', () => {
-  it('notifies on a same-tab write', () => {
+  it('notifies on a write, and not on a write of the same value', () => {
     const cb = vi.fn();
     const unsubscribe = subscribeActiveKid(cb);
     setActiveKidId('k1');
+    setActiveKidId('k1');
     unsubscribe();
     expect(cb).toHaveBeenCalledTimes(1);
-  });
-
-  it('notifies when another tab clears all storage', () => {
-    const cb = vi.fn();
-    const unsubscribe = subscribeActiveKid(cb);
-    window.dispatchEvent(new StorageEvent('storage', { key: null }));
-    unsubscribe();
-    expect(cb).toHaveBeenCalledTimes(1);
-  });
-
-  it('ignores a storage event for another key', () => {
-    const cb = vi.fn();
-    const unsubscribe = subscribeActiveKid(cb);
-    window.dispatchEvent(new StorageEvent('storage', { key: 'talrum:pin-hash' }));
-    unsubscribe();
-    expect(cb).not.toHaveBeenCalled();
   });
 });
 

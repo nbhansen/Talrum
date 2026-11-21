@@ -1,9 +1,10 @@
-import type { JSX } from 'react';
+import { type JSX, useState } from 'react';
 
 import type { Pictogram } from '@/types/domain';
 import { SearchIcon } from '@/ui/icons';
 import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 import { PictoVoiceButton } from '@/widgets/PictoVoiceButton/PictoVoiceButton';
+import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 import styles from './PictogramGrid.module.css';
 
@@ -15,7 +16,6 @@ interface PictogramGridProps {
   tileSize: number;
   selected?: ReadonlySet<string>;
   onTileClick: (picto: Pictogram) => void;
-  onEditVoice: (picto: Pictogram) => void;
 }
 
 export const PictogramGrid = ({
@@ -26,8 +26,8 @@ export const PictogramGrid = ({
   tileSize,
   selected,
   onTileClick,
-  onEditVoice,
 }: PictogramGridProps): JSX.Element => {
+  const [voiceTarget, setVoiceTarget] = useState<Pictogram | null>(null);
   const needle = query.toLowerCase();
   const filtered = needle
     ? pictograms.filter((p) => p.label.toLowerCase().includes(needle))
@@ -57,10 +57,13 @@ export const PictogramGrid = ({
                 selected={selected?.has(p.id) ?? false}
                 onClick={() => onTileClick(p)}
               />
-              <PictoVoiceButton picto={p} onClick={() => onEditVoice(p)} />
+              <PictoVoiceButton picto={p} onClick={() => setVoiceTarget(p)} />
             </div>
           ))}
         </div>
+      )}
+      {voiceTarget && (
+        <VoiceRecorderDialog picto={voiceTarget} onClose={() => setVoiceTarget(null)} />
       )}
     </>
   );

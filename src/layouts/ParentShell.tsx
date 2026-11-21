@@ -5,7 +5,7 @@ import { LockIcon, NavIcon } from '@/ui/icons';
 import { OfflineIndicator } from '@/widgets/OfflineIndicator/OfflineIndicator';
 
 import styles from './ParentShell.module.css';
-import { TalrumLogo } from './TalrumLogo';
+import { TalrumMark } from './TalrumMark';
 import { useKidModeNav } from './useKidModeNav';
 import { type ParentNavKey, useParentNav } from './useParentNav';
 
@@ -46,7 +46,7 @@ export const ParentShell = ({
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <TalrumLogo />
+        <TalrumMark />
         <nav className={styles.nav}>
           {NAV.map((item) => {
             const isActive = active === item.id;

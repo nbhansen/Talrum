@@ -1,20 +1,11 @@
 import { captureException } from '@/lib/platform/telemetry';
 
-const ACTIVE_KID_KEY = 'talrum:active-kid-id';
-const listeners = new Set<() => void>();
+import { storageSignal } from './storageSignal';
 
-/** Same-tab writes notify via setActiveKidId; other tabs via `storage`. */
-export const subscribeActiveKid = (cb: () => void): (() => void) => {
-  listeners.add(cb);
-  const onStorage = (event: StorageEvent): void => {
-    if (event.key === ACTIVE_KID_KEY || event.key === null) cb();
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    listeners.delete(cb);
-    window.removeEventListener('storage', onStorage);
-  };
-};
+const ACTIVE_KID_KEY = 'talrum:active-kid-id';
+const signal = storageSignal(ACTIVE_KID_KEY);
+
+export const subscribeActiveKid = signal.subscribe;
 
 // A blocked localStorage blocks persistently (privacy mode, "block all
 // storage"), and this read is the getSnapshot of a useSyncExternalStore —
@@ -58,5 +49,5 @@ export const setActiveKidId = (id: string | null): void => {
       captureException(err, { level: 'warning', tags: { component: 'activeKid', op: 'write' } });
     }
   }
-  for (const cb of listeners) cb();
+  signal.notify();
 };

@@ -7,12 +7,7 @@ import {
   setLanguagePref,
 } from './language';
 
-const stubDeviceLocale = (locale: string): void => {
-  vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(locale);
-};
-
 beforeEach(() => {
-  window.localStorage.removeItem('talrum:language');
   __resetLanguageForTests();
 });
 
@@ -65,14 +60,12 @@ describe('language pref storage', () => {
 });
 
 describe('getAppLanguage()', () => {
-  it('returns the explicit pref regardless of device locale', () => {
-    stubDeviceLocale('en-US');
+  it('returns the stored choice', () => {
     setLanguagePref('da');
     expect(getAppLanguage()).toBe('da');
   });
 
-  it('does not read the device language when unset', () => {
-    stubDeviceLocale('da-DK');
+  it('is English before a choice', () => {
     expect(getAppLanguage()).toBe('en');
   });
 });

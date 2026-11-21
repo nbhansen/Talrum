@@ -12,3 +12,10 @@
 .row {
   margin-top: var(--tal-space-3);
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tal-space-3);
+  align-items: center;
+}

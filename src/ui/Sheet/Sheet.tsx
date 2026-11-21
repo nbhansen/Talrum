@@ -2,6 +2,7 @@ import { type JSX, type ReactNode, useState } from 'react';
 
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
+import { TrashIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 import { TextField } from '@/ui/TextField/TextField';
 
@@ -25,16 +26,12 @@ export const Sheet = ({ title, subtitle, onClose, children }: SheetProps): JSX.E
 
 interface SheetSectionProps {
   label?: string;
-  danger?: boolean;
+  className?: string | undefined;
   children: ReactNode;
 }
 
-export const SheetSection = ({
-  label,
-  danger = false,
-  children,
-}: SheetSectionProps): JSX.Element => (
-  <section className={danger ? styles.dangerSection : styles.section}>
+export const SheetSection = ({ label, className, children }: SheetSectionProps): JSX.Element => (
+  <section className={className ? `${styles.section} ${className}` : styles.section}>
     {label && <div className={styles.label}>{label}</div>}
     {children}
   </section>
@@ -84,6 +81,55 @@ export const RenameSection = ({
         <Button variant="primary" onClick={() => onSave(trimmed)} disabled={!dirty || disabled}>
           {saving ? 'Saving…' : saveLabel}
         </Button>
+      </SheetActions>
+    </SheetSection>
+  );
+};
+
+interface DeleteSectionProps {
+  /** Idle-state button text, e.g. "Delete pictogram". */
+  label: string;
+  disabled: boolean;
+  onConfirm: () => void;
+  children?: ReactNode;
+}
+
+/** Arming is local state, so closing the dialog discards it. */
+export const DeleteSection = ({
+  label,
+  disabled,
+  onConfirm,
+  children,
+}: DeleteSectionProps): JSX.Element => {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <SheetSection label="Delete" className={styles.deleteSection}>
+      {children}
+      <SheetActions>
+        {confirming ? (
+          <>
+            <Button variant="ghost" onClick={() => setConfirming(false)} disabled={disabled}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              icon={<TrashIcon size={14} />}
+              onClick={onConfirm}
+              disabled={disabled}
+            >
+              Delete forever
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="ghost"
+            icon={<TrashIcon size={14} />}
+            onClick={() => setConfirming(true)}
+            disabled={disabled}
+          >
+            {label}
+          </Button>
+        )}
       </SheetActions>
     </SheetSection>
   );

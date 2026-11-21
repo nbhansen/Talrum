@@ -6,6 +6,10 @@ import type { Pictogram } from '@/types/domain';
 
 import { PictogramGrid } from './PictogramGrid';
 
+vi.mock('@/widgets/VoiceRecorderDialog/VoiceRecorderDialog', () => ({
+  VoiceRecorderDialog: ({ picto }: { picto: Pictogram }) => <div>Voice for {picto.label}</div>,
+}));
+
 const PICTOS: Pictogram[] = [
   { id: 'p1', label: 'Apple', style: 'illus', glyph: 'apple', tint: '#ff0000' },
   { id: 'p2', label: 'Book', style: 'illus', glyph: 'book', tint: '#00ff00' },
@@ -13,10 +17,8 @@ const PICTOS: Pictogram[] = [
 
 const Harness = ({
   onTileClick = vi.fn(),
-  onEditVoice = vi.fn(),
 }: {
   onTileClick?: (p: Pictogram) => void;
-  onEditVoice?: (p: Pictogram) => void;
 }): JSX.Element => {
   const [query, setQuery] = useState('');
   return (
@@ -27,7 +29,6 @@ const Harness = ({
       placeholder="Search"
       tileSize={120}
       onTileClick={onTileClick}
-      onEditVoice={onEditVoice}
     />
   );
 };
@@ -61,19 +62,21 @@ describe('PictogramGrid', () => {
         placeholder="Search"
         tileSize={120}
         onTileClick={vi.fn()}
-        onEditVoice={vi.fn()}
       />,
     );
     expect(screen.queryByText(/No pictograms match/)).not.toBeInTheDocument();
   });
 
-  it('hands the tapped pictogram to the tile and voice handlers', () => {
+  it('hands the tapped pictogram to the tile handler', () => {
     const onTileClick = vi.fn();
-    const onEditVoice = vi.fn();
-    render(<Harness onTileClick={onTileClick} onEditVoice={onEditVoice} />);
+    render(<Harness onTileClick={onTileClick} />);
     fireEvent.click(screen.getByText('Book'));
-    fireEvent.click(screen.getByRole('button', { name: 'Record voice for Apple' }));
     expect(onTileClick).toHaveBeenCalledWith(PICTOS[1]);
-    expect(onEditVoice).toHaveBeenCalledWith(PICTOS[0]);
+  });
+
+  it('opens the voice recorder for the tapped pictogram', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Record voice for Apple' }));
+    expect(screen.getByText('Voice for Apple')).toBeInTheDocument();
   });
 });

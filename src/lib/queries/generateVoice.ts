@@ -29,7 +29,7 @@ export const GENERATE_VOICE_ERROR_CODES = [
   'synthesis_failed',
   'internal_error',
 ] as const;
-export type GenerateVoiceErrorCode = (typeof GENERATE_VOICE_ERROR_CODES)[number] | 'network';
+type GenerateVoiceErrorCode = (typeof GENERATE_VOICE_ERROR_CODES)[number] | 'network';
 
 export type GenerateVoiceError = CodedError<GenerateVoiceErrorCode>;
 
@@ -57,7 +57,5 @@ export const useGenerateVoice = (): UseMutationResult<
         // allow-list is json / octet-stream / pdf / event-stream / form-data)
         // and exposes no response headers to carry a MIME type.
         envelopeKey: 'audioBase64',
-        emptyMessage: 'voice generation returned no audio',
-        invalidMessage: 'voice generation returned invalid audio',
       }),
   });

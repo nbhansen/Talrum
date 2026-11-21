@@ -22,7 +22,7 @@ const canary = join(canaryDir, 'canary.ts');
 const cases = [
   { line: "import '@/lib/supabase';", why: 'alias import of the supabase client' },
   { line: "import '../../lib/supabase';", why: 'relative import of the supabase client' },
-  { line: "import '@/app/SessionProvider';", why: 'reverse import of app/' },
+  { line: "import '@/app/AuthGate';", why: 'reverse import of app/' },
 ];
 
 writeFileSync(canary, cases.map((c) => c.line).join('\n') + '\n');

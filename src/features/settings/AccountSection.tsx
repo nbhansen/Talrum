@@ -1,13 +1,13 @@
 import { type JSX, useState } from 'react';
 
-import { performSignOut, useUserEmail } from '@/lib/auth/session';
+import { performSignOut, useSessionUser } from '@/lib/auth/session';
 import { Button } from '@/ui/Button/Button';
 
 import styles from './AccountSection.module.css';
 import shared from './settings.module.css';
 
 export const AccountSection = (): JSX.Element => {
-  const email = useUserEmail();
+  const { email } = useSessionUser();
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
 

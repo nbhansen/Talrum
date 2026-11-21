@@ -15,7 +15,6 @@ interface NewKidModalProps {
 export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   const createKid = useCreateKid();
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const trimmed = name.trim();
   const submitDisabled = trimmed === '' || createKid.isPending;
@@ -23,14 +22,7 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   const submit = (e: FormEvent): void => {
     e.preventDefault();
     if (submitDisabled) return;
-    setError(null);
-    createKid.mutate(
-      { name: trimmed },
-      {
-        onSuccess: () => onClose(),
-        onError: () => setError("Couldn't add the kid. Try again."),
-      },
-    );
+    createKid.mutate({ name: trimmed }, { onSuccess: () => onClose() });
   };
 
   return (
@@ -48,11 +40,11 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            if (error) setError(null);
+            if (createKid.isError) createKid.reset();
           }}
           placeholder="Liam"
         />
-        {error && <FormError spaced>{error}</FormError>}
+        {createKid.isError && <FormError spaced>Couldn&apos;t add the kid. Try again.</FormError>}
         <DialogActions>
           <Button type="button" variant="ghost" onClick={onClose} disabled={createKid.isPending}>
             Cancel

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   clearSpeechPrefs,
@@ -6,10 +6,6 @@ import {
   setSpeechPrefs,
   SPEECH_PREFS_DEFAULTS,
 } from './speechPrefs';
-
-beforeEach(() => {
-  window.localStorage.removeItem('talrum:speech-prefs');
-});
 
 describe('speechPrefs', () => {
   it('returns defaults when nothing is stored', () => {

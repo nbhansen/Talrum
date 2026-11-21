@@ -25,11 +25,7 @@ export const useCopy = (): CopyState => {
     [],
   );
   const copy = (text: string): void => {
-    if (
-      typeof navigator === 'undefined' ||
-      !navigator.clipboard ||
-      (typeof window !== 'undefined' && window.isSecureContext === false)
-    ) {
+    if (!navigator.clipboard || window.isSecureContext === false) {
       setError(FALLBACK_MESSAGE);
       return;
     }

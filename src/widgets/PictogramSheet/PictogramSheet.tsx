@@ -11,10 +11,16 @@ import {
 import { useImagePicker } from '@/lib/useImagePicker';
 import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
 import { FormError } from '@/ui/FormError/FormError';
 import { MicIcon, UploadIcon } from '@/ui/icons';
-import { RenameSection, Sheet, SheetActions, SheetHint, SheetSection } from '@/ui/Sheet/Sheet';
+import {
+  DeleteSection,
+  RenameSection,
+  Sheet,
+  SheetActions,
+  SheetHint,
+  SheetSection,
+} from '@/ui/Sheet/Sheet';
 import { useSheetAction } from '@/ui/Sheet/useSheetAction';
 import { PictogramMedia } from '@/widgets/PictoTile/PictogramMedia';
 import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
@@ -34,14 +40,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
   // open lands in the pictograms cache, so the voice section follows that.
   const livePicto = usePictograms().data?.find((p) => p.id === picto.id) ?? picto;
   const { error, setError, run } = useSheetAction('PictogramSheet', onClose);
-  const {
-    fileInputRef,
-    processed,
-    processing,
-    error: pickError,
-    pickFile,
-    onInputChange,
-  } = useImagePicker();
+  const { inputProps, processed, processing, error: pickError, pickFile } = useImagePicker();
 
   const renameMut = useRenamePictogram();
   const replaceMut = useReplacePictogramImage();
@@ -83,14 +82,11 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
       {picto.style === 'photo' && (
         <SheetSection label="Photo">
           <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className={styles.fileInput}
+            {...inputProps}
             onChange={(e) => {
               // Picking a file starts a fresh attempt, so stale errors go.
               setError(null);
-              onInputChange(e);
+              inputProps.onChange(e);
             }}
           />
           {processed ? (
@@ -144,7 +140,13 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
         </SheetActions>
       </SheetSection>
 
-      <SheetSection label="Delete" danger>
+      <DeleteSection
+        label="Delete pictogram"
+        onConfirm={() =>
+          run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ pictogramId: picto.id }))
+        }
+        disabled={busy}
+      >
         {referencedBoardIds.length > 0 && (
           <SheetHint>
             Used on {referencedBoardIds.length} board
@@ -152,14 +154,7 @@ export const PictogramSheet = ({ picto, onClose }: Props): JSX.Element => {
             {referencedBoardIds.length === 1 ? 'that board' : 'those boards'} too.
           </SheetHint>
         )}
-        <ConfirmDeleteRow
-          label="Delete pictogram"
-          onConfirm={() =>
-            run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ pictogramId: picto.id }))
-          }
-          disabled={busy}
-        />
-      </SheetSection>
+      </DeleteSection>
 
       {shownError && <FormError>{shownError}</FormError>}
       {recordingVoice && (

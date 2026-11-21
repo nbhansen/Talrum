@@ -71,5 +71,5 @@ Ids are uuid-native, but text slugs ('apple', 'morning') are preserved as
 an optional `slug` column (unique per owner). They exist for the handful of
 client-side lookup sites that need to name a template pictogram without
 knowing its per-user uuid — `ParentHome`'s recent strip, `BoardBuilder`'s
-quick-add — via `usePictogramsBySlug`. Column shapes and constraints live
+quick-add — via `usePictogramsForSlugs`. Column shapes and constraints live
 in the migrations and the generated `src/types/supabase.ts`.

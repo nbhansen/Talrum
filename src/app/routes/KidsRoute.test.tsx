@@ -1,11 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
+import { makeBoard, TestProviders } from '@/lib/queries/queries.test-utils';
 import type { Board, Kid } from '@/types/domain';
+
+import { KidsRoute } from './KidsRoute';
 
 const useBoardsMock = vi.fn(() => ({ data: [] as Board[], isPending: false }));
 
@@ -27,31 +28,16 @@ vi.mock('@/lib/queries/boards', async (importOriginal) => {
   return { ...actual, useBoards: () => useBoardsMock() };
 });
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signOut: vi.fn(),
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-    },
-  },
-}));
-
-const { KidsRoute } = await import('./KidsRoute');
-
 const renderRoute = (): void => {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={['/kids']}>
-          <Routes>
-            <Route path="/kids" element={<KidsRoute />} />
-            <Route path="/kid/:boardId" element={<div data-testid="kid-sequence-route" />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </TestSessionProvider>,
+    <TestProviders>
+      <MemoryRouter initialEntries={['/kids']}>
+        <Routes>
+          <Route path="/kids" element={<KidsRoute />} />
+          <Route path="/kid/:boardId" element={<div data-testid="kid-sequence-route" />} />
+        </Routes>
+      </MemoryRouter>
+    </TestProviders>,
   );
 };
 
@@ -79,20 +65,7 @@ describe('KidsRoute', () => {
 
   it('clicking KID navigates into the most recent non-empty board (regression: #71, #301)', async () => {
     useBoardsMock.mockReturnValue({
-      data: [
-        {
-          id: 'b-seq',
-          ownerId: 'owner',
-          kidId: 'k1',
-          name: 'Morning',
-          kind: 'sequence',
-          labelsVisible: true,
-          voiceMode: 'tts',
-          stepIds: ['p1'],
-          kidReorderable: false,
-          accent: 'sage',
-        },
-      ],
+      data: [makeBoard({ id: 'b-seq', kidId: 'k1', stepIds: ['p1'] })],
       isPending: false,
     });
     renderRoute();

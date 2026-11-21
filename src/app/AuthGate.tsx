@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Login } from '@/features/login/Login';
+import { SessionContext } from '@/lib/auth/session';
 import { sweepStaleAuthTokens } from '@/lib/auth/sweepStaleAuthTokens';
 import { setOutboxOwner } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
@@ -13,7 +14,6 @@ import { Spinner } from '@/ui/Spinner/Spinner';
 import styles from './AuthGate.module.css';
 import { LanguageGate } from './LanguageGate';
 import { PUBLIC_PATHS } from './publicPaths';
-import { SessionProvider } from './SessionProvider';
 
 type AuthState =
   | { status: 'loading' }
@@ -122,15 +122,15 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
   if (state.status === 'loading') return <AuthGateLoading />;
   if (state.status === 'error') return <AuthGateError onRetry={retry} />;
   if (state.status === 'out') {
-    // No SessionProvider on this branch, so anything routed here must not call
+    // No SessionContext on this branch, so anything routed here must not call
     // a session hook.
     if (PUBLIC_PATHS.has(normalizePath(window.location.pathname))) return <>{children}</>;
     return <Login />;
   }
   return (
-    <SessionProvider session={state.session}>
+    <SessionContext value={state.session}>
       <LanguageGate>{children}</LanguageGate>
-    </SessionProvider>
+    </SessionContext>
   );
 };
 

@@ -39,8 +39,6 @@ const originalUtter = (globalThis as { SpeechSynthesisUtterance?: unknown })
   .SpeechSynthesisUtterance;
 
 beforeEach(() => {
-  window.localStorage.removeItem('talrum:speech-prefs');
-  window.localStorage.removeItem('talrum:language');
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
 });
 

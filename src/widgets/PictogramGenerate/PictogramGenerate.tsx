@@ -81,6 +81,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
               </Button>
               <Button
                 variant="primary"
+                icon={<SparkleIcon size={14} />}
                 onClick={() => {
                   void save();
                 }}
@@ -127,7 +128,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
               }}
               disabled={busy || !label.trim()}
             >
-              <SparkleIcon size={14} /> {generating ? 'Generating…' : 'Generate image'}
+              {generating ? 'Generating…' : 'Generate image'}
             </Button>
           </div>
           {generating && (

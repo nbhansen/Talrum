@@ -2,34 +2,15 @@
 -- cascade would only surface when a deletion fails to clean up.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(17);
+SELECT plan(3);
 
--- Existence assertions: each app-table column referencing auth.users has a FK.
-SELECT has_fk('public', 'kids',          'kids has at least one foreign key');
-SELECT has_fk('public', 'pictograms',    'pictograms has at least one foreign key');
-SELECT has_fk('public', 'boards',        'boards has at least one foreign key');
-SELECT has_fk('public', 'board_members', 'board_members has at least one foreign key');
-
--- Cascade-action assertions: each owner FK is ON DELETE CASCADE.
 SELECT is(
-  (SELECT confdeltype FROM pg_constraint WHERE conname = 'kids_owner_id_fkey'),
-  'c'::"char",
-  'kids_owner_id_fkey is ON DELETE CASCADE'
-);
-SELECT is(
-  (SELECT confdeltype FROM pg_constraint WHERE conname = 'pictograms_owner_id_fkey'),
-  'c'::"char",
-  'pictograms_owner_id_fkey is ON DELETE CASCADE'
-);
-SELECT is(
-  (SELECT confdeltype FROM pg_constraint WHERE conname = 'boards_owner_id_fkey'),
-  'c'::"char",
-  'boards_owner_id_fkey is ON DELETE CASCADE'
-);
-SELECT is(
-  (SELECT confdeltype FROM pg_constraint WHERE conname = 'board_members_user_id_fkey'),
-  'c'::"char",
-  'board_members_user_id_fkey is ON DELETE CASCADE'
+  (SELECT count(*)::int FROM pg_constraint
+    WHERE conname IN ('kids_owner_id_fkey', 'pictograms_owner_id_fkey',
+                      'boards_owner_id_fkey', 'board_members_user_id_fkey')
+      AND confdeltype = 'c'),
+  4,
+  'the four owner FKs exist and each is ON DELETE CASCADE'
 );
 
 -- Behavioral cascade: insert auth + app rows, delete auth, assert empty.
@@ -62,47 +43,27 @@ END $$;
 -- Re-enable triggers so the cascade FK actually fires on DELETE.
 SET LOCAL session_replication_role = origin;
 
--- Pre-deletion counts: 1 auth row, 1 kid, 1 pictogram for the sentinel uid.
-SELECT is(
-  (SELECT count(*)::int FROM auth.users WHERE id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  1, 'pre-delete: 1 auth row for sentinel uid'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.kids WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  1, 'pre-delete: 1 kid for sentinel uid'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.pictograms WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  1, 'pre-delete: 1 pictogram for sentinel uid'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.boards WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  1, 'pre-delete: 1 board for sentinel uid'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.board_members WHERE user_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  1, 'pre-delete: 1 board_member for sentinel uid'
+CREATE TEMP VIEW sentinel_counts AS
+SELECT
+  (SELECT count(*)::int FROM auth.users WHERE id = u.id) AS users,
+  (SELECT count(*)::int FROM public.kids WHERE owner_id = u.id) AS kids,
+  (SELECT count(*)::int FROM public.pictograms WHERE owner_id = u.id) AS pictograms,
+  (SELECT count(*)::int FROM public.boards WHERE owner_id = u.id) AS boards,
+  (SELECT count(*)::int FROM public.board_members WHERE user_id = u.id) AS board_members
+FROM (VALUES ('00000000-0000-0000-0000-000000c45c4d'::uuid)) AS u(id);
+
+SELECT results_eq(
+  'SELECT * FROM sentinel_counts',
+  $$ VALUES (1, 1, 1, 1, 1) $$,
+  'pre-delete: 1 auth row, kid, pictogram, board and board_member for the sentinel uid'
 );
 
--- Trigger the cascade.
 DELETE FROM auth.users WHERE id = '00000000-0000-0000-0000-000000c45c4d'::uuid;
 
--- Post-deletion counts: 0 of each.
-SELECT is(
-  (SELECT count(*)::int FROM public.kids WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  0, 'post-delete: kids cascaded'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.pictograms WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  0, 'post-delete: pictograms cascaded'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.boards WHERE owner_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  0, 'post-delete: boards cascaded'
-);
-SELECT is(
-  (SELECT count(*)::int FROM public.board_members WHERE user_id = '00000000-0000-0000-0000-000000c45c4d'::uuid),
-  0, 'post-delete: board_members cascaded'
+SELECT results_eq(
+  'SELECT * FROM sentinel_counts',
+  $$ VALUES (0, 0, 0, 0, 0) $$,
+  'post-delete: the auth row is gone and each app row cascaded'
 );
 
 SELECT * FROM finish();

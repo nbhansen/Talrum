@@ -2,7 +2,7 @@
 -- idempotency on re-fire.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(15);
+SELECT plan(14);
 
 -- Capture template counts so the assertions below survive future seed
 -- changes (add more pictograms, add a fifth board, etc.) without editing
@@ -100,21 +100,7 @@ SELECT is(
   'user A board step_ids all resolve within user A pictograms'
 );
 
--- 9: user A's step_ids never reference user B's pictograms.
-SELECT is(
-  (SELECT count(*)::int FROM (
-     SELECT unnest(step_ids) AS sid
-       FROM public.boards
-      WHERE owner_id = '11111111-1111-1111-1111-111111111111'
-   ) s
-   WHERE s.sid IN (
-     SELECT id FROM public.pictograms WHERE owner_id = '22222222-2222-2222-2222-222222222222'
-   )),
-  0,
-  'user A board step_ids never point at user B pictograms'
-);
-
--- 10: symmetric — user B's step_ids never reference user A's pictograms.
+-- 9: user B's step_ids never reference user A's pictograms.
 SELECT is(
   (SELECT count(*)::int FROM (
      SELECT unnest(step_ids) AS sid

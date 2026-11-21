@@ -1,14 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { getLanguagePref } from '@/lib/language';
 
 import { LanguageGate } from './LanguageGate';
-
-beforeEach(() => {
-  window.localStorage.removeItem('talrum:language');
-});
 
 describe('LanguageGate', () => {
   it('asks for the language before the app when none is stored (#745)', async () => {

@@ -110,7 +110,7 @@ export const SpeechPrefsSection = (): JSX.Element => {
           onChange={(pitch) => update({ ...prefs, pitch })}
         />
       </div>
-      <div className={styles.actions}>
+      <div className={`${shared.actions} ${styles.actions}`}>
         <Button variant="ghost" onClick={() => speak('Hello, this is a test.')}>
           Test voice
         </Button>

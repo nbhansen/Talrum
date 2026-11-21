@@ -197,7 +197,7 @@ export default defineConfig({
       exclude: [
         'src/types/**', // generated + type-only
         'src/**/*.test.{ts,tsx}',
-        'src/**/*.test-utils.tsx',
+        'src/**/*.test-utils.{ts,tsx}',
       ],
       reporter: ['text-summary'],
       // Ratchet floors, not targets: raise them when coverage rises, never

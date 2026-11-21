@@ -5,8 +5,7 @@ import { performSignOut } from '@/lib/auth/session';
 import { CodedError, codeFromHttpError } from '@/lib/queries/edgeFunction';
 import { supabase } from '@/lib/supabase';
 
-// Mirrored in `supabase/functions/delete-account/types.ts`, because tsconfig
-// excludes supabase/. wireContract.test.ts fails if the two drift apart.
+// wireContract.test.ts fails if the function directory has another name.
 export const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
 
 // The wire contract. Add a code here and in DeleteAccountDialog's toast map
@@ -26,16 +25,12 @@ export type DeleteAccountError = CodedError<DeleteAccountErrorCode>;
 
 type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
 
-interface UseDeleteMyAccountOptions {
-  /**
-   * Fired before signOut. supabase-js fires onAuthStateChange synchronously
-   * from inside signOut(), so anything after it runs on an unmounted tree.
-   */
-  onPreSignOut?: () => void;
-}
-
+/**
+ * `onPreSignOut` fires before signOut. supabase-js fires onAuthStateChange
+ * synchronously from inside signOut(), so anything after it runs on an unmounted tree.
+ */
 export const useDeleteMyAccount = (
-  options: UseDeleteMyAccountOptions = {},
+  onPreSignOut: () => void,
 ): UseMutationResult<void, DeleteAccountError, void> => {
   const qc = useQueryClient();
   // Explicit generics narrow TError and make `mutate()` argument-free. The
@@ -64,7 +59,7 @@ export const useDeleteMyAccount = (
       // Navigate second, while the dialog is still mounted — signOut unmounts
       // it synchronously. Sign out last.
       qc.clear();
-      options.onPreSignOut?.();
+      onPreSignOut();
       // The account is already gone, so a sign-out error must not report the
       // deletion as failed (#645).
       await performSignOut().catch(() => undefined);

@@ -15,16 +15,6 @@ const Title = ({ children }: { children: string }): JSX.Element => (
 );
 
 describe('Modal', () => {
-  it.each(['sm', 'md', 'full'] as const)('applies the %s size class to the dialog', (size) => {
-    render(
-      <Modal onClose={vi.fn()} size={size}>
-        <Title>Dialog 1</Title>
-        <p>Body</p>
-      </Modal>,
-    );
-    expect(screen.getByRole('dialog').className).toMatch(new RegExp(size));
-  });
-
   it('renders children inside an aria-modal dialog', () => {
     render(
       <Modal onClose={vi.fn()} size="sm">

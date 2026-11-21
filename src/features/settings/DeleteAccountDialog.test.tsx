@@ -1,7 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mutateMock = vi.fn();
@@ -11,13 +9,11 @@ const mutationState = {
   isSuccess: false,
   error: null as Error | null,
 };
-// Captures the options the dialog passes to useDeleteMyAccount so tests
-// can assert it forwards onPreSignOut into the mutation hook.
-const useDeleteMyAccountSpy = vi.fn<(opts?: { onPreSignOut?: () => void }) => unknown>();
+const useDeleteMyAccountSpy = vi.fn<(onPreSignOut: () => void) => void>();
 
 vi.mock('@/lib/queries/account', () => ({
-  useDeleteMyAccount: (opts?: { onPreSignOut?: () => void }) => {
-    useDeleteMyAccountSpy(opts);
+  useDeleteMyAccount: (onPreSignOut: () => void) => {
+    useDeleteMyAccountSpy(onPreSignOut);
     return {
       mutate: mutateMock,
       isPending: mutationState.isPending,
@@ -29,10 +25,6 @@ vi.mock('@/lib/queries/account', () => ({
 }));
 
 const { DeleteAccountDialog } = await import('./DeleteAccountDialog');
-
-const makeWrapper = (children: ReactNode): JSX.Element => (
-  <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
-);
 
 beforeEach(() => {
   mutateMock.mockReset();
@@ -48,7 +40,7 @@ describe('DeleteAccountDialog', () => {
     onPreSignOut = vi.fn(),
     onCancel = vi.fn(),
   ): { onPreSignOut: typeof onPreSignOut; onCancel: typeof onCancel } => {
-    render(makeWrapper(<DeleteAccountDialog onPreSignOut={onPreSignOut} onCancel={onCancel} />));
+    render(<DeleteAccountDialog onPreSignOut={onPreSignOut} onCancel={onCancel} />);
     return { onPreSignOut, onCancel };
   };
 
@@ -96,9 +88,7 @@ describe('DeleteAccountDialog', () => {
   it('forwards onPreSignOut to useDeleteMyAccount', () => {
     const onPreSignOut = vi.fn();
     renderDialog(onPreSignOut);
-    expect(useDeleteMyAccountSpy).toHaveBeenCalled();
-    const lastCallArg = useDeleteMyAccountSpy.mock.calls.at(-1)?.[0];
-    expect(lastCallArg?.onPreSignOut).toBe(onPreSignOut);
+    expect(useDeleteMyAccountSpy).toHaveBeenLastCalledWith(onPreSignOut);
   });
 
   it('while pending: both buttons disabled, spinner visible', () => {

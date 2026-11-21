@@ -20,6 +20,17 @@
   gap: var(--tal-space-3);
 }
 
+.logo {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  box-shadow: var(--tal-shadow-1);
+  flex-shrink: 0;
+}
+
 .eyebrow {
   font-size: 13px;
   font-weight: 700;

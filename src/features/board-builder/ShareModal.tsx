@@ -1,7 +1,13 @@
-import { type JSX } from 'react';
+import { type FormEvent, type JSX, useState } from 'react';
 
 import { useSessionUser } from '@/lib/auth/session';
-import { useBoardMembers, useRemoveBoardMember } from '@/lib/queries/board-members';
+import {
+  isAlreadyMemberError,
+  isShareForbiddenError,
+  useAddBoardMember,
+  useBoardMembers,
+  useRemoveBoardMember,
+} from '@/lib/queries/board-members';
 import { useCopy } from '@/lib/useCopy';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
@@ -11,7 +17,8 @@ import { XIcon } from '@/ui/icons';
 import { Modal } from '@/ui/Modal/Modal';
 
 import styles from './ShareModal.module.css';
-import { useShareSubmit } from './useShareSubmit';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ShareModalProps {
   boardId: string;
@@ -24,10 +31,37 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
   const members = useBoardMembers(boardId);
   const removeMember = useRemoveBoardMember();
   const { copied, error: copyError, copy } = useCopy();
-  const { draftId, setDraftId, submit, submitError, submitting } = useShareSubmit({
-    boardId,
-    meId: me.id,
-  });
+  const addMember = useAddBoardMember();
+  const [draftId, setDraftId] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const submit = (e: FormEvent): void => {
+    e.preventDefault();
+    const userId = draftId.trim().toLowerCase();
+    if (!UUID_RE.test(userId)) {
+      setSubmitError("That doesn't look like a valid sharing ID.");
+      return;
+    }
+    if (userId === me.id) {
+      setSubmitError("That's your own sharing ID.");
+      return;
+    }
+    setSubmitError(null);
+    addMember.mutate(
+      { boardId, userId, role: 'editor' },
+      {
+        onSuccess: () => setDraftId(''),
+        onError: (err) =>
+          setSubmitError(
+            isAlreadyMemberError(err)
+              ? 'That person already has access to this board.'
+              : isShareForbiddenError(err)
+                ? "You can't share this board."
+                : "Couldn't add that person. Try again.",
+          ),
+      },
+    );
+  };
 
   return (
     <Modal onClose={onClose} size="md" padded>
@@ -92,11 +126,18 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
                 placeholder="Paste a sharing ID"
                 autoComplete="off"
                 value={draftId}
-                onChange={(e) => setDraftId(e.target.value)}
+                onChange={(e) => {
+                  setDraftId(e.target.value);
+                  setSubmitError(null);
+                }}
                 aria-label="Sharing ID"
               />
-              <Button variant="pill" type="submit" disabled={submitting || draftId.trim() === ''}>
-                {submitting ? 'Adding…' : 'Add'}
+              <Button
+                variant="pill"
+                type="submit"
+                disabled={addMember.isPending || draftId.trim() === ''}
+              >
+                {addMember.isPending ? 'Adding…' : 'Add'}
               </Button>
             </form>
             {submitError && <FormError spaced>{submitError}</FormError>}

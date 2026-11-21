@@ -6,7 +6,6 @@
 
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import path from 'node:path';
 
 const TIMESTAMP_RE = /^\d{14}$/;
 const FILENAME_RE = /^(\d{14})_.*\.sql$/;
@@ -93,11 +92,8 @@ function runSupabaseMigrationList(): { ok: true; stdout: string } | { ok: false;
   return { ok: false, reason: stderr || `supabase CLI exited with ${res.status}` };
 }
 
-export function main(): number {
-  const root = process.cwd();
-  const migrationsAbs = path.join(root, MIGRATIONS_DIR);
-  const filenames = readdirSync(migrationsAbs).filter((f) => f.endsWith('.sql'));
-  const local = parseLocalVersions(filenames);
+function main(): number {
+  const local = parseLocalVersions(readdirSync(MIGRATIONS_DIR));
 
   const result = runSupabaseMigrationList();
   if (!result.ok) {
@@ -109,23 +105,18 @@ export function main(): number {
 
   const remote = parseRemoteVersions(result.stdout);
 
-  // Defensive: if remote parses to zero rows but the CLI succeeded with non-empty stdout,
-  // the table format may have changed. Warn loudly but don't block — db push remains the
-  // hard backstop. CI's first run on this PR will surface format breaks via the unit tests
-  // when someone updates the CLI version.
+  // Zero parsed rows from output that has table rows: the table format may have
+  // changed. Warn but do not block; `db push` is the hard backstop.
   if (
     remote.size === 0 &&
-    result.stdout.trim().length > 0 &&
-    !/no migrations/i.test(result.stdout)
+    !/no migrations/i.test(result.stdout) &&
+    result.stdout.split('\n').some((l) => l.includes('|'))
   ) {
-    const looksLikeRows = result.stdout.split('\n').some((l) => l.includes('|'));
-    if (looksLikeRows) {
-      console.error(
-        '[migration-drift] WARNING: parsed zero remote versions from non-empty CLI output. ' +
-          'Supabase CLI table format may have changed. Failing open; investigate parser.',
-      );
-      return 0;
-    }
+    console.error(
+      '[migration-drift] WARNING: parsed zero remote versions from non-empty CLI output. ' +
+        'Supabase CLI table format may have changed. Failing open; investigate parser.',
+    );
+    return 0;
   }
 
   const orphans = findOrphans(remote, local);

@@ -10,8 +10,7 @@ done; that progress is in-memory for the visit ([#519]).
 ## The soft-gate threat model
 
 The PIN is a **soft gate**, not security. It stops a kid in kid mode from
-exiting to parent settings; it does not stop an adult with devtools. The
-threat model is spelled out at the top of `src/lib/pin.ts`: the PIN is
+exiting to parent settings; it does not stop an adult with devtools. The PIN is
 SHA-256-hashed before persisting (the digits are not stored, but an unsalted
 hash of 4 digits is trivial to reverse, so this hides nothing from devtools),
 lives in `localStorage` under `talrum:pin-hash`, and is **per-device** — a
@@ -27,7 +26,7 @@ ignores the flag.
 
 A device with no PIN cannot enter kid mode at all. `wrap(el, 'kid')` in
 `src/app/routes.tsx` renders `RequireKidPin`, which redirects to
-`/settings?pin=required` when `kidModeNeedsPinSetup()` is true. The guard
+`/settings?pin=required` when `hasPin()` is false. The guard
 lives in the `'kid'` variant of `wrap` rather than inside each kid route so
 that a third kid route inherits it automatically, and so it runs before the
 route's own hooks fetch a board.
@@ -49,7 +48,7 @@ default — a fresh device should not inherit a one-way door it has no key to �
 but it means "set the PIN" belongs in the hand-over checklist for a new
 device.
 
-So **the PIN is only ever created in parent UI**: Settings → Parent PIN →
+The PIN is created in Settings → Parent PIN →
 _Set a PIN_ (`src/features/settings/PinManagementSection.tsx`), which also
 handles Change and Clear via the same `src/lib/pin.ts` helpers (`hasPin`,
 `setPin`, `verifyPin`, `clearPin`). Clearing the PIN makes kid mode
@@ -60,8 +59,7 @@ unavailable again, and the confirm prompt says so.
 `KidModeGate` (`KidModeGate.tsx`) wraps each kid-mode route via a render
 prop: `children(requestExit)` renders the kid screen and hands it an exit
 trigger. Calling `requestExit` opens a `PinPad` modal to **verify**: one
-correct entry confirms the exit. There is no other flow — the gate never
-writes a PIN.
+correct entry confirms the exit.
 
 One deliberate exception: if no PIN exists when exit is requested, the gate
 lets the parent out instead of opening a pad no entry could satisfy. The route
@@ -88,8 +86,7 @@ the verify strings live there; the PIN-creation copy is parent-facing and
 English-only, alongside the rest of Settings.
 
 A real server-side check would require per-account auth round-trips and
-break offline kid mode; the soft gate is the deliberate trade-off
-(user-stories Epic 7).
+break offline kid mode; the soft gate is the deliberate trade-off.
 
 ## When a kid route crashes
 

@@ -22,7 +22,7 @@ drain()                           src/lib/outbox/drain.ts
   │ FIFO over pending entries; retries, backoff, status events
   ▼
 runHandler(entry)                 src/lib/outbox/handlers.ts
-     one handler per entry kind: Supabase table writes, RPCs, Storage I/O
+     one handler per entry kind: Supabase table writes, Storage I/O
 ```
 
 Entries are plain objects (plus `Blob`s), discriminated on `kind`, one
@@ -62,8 +62,8 @@ persisted, so a rejection rolled a durable write back. The status read and the w
 report and continue instead, and an unreadable queue counts as occupied, or a new write jumps
 entries it cannot see. Six drains in a row that IndexedDB stopped from running the queue then stop
 the retry timer, and `online` becomes the only reliable trigger: the stuck entries are `pending`,
-so there is no pill and no Retry. A landed entry whose delete failed is not one of those, and
-keeps its unbounded replay (#459). The counts hold their last values, and the status names the
+so there is no pill and no Retry. A landed entry whose delete failed is not one of those (see
+above, #459). The counts hold their last values, and the status names the
 failed read as `queueUnreadable`, which the indicator shows ahead of every other state — the last
 good counts may be zero, and "synced" would be a lie (#462). Retry's own read is guarded the same
 way, and the drain it kicks feeds the same state.
@@ -108,9 +108,8 @@ leave user A's blobs on a shared device for a whole upload.
 marks permanent failures `failed` and moves on, so one bad entry cannot dam the
 queue. It stops the same way at a landed entry its delete could not clear: that
 entry is still queued, so a write behind it would land first and then be
-overwritten by the replay. That stop alone has no time bound — an uncleared
-entry burns no attempt, so it never reaches `failed` and the drain never skips
-it. A write for an unrelated row waits too, until a delete works.
+overwritten by the replay. That stop has no time bound either (see above), so a
+write for an unrelated row waits too, until a delete works.
 
 **Drains, queue rewrites, and enqueues serialize across tabs** on a
 `navigator.locks` web lock (#278, #289, #395), so a PWA window and a browser tab

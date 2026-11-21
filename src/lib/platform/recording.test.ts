@@ -87,22 +87,26 @@ const lastRecorder = (): FakeMediaRecorder => {
   return rec;
 };
 
+beforeEach(() => {
+  Object.defineProperty(navigator, 'mediaDevices', {
+    value: { getUserMedia: getUserMediaMock },
+    configurable: true,
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  // @ts-expect-error -- jsdom's navigator has no mediaDevices; remove ours.
+  delete navigator.mediaDevices;
+});
+
 describe('startRecording', () => {
   beforeEach(() => {
     FakeMediaRecorder.supportedTypes = [];
     FakeMediaRecorder.instances = [];
     getUserMediaMock.mockReset();
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
-    Object.defineProperty(navigator, 'mediaDevices', {
-      value: { getUserMedia: getUserMediaMock },
-      configurable: true,
-    });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    // @ts-expect-error -- jsdom's navigator has no mediaDevices; remove ours.
-    delete navigator.mediaDevices;
   });
 
   it('requests an audio stream and records with the first browser-supported mime type', async () => {
@@ -168,40 +172,32 @@ describe('startRecording', () => {
 
   it('stops itself at MAX_RECORDING_MS (#416)', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    try {
-      getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
-      const recording = await startRecording();
-      lastRecorder().pendingChunks = [new Blob(['capped'])];
+    getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
+    const recording = await startRecording();
+    lastRecorder().pendingChunks = [new Blob(['capped'])];
 
-      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
-      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
-      expect(lastRecorder().state).toBe('inactive');
+    await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+    expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
+    expect(lastRecorder().state).toBe('inactive');
 
-      // A later stop() (the dialog's Stop press, or its auto-save timer)
-      // must resolve with the capped clip, not stop an inactive recorder.
-      const blob = await recording.stop();
-      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
-      expect(await blob.text()).toBe('capped');
-    } finally {
-      vi.useRealTimers();
-    }
+    // A later stop() (the dialog's Stop press, or its auto-save timer)
+    // must resolve with the capped clip, not stop an inactive recorder.
+    const blob = await recording.stop();
+    expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
+    expect(await blob.text()).toBe('capped');
   });
 
   it('stop() before the cap clears the cap timer', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    try {
-      getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
-      const recording = await startRecording();
-      await recording.stop();
+    getUserMediaMock.mockResolvedValue(makeStream([makeTrack()]));
+    const recording = await startRecording();
+    await recording.stop();
 
-      // A leaked cap timer would call stop() on an inactive recorder —
-      // an InvalidStateError in real browsers.
-      expect(vi.getTimerCount()).toBe(0);
-      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
-      expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
+    // A leaked cap timer would call stop() on an inactive recorder —
+    // an InvalidStateError in real browsers.
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+    expect(lastRecorder().stopSpy).toHaveBeenCalledTimes(1);
   });
 
   it('cancel() after stop() still releases tracks without stopping an inactive recorder again', async () => {
@@ -219,31 +215,19 @@ describe('startRecording', () => {
 });
 
 describe('isRecordingSupported', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    // @ts-expect-error -- jsdom's navigator has no mediaDevices; remove ours.
-    delete navigator.mediaDevices;
-  });
-
   it('is true when both getUserMedia and MediaRecorder exist', () => {
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
-    Object.defineProperty(navigator, 'mediaDevices', {
-      value: { getUserMedia: getUserMediaMock },
-      configurable: true,
-    });
     expect(isRecordingSupported()).toBe(true);
   });
 
   it('is false without MediaRecorder', () => {
-    Object.defineProperty(navigator, 'mediaDevices', {
-      value: { getUserMedia: getUserMediaMock },
-      configurable: true,
-    });
     expect(isRecordingSupported()).toBe(false);
   });
 
   it('is false without mediaDevices', () => {
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
+    // @ts-expect-error -- jsdom's navigator has no mediaDevices; remove ours.
+    delete navigator.mediaDevices;
     expect(isRecordingSupported()).toBe(false);
   });
 });

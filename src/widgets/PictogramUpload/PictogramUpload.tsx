@@ -10,7 +10,7 @@ import { FormError } from '@/ui/FormError/FormError';
 import { UploadIcon } from '@/ui/icons';
 import { PhotoPreviewCard } from '@/ui/PhotoPreviewCard/PhotoPreviewCard';
 import { TextField } from '@/ui/TextField/TextField';
-import { PictoTile } from '@/widgets/PictoTile/PictoTile';
+import { PictoCard } from '@/widgets/PictoTile/PictoCard';
 
 import styles from './PictogramUpload.module.css';
 
@@ -23,12 +23,11 @@ interface PictogramUploadProps {
 
 export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element => {
   const {
-    fileInputRef,
+    inputProps,
     processed,
     processing,
     error: pickError,
     pickFile,
-    onInputChange,
     reset: resetPick,
   } = useImagePicker();
   const [label, setLabel] = useState('');
@@ -74,13 +73,7 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
 
   return (
     <div className={styles.wrap}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className={styles.fileInput}
-        onChange={onInputChange}
-      />
+      <input {...inputProps} />
       {processed ? (
         <PhotoPreviewCard
           src={processed.previewUrl}
@@ -130,7 +123,7 @@ export const PictogramUpload = ({ ownerId }: PictogramUploadProps): JSX.Element 
           <div className={styles.recentHeading}>Your uploads</div>
           <div className={styles.recentRow}>
             {recentPhotos.map((p) => (
-              <PictoTile key={p.id} picto={p} size={100} />
+              <PictoCard key={p.id} picto={p} size={100} />
             ))}
           </div>
         </>

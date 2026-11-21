@@ -4,11 +4,7 @@ import { useSessionUser } from '@/lib/auth/session';
 import type { ProcessedImage } from '@/lib/image';
 import { enqueueAndDrain } from '@/lib/outbox';
 import { boardsQueryKey } from '@/lib/queries/boards.read';
-import {
-  listCache,
-  type OptimisticListContext,
-  useOptimisticListMutation,
-} from '@/lib/queries/optimistic';
+import { listCache, useOptimisticListMutation } from '@/lib/queries/optimistic';
 import { pictogramsQueryKey } from '@/lib/queries/pictograms.read';
 import { mintStoragePath } from '@/lib/storage';
 import type { Board, Pictogram } from '@/types/domain';
@@ -46,15 +42,13 @@ const revokePictogramBlobs = (qc: QueryClient): void => {
   }
 };
 
-export const __test_revokePictogramBlobs = revokePictogramBlobs;
-
 interface ReplaceBlobInput {
   pictogramId: string;
   blob: Blob;
   extension: string;
 }
 
-type ReplaceBlobMutation = UseMutationResult<void, Error, ReplaceBlobInput, OptimisticListContext>;
+type ReplaceBlobMutation = UseMutationResult<void, Error, ReplaceBlobInput>;
 
 /**
  * Optimistically points the pictogram at a local blob URL and queues the
@@ -156,12 +150,7 @@ interface RenameInput {
   label: string;
 }
 
-export const useRenamePictogram = (): UseMutationResult<
-  void,
-  Error,
-  RenameInput,
-  OptimisticListContext
-> =>
+export const useRenamePictogram = (): UseMutationResult<void, Error, RenameInput> =>
   useOptimisticListMutation({
     caches: [
       listCache<Pictogram, RenameInput>(pictogramsQueryKey, (list, { pictogramId, label }) =>
@@ -187,12 +176,7 @@ export const referencingBoardIds = (
   boards: readonly Board[] | undefined,
 ): string[] => (boards ?? []).filter((b) => b.stepIds.includes(pictogramId)).map((b) => b.id);
 
-export const useDeletePictogram = (): UseMutationResult<
-  void,
-  Error,
-  DeletePictogramInput,
-  OptimisticListContext
-> =>
+export const useDeletePictogram = (): UseMutationResult<void, Error, DeletePictogramInput> =>
   useOptimisticListMutation({
     caches: [
       listCache<Pictogram, DeletePictogramInput>(pictogramsQueryKey, (list, { pictogramId }) =>
@@ -209,12 +193,7 @@ export const useDeletePictogram = (): UseMutationResult<
     mutationFn: ({ pictogramId }) => enqueueAndDrain({ kind: 'deletePicto', pictogramId }),
   });
 
-export const useClearPictogramAudio = (): UseMutationResult<
-  void,
-  Error,
-  ClearAudioInput,
-  OptimisticListContext
-> => {
+export const useClearPictogramAudio = (): UseMutationResult<void, Error, ClearAudioInput> => {
   const qc = useQueryClient();
   return useOptimisticListMutation({
     caches: [

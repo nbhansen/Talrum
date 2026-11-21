@@ -1,7 +1,6 @@
 import { type JSX, useState } from 'react';
 
 import { usePictograms } from '@/lib/queries/pictograms';
-import type { Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
 import { Modal } from '@/ui/Modal/Modal';
@@ -9,7 +8,6 @@ import { type TabItem, TabPanel, Tabs } from '@/ui/Tabs/Tabs';
 import { PictogramGenerate } from '@/widgets/PictogramGenerate/PictogramGenerate';
 import { PictogramGrid } from '@/widgets/PictogramGrid/PictogramGrid';
 import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
-import { VoiceRecorderDialog } from '@/widgets/VoiceRecorderDialog/VoiceRecorderDialog';
 
 import styles from './PictoPicker.module.css';
 
@@ -28,7 +26,6 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
   const [tab, setTab] = useState<PickerTab>('library');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState('');
-  const [editingVoice, setEditingVoice] = useState<Pictogram | null>(null);
   const { data: pictograms = [], isPending } = usePictograms();
   const tabs: readonly TabItem<PickerTab>[] = [
     { id: 'library', label: 'Library', ...(isPending ? {} : { sub: `${pictograms.length}` }) },
@@ -73,7 +70,6 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
               tileSize={110}
               selected={selected}
               onTileClick={(p) => toggle(p.id)}
-              onEditVoice={setEditingVoice}
             />
           </div>
         )}
@@ -91,9 +87,6 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
           </Button>
         </div>
       </footer>
-      {editingVoice && (
-        <VoiceRecorderDialog picto={editingVoice} onClose={() => setEditingVoice(null)} />
-      )}
     </Modal>
   );
 };

@@ -4,10 +4,16 @@ import { setActiveKidId } from '@/lib/activeKid';
 import { useActiveKid, useDeleteKid, useKids, useRenameKid } from '@/lib/queries/kids';
 import type { Kid } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
-import { ConfirmDeleteRow } from '@/ui/ConfirmDeleteRow/ConfirmDeleteRow';
 import { FormError } from '@/ui/FormError/FormError';
 import { CheckIcon } from '@/ui/icons';
-import { RenameSection, Sheet, SheetActions, SheetHint, SheetSection } from '@/ui/Sheet/Sheet';
+import {
+  DeleteSection,
+  RenameSection,
+  Sheet,
+  SheetActions,
+  SheetHint,
+  SheetSection,
+} from '@/ui/Sheet/Sheet';
 import { useSheetAction } from '@/ui/Sheet/useSheetAction';
 
 interface Props {
@@ -81,7 +87,13 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
         </SheetSection>
       )}
 
-      <SheetSection label="Delete" danger>
+      <DeleteSection
+        label="Delete kid"
+        onConfirm={() =>
+          run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ kidId: kid.id }))
+        }
+        disabled={saving || isLastKid}
+      >
         {isLastKid ? (
           <SheetHint>You need at least one kid.</SheetHint>
         ) : (
@@ -91,14 +103,7 @@ export const KidSheet = ({ kid, boardCount, onClose }: Props): JSX.Element => {
             </SheetHint>
           )
         )}
-        <ConfirmDeleteRow
-          label="Delete kid"
-          onConfirm={() =>
-            run('delete', 'Delete failed.', () => deleteMut.mutateAsync({ kidId: kid.id }))
-          }
-          disabled={saving || isLastKid}
-        />
-      </SheetSection>
+      </DeleteSection>
 
       {error && <FormError>{error}</FormError>}
     </Sheet>

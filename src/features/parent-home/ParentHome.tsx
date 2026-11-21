@@ -2,15 +2,15 @@ import type { JSX } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
 import { setActiveKidId } from '@/lib/activeKid';
-import { useBoards } from '@/lib/queries/boards';
+import { useBoards, useCreateBoard } from '@/lib/queries/boards';
 import { useActiveKid, useKids } from '@/lib/queries/kids';
-import { usePictogramsBySlug } from '@/lib/queries/pictograms';
-import type { Pictogram } from '@/types/domain';
+import { usePictogramsForSlugs } from '@/lib/queries/pictograms';
+import { accentForIndex } from '@/theme/tokens';
 import { Button } from '@/ui/Button/Button';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { PlusIcon } from '@/ui/icons';
 import { KidSwitcher } from '@/ui/KidSwitcher/KidSwitcher';
-import { PictoTile } from '@/widgets/PictoTile/PictoTile';
+import { PictoCard } from '@/widgets/PictoTile/PictoCard';
 
 import { BoardCard } from './BoardCard';
 import styles from './ParentHome.module.css';
@@ -22,22 +22,17 @@ interface ParentHomeProps {
   onNewKid: () => void;
   /** Opens the full New board modal (name + kind + kid picker). */
   onNewBoard: () => void;
-  /** Fast path: creates a board with default values and opens the builder. */
-  onNewBlankBoard: () => void;
   onSeeAll: () => void;
-  newBlankPending: boolean;
 }
 
 export const ParentHome = ({
   onOpenBoard,
   onNewKid,
   onNewBoard,
-  onNewBlankBoard,
   onSeeAll,
-  newBlankPending,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
-  const pictogramsBySlug = usePictogramsBySlug();
+  const createBoard = useCreateBoard();
   const { data: kids = [] } = useKids();
   const activeKid = useActiveKid();
 
@@ -50,9 +45,22 @@ export const ParentHome = ({
 
   // Only render the strip when at least one slug resolves — otherwise the
   // heading sits alone over empty whitespace and reads like a load failure.
-  const recentPictos = RECENT_STRIP_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
-    (p): p is Pictogram => Boolean(p),
-  );
+  const recentPictos = usePictogramsForSlugs(RECENT_STRIP_SLUGS);
+
+  // Skips the modal: the BoardBuilder is where the board gets named. The accent
+  // rotates by board count so the grid stays visually distinct.
+  const onNewBlankBoard = (): void => {
+    if (!activeKid || createBoard.isPending) return;
+    createBoard.mutate(
+      {
+        name: 'Untitled board',
+        kind: 'sequence',
+        kidId: activeKid.id,
+        accent: accentForIndex(boardsQuery.data?.length ?? 0),
+      },
+      { onSuccess: (board) => onOpenBoard(board.id) },
+    );
+  };
 
   return (
     <ParentShell
@@ -92,12 +100,12 @@ export const ParentHome = ({
             type="button"
             className={styles.newTile}
             onClick={onNewBlankBoard}
-            disabled={newBlankPending}
+            disabled={createBoard.isPending}
           >
             <span className={styles.newTileIcon}>
               <PlusIcon size={22} />
             </span>
-            {newBlankPending ? 'Creating…' : 'New blank board'}
+            {createBoard.isPending ? 'Creating…' : 'New blank board'}
           </button>
         </div>
       )}
@@ -112,7 +120,7 @@ export const ParentHome = ({
           <div className={`${styles.recentStrip} tal-scroll`}>
             {recentPictos.map((p) => (
               <div key={p.id} className={styles.recentItem}>
-                <PictoTile picto={p} size={96} />
+                <PictoCard picto={p} size={96} />
               </div>
             ))}
           </div>

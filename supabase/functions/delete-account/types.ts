@@ -3,11 +3,6 @@ import type { SharedErrorCode } from '../_shared/http.ts';
 // Error codes are a closed set; the client switches on `error` to pick a toast
 // (src/lib/queries/account.ts). Add a code here, add a toast there.
 
-// Pinned here so a directory rename surfaces as a TypeScript error rather than
-// a runtime 404. Mirrored in src/lib/queries/account.ts, because tsconfig
-// excludes supabase/ and a direct import is not possible.
-export const DELETE_ACCOUNT_FUNCTION_NAME = 'delete-account';
-
 export type ErrorCode =
   | SharedErrorCode
   | 'bad_request'
@@ -20,11 +15,7 @@ export type ErrorCode =
 export class DeletionError extends Error {
   constructor(
     public readonly code: ErrorCode,
-    public readonly step:
-      | 'storage_purge_audio'
-      | 'storage_purge_images'
-      | 'auth_delete'
-      | 'unknown',
+    public readonly step: 'storage_purge_audio' | 'storage_purge_images' | 'auth_delete',
     message: string,
   ) {
     super(message);

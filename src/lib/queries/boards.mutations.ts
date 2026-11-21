@@ -12,11 +12,7 @@ import {
   boardsQueryKey,
   rowToBoard,
 } from '@/lib/queries/boards.read';
-import {
-  listCache,
-  type OptimisticListContext,
-  useOptimisticListMutation,
-} from '@/lib/queries/optimistic';
+import { listCache, useOptimisticListMutation } from '@/lib/queries/optimistic';
 import { supabase } from '@/lib/supabase';
 import type { AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind } from '@/types/domain';
@@ -126,12 +122,7 @@ interface DeleteBoardInput {
  * builder still observes the per-board key until the route navigates away, and
  * a removed-while-observed query refetches into BoardNotFound.
  */
-export const useDeleteBoard = (): UseMutationResult<
-  void,
-  Error,
-  DeleteBoardInput,
-  OptimisticListContext
-> => {
+export const useDeleteBoard = (): UseMutationResult<void, Error, DeleteBoardInput> => {
   const qc = useQueryClient();
   return useOptimisticListMutation({
     caches: [
@@ -139,10 +130,10 @@ export const useDeleteBoard = (): UseMutationResult<
         list?.filter((b) => b.id !== boardId),
       ),
     ],
-    onMutateSideEffect: ({ boardId }) => forgetLastBoard(boardId),
     // On error the board still exists and the builder still shows it, so only
     // a successful delete may evict its caches.
     mutationFn: async ({ boardId }) => {
+      forgetLastBoard(boardId);
       await enqueueAndDrain({ kind: 'deleteBoard', boardId });
       qc.removeQueries({ queryKey: boardQueryKey(boardId) });
       qc.removeQueries({ queryKey: boardMembersQueryKey(boardId) });

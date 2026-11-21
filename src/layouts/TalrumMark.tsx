@@ -4,14 +4,10 @@ import type { JSX } from 'react';
  * The wordmark-free mark, for small places where the brand PNG at
  * src/assets/talrum-logo.png would be too pixelated to read.
  */
-interface TalrumMarkProps {
-  size?: number;
-}
-
-export const TalrumMark = ({ size = 44 }: TalrumMarkProps): JSX.Element => (
+export const TalrumMark = (): JSX.Element => (
   <svg
-    width={size}
-    height={size}
+    width={44}
+    height={44}
     viewBox="0 0 100 100"
     role="img"
     aria-label="Talrum"

@@ -1,4 +1,4 @@
-import { del, get, keys, set } from 'idb-keyval';
+import { del, get, getMany, keys, set } from 'idb-keyval';
 
 import type { OutboxEntry } from './types';
 
@@ -25,6 +25,6 @@ export const deleteEntry = async (id: string): Promise<void> => {
 
 export const listEntries = async (): Promise<OutboxEntry[]> => {
   const allKeys = (await keys()).filter(isOutboxKey).sort();
-  const entries = await Promise.all(allKeys.map((k) => get<OutboxEntry>(k)));
+  const entries = await getMany<OutboxEntry | undefined>(allKeys);
   return entries.filter((e): e is OutboxEntry => e !== undefined);
 };
