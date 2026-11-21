@@ -81,7 +81,6 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
               </Button>
               <Button
                 variant="primary"
-                icon={<SparkleIcon size={14} />}
                 onClick={() => {
                   void save();
                 }}
@@ -123,6 +122,7 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
           <div className={styles.formActions}>
             <Button
               variant="primary"
+              icon={<SparkleIcon size={14} />}
               onClick={() => {
                 void generate();
               }}

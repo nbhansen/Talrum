@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { JSX, ReactNode } from 'react';
+import { type JSX, type ReactNode, useState } from 'react';
 
 import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { Board } from '@/types/domain';
@@ -13,11 +13,14 @@ interface TestProvidersProps {
 }
 
 /** A query client with retries off and a fake session. Pass `client` to seed or inspect the cache. */
-export const TestProviders = ({ children, client }: TestProvidersProps): JSX.Element => (
-  <QueryClientProvider client={client ?? makeClient()}>
-    <TestSessionProvider>{children}</TestSessionProvider>
-  </QueryClientProvider>
-);
+export const TestProviders = ({ children, client }: TestProvidersProps): JSX.Element => {
+  const [fallback] = useState(makeClient);
+  return (
+    <QueryClientProvider client={client ?? fallback}>
+      <TestSessionProvider>{children}</TestSessionProvider>
+    </QueryClientProvider>
+  );
+};
 
 export const makeWrapper = (client: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
