@@ -1,9 +1,12 @@
 const STORAGE_KEY = 'talrum:last-board';
 const SESSION_KEY = 'talrum:auto-launched';
 
+// Stored as a `{ id }` JSON record: devices already hold that format.
 export const getLastBoardId = (): string | null => {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+    if (typeof parsed !== 'object' || parsed === null || !('id' in parsed)) return null;
+    return typeof parsed.id === 'string' ? parsed.id : null;
   } catch {
     return null;
   }
@@ -11,7 +14,7 @@ export const getLastBoardId = (): string | null => {
 
 export const setLastBoardId = (id: string): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ id }));
   } catch {
     // ignore quota / privacy mode errors — feature is best-effort
   }

@@ -75,7 +75,6 @@ jobs:
     permissions:
       contents: read
       deployments: write
-    env:
     steps:
       - uses: actions/checkout@v6
         with:
