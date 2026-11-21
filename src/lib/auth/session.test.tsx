@@ -29,10 +29,10 @@ describe('session hooks', () => {
     await expect(performSignOut()).rejects.toBe(error);
   });
 
-  it('throws when used outside SessionProvider', () => {
+  it('throws when used outside AuthGate', () => {
     // Suppress the error boundary noise React logs for a thrown render.
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect(() => renderHook(() => useSession())).toThrow(/outside SessionProvider/);
+    expect(() => renderHook(() => useSession())).toThrow(/outside AuthGate/);
     spy.mockRestore();
   });
 });

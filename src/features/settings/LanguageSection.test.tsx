@@ -1,14 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { getLanguagePref } from '@/lib/language';
 
 import { LanguageSection } from './LanguageSection';
-
-beforeEach(() => {
-  window.localStorage.removeItem('talrum:language');
-});
 
 describe('LanguageSection', () => {
   it('offers only Dansk and English (#745)', () => {

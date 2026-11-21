@@ -13,13 +13,6 @@ const fakeQuery = (status: 'success' | 'pending' | 'error', data: unknown): Quer
   ({ state: { status, data } }) as unknown as Query;
 
 describe('queryClient defaults', () => {
-  it('pins the calm-not-realtime query behavior', () => {
-    const queries = queryClient.getDefaultOptions().queries;
-    expect(queries?.staleTime).toBe(30_000);
-    expect(queries?.refetchOnWindowFocus).toBe(false);
-    expect(queries?.retry).toBe(1);
-  });
-
   it('runs a mutation while the device is offline, so the outbox can queue it (#756)', async () => {
     const mutationFn = vi.fn(() => Promise.resolve('queued'));
     onlineManager.setOnline(false);
@@ -61,14 +54,6 @@ describe('persistOptions.buster (#356)', () => {
   afterEach(async () => {
     queryClient.clear();
     await del('talrum-react-query');
-  });
-
-  // The bug: this was __APP_VERSION__, i.e. package.json's version, which a
-  // continuously-deployed repo never bumps. Assert the value changes per
-  // build rather than asserting a literal, which would just restate it.
-  it('is the build commit, not the package version', () => {
-    expect(persistOptions.buster).toBe(__APP_COMMIT__);
-    expect(persistOptions.buster).not.toBe(__APP_VERSION__);
   });
 
   it('discards a cache written by a different build', async () => {

@@ -1,0 +1,16 @@
+name: Set up the Supabase CLI
+description: Installs the pinned Supabase CLI and opts out of its telemetry.
+runs:
+  using: composite
+  steps:
+    - uses: supabase/setup-cli@v2
+      with:
+        # Pinned: v2.106.0 (2026-06-11) ported `gen types` to the new TS CLI
+        # and broke `--local` generation ("Access token not provided"),
+        # failing the types-drift step. Bump deliberately after verifying
+        # `supabase gen types typescript --local` works without a token.
+        version: 2.105.0
+    # The CLI's telemetry writer crashes when two invocations run
+    # concurrently (`supabase status` racing the backgrounded serve).
+    - run: echo "DO_NOT_TRACK=1" >> "$GITHUB_ENV"
+      shell: bash

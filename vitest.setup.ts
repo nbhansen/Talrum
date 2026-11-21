@@ -67,7 +67,7 @@ console.error = (...args: unknown[]): void => {
 // (jsdom has no layout; tests render fragments).
 const AXE_OFF = ['color-contrast', 'region'];
 
-// Module-level caches in storage, outbox/drain and speech outlive an `it()`
+// Module-level caches in storage and outbox/drain, and the two web storages, outlive an `it()`
 // block, a flake class whose failure depends on test order (#144, #168). One
 // hook, not two, with the console check last: `sequence.hooks: 'stack'` runs
 // afterEach in reverse, so the guard alone would skip these resets on failure.
@@ -82,6 +82,8 @@ afterEach(async () => {
   cleanup();
 
   await clear();
+  localStorage.clear();
+  sessionStorage.clear();
   clearSignedUrlMemCache();
   __resetDrainForTests();
   __resetBoardClockForTests();

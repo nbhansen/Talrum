@@ -1,10 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { ProcessedImage } from '@/lib/image';
+import { makeClient, TestProviders } from '@/lib/queries/queries.test-utils';
 import type { Pictogram } from '@/types/domain';
 
 interface MockError {
@@ -53,16 +52,12 @@ const mkPhoto = (id: string, label: string, imagePath?: string): Pictogram => ({
 });
 
 const renderUpload = (seed?: Pictogram[]): ReturnType<typeof render> => {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  if (seed) qc.setQueryData(pictogramsQueryKey, seed);
+  const client = makeClient();
+  if (seed) client.setQueryData(pictogramsQueryKey, seed);
   return render(
-    <QueryClientProvider client={qc}>
-      <TestSessionProvider>
-        <PictogramUpload />
-      </TestSessionProvider>
-    </QueryClientProvider>,
+    <TestProviders client={client}>
+      <PictogramUpload />
+    </TestProviders>,
   );
 };
 

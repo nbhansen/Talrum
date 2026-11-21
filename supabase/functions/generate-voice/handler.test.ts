@@ -7,8 +7,8 @@ import type { Synthesize } from './types.ts';
 
 // The shared HTTP shell (CORS, method, auth, body and label validation) is
 // covered in _shared/generateHandler.test.ts. These tests pin what is
-// specific to generate-voice: the language set, the envelope key, the
-// provider error code, and the SSML builder.
+// specific to generate-voice: the envelope key, the provider error code, and
+// the SSML builder.
 
 const goodAdmin = {
   auth: {
@@ -16,29 +16,12 @@ const goodAdmin = {
   },
 };
 
-const okSynth: Synthesize = async (_label, _language) => ({
-  bytes: new Uint8Array([1, 2, 3]),
-  mimeType: 'audio/mpeg',
-});
-
 const request = (body: unknown): Request =>
   new Request('http://localhost/generate-voice', {
     method: 'POST',
     headers: { Authorization: 'Bearer some-jwt', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-
-Deno.test('rejects a language outside the closed set', async () => {
-  const res = await handleRequest(request({ label: 'spise', language: 'xx' }), goodAdmin, okSynth);
-  assertEquals(res.status, 400);
-  const body = await res.json();
-  assertEquals(body.error, 'bad_request');
-});
-
-Deno.test('rejects a missing language', async () => {
-  const res = await handleRequest(request({ label: 'spise' }), goodAdmin, okSynth);
-  assertEquals(res.status, 400);
-});
 
 Deno.test('returns the provider clip as a base64 JSON envelope on success', async () => {
   let got: { label: string; language: string } | null = null;

@@ -4,7 +4,9 @@ import type { JSX, ReactElement } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const useOutboxStatusMock = vi.fn();
+import type { OutboxStatus } from '@/lib/outbox/drain-state';
+
+const useOutboxStatusMock = vi.fn<() => OutboxStatus>();
 
 vi.mock('@/lib/outbox', () => ({
   useOutboxStatus: () => useOutboxStatusMock(),
@@ -19,15 +21,19 @@ const { ParentShell } = await import('./ParentShell');
 
 const render = (ui: ReactElement): RenderResult => rtlRender(ui, { wrapper: MemoryRouter });
 
-const clean = { online: true, pendingCount: 0, failedCount: 0, conflictCount: 0, draining: false };
-const failed = { online: true, pendingCount: 0, failedCount: 2, conflictCount: 0, draining: false };
-const offline = {
-  online: false,
-  pendingCount: 1,
+const status = (over: Partial<OutboxStatus> = {}): OutboxStatus => ({
+  online: true,
+  pendingCount: 0,
   failedCount: 0,
   conflictCount: 0,
   draining: false,
-};
+  timerDrain: false,
+  queueUnreadable: false,
+  ...over,
+});
+const clean = status();
+const failed = status({ failedCount: 2 });
+const offline = status({ online: false, pendingCount: 1 });
 
 afterEach(() => {
   useOutboxStatusMock.mockReset();

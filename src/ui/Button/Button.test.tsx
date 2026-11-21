@@ -4,11 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { Button } from './Button';
 
 describe('Button', () => {
-  it.each(['primary', 'ghost', 'pill', 'danger'] as const)('renders %s variant', (variant) => {
-    render(<Button variant={variant}>Click me</Button>);
-    expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
-  });
-
   it('renders an icon slot before children', () => {
     render(
       <Button variant="primary" icon={<span data-testid="icon">+</span>}>

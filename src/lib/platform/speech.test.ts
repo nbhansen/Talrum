@@ -15,22 +15,14 @@ const makeFakeSynth = (voices: FakeVoice[]) => {
   const utters: SpeechSynthesisUtterance[] = [];
   const cancel = vi.fn();
   const speakFn = vi.fn((u: SpeechSynthesisUtterance) => utters.push(u));
-  return {
-    synth: {
-      cancel,
-      speak: speakFn,
-      getVoices: () => voices as unknown as SpeechSynthesisVoice[],
-      addEventListener: vi.fn(),
-    },
-    utters,
+  vi.stubGlobal('speechSynthesis', {
     cancel,
-    speakFn,
-  };
+    speak: speakFn,
+    getVoices: () => voices as unknown as SpeechSynthesisVoice[],
+    addEventListener: vi.fn(),
+  });
+  return { utters, cancel, speakFn };
 };
-
-const originalSynth = (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
-const originalUtter = (globalThis as { SpeechSynthesisUtterance?: unknown })
-  .SpeechSynthesisUtterance;
 
 class StubUtterance {
   text: string;
@@ -43,23 +35,17 @@ class StubUtterance {
 }
 
 beforeEach(() => {
-  (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
-  window.localStorage.removeItem('talrum:speech-prefs');
-  window.localStorage.removeItem('talrum:language');
+  vi.stubGlobal('SpeechSynthesisUtterance', StubUtterance);
 });
 
 afterEach(() => {
-  if (originalSynth)
-    (globalThis as { speechSynthesis: SpeechSynthesis }).speechSynthesis = originalSynth;
-  else delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
-  (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = originalUtter;
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe('speak()', () => {
   it('cancels in-flight speech and speaks the requested text', () => {
-    const { synth, utters, cancel, speakFn } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    const { utters, cancel, speakFn } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
 
     speak('hello');
 
@@ -70,8 +56,7 @@ describe('speak()', () => {
   });
 
   it('is a no-op for blank text', () => {
-    const { synth, speakFn } = makeFakeSynth([{ name: 'Alex', lang: 'en' }]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    const { speakFn } = makeFakeSynth([{ name: 'Alex', lang: 'en' }]);
 
     speak('   ');
 
@@ -79,18 +64,15 @@ describe('speak()', () => {
   });
 
   it('is a no-op when the platform has no speechSynthesis', () => {
-    delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
     expect(() => speak('hello')).not.toThrow();
     expect(isSpeechSupported()).toBe(false);
   });
 
-  it('prefers an English voice when no language is stored, on any device', () => {
-    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('nl-NL');
-    const { synth, utters } = makeFakeSynth([
+  it('prefers an English voice when no language is stored', () => {
+    const { utters } = makeFakeSynth([
       { name: 'Xander', lang: 'nl-NL' },
       { name: 'Karen', lang: 'en-AU' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('apple');
 
@@ -99,11 +81,10 @@ describe('speak()', () => {
 
   it('prefers a voice in the chosen language over English (#304)', () => {
     setLanguagePref('da');
-    const { synth, utters } = makeFakeSynth([
+    const { utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US' },
       { name: 'Sara', lang: 'da-DK' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('støj');
 
@@ -112,11 +93,10 @@ describe('speak()', () => {
 
   it('matches the voice language across region and separator variants', () => {
     setLanguagePref('da');
-    const { synth, utters } = makeFakeSynth([
+    const { utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US' },
       { name: 'Sara', lang: 'da_DK' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('støj');
 
@@ -125,11 +105,10 @@ describe('speak()', () => {
 
   it('re-picks the voice when the language changes between taps (#304)', () => {
     setLanguagePref('en');
-    const { synth, utters } = makeFakeSynth([
+    const { utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US' },
       { name: 'Sara', lang: 'da-DK' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('hello');
     setLanguagePref('da');
@@ -141,11 +120,10 @@ describe('speak()', () => {
 
   it('falls back to an English voice when no voice matches the chosen language', () => {
     setLanguagePref('da');
-    const { synth, utters } = makeFakeSynth([
+    const { utters } = makeFakeSynth([
       { name: 'Xander', lang: 'nl-NL' },
       { name: 'Karen', lang: 'en-AU' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
 
     speak('støj');
 
@@ -153,8 +131,7 @@ describe('speak()', () => {
   });
 
   it('honors stored rate and pitch from speechPrefs', () => {
-    const { synth, utters } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    const { utters } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
     setSpeechPrefs({ rate: 1.4, pitch: 0.7, voiceURI: null });
 
     speak('hello');
@@ -168,8 +145,7 @@ describe('speak()', () => {
       { name: 'Samantha', lang: 'en-US', voiceURI: 'urn:samantha' },
       { name: 'Daniel', lang: 'en-GB', voiceURI: 'urn:daniel' },
     ];
-    const { synth, utters } = makeFakeSynth(voices);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    const { utters } = makeFakeSynth(voices);
     setSpeechPrefs({ rate: 1, pitch: 1, voiceURI: 'urn:daniel' });
 
     speak('hello');
@@ -178,10 +154,9 @@ describe('speak()', () => {
   });
 
   it('falls back to the heuristic when the saved voiceURI is no longer present', () => {
-    const { synth, utters } = makeFakeSynth([
+    const { utters } = makeFakeSynth([
       { name: 'Samantha', lang: 'en-US', voiceURI: 'urn:samantha' },
     ]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
     setSpeechPrefs({ rate: 1, pitch: 1, voiceURI: 'urn:gone' });
 
     speak('hello');
@@ -192,13 +167,11 @@ describe('speak()', () => {
 
 describe('getAvailableVoices()', () => {
   it('returns the platform voice list', () => {
-    const { synth } = makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
-    (globalThis as { speechSynthesis: unknown }).speechSynthesis = synth;
+    makeFakeSynth([{ name: 'Samantha', lang: 'en-US' }]);
     expect(getAvailableVoices().map((v) => v.name)).toEqual(['Samantha']);
   });
 
   it('returns empty when speechSynthesis is unsupported', () => {
-    delete (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
     expect(getAvailableVoices()).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@
  * Parent PIN, hashed before it reaches localStorage. A soft gate against a
  * child leaving kid mode, not against devtools.
  */
+import { storageSignal } from './storageSignal';
 
 const STORAGE_KEY = 'talrum:pin-hash';
 
@@ -9,24 +10,10 @@ const STORAGE_KEY = 'talrum:pin-hash';
 export const pinGateDisabled = (): boolean =>
   import.meta.env.DEV && import.meta.env.VITE_DISABLE_PIN === '1';
 
-const listeners = new Set<() => void>();
+const signal = storageSignal(STORAGE_KEY);
 
-const notify = (): void => {
-  for (const cb of listeners) cb();
-};
-
-/** For useSyncExternalStore over hasPin(). Also fires for a change made in another tab. */
-export const subscribePin = (cb: () => void): (() => void) => {
-  listeners.add(cb);
-  const onStorage = (event: StorageEvent): void => {
-    if (event.key === STORAGE_KEY || event.key === null) cb();
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    listeners.delete(cb);
-    window.removeEventListener('storage', onStorage);
-  };
-};
+/** For useSyncExternalStore over hasPin(). */
+export const subscribePin = signal.subscribe;
 
 const toHex = (buf: ArrayBuffer): string =>
   Array.from(new Uint8Array(buf))
@@ -53,15 +40,9 @@ export const hasPin = (): boolean => {
   return readHash() !== null;
 };
 
-/**
- * A device with no PIN must not enter kid mode at all (#353). False in builds
- * with the gate disabled, where `hasPin()` reports true.
- */
-export const kidModeNeedsPinSetup = (): boolean => !hasPin();
-
 export const setPin = async (pin: string): Promise<void> => {
   localStorage.setItem(STORAGE_KEY, await hashPin(pin));
-  notify();
+  signal.notify();
 };
 
 export const verifyPin = async (pin: string): Promise<boolean> => {
@@ -77,5 +58,5 @@ export const clearPin = (): void => {
   } catch {
     // Blocked storage: nothing to clear, and the sign-out sweep must go on.
   }
-  notify();
+  signal.notify();
 };

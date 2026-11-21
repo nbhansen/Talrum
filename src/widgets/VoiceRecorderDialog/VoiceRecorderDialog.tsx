@@ -117,16 +117,31 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
           // both mistakes this layout makes impossible.
           <>
             <div className={styles.footerLeft}>
-              <Button variant="ghost" onClick={generated.listen} disabled={busy}>
-                <PlayIcon size={12} /> Listen
+              <Button
+                variant="ghost"
+                icon={<PlayIcon size={12} />}
+                onClick={generated.listen}
+                disabled={busy}
+              >
+                Listen
               </Button>
             </div>
             <div className={styles.footerRight}>
-              <Button variant="ghost" onClick={generated.discard} disabled={busy}>
-                <TrashIcon size={14} /> Discard
+              <Button
+                variant="ghost"
+                icon={<TrashIcon size={14} />}
+                onClick={generated.discard}
+                disabled={busy}
+              >
+                Discard
               </Button>
-              <Button variant="primary" onClick={generated.save} disabled={busy}>
-                <CheckIcon size={14} /> Save voice
+              <Button
+                variant="primary"
+                icon={<CheckIcon size={14} />}
+                onClick={generated.save}
+                disabled={busy}
+              >
+                Save voice
               </Button>
             </div>
           </>
@@ -135,27 +150,47 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
             <div className={styles.footerLeft}>
               {hasAudio && !isRecording && (
                 <>
-                  <Button variant="ghost" onClick={play} disabled={busy}>
-                    <PlayIcon size={12} /> Play
+                  <Button
+                    variant="ghost"
+                    icon={<PlayIcon size={12} />}
+                    onClick={play}
+                    disabled={busy}
+                  >
+                    Play
                   </Button>
-                  <Button variant="ghost" onClick={del} disabled={busy}>
-                    <TrashIcon size={14} /> Delete
+                  <Button
+                    variant="ghost"
+                    icon={<TrashIcon size={14} />}
+                    onClick={del}
+                    disabled={busy}
+                  >
+                    Delete
                   </Button>
                 </>
               )}
             </div>
             <div className={styles.footerRight}>
               {isRecording ? (
-                <Button variant="primary" onClick={recording.stop}>
-                  <StopIcon size={14} /> Stop
+                <Button variant="primary" icon={<StopIcon size={14} />} onClick={recording.stop}>
+                  Stop
                 </Button>
               ) : (
                 <>
-                  <Button variant="ghost" onClick={generated.generate} disabled={busy}>
-                    <SparkleIcon size={14} /> Generate voice
+                  <Button
+                    variant="ghost"
+                    icon={<SparkleIcon size={14} />}
+                    onClick={generated.generate}
+                    disabled={busy}
+                  >
+                    Generate voice
                   </Button>
-                  <Button variant="primary" onClick={recording.start} disabled={!supported || busy}>
-                    <MicIcon size={14} /> {hasAudio ? 'Re-record' : 'Record'}
+                  <Button
+                    variant="primary"
+                    icon={<MicIcon size={14} />}
+                    onClick={recording.start}
+                    disabled={!supported || busy}
+                  >
+                    {hasAudio ? 'Re-record' : 'Record'}
                   </Button>
                 </>
               )}

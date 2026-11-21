@@ -27,7 +27,7 @@ export const GENERATE_IMAGE_ERROR_CODES = [
   'generation_failed',
   'internal_error',
 ] as const;
-export type GenerateImageErrorCode = (typeof GENERATE_IMAGE_ERROR_CODES)[number] | 'network';
+type GenerateImageErrorCode = (typeof GENERATE_IMAGE_ERROR_CODES)[number] | 'network';
 
 export type GenerateImageError = CodedError<GenerateImageErrorCode>;
 
@@ -55,7 +55,5 @@ export const useGenerateImage = (): UseMutationResult<
         // Base64-in-JSON: supabase-js reads image/* bodies as text and
         // exposes no response headers to carry a MIME type beside raw bytes.
         envelopeKey: 'imageBase64',
-        emptyMessage: 'image generation returned no image',
-        invalidMessage: 'image generation returned invalid data',
       }),
   });

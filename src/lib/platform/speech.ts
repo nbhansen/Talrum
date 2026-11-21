@@ -2,7 +2,7 @@ import { getAppLanguage, primarySubtag } from '@/lib/language';
 import { getSpeechPrefs } from '@/lib/speechPrefs';
 
 const getSynth = (): SpeechSynthesis | null =>
-  typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
+  'speechSynthesis' in window ? window.speechSynthesis : null;
 
 /**
  * Default-voice heuristic: prefer the chosen app language (#304), then

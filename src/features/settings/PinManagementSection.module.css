@@ -9,14 +9,6 @@
   color: var(--tal-ink);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--tal-space-3);
-  margin-top: var(--tal-space-3);
-  align-items: center;
-}
-
 .confirm {
   display: inline-flex;
   align-items: center;

@@ -1,14 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { sweepStaleAuthTokens } from './sweepStaleAuthTokens';
-
-beforeEach(() => {
-  window.localStorage.clear();
-});
-
-afterEach(() => {
-  window.localStorage.clear();
-});
 
 describe('sweepStaleAuthTokens', () => {
   it('removes sb-*-auth-token keys for hosts other than the current Supabase URL', () => {

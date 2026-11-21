@@ -12,8 +12,3 @@ export const setOwnerId = (id: string | null): void => {
 };
 
 export const getOutboxOwner = (): string | null => ownerId;
-
-/** Test seam: this outlives a component tree. */
-export const __resetOutboxOwnerForTests = (): void => {
-  ownerId = null;
-};

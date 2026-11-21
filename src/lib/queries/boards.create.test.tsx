@@ -1,17 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { Board } from '@/types/domain';
 
-interface MockPostgrestError {
-  code: string;
-  message: string;
-  details: string;
-  hint: string;
-}
+import { makeClient, makeWrapper, type MockPostgrestError, rlsError } from './queries.test-utils';
 
 // Write-path chain: from('boards').insert({...}).select().single()
 const singleMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
@@ -26,15 +18,6 @@ vi.mock('@/lib/supabase', () => ({
 // Import after the mock is registered.
 const { boardsQueryKey } = await import('./boards.read');
 const { useCreateBoard } = await import('./boards.mutations');
-
-const wrap = (qc: QueryClient): ((p: { children: ReactNode }) => JSX.Element) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    </TestSessionProvider>
-  );
-  return Wrapper;
-};
 
 const SERVER_ROW = {
   id: 'b-new',
@@ -62,12 +45,10 @@ describe('useCreateBoard', () => {
   it('inserts with sensible defaults, returns the mapped Board, and invalidates the boards list cache', async () => {
     singleMock.mockResolvedValueOnce({ data: SERVER_ROW, error: null });
 
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    const { result } = renderHook(() => useCreateBoard(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useCreateBoard(), { wrapper: makeWrapper(qc) });
 
     let returned: Board | undefined;
     await act(async () => {
@@ -103,10 +84,8 @@ describe('useCreateBoard', () => {
       error: null,
     });
 
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    const { result } = renderHook(() => useCreateBoard(), { wrapper: wrap(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useCreateBoard(), { wrapper: makeWrapper(qc) });
 
     await act(async () => {
       await result.current.mutateAsync({
@@ -128,13 +107,11 @@ describe('useCreateBoard', () => {
   it('surfaces a Postgres RLS error as React Query error state', async () => {
     singleMock.mockResolvedValueOnce({
       data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+      error: rlsError,
     });
 
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    const { result } = renderHook(() => useCreateBoard(), { wrapper: wrap(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useCreateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ name: 'X', kind: 'sequence', kidId: 'k1' });

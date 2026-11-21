@@ -5,7 +5,7 @@ import { Button } from '@/ui/Button/Button';
 import { TrashIcon } from '@/ui/icons';
 
 import { DeleteAccountDialog } from './DeleteAccountDialog';
-import styles from './DeleteAccountSection.module.css';
+import shared from './settings.module.css';
 
 /**
  * The navigation runs through `onPreSignOut` so it happens before signOut
@@ -18,13 +18,15 @@ export const DeleteAccountSection = (): JSX.Element => {
   return (
     <section>
       <h2>Account</h2>
-      <p className={styles.line}>
+      <p className={shared.muted}>
         Talrum keeps your data until you delete your account.{' '}
         <Link to="/privacy-policy">Read the privacy policy.</Link>
       </p>
-      <Button variant="ghost" icon={<TrashIcon size={14} />} onClick={() => setOpen(true)}>
-        Delete my account
-      </Button>
+      <div className={shared.row}>
+        <Button variant="ghost" icon={<TrashIcon size={14} />} onClick={() => setOpen(true)}>
+          Delete my account
+        </Button>
+      </div>
       {open && (
         <DeleteAccountDialog
           onCancel={() => setOpen(false)}

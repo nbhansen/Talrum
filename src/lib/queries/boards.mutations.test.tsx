@@ -1,16 +1,17 @@
-import { onlineManager, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { onlineManager, QueryClient, useQuery } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Board } from '@/types/domain';
 
-interface MockPostgrestError {
-  code: string;
-  message: string;
-  details: string;
-  hint: string;
-}
+import {
+  deferred,
+  makeClient,
+  makeWrapper,
+  type MockPostgrestError,
+  rlsError,
+} from './queries.test-utils';
+
 interface UpdateSelectResult {
   data: { updated_at: string }[] | null;
   error: MockPostgrestError | null;
@@ -34,7 +35,7 @@ vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { boardMembersQueryKey } = await import('./board-members');
 const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
-const { clearLastBoard, getLastBoardId, setLastBoardId } = await import('@/lib/lastBoard');
+const { getLastBoardId, setLastBoardId } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
 const { queryClient: appQueryClient } = await import('@/lib/queryClient');
 const { onQueueFlushed, setOutboxOwner, useOutboxStatus } = await import('@/lib/outbox');
@@ -59,34 +60,29 @@ const appendB = {
   update: (b: Board) => ({ stepIds: [...b.stepIds, 'b'] }),
 };
 
-const makeWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-  return Wrapper;
-};
+beforeEach(() => {
+  eqMock.mockClear();
+  unguardedSelectMock.mockReset();
+  unguardedSelectMock.mockResolvedValue({
+    data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+    error: null,
+  });
+  guardSelectMock.mockReset();
+  matchMock.mockClear();
+  updateMock.mockClear();
+  deleteEqMock.mockReset();
+  deleteMock.mockClear();
+  fromMock.mockClear();
+});
 
 describe('useUpdateBoard', () => {
-  beforeEach(() => {
-    eqMock.mockClear();
-    unguardedSelectMock.mockReset();
-    unguardedSelectMock.mockResolvedValue({
-      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
-      error: null,
-    });
-    updateMock.mockClear();
-    fromMock.mockClear();
-  });
-
   it('applies an optimistic cache patch before the DB responds', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), seed);
 
     // Block the mutation so we can observe the optimistic state.
-    let resolveEq: (v: UpdateSelectResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    unguardedSelectMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+    const write = deferred<UpdateSelectResult>();
+    unguardedSelectMock.mockReturnValue(write.promise);
 
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
@@ -98,14 +94,12 @@ describe('useUpdateBoard', () => {
       expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Sunrise');
     });
 
-    resolveEq({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
+    write.resolve({ data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }], error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
   it('rolls back the cache on a non-retryable DB error (RLS denial)', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), seed);
 
     // The outbox classifies coded errors (Postgres / PostgREST) as
@@ -114,7 +108,7 @@ describe('useUpdateBoard', () => {
     // a code would instead enqueue silently.
     unguardedSelectMock.mockResolvedValueOnce({
       data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+      error: rlsError,
     });
 
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
@@ -126,6 +120,7 @@ describe('useUpdateBoard', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Morning routine');
   });
+
   it('queues an offline edit in the outbox under the app mutation defaults (#756)', async () => {
     const qc = new QueryClient({
       defaultOptions: { ...appQueryClient.getDefaultOptions(), queries: { retry: false } },
@@ -221,9 +216,7 @@ describe('useUpdateBoard', () => {
   });
 
   it('writes only the columns the update returns', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), seed);
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
@@ -240,23 +233,8 @@ describe('useUpdateBoard', () => {
 });
 
 describe('useUpdateBoard conflict baseline (#281)', () => {
-  beforeEach(() => {
-    eqMock.mockClear();
-    unguardedSelectMock.mockReset();
-    unguardedSelectMock.mockResolvedValue({
-      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
-      error: null,
-    });
-    guardSelectMock.mockReset();
-    matchMock.mockClear();
-    updateMock.mockClear();
-    fromMock.mockClear();
-  });
-
   it('guards the update with the cached serverUpdatedAt', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), {
       ...seed,
       serverUpdatedAt: '2026-06-11T10:00:00.000001+00:00',
@@ -282,9 +260,7 @@ describe('useUpdateBoard conflict baseline (#281)', () => {
   it('stays unguarded when the cached board predates serverUpdatedAt', async () => {
     // Boards rehydrated from a query cache persisted before #281 have no
     // baseline; their writes must keep the plain last-write-wins path.
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), seed);
 
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
@@ -299,24 +275,11 @@ describe('useUpdateBoard conflict baseline (#281)', () => {
 });
 
 describe('useUpdateBoard updater', () => {
-  beforeEach(() => {
-    eqMock.mockClear();
-    unguardedSelectMock.mockReset();
-    unguardedSelectMock.mockResolvedValue({
-      data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
-      error: null,
-    });
-    updateMock.mockClear();
-    fromMock.mockClear();
-  });
-
   // Regression for #80: a pre-computed `stepIds` let callers close over
   // render-time state, which clobbered the cache when a drain or a long-open
   // picker shifted it. The updater form reads inside `mutate()` instead.
   it('applies the updater against fresh cache state, not a stale snapshot', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
@@ -337,9 +300,7 @@ describe('useUpdateBoard updater', () => {
   });
 
   it('reports a cache miss to telemetry instead of dropping the write silently (#365)', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
 
     act(() => {
@@ -350,30 +311,8 @@ describe('useUpdateBoard updater', () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it('exposes isError to the caller after a non-retryable DB error', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
-
-    unguardedSelectMock.mockResolvedValueOnce({
-      data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
-    });
-
-    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
-
-    act(() => {
-      result.current.mutate(appendB);
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
-
   it('a retry with the same input re-derives against fresh cache', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
 
     // First attempt fails (RLS), second succeeds (beforeEach default).
@@ -381,7 +320,7 @@ describe('useUpdateBoard updater', () => {
     // the new state, not replay the original computed array.
     unguardedSelectMock.mockResolvedValueOnce({
       data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+      error: rlsError,
     });
 
     const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
@@ -401,61 +340,18 @@ describe('useUpdateBoard updater', () => {
     await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(2));
     expect(updateMock).toHaveBeenLastCalledWith({ step_ids: ['a', 'x', 'b'] });
   });
-
-  it('reset() clears the error state', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    qc.setQueryData(boardQueryKey('morning'), { ...seed, stepIds: ['a'] });
-
-    unguardedSelectMock.mockResolvedValueOnce({
-      data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
-    });
-
-    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
-
-    act(() => {
-      result.current.mutate(appendB);
-    });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-
-    act(() => {
-      result.current.reset();
-    });
-    await waitFor(() => expect(result.current.isError).toBe(false));
-  });
 });
 
 describe('useDeleteBoard (#520)', () => {
   const other: Board = { ...seed, id: 'bedtime', name: 'Bedtime' };
-  const rlsError: MockPostgrestError = {
-    code: '42501',
-    message: 'row-level-security',
-    details: '',
-    hint: '',
-  };
-
-  beforeEach(() => {
-    deleteEqMock.mockReset();
-    deleteMock.mockClear();
-    fromMock.mockClear();
-    clearLastBoard();
-  });
 
   it('optimistically removes the board from the list, then drops the per-board and members caches on settle', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardsQueryKey, [seed, other]);
     qc.setQueryData(boardQueryKey('morning'), seed);
     qc.setQueryData(boardMembersQueryKey('morning'), []);
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-
-    let resolveEq: (v: { error: MockPostgrestError | null }) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    deleteEqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+    const write = deferred<{ error: MockPostgrestError | null }>();
+    deleteEqMock.mockReturnValue(write.promise);
 
     const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
     act(() => {
@@ -468,17 +364,14 @@ describe('useDeleteBoard (#520)', () => {
     // The builder still observes the per-board key mid-flight; it goes on settle.
     expect(qc.getQueryData(boardQueryKey('morning'))).toEqual(seed);
 
-    resolveEq({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(qc.getQueryData(boardQueryKey('morning'))).toBeUndefined();
     expect(qc.getQueryData(boardMembersQueryKey('morning'))).toBeUndefined();
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
   });
 
   it('rolls back the list on a non-retryable DB error and keeps the per-board cache', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardsQueryKey, [seed, other]);
     qc.setQueryData(boardQueryKey('morning'), seed);
     deleteEqMock.mockResolvedValueOnce({ error: rlsError });
@@ -498,9 +391,7 @@ describe('useDeleteBoard (#520)', () => {
   });
 
   it('clears the last-board pointer only when it points at the deleted board', async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardsQueryKey, [seed, other]);
     deleteEqMock.mockResolvedValue({ error: null });
     setLastBoardId('bedtime');

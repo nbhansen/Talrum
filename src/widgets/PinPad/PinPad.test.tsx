@@ -6,25 +6,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { Modal } from '@/ui/Modal/Modal';
 
 import { PinPad } from './PinPad';
+import { tapDigits } from './pinPad.test-utils';
 
-const renderPad = (props: Partial<Parameters<typeof PinPad>[0]> = {}): void => {
-  render(
-    <Modal onClose={vi.fn()} size="sm">
-      <PinPad
-        title="Enter PIN"
-        subtitle="Parents only"
-        onSubmit={() => Promise.resolve(false)}
-        {...props}
-      />
-    </Modal>,
-  );
-};
+type PadProps = Partial<Parameters<typeof PinPad>[0]>;
+
+const view = (props: PadProps = {}): JSX.Element => (
+  <Modal onClose={vi.fn()} size="sm">
+    <PinPad
+      title="Enter PIN"
+      subtitle="Parents only"
+      onSubmit={() => Promise.resolve(false)}
+      {...props}
+    />
+  </Modal>
+);
+
+const renderPad = (props?: PadProps): ReturnType<typeof render> => render(view(props));
 
 describe('PinPad announcements (#683)', () => {
   it('announces a wrong PIN', async () => {
     const user = userEvent.setup();
     renderPad();
-    for (const d of '1111') await user.click(screen.getByRole('button', { name: d }));
+    await tapDigits(user, '1111');
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong PIN');
   });
 
@@ -39,21 +42,11 @@ describe('PinPad announcements (#683)', () => {
   it('does not show a wrong PIN again when the lock ends (#726)', async () => {
     const user = userEvent.setup();
     const message = (s: number): string => `Wait ${s}s`;
-    const view = (lock?: { until: number; message: typeof message }): JSX.Element => (
-      <Modal onClose={vi.fn()} size="sm">
-        <PinPad
-          title="Enter PIN"
-          subtitle="Parents only"
-          onSubmit={() => Promise.resolve(false)}
-          {...(lock ? { lock } : {})}
-        />
-      </Modal>
-    );
-    const { rerender } = render(view());
-    for (const d of '1111') await user.click(screen.getByRole('button', { name: d }));
+    const { rerender } = renderPad();
+    await tapDigits(user, '1111');
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong PIN');
 
-    rerender(view({ until: Date.now() + 300, message }));
+    rerender(view({ lock: { until: Date.now() + 300, message } }));
     expect(screen.getByRole('timer')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('timer')).not.toBeInTheDocument());
 

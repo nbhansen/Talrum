@@ -53,18 +53,6 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
   // Read at call time, never inside `run`. `run` executes after the lock wait,
   // and the auth boundary is what moves during that wait (#446).
   const owner = getOutboxOwner();
-  const newEntry = (): OutboxEntry => {
-    const base = {
-      ...input,
-      id: ulid(),
-      enqueuedAt: Date.now(),
-      attemptCount: 0,
-      status: 'pending' as const,
-    };
-    // Added rather than set, because `exactOptionalPropertyTypes` forbids an
-    // explicit `undefined`.
-    return owner === null ? base : { ...base, enqueuedBy: owner };
-  };
   const run = async (): Promise<'landed' | 'queued-transient' | 'queued-unattempted'> => {
     // The account changed during the lock wait, so this write belongs to a user
     // who is gone. Abandon it and let React Query roll the patch back.
@@ -78,17 +66,25 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     await bestEffort('reconcile-before-write', async () => {
       entries = await reconcileQueue();
     });
-    // Read `onLine` inside the lock. A pre-check goes stale during the wait,
-    // and attempting on a dead network burns a retry attempt for nothing.
-    const offline = !isOnline();
+    // Read `onLine` inside the lock: a pre-check goes stale during the wait.
     // An unreadable queue is not an empty queue: the fast path would run this
     // write ahead of entries it cannot see, and they overwrite it on replay
-    // (#279, #458). The put below stays unguarded — #445 needs it to reject.
-    if (offline || entries === undefined || entries.some((e) => e.status === 'pending')) {
-      await putEntry(newEntry());
+    // (#279, #458).
+    const attemptNow =
+      isOnline() && entries !== undefined && !entries.some((e) => e.status === 'pending');
+    const entry: OutboxEntry = {
+      ...input,
+      id: ulid(),
+      enqueuedAt: Date.now(),
+      attemptCount: 0,
+      status: attemptNow ? 'attempting' : 'pending',
+      ...(owner === null ? {} : { enqueuedBy: owner }),
+    };
+    if (!attemptNow) {
+      // Unguarded: #445 needs this put to reject.
+      await putEntry(entry);
       return 'queued-unattempted';
     }
-    const entry: OutboxEntry = { ...newEntry(), status: 'attempting' };
     // Persist before the attempt (#445): the round trip is a window in which
     // the page can go away, and an entry that lives only in memory goes with
     // it. `attempting`, not `pending` — this write awaits no drain (#446).

@@ -3,10 +3,6 @@
   justify-content: center;
 }
 
-.fileInput {
-  display: none;
-}
-
 .photoPreview {
   display: flex;
   align-items: center;

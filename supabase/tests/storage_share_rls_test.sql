@@ -3,7 +3,7 @@
 -- bug fixed in 20260425020000. DELETE is not testable from SQL
 -- (protect_delete fires before RLS). Run with: supabase test db
 BEGIN;
-SELECT plan(17);
+SELECT plan(13);
 
 -- Four users. handle_new_user() seeds a starter library for each on
 -- INSERT, so Alice and Charlie each end up owning a few boards.
@@ -64,7 +64,7 @@ INSERT INTO storage.objects (bucket_id, name, owner) VALUES
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid);
 
--- ── Policy through SELECT, four roles, audio ───────────────────────────────
+-- ── Policy through SELECT, four roles, both buckets ────────────────────────
 -- SET LOCAL applies for the rest of the transaction; subsequent SET LOCALs
 -- replace previous values. ROLLBACK at the end discards everything.
 
@@ -72,84 +72,36 @@ SET LOCAL ROLE authenticated;
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-audio'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  1,
-  'policy: owner SELECT returns 1 audio row'
+SELECT results_eq(
+  $$ SELECT bucket_id FROM storage.objects
+     WHERE name LIKE 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.%' ORDER BY 1 $$,
+  $$ VALUES ('pictogram-audio'), ('pictogram-images') $$,
+  'policy: owner SELECT returns the audio row and the image row'
 );
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-audio'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  1,
-  'policy: board member SELECT returns 1 audio row (#37 regression guard)'
+SELECT results_eq(
+  $$ SELECT bucket_id FROM storage.objects
+     WHERE name LIKE 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.%' ORDER BY 1 $$,
+  $$ VALUES ('pictogram-audio'), ('pictogram-images') $$,
+  'policy: board member SELECT returns the audio row and the image row (#37 regression guard)'
 );
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-audio'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  0,
-  'policy: non-member SELECT returns 0 audio rows'
+SELECT is_empty(
+  $$ SELECT bucket_id FROM storage.objects
+     WHERE name LIKE 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.%' ORDER BY 1 $$,
+  'policy: non-member SELECT returns no audio row and no image row'
 );
 
 SET LOCAL "request.jwt.claims" TO
   '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-audio'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.webm'),
-  0,
-  'policy: cross-owner member SELECT returns 0 audio rows (scoped-membership guard)'
-);
-
--- ── Policy through SELECT, four roles, images ──────────────────────────────
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-images'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg'),
-  1,
-  'policy: owner SELECT returns 1 image row'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-images'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg'),
-  1,
-  'policy: board member SELECT returns 1 image row'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-images'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg'),
-  0,
-  'policy: non-member SELECT returns 0 image rows'
-);
-
-SET LOCAL "request.jwt.claims" TO
-  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}';
-SELECT is(
-  (SELECT count(*)::int FROM storage.objects
-    WHERE bucket_id = 'pictogram-images'
-      AND name = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.jpg'),
-  0,
-  'policy: cross-owner member SELECT returns 0 image rows (scoped-membership guard)'
+SELECT is_empty(
+  $$ SELECT bucket_id FROM storage.objects
+     WHERE name LIKE 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/wakeup.%' ORDER BY 1 $$,
+  'policy: cross-owner member SELECT returns no audio row and no image row (scoped-membership guard)'
 );
 
 -- ── Member cannot write to owner's prefix ──────────────────────────────────

@@ -41,14 +41,6 @@ const fileCategories = [
   { category: 'supabase-client', pattern: 'src/lib/supabase.ts' },
   { category: 'pin', pattern: 'src/lib/pin.ts' },
   { category: 'auth-gate', pattern: 'src/app/AuthGate.tsx' },
-  { category: 'session-provider', pattern: 'src/app/SessionProvider.tsx' },
-  // Tests and test-utils follow the layer rules of the folder they live in
-  // (they had NO boundary enforcement before #397), with one relaxation
-  // granted below: they may import from app/ to mount providers.
-  {
-    category: 'test',
-    pattern: ['**/*.test.ts', '**/*.test.tsx', '**/*.test-utils.ts', '**/*.test-utils.tsx'],
-  },
 ];
 
 const SUPABASE_PLUMBING_MSG =
@@ -188,14 +180,6 @@ const layerPolicies = [
     from: { file: { categories: 'auth-gate' } },
     allow: { to: { file: { categories: 'supabase-client' } } },
   },
-  {
-    // Tests mount the real provider tree: session.test-utils renders
-    // @/app/SessionProvider. The allow covers exactly that file, not all of
-    // app/ — everything else (supabase client, cross-feature, ui domain
-    // bans, the rest of app/) applies to tests unchanged.
-    from: { file: { categories: 'test' } },
-    allow: { to: { file: { categories: 'session-provider' } } },
-  },
 ];
 
 export default tseslint.config(
@@ -234,9 +218,13 @@ export default tseslint.config(
     },
   },
   {
-    // src/ only. Test files outside src/ (Deno edge functions, scripts)
-    // match the `test` file category but no element, so with
-    // `checkAllOrigins: true` their imports would hit the default disallow.
+    files: ['src/**/*.test-utils.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
+    // src/ only. Test files outside src/ (Deno edge functions, scripts) match
+    // no element, so with `checkAllOrigins: true` their imports would hit the
+    // default disallow.
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },
     settings: {

@@ -1,17 +1,18 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProcessedImage } from '@/lib/image';
 import type { Board, Pictogram } from '@/types/domain';
 
-interface MockPostgrestError {
-  code: string;
-  message: string;
-  details: string;
-  hint: string;
-}
+import {
+  deferred,
+  makeBoard,
+  makeClient,
+  makeWrapper,
+  type MockPostgrestError,
+  rlsError,
+} from './queries.test-utils';
+
 /** Supabase Storage errors carry an HTTP statusCode instead of a PG code. */
 interface MockStorageError {
   statusCode: number;
@@ -59,7 +60,6 @@ vi.mock('@/lib/supabase', () => ({
 const { pictogramsQueryKey } = await import('./pictograms.read');
 const { boardsQueryKey } = await import('./boards.read');
 const {
-  __test_revokePictogramBlobs,
   useClearPictogramAudio,
   useAddPhotoPictogram,
   useDeletePictogram,
@@ -67,29 +67,6 @@ const {
   useReplacePictogramImage,
   useSetPictogramAudio,
 } = await import('./pictograms.mutations');
-const { TestSessionProvider } = await import('@/lib/auth/session.test-utils');
-
-const makeWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-  return Wrapper;
-};
-
-// The upload mutations read the owner id from the session.
-const makeSessionWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>
-      <TestSessionProvider>{children}</TestSessionProvider>
-    </QueryClientProvider>
-  );
-  return Wrapper;
-};
-
-const makeClient = (): QueryClient =>
-  new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
 
 const pictogramSeed = (): Pictogram[] => [
   {
@@ -104,42 +81,9 @@ const pictogramSeed = (): Pictogram[] => [
 ];
 
 const boardSeed = (): Board[] => [
-  {
-    id: 'morning',
-    ownerId: 'owner-uuid',
-    kidId: 'liam',
-    name: 'Morning routine',
-    kind: 'sequence',
-    labelsVisible: true,
-    voiceMode: 'tts',
-    stepIds: ['p1', 'p2'],
-    kidReorderable: false,
-    accent: 'peach',
-  },
-  {
-    id: 'evening',
-    ownerId: 'owner-uuid',
-    kidId: 'liam',
-    name: 'Evening routine',
-    kind: 'sequence',
-    labelsVisible: true,
-    voiceMode: 'tts',
-    stepIds: ['p2'],
-    kidReorderable: false,
-    accent: 'peach',
-  },
+  makeBoard({ id: 'morning', stepIds: ['p1', 'p2'] }),
+  makeBoard({ id: 'evening', stepIds: ['p2'] }),
 ];
-
-// The outbox classifies coded errors (Postgres / PostgREST) as permanent —
-// that's the path that triggers React Query's onError, which rolls the
-// optimistic patch back. A plain TypeError without a code would instead
-// enqueue silently.
-const rlsError: MockPostgrestError = {
-  code: '42501',
-  message: 'row-level-security',
-  details: '',
-  hint: '',
-};
 
 beforeEach(() => {
   eqMock.mockReset();
@@ -157,16 +101,12 @@ beforeEach(() => {
 });
 
 describe('useRenamePictogram', () => {
-  it('applies an optimistic label patch before the DB responds, then invalidates on settle', async () => {
+  it('applies an optimistic label patch before the DB responds', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    // Block the mutation so we can observe the optimistic state.
-    let resolveEq: (v: MockResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    eqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+    const write = deferred<MockResult>();
+    eqMock.mockReturnValue(write.promise);
 
     const { result } = renderHook(() => useRenamePictogram(), { wrapper: makeWrapper(qc) });
 
@@ -182,9 +122,8 @@ describe('useRenamePictogram', () => {
       qc.getQueryData<Pictogram[]>(pictogramsQueryKey)?.find((p) => p.id === 'p2')?.label,
     ).toBe('Bed');
 
-    resolveEq({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
   it('rolls back the cache on a non-retryable DB error (RLS denial)', async () => {
@@ -204,16 +143,13 @@ describe('useRenamePictogram', () => {
 });
 
 describe('useDeletePictogram', () => {
-  it('optimistically removes the pictogram and scrubs it from referencing boards, then invalidates both caches', async () => {
+  it('optimistically removes the pictogram and scrubs it from referencing boards', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     qc.setQueryData(boardsQueryKey, boardSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    let resolveDelete: (v: MockResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    deleteEqMock.mockReturnValue(new Promise((r) => (resolveDelete = r)));
+    const write = deferred<MockResult>();
+    deleteEqMock.mockReturnValue(write.promise);
 
     const { result } = renderHook(() => useDeletePictogram(), { wrapper: makeWrapper(qc) });
 
@@ -229,11 +165,9 @@ describe('useDeletePictogram', () => {
     // A board that never referenced the pictogram keeps its steps untouched.
     expect(boards?.find((b) => b.id === 'evening')?.stepIds).toEqual(['p2']);
 
-    resolveDelete({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(deleteEqMock).toHaveBeenCalledWith('id', 'p1');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
   });
 
   it('rolls back both caches on a non-retryable DB error', async () => {
@@ -255,10 +189,9 @@ describe('useDeletePictogram', () => {
 });
 
 describe('useClearPictogramAudio', () => {
-  it('optimistically drops audioPath on the target pictogram only, then invalidates on settle', async () => {
+  it('optimistically drops audioPath on the target pictogram only', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
     removeMock.mockResolvedValue({ error: null });
     // The recording to remove comes from the row read, not the input (#418).
@@ -266,10 +199,8 @@ describe('useClearPictogramAudio', () => {
       data: { image_path: null, audio_path: 'owner-uuid/p1.webm' },
       error: null,
     });
-    let resolveEq: (v: MockResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    eqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
+    const write = deferred<MockResult>();
+    eqMock.mockReturnValue(write.promise);
 
     const { result } = renderHook(() => useClearPictogramAudio(), { wrapper: makeWrapper(qc) });
 
@@ -285,10 +216,9 @@ describe('useClearPictogramAudio', () => {
       pictogramSeed()[1],
     );
 
-    resolveEq({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(removeMock).toHaveBeenCalledWith(['owner-uuid/p1.webm']);
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
   it('restores audioPath on a non-retryable DB error (RLS denial)', async () => {
@@ -314,19 +244,16 @@ describe('useSetPictogramAudio', () => {
     URL.revokeObjectURL = vi.fn();
   });
 
-  it('plants a blob URL optimistically, uploads, points the row at the path, then revokes and invalidates', async () => {
+  it('plants a blob URL optimistically, uploads, points the row at the path, then revokes', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    let resolveUpload: (v: MockResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
+    const write = deferred<MockResult>();
+    uploadMock.mockReturnValue(write.promise);
     eqMock.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useSetPictogramAudio(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     const blob = new Blob(['voice'], { type: 'audio/webm' });
@@ -340,7 +267,7 @@ describe('useSetPictogramAudio', () => {
       expect(list?.find((p) => p.id === 'p2')?.audioPath).toBe('blob:planted-audio');
     });
 
-    resolveUpload({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const [path, uploadedBlob] = uploadMock.mock.calls[0] as [string, Blob, unknown];
@@ -350,9 +277,8 @@ describe('useSetPictogramAudio', () => {
     expect(eqMock).toHaveBeenCalledWith('id', 'p2');
     // No previous recording → no storage cleanup.
     expect(removeMock).not.toHaveBeenCalled();
-    // Settle sweep: the planted blob URL is revoked, then the cache refetches.
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
+    // p1 holds a real storage path, which the sweep must not revoke (#28).
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:planted-audio');
   });
 
   it('cleans up the recording the row pointed at', async () => {
@@ -367,7 +293,7 @@ describe('useSetPictogramAudio', () => {
     });
 
     const { result } = renderHook(() => useSetPictogramAudio(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -382,14 +308,13 @@ describe('useSetPictogramAudio', () => {
     expect(removeMock).toHaveBeenCalledWith(['owner-uuid/p1.m4a']);
   });
 
-  it('still revokes the planted blob URL and invalidates when the upload fails permanently', async () => {
+  it('still revokes the planted blob URL when the upload fails permanently', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
     uploadMock.mockResolvedValue({ error: { statusCode: 403, message: 'not allowed' } });
 
     const { result } = renderHook(() => useSetPictogramAudio(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -403,7 +328,6 @@ describe('useSetPictogramAudio', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(updateMock).not.toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-audio');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
   it('restores the previous audioPath when the upload fails permanently', async () => {
@@ -412,7 +336,7 @@ describe('useSetPictogramAudio', () => {
     uploadMock.mockResolvedValue({ error: { statusCode: 403, message: 'not allowed' } });
 
     const { result } = renderHook(() => useSetPictogramAudio(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -445,16 +369,13 @@ describe('useAddPhotoPictogram', () => {
   it('appends an optimistic row, then uploads and inserts under a versioned path', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    let resolveUpload: (v: MockResult) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
+    const write = deferred<MockResult>();
+    uploadMock.mockReturnValue(write.promise);
     upsertMock.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useAddPhotoPictogram(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     let done = false;
@@ -471,7 +392,7 @@ describe('useAddPhotoPictogram', () => {
       id = optimistic?.id ?? '';
     });
 
-    resolveUpload({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(done).toBe(true));
 
     // Versioned path (#415): owner/<id>-<ulid>.jpg, unique per upload.
@@ -488,7 +409,6 @@ describe('useAddPhotoPictogram', () => {
       { ignoreDuplicates: true },
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-photo');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
   it('leaves the uploaded blob in storage when the row insert fails', async () => {
@@ -499,7 +419,7 @@ describe('useAddPhotoPictogram', () => {
     removeMock.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useAddPhotoPictogram(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     await act(async () => {
@@ -533,7 +453,7 @@ describe('useReplacePictogramImage', () => {
     uploadMock.mockReturnValue(new Promise(() => undefined)); // hold the optimistic window open
 
     const { result } = renderHook(() => useReplacePictogramImage(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -564,7 +484,7 @@ describe('useReplacePictogramImage', () => {
       uploadMock.mockReturnValue(new Promise(() => undefined));
 
       const { result } = renderHook(() => useReplacePictogramImage(), {
-        wrapper: makeSessionWrapper(qc),
+        wrapper: makeWrapper(qc),
       });
 
       act(() => {
@@ -579,7 +499,6 @@ describe('useReplacePictogramImage', () => {
   it('uploads, updates the row, and removes the replaced image on success', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, photoSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
     uploadMock.mockResolvedValue({ error: null });
     eqMock.mockResolvedValue({ error: null });
     removeMock.mockResolvedValue({ error: null });
@@ -589,7 +508,7 @@ describe('useReplacePictogramImage', () => {
     });
 
     const { result } = renderHook(() => useReplacePictogramImage(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -606,17 +525,15 @@ describe('useReplacePictogramImage', () => {
     expect(updateMock).toHaveBeenCalledWith({ image_path: path });
     expect(removeMock).toHaveBeenCalledWith(['owner-uuid/ph1.jpg']);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-replace');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
   });
 
   it('restores the previous image path and revokes the planted blob on a permanent error', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, photoSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
     uploadMock.mockResolvedValue({ error: { statusCode: 403, message: 'not allowed' } });
 
     const { result } = renderHook(() => useReplacePictogramImage(), {
-      wrapper: makeSessionWrapper(qc),
+      wrapper: makeWrapper(qc),
     });
 
     act(() => {
@@ -630,49 +547,5 @@ describe('useReplacePictogramImage', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Pictogram[]>(pictogramsQueryKey)).toEqual(photoSeed());
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:planted-replace');
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: pictogramsQueryKey });
-  });
-});
-
-describe('revokePictogramBlobs (#28)', () => {
-  // jsdom doesn't ship URL.revokeObjectURL; install a stub so vi.spyOn has
-  // something to wrap. restoreAllMocks unwraps the spy, not the stub itself —
-  // leaving the stub in place is harmless.
-  if (typeof URL.revokeObjectURL !== 'function') {
-    (URL as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => undefined;
-  }
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('revokes blob:-prefixed imagePath and audioPath in the cache', () => {
-    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const qc = new QueryClient();
-    qc.setQueryData<Pictogram[]>(pictogramsQueryKey, [
-      { id: 'a', label: 'A', style: 'photo', imagePath: 'blob:http://localhost/photo-a' },
-      {
-        id: 'b',
-        label: 'B',
-        style: 'illus',
-        glyph: 'sun',
-        tint: 'oklch(90% 0.06 90)',
-        audioPath: 'blob:http://localhost/audio-b',
-      },
-      // Already-uploaded rows have real signed-URL paths; never revoke those.
-      { id: 'c', label: 'C', style: 'photo', imagePath: 'photos/c.jpg' },
-    ]);
-    __test_revokePictogramBlobs(qc);
-    expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/photo-a');
-    expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/audio-b');
-    expect(revokeSpy).not.toHaveBeenCalledWith('photos/c.jpg');
-    expect(revokeSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('is a no-op when the pictograms cache is empty', () => {
-    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const qc = new QueryClient();
-    __test_revokePictogramBlobs(qc);
-    expect(revokeSpy).not.toHaveBeenCalled();
   });
 });

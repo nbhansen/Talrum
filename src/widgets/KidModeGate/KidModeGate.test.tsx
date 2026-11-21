@@ -2,8 +2,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { realTick } from '@/lib/outbox/outbox.test-utils';
 import { clearPin, hasPin, setPin } from '@/lib/pin';
 import { captureException } from '@/lib/platform/telemetry';
+import { tapDigits } from '@/widgets/PinPad/pinPad.test-utils';
 import { recordPinFailure, resetPinThrottle } from '@/widgets/PinPad/pinThrottle';
 
 import { KidModeGate } from './KidModeGate';
@@ -40,15 +42,6 @@ const renderGate = (onExitConfirmed = vi.fn()): { user: ReturnType<typeof userEv
     </KidModeGate>,
   );
   return { user };
-};
-
-const tapDigits = async (
-  user: ReturnType<typeof userEvent.setup>,
-  digits: string,
-): Promise<void> => {
-  for (const d of digits) {
-    await user.click(screen.getByRole('button', { name: d }));
-  }
 };
 
 describe('KidModeGate', () => {
@@ -151,16 +144,6 @@ describe('KidModeGate', () => {
   // VoiceRecorderDialog.test.tsx: RTL's waitFor does not advance vitest's fake
   // clock, and a real countdown would set state outside act (#372).
   describe('attempt throttling (#372)', () => {
-    const realTick = (): Promise<void> =>
-      new Promise((resolve) => {
-        const channel = new MessageChannel();
-        channel.port1.onmessage = () => {
-          channel.port1.close();
-          resolve();
-        };
-        channel.port2.postMessage(null);
-      });
-
     beforeEach(() => {
       vi.useFakeTimers({
         toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
@@ -182,15 +165,7 @@ describe('KidModeGate', () => {
 
     const renderAndLock = async (onExit = vi.fn()): Promise<void> => {
       await setPin('9999');
-      render(
-        <KidModeGate onExitConfirmed={onExit}>
-          {(requestExit) => (
-            <button type="button" onClick={requestExit}>
-              Exit kid mode
-            </button>
-          )}
-        </KidModeGate>,
-      );
+      renderGate(onExit);
       fireEvent.click(screen.getByRole('button', { name: 'Exit kid mode' }));
       // Four failures through the module API, because five pad round-trips of
       // hand-driven ticks time out under load and pinThrottle.test.ts already

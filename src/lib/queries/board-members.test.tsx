@@ -1,10 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { Database } from '@/types/supabase';
+
+import { makeClient, makeWrapper } from './queries.test-utils';
 
 type Row = Database['public']['Tables']['board_members']['Row'];
 
@@ -38,14 +37,7 @@ const {
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { kidsQueryKey } = await import('./kids');
 const { pictogramsQueryKey } = await import('./pictograms.read');
-const { clearLastBoard, getLastBoardId, setLastBoardId } = await import('@/lib/lastBoard');
-
-const makeWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-  return Wrapper;
-};
+const { getLastBoardId, setLastBoardId } = await import('@/lib/lastBoard');
 
 describe('rowToBoardMember', () => {
   it('maps snake_case row to camelCase domain shape', () => {
@@ -80,7 +72,7 @@ describe('useBoardMembers', () => {
       ],
       error: null,
     });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
 
     const { result } = renderHook(() => useBoardMembers('b1'), { wrapper: makeWrapper(qc) });
 
@@ -93,7 +85,7 @@ describe('useBoardMembers', () => {
   });
 
   it('is disabled when boardId is empty (no fetch fires)', () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
     renderHook(() => useBoardMembers(''), { wrapper: makeWrapper(qc) });
     expect(fromMock).not.toHaveBeenCalled();
   });
@@ -107,9 +99,7 @@ describe('useAddBoardMember', () => {
 
   it('inserts the row and invalidates the per-board members cache', async () => {
     insertMock.mockResolvedValueOnce({ error: null });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
     const { result } = renderHook(() => useAddBoardMember(), { wrapper: makeWrapper(qc) });
@@ -133,9 +123,7 @@ describe('useAddBoardMember', () => {
     insertMock.mockResolvedValueOnce({
       error: { code: '23505', message: 'duplicate key' },
     });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
 
     const { result } = renderHook(() => useAddBoardMember(), { wrapper: makeWrapper(qc) });
 
@@ -159,9 +147,7 @@ describe('useRemoveBoardMember', () => {
 
   it('deletes the row by composite key and invalidates the cache', async () => {
     deleteEq2Mock.mockResolvedValueOnce({ error: null });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
     const { result } = renderHook(() => useRemoveBoardMember(), { wrapper: makeWrapper(qc) });
@@ -187,16 +173,10 @@ describe('useLeaveBoard', () => {
 
   it("deletes the session user's own row and refreshes every list the board fed", async () => {
     deleteEq2Mock.mockResolvedValueOnce({ error: null });
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     qc.setQueryData(boardQueryKey('b1'), { id: 'b1' });
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-      <TestSessionProvider>{makeWrapper(qc)({ children })}</TestSessionProvider>
-    );
-
-    const { result } = renderHook(() => useLeaveBoard(), { wrapper });
+    const { result } = renderHook(() => useLeaveBoard(), { wrapper: makeWrapper(qc) });
     await act(() => result.current.mutateAsync({ boardId: 'b1' }));
 
     expect(deleteEq1Mock).toHaveBeenCalledWith('board_id', 'b1');
@@ -213,16 +193,11 @@ describe('useLeaveBoard', () => {
   ])('%s', async (_name, lastId, expected) => {
     deleteEq2Mock.mockResolvedValueOnce({ error: null });
     setLastBoardId(lastId);
-    const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-      <TestSessionProvider>{makeWrapper(qc)({ children })}</TestSessionProvider>
-    );
-
-    const { result } = renderHook(() => useLeaveBoard(), { wrapper });
+    const qc = makeClient();
+    const { result } = renderHook(() => useLeaveBoard(), { wrapper: makeWrapper(qc) });
     await act(() => result.current.mutateAsync({ boardId: 'b1' }));
 
     expect(getLastBoardId()).toBe(expected);
-    clearLastBoard();
   });
 });
 

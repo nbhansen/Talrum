@@ -1,7 +1,7 @@
 import { lazy, type ReactNode, Suspense } from 'react';
 import { createBrowserRouter, Link, Navigate } from 'react-router-dom';
 
-import { kidModeNeedsPinSetup } from '@/lib/pin';
+import { hasPin } from '@/lib/pin';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorBoundary } from '@/ui/ErrorBoundary/ErrorBoundary';
 import styles from '@/ui/ErrorBoundary/ErrorBoundary.module.css';
@@ -89,7 +89,7 @@ const kidSuspenseFallback = <div className={styles.kidFallback} aria-hidden="tru
  * cannot be added without it, and it runs before the route fetches a board.
  */
 const RequireKidPin = ({ children }: { children: ReactNode }): ReactNode =>
-  kidModeNeedsPinSetup() ? <Navigate to="/settings?pin=required" replace /> : children;
+  hasPin() ? children : <Navigate to="/settings?pin=required" replace />;
 
 // ErrorBoundary outside Suspense, so a failed chunk import lands in the
 // route's own fallback with its Retry, not the app-root one.

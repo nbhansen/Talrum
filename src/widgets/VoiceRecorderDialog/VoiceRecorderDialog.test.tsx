@@ -1,11 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
+import { realTick } from '@/lib/outbox/outbox.test-utils';
 import type * as recordingModule from '@/lib/platform/recording';
+import { TestProviders } from '@/lib/queries/queries.test-utils';
 import { voiceModeLabel } from '@/lib/voiceModeVocab';
 import type { Pictogram } from '@/types/domain';
 
@@ -116,15 +116,10 @@ const renderDialog = (
   picto: Pictogram,
   { strict = false }: { strict?: boolean } = {},
 ): ReturnType<typeof render> => {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
   const tree = (
-    <QueryClientProvider client={qc}>
-      <TestSessionProvider>
-        <VoiceRecorderDialog picto={picto} onClose={vi.fn()} />
-      </TestSessionProvider>
-    </QueryClientProvider>
+    <TestProviders>
+      <VoiceRecorderDialog picto={picto} onClose={vi.fn()} />
+    </TestProviders>
   );
   // strict mirrors main.tsx's <StrictMode>: effects run setup → cleanup →
   // setup on mount, which a cleanup-only mount guard does not survive.
@@ -205,22 +200,6 @@ describe('VoiceRecorderDialog', () => {
       expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
     });
   });
-
-  /**
-   * One real macrotask round for the fake-timer test below. MessageChannel,
-   * not setTimeout: setTimeout is faked there, and the outbox settles its
-   * IDB work on real macrotasks a fake clock never reaches (same pattern as
-   * outbox.test.ts).
-   */
-  const realTick = (): Promise<void> =>
-    new Promise((resolve) => {
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => {
-        channel.port1.close();
-        resolve();
-      };
-      channel.port2.postMessage(null);
-    });
 
   // 20 s, not the default 5 s: the loops below can spend 2000 real macrotask
   // rounds and the save path drains IDB on them. The loop bounds still cap the

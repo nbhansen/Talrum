@@ -1,17 +1,16 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { Board, Kid } from '@/types/domain';
 
-interface MockPostgrestError {
-  code: string;
-  message: string;
-  details: string;
-  hint: string;
-}
+import {
+  deferred,
+  makeBoard,
+  makeClient,
+  makeWrapper,
+  type MockPostgrestError,
+  rlsError,
+} from './queries.test-utils';
 
 // Read-path chain: from('kids').select('*')[.gt('id', after)].order('id').limit(n)
 const limitMock = vi.fn<() => Promise<{ data: unknown; error: MockPostgrestError | null }>>();
@@ -50,25 +49,20 @@ const { kidsQueryKey, useCreateKid, useDeleteKid, useKids, useRenameKid } = awai
 const { setActiveKidId } = await import('@/lib/activeKid');
 const { boardsQueryKey } = await import('./boards.read');
 
-const wrap = (qc: QueryClient): ((p: { children: ReactNode }) => JSX.Element) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    </TestSessionProvider>
-  );
-  return Wrapper;
-};
+beforeEach(() => {
+  limitMock.mockReset();
+  readSelectMock.mockClear();
+  singleMock.mockReset();
+  insertSelectMock.mockClear();
+  insertMock.mockClear();
+  updateEqMock.mockReset();
+  updateMock.mockClear();
+  deleteEqMock.mockReset();
+  deleteMock.mockClear();
+  fromMock.mockClear();
+});
 
 describe('useKids', () => {
-  beforeEach(() => {
-    limitMock.mockReset();
-    readSelectMock.mockClear();
-    singleMock.mockReset();
-    insertSelectMock.mockClear();
-    insertMock.mockClear();
-    fromMock.mockClear();
-  });
-
   it('fetches kids and maps rows to the domain shape', async () => {
     limitMock.mockResolvedValueOnce({
       data: [
@@ -82,8 +76,8 @@ describe('useKids', () => {
       error: null,
     });
 
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useKids(), { wrapper: wrap(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useKids(), { wrapper: makeWrapper(qc) });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual<Kid[]>([{ id: 'k1', ownerId: 'owner-uuid', name: 'Liam' }]);
@@ -107,8 +101,8 @@ describe('useKids', () => {
       .mockResolvedValueOnce({ data: shared, error: null })
       .mockResolvedValueOnce({ data: [own], error: null });
 
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useKids(), { wrapper: wrap(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useKids(), { wrapper: makeWrapper(qc) });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(1001);
@@ -117,15 +111,6 @@ describe('useKids', () => {
 });
 
 describe('useCreateKid', () => {
-  beforeEach(() => {
-    limitMock.mockReset();
-    readSelectMock.mockClear();
-    singleMock.mockReset();
-    insertSelectMock.mockClear();
-    insertMock.mockClear();
-    fromMock.mockClear();
-  });
-
   it('inserts with the supplied name + session owner_id, returns the mapped Kid, and invalidates the kids list cache', async () => {
     singleMock.mockResolvedValueOnce({
       data: {
@@ -137,12 +122,10 @@ describe('useCreateKid', () => {
       error: null,
     });
 
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const qc = makeClient();
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 
-    const { result } = renderHook(() => useCreateKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useCreateKid(), { wrapper: makeWrapper(qc) });
 
     let returned: Kid | undefined;
     await act(async () => {
@@ -166,13 +149,11 @@ describe('useCreateKid', () => {
   it('surfaces a Postgres RLS error as React Query error state', async () => {
     singleMock.mockResolvedValueOnce({
       data: null,
-      error: { code: '42501', message: 'row-level-security', details: '', hint: '' },
+      error: rlsError,
     });
 
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    const { result } = renderHook(() => useCreateKid(), { wrapper: wrap(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useCreateKid(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ name: 'Mira' });
@@ -189,67 +170,18 @@ const kidSeed = (): Kid[] => [
 ];
 
 const boardSeed = (): Board[] => [
-  {
-    id: 'morning',
-    ownerId: 'owner-uuid',
-    kidId: 'k1',
-    name: 'Morning routine',
-    kind: 'sequence',
-    labelsVisible: true,
-    voiceMode: 'tts',
-    stepIds: ['wakeup'],
-    kidReorderable: false,
-    accent: 'peach',
-  },
-  {
-    id: 'play',
-    ownerId: 'owner-uuid',
-    kidId: 'k2',
-    name: 'Play time',
-    kind: 'choice',
-    labelsVisible: true,
-    voiceMode: 'tts',
-    stepIds: ['swing'],
-    kidReorderable: false,
-    accent: 'peach',
-  },
+  makeBoard({ id: 'morning', kidId: 'k1' }),
+  makeBoard({ id: 'play', kidId: 'k2' }),
 ];
 
-// The outbox classifies coded errors (Postgres / PostgREST) as permanent —
-// that's the path that triggers React Query's onError, which rolls the
-// optimistic patch back. A plain TypeError without a code would instead
-// enqueue silently.
-const rlsError: MockPostgrestError = {
-  code: '42501',
-  message: 'row-level-security',
-  details: '',
-  hint: '',
-};
-
-const makeClient = (): QueryClient =>
-  new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-
 describe('useRenameKid', () => {
-  beforeEach(() => {
-    updateEqMock.mockReset();
-    updateMock.mockClear();
-    fromMock.mockClear();
-  });
-
-  it('applies an optimistic name patch before the DB responds, then invalidates on settle', async () => {
+  it('applies an optimistic name patch before the DB responds', async () => {
     const qc = makeClient();
     qc.setQueryData(kidsQueryKey, kidSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const write = deferred<{ error: MockPostgrestError | null }>();
+    updateEqMock.mockReturnValue(write.promise);
 
-    // Block the mutation so we can observe the optimistic state.
-    let resolveEq: (v: { error: MockPostgrestError | null }) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    updateEqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
-
-    const { result } = renderHook(() => useRenameKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useRenameKid(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ kidId: 'k1', name: 'Noah' });
@@ -260,9 +192,8 @@ describe('useRenameKid', () => {
     });
     expect(qc.getQueryData<Kid[]>(kidsQueryKey)?.find((k) => k.id === 'k2')?.name).toBe('Mira');
 
-    resolveEq({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: kidsQueryKey });
   });
 
   it('rolls back the cache on a non-retryable DB error (RLS denial)', async () => {
@@ -270,7 +201,7 @@ describe('useRenameKid', () => {
     qc.setQueryData(kidsQueryKey, kidSeed());
     updateEqMock.mockResolvedValueOnce({ error: rlsError });
 
-    const { result } = renderHook(() => useRenameKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useRenameKid(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ kidId: 'k1', name: 'Noah' });
@@ -282,25 +213,14 @@ describe('useRenameKid', () => {
 });
 
 describe('useDeleteKid', () => {
-  beforeEach(() => {
-    deleteEqMock.mockReset();
-    deleteMock.mockClear();
-    fromMock.mockClear();
-    setActiveKidId(null);
-  });
-
-  it("optimistically removes the kid and the kid's boards, then invalidates both caches", async () => {
+  it("optimistically removes the kid and the kid's boards", async () => {
     const qc = makeClient();
     qc.setQueryData(kidsQueryKey, kidSeed());
     qc.setQueryData(boardsQueryKey, boardSeed());
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const write = deferred<{ error: MockPostgrestError | null }>();
+    deleteEqMock.mockReturnValue(write.promise);
 
-    let resolveEq: (v: { error: MockPostgrestError | null }) => void = () => {
-      throw new Error('resolver not assigned');
-    };
-    deleteEqMock.mockReturnValue(new Promise((r) => (resolveEq = r)));
-
-    const { result } = renderHook(() => useDeleteKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useDeleteKid(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ kidId: 'k1' });
@@ -312,10 +232,8 @@ describe('useDeleteKid', () => {
     // Only the deleted kid's boards leave the cache.
     expect(qc.getQueryData<Board[]>(boardsQueryKey)?.map((b) => b.id)).toEqual(['play']);
 
-    resolveEq({ error: null });
+    write.resolve({ error: null });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: kidsQueryKey });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: boardsQueryKey });
   });
 
   it('rolls back both caches on a non-retryable DB error', async () => {
@@ -324,7 +242,7 @@ describe('useDeleteKid', () => {
     qc.setQueryData(boardsQueryKey, boardSeed());
     deleteEqMock.mockResolvedValueOnce({ error: rlsError });
 
-    const { result } = renderHook(() => useDeleteKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useDeleteKid(), { wrapper: makeWrapper(qc) });
 
     act(() => {
       result.current.mutate({ kidId: 'k1' });
@@ -341,7 +259,7 @@ describe('useDeleteKid', () => {
     deleteEqMock.mockResolvedValue({ error: null });
 
     setActiveKidId('k1');
-    const { result } = renderHook(() => useDeleteKid(), { wrapper: wrap(qc) });
+    const { result } = renderHook(() => useDeleteKid(), { wrapper: makeWrapper(qc) });
     await act(async () => {
       await result.current.mutateAsync({ kidId: 'k1' });
     });

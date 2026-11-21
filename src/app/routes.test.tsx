@@ -85,7 +85,7 @@ describe('routes — error boundary wiring', () => {
     expect(screen.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
   });
 
-  it('/account-deleted is reachable without authentication', async () => {
+  it('/account-deleted renders the page', async () => {
     const memRouter = createMemoryRouter(
       [{ path: '/account-deleted', element: wrap(<AccountDeletedRoute />, 'parent') }],
       { initialEntries: ['/account-deleted'] },

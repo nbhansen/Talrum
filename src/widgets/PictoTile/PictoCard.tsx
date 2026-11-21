@@ -7,18 +7,15 @@ import styles from './PictoTile.module.css';
 
 interface PictoCardProps {
   picto: Pictogram;
-  size?: number;
+  size: number;
   showLabel?: boolean;
   selected?: boolean;
 }
 
-/**
- * The non-interactive half: use it inside an existing interactive ancestor,
- * where `<PictoTile>`'s nested button would be invalid HTML.
- */
+/** The non-interactive half; `<PictoTile>` wraps it in a button. */
 export const PictoCard = ({
   picto,
-  size = 140,
+  size,
   showLabel = true,
   selected = false,
 }: PictoCardProps): JSX.Element => {

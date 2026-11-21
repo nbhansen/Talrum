@@ -6,14 +6,11 @@ import { DeletionError } from './types.ts';
 
 const UID = '11111111-1111-1111-1111-111111111111';
 
+const authCalled = (calls: { kind: string }[]): boolean =>
+  calls.some((c) => c.kind === 'auth.admin.deleteUser');
+
 Deno.test('deleteAccount: happy path with empty buckets', async () => {
-  const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
-      'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-    },
-    authDelete: { ok: true },
-  });
+  const { client, calls } = createFakeClient();
 
   await deleteAccount(client, UID);
 
@@ -30,51 +27,20 @@ Deno.test('deleteAccount: happy path with empty buckets', async () => {
 });
 
 Deno.test('deleteAccount: audio bucket has 5 objects → list+remove called once', async () => {
-  const audioObjects = [
-    { name: 'p1.mp3' },
-    { name: 'p2.mp3' },
-    { name: 'p3.mp3' },
-    { name: 'p4.mp3' },
-    { name: 'p5.mp3' },
-  ];
-  const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': {
-        listResponses: [{ data: audioObjects }, { data: [] }],
-        removeResponses: [{ data: audioObjects }],
-      },
-      'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-    },
-    authDelete: { ok: true },
-  });
+  const audio = [1, 2, 3, 4, 5].map((n) => `${UID}/p${n}.mp3`);
+  const { client, calls } = createFakeClient({ audio: [...audio] });
 
   await deleteAccount(client, UID);
 
-  // Find the remove call for audio.
   const audioRemove = calls.find(
     (c) => c.kind === 'storage.remove' && c.bucket === 'pictogram-audio',
   );
-  assertEquals(audioRemove?.paths, [
-    `${UID}/p1.mp3`,
-    `${UID}/p2.mp3`,
-    `${UID}/p3.mp3`,
-    `${UID}/p4.mp3`,
-    `${UID}/p5.mp3`,
-  ]);
+  assertEquals(audioRemove?.paths, audio);
 });
 
 Deno.test('deleteAccount: 1500 objects → list+remove looped twice', async () => {
-  const page1 = Array.from({ length: 1000 }, (_, i) => ({ name: `p${i}.mp3` }));
-  const page2 = Array.from({ length: 500 }, (_, i) => ({ name: `p${1000 + i}.mp3` }));
   const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': {
-        listResponses: [{ data: page1 }, { data: page2 }, { data: [] }],
-        removeResponses: [{ data: page1 }, { data: page2 }],
-      },
-      'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-    },
-    authDelete: { ok: true },
+    audio: Array.from({ length: 1500 }, (_, i) => `${UID}/p${i}.mp3`),
   });
 
   const result = await deleteAccount(client, UID);
@@ -88,17 +54,8 @@ Deno.test('deleteAccount: 1500 objects → list+remove looped twice', async () =
 
 Deno.test('deleteAccount: ordering invariant — purge precedes auth call', async () => {
   const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': {
-        listResponses: [{ data: [{ name: 'a.mp3' }] }, { data: [] }],
-        removeResponses: [{ data: [] }],
-      },
-      'pictogram-images': {
-        listResponses: [{ data: [{ name: 'b.png' }] }, { data: [] }],
-        removeResponses: [{ data: [] }],
-      },
-    },
-    authDelete: { ok: true },
+    audio: [`${UID}/a.mp3`],
+    images: [`${UID}/b.png`],
   });
 
   await deleteAccount(client, UID);
@@ -115,71 +72,42 @@ Deno.test(
   'deleteAccount: storage.list errors → throws storage_purge_failed; auth NOT called',
   async () => {
     const { client, calls } = createFakeClient({
-      buckets: {
-        'pictogram-audio': {
-          listResponses: [{ error: { message: 'network blip' } }],
-          removeResponses: [],
-        },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: { ok: true },
+      fail: (call) =>
+        call.kind === 'storage.list' && call.bucket === 'pictogram-audio'
+          ? { message: 'network blip' }
+          : null,
     });
 
     const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
     assertEquals(err.code, 'storage_purge_failed');
     assertEquals(err.step, 'storage_purge_audio');
-    assertEquals(
-      calls.some((c) => c.kind === 'auth.admin.deleteUser'),
-      false,
-    );
+    assertEquals(authCalled(calls), false);
   },
 );
 
 Deno.test(
   'deleteAccount: storage.remove fails 3x persistent → throws after 3 retries',
   async () => {
-    const obj = [{ name: 'a.mp3' }];
     const { client, calls } = createFakeClient({
-      buckets: {
-        'pictogram-audio': {
-          listResponses: [{ data: obj }],
-          removeResponses: [
-            { error: { message: 'try 1' } },
-            { error: { message: 'try 2' } },
-            { error: { message: 'try 3' } },
-          ],
-        },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: { ok: true },
+      audio: [`${UID}/a.mp3`],
+      fail: (call) => (call.kind === 'storage.remove' ? { message: 'try again' } : null),
     });
 
     const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
     assertEquals(err.code, 'storage_purge_failed');
-    // Exactly 3 remove attempts on the audio bucket.
     const removeCalls = calls.filter(
       (c) => c.kind === 'storage.remove' && c.bucket === 'pictogram-audio',
     );
     assertEquals(removeCalls.length, 3);
-    assertEquals(
-      calls.some((c) => c.kind === 'auth.admin.deleteUser'),
-      false,
-    );
+    assertEquals(authCalled(calls), false);
   },
 );
 
 Deno.test(
   'deleteAccount: auth.admin.deleteUser returns "user not found" → resolves OK (idempotent)',
   async () => {
-    const { client } = createFakeClient({
-      buckets: {
-        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: { error: { message: 'User not found' } },
-    });
+    const { client } = createFakeClient({ authDeleteError: { message: 'User not found' } });
 
-    // Should resolve, not throw.
     await deleteAccount(client, UID);
   },
 );
@@ -188,16 +116,9 @@ Deno.test(
   'deleteAccount: auth.admin.deleteUser returns code:user_not_found → resolves OK (idempotent)',
   async () => {
     const { client } = createFakeClient({
-      buckets: {
-        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: {
-        error: { message: 'no such record', code: 'user_not_found' },
-      },
+      authDeleteError: { message: 'no such record', code: 'user_not_found' },
     });
 
-    // Should resolve, not throw.
     await deleteAccount(client, UID);
   },
 );
@@ -206,13 +127,7 @@ Deno.test(
   'deleteAccount: auth.admin.deleteUser code:database_error → throws auth_delete_failed',
   async () => {
     const { client } = createFakeClient({
-      buckets: {
-        'pictogram-audio': { listResponses: [{ data: [] }], removeResponses: [] },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: {
-        error: { message: 'connection refused', code: 'database_error' },
-      },
+      authDeleteError: { message: 'connection refused', code: 'database_error' },
     });
 
     const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
@@ -224,14 +139,8 @@ Deno.test(
   'deleteAccount: auth.admin.deleteUser other error → throws auth_delete_failed',
   async () => {
     const { client, calls } = createFakeClient({
-      buckets: {
-        'pictogram-audio': {
-          listResponses: [{ data: [{ name: 'a.mp3' }] }, { data: [] }],
-          removeResponses: [{ data: [] }],
-        },
-        'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-      },
-      authDelete: { error: { message: 'database is on fire' } },
+      audio: [`${UID}/a.mp3`],
+      authDeleteError: { message: 'database is on fire' },
     });
 
     const err = await assertRejects(() => deleteAccount(client, UID), DeletionError);
@@ -245,31 +154,16 @@ Deno.test(
 );
 
 Deno.test('deleteAccount: purges an object in a subfolder, then deletes the user', async () => {
-  const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': { objects: [`${UID}/a.mp3`, `${UID}/x/y/b.mp3`] },
-      'pictogram-images': { objects: [] },
-    },
-    authDelete: { ok: true },
-  });
+  const { client, calls } = createFakeClient({ audio: [`${UID}/a.mp3`, `${UID}/x/y/b.mp3`] });
 
   const result = await deleteAccount(client, UID);
 
   assertEquals(result.audioCount, 2);
-  assertEquals(
-    calls.some((c) => c.kind === 'auth.admin.deleteUser'),
-    true,
-  );
+  assertEquals(authCalled(calls), true);
 });
 
 Deno.test('deleteAccount: purges an object that lands just before deleteUser', async () => {
-  const { client, stores } = createFakeClient({
-    buckets: {
-      'pictogram-audio': { objects: [`${UID}/a.mp3`] },
-      'pictogram-images': { objects: [] },
-    },
-    authDelete: { ok: true },
-  });
+  const { client, stores } = createFakeClient({ audio: [`${UID}/a.mp3`] });
   const images = stores['pictogram-images'];
   if (!images) throw new Error('fixture: no images store');
   const deleteUser = client.auth.admin.deleteUser;
@@ -286,21 +180,12 @@ Deno.test('deleteAccount: purges an object that lands just before deleteUser', a
 
 Deno.test('deleteAccount: a failed purge after deleteUser still resolves', async () => {
   const { client, calls } = createFakeClient({
-    buckets: {
-      'pictogram-audio': {
-        listResponses: [{ data: [] }, { error: { message: 'network blip' } }],
-        removeResponses: [],
-      },
-      'pictogram-images': { listResponses: [{ data: [] }], removeResponses: [] },
-    },
-    authDelete: { ok: true },
+    fail: (call, all) =>
+      call.kind === 'storage.list' && authCalled(all) ? { message: 'network blip' } : null,
   });
 
   const result = await deleteAccount(client, UID);
 
   assertEquals(result, { audioCount: 0, imageCount: 0 });
-  assertEquals(
-    calls.some((c) => c.kind === 'auth.admin.deleteUser'),
-    true,
-  );
+  assertEquals(authCalled(calls), true);
 });

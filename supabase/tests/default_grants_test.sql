@@ -3,7 +3,7 @@
 -- for anon. A regression here only surfaces when the next table is added.
 -- Run with: supabase test db
 BEGIN;
-SELECT plan(12);
+SELECT plan(1);
 
 -- Create a representative table the same way `supabase db push` would: as
 -- postgres, in schema public. ALTER DEFAULT PRIVILEGES is grantor-scoped, so
@@ -11,35 +11,15 @@ SELECT plan(12);
 -- exactly the role migrations run as.
 CREATE TABLE public._default_grants_probe (id int);
 
--- authenticated -> CRUD
-SELECT ok(has_table_privilege('authenticated', 'public._default_grants_probe', 'SELECT'),
-  'new public table grants SELECT to authenticated by default');
-SELECT ok(has_table_privilege('authenticated', 'public._default_grants_probe', 'INSERT'),
-  'new public table grants INSERT to authenticated by default');
-SELECT ok(has_table_privilege('authenticated', 'public._default_grants_probe', 'UPDATE'),
-  'new public table grants UPDATE to authenticated by default');
-SELECT ok(has_table_privilege('authenticated', 'public._default_grants_probe', 'DELETE'),
-  'new public table grants DELETE to authenticated by default');
-
--- service_role -> CRUD
-SELECT ok(has_table_privilege('service_role', 'public._default_grants_probe', 'SELECT'),
-  'new public table grants SELECT to service_role by default');
-SELECT ok(has_table_privilege('service_role', 'public._default_grants_probe', 'INSERT'),
-  'new public table grants INSERT to service_role by default');
-SELECT ok(has_table_privilege('service_role', 'public._default_grants_probe', 'UPDATE'),
-  'new public table grants UPDATE to service_role by default');
-SELECT ok(has_table_privilege('service_role', 'public._default_grants_probe', 'DELETE'),
-  'new public table grants DELETE to service_role by default');
-
--- anon -> nothing (this app has no anon-readable surface)
-SELECT ok(NOT has_table_privilege('anon', 'public._default_grants_probe', 'SELECT'),
-  'new public table does not grant SELECT to anon');
-SELECT ok(NOT has_table_privilege('anon', 'public._default_grants_probe', 'INSERT'),
-  'new public table does not grant INSERT to anon');
-SELECT ok(NOT has_table_privilege('anon', 'public._default_grants_probe', 'UPDATE'),
-  'new public table does not grant UPDATE to anon');
-SELECT ok(NOT has_table_privilege('anon', 'public._default_grants_probe', 'DELETE'),
-  'new public table does not grant DELETE to anon');
+-- anon gets nothing: this app has no anon-readable surface.
+SELECT is_empty(
+  $$ SELECT r.role, p.priv
+       FROM unnest(ARRAY['authenticated', 'service_role', 'anon']) AS r(role)
+      CROSS JOIN unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE']) AS p(priv)
+      WHERE has_table_privilege(r.role::name, 'public._default_grants_probe', p.priv)
+            <> (r.role <> 'anon') $$,
+  'a new public table grants CRUD to authenticated and service_role, nothing to anon'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

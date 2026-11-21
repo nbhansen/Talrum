@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { deferred } from '@/lib/queries/queries.test-utils';
+
 import { signedUrlFor } from './storage';
 import { useSignedUrl } from './useSignedUrl';
 
@@ -12,33 +14,13 @@ vi.mock('./storage', () => ({
 
 const signMock = vi.mocked(signedUrlFor);
 
-interface Deferred {
-  promise: Promise<string>;
-  resolve: (url: string) => void;
-  reject: (err: Error) => void;
-}
-
-const deferred = (): Deferred => {
-  let resolve: (url: string) => void = () => {
-    throw new Error('resolver not assigned');
-  };
-  let reject: (err: Error) => void = () => {
-    throw new Error('rejecter not assigned');
-  };
-  const promise = new Promise<string>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-};
-
 beforeEach(() => {
   signMock.mockReset();
 });
 
 describe('useSignedUrl', () => {
   it('returns null while the URL is being signed, then the signed URL', async () => {
-    const d = deferred();
+    const d = deferred<string>();
     signMock.mockReturnValue(d.promise);
 
     const { result } = renderHook(() => useSignedUrl('pictogram-images', 'owner/p1.jpg'));
@@ -58,7 +40,7 @@ describe('useSignedUrl', () => {
   });
 
   it('stays null when signing fails (caller renders a placeholder)', async () => {
-    const d = deferred();
+    const d = deferred<string>();
     signMock.mockReturnValue(d.promise);
 
     const { result } = renderHook(() => useSignedUrl('pictogram-images', 'owner/p1.jpg'));
@@ -70,8 +52,8 @@ describe('useSignedUrl', () => {
   });
 
   it('resets to null immediately on path change so no stale URL flashes', async () => {
-    const first = deferred();
-    const second = deferred();
+    const first = deferred<string>();
+    const second = deferred<string>();
     signMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
 
     const { result, rerender } = renderHook(({ path }) => useSignedUrl('pictogram-images', path), {
@@ -88,8 +70,8 @@ describe('useSignedUrl', () => {
   });
 
   it('ignores a late resolution from a path that was switched away from', async () => {
-    const first = deferred();
-    const second = deferred();
+    const first = deferred<string>();
+    const second = deferred<string>();
     signMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
 
     const { result, rerender } = renderHook(({ path }) => useSignedUrl('pictogram-images', path), {
@@ -107,7 +89,7 @@ describe('useSignedUrl', () => {
   });
 
   it('clears back to null when the path becomes undefined', async () => {
-    const d = deferred();
+    const d = deferred<string>();
     signMock.mockReturnValue(d.promise);
 
     const { result, rerender } = renderHook(

@@ -30,7 +30,6 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   const [name, setName] = useState('');
   const [kind, setKind] = useState<BoardKind>('sequence');
   const [selectedKidId, setSelectedKidId] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
 
   // Default to the first kid via derived state; `selectedKidId` wins once the
   // user picks explicitly (the picker only renders when kidList.length > 1).
@@ -47,7 +46,6 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   const submit = (e: FormEvent): void => {
     e.preventDefault();
     if (submitDisabled) return;
-    setError(null);
     createBoard.mutate(
       { name: trimmed, kind, kidId: effectiveKidId },
       {
@@ -55,7 +53,6 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
           onCreated(board.id);
           onClose();
         },
-        onError: () => setError("Couldn't create the board. Try again."),
       },
     );
   };
@@ -79,7 +76,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            if (error) setError(null);
+            if (createBoard.isError) createBoard.reset();
           }}
           placeholder="Morning routine"
           disabled={noKids}
@@ -122,7 +119,7 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
           </SelectField>
         )}
 
-        {error && <FormError>{error}</FormError>}
+        {createBoard.isError && <FormError>Couldn&apos;t create the board. Try again.</FormError>}
 
         <DialogActions>
           <Button type="button" variant="ghost" onClick={onClose} disabled={createBoard.isPending}>

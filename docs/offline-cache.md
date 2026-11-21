@@ -15,7 +15,7 @@ it protects.
 Talrum keeps three distinct offline stores. Newcomers conflate them; don't.
 
 1. **The React Query data cache** (this page) — server _reads_ (boards,
-   pictograms, profiles), dehydrated to IndexedDB under the
+   kids, pictograms, board members), dehydrated to IndexedDB under the
    `talrum-react-query` key so a cold boot offline still has data.
 2. **The outbox write queue** (`docs/outbox.md`) — pending _writes_, one
    IndexedDB key per entry (`outbox:{ulid}`), replayed when the network

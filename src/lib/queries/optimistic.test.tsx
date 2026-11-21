@@ -1,9 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { listCache, useOptimisticListMutation } from './optimistic';
+import { deferred, makeClient, makeWrapper } from './queries.test-utils';
 
 interface Item {
   id: string;
@@ -28,35 +27,14 @@ const renameCache = (queryKey: readonly unknown[]) =>
     list?.map((item) => (item.id === id ? { ...item, name } : item)),
   );
 
-const makeClient = (): QueryClient =>
-  new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-
-const makeWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-  return Wrapper;
-};
-
 /** mutationFn blocked on a promise the test resolves/rejects explicitly. */
 const deferredMutation = (): {
   mutationFn: () => Promise<void>;
   resolve: () => void;
   reject: (err: Error) => void;
 } => {
-  let resolve: () => void = () => {
-    throw new Error('resolver not assigned');
-  };
-  let reject: (err: Error) => void = () => {
-    throw new Error('rejecter not assigned');
-  };
-  const gate = new Promise<void>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { mutationFn: () => gate, resolve, reject };
+  const { promise, resolve, reject } = deferred<undefined>();
+  return { mutationFn: () => promise, resolve: () => resolve(undefined), reject };
 };
 
 describe('listCache', () => {
@@ -115,14 +93,12 @@ describe('useOptimisticListMutation', () => {
   it('discards an in-flight stale fetch instead of letting it clobber the optimistic patch', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
-    let resolveFetch: (items: Item[]) => void = () => {
-      throw new Error('resolver not assigned');
-    };
+    const fetch = deferred<Item[]>();
     // A refetch that started before the mutation and answers with pre-mutation
     // data — exactly the race onMutate's cancelQueries exists to close.
     const staleFetch = qc.fetchQuery({
       queryKey: itemsKey,
-      queryFn: () => new Promise<Item[]>((r) => (resolveFetch = r)),
+      queryFn: () => fetch.promise,
       staleTime: 0,
     });
     staleFetch.catch(() => {
@@ -142,7 +118,7 @@ describe('useOptimisticListMutation', () => {
       expect(qc.getQueryData<Item[]>(itemsKey)?.find((i) => i.id === 'a')?.name).toBe('Renamed');
     });
 
-    resolveFetch(seed());
+    fetch.resolve(seed());
     // Macrotask flush so React Query fully processes the resolved fetch —
     // a microtask tick is not enough and would pass even without cancellation.
     await act(() => new Promise((r) => setTimeout(r, 20)));
@@ -241,39 +217,6 @@ describe('useOptimisticListMutation', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(qc.getQueryData(itemsKey)).toBeUndefined();
-  });
-
-  it('runs onMutateSideEffect after the patch and does not roll it back on error', async () => {
-    const qc = makeClient();
-    qc.setQueryData(itemsKey, seed());
-    const seenDuringSideEffect: (string | undefined)[] = [];
-    const sideEffect = vi.fn((input: RenameInput) => {
-      seenDuringSideEffect.push(
-        qc.getQueryData<Item[]>(itemsKey)?.find((i) => i.id === input.id)?.name,
-      );
-    });
-    const { mutationFn, reject } = deferredMutation();
-
-    const { result } = renderHook(
-      () =>
-        useOptimisticListMutation({
-          caches: [renameCache(itemsKey)],
-          mutationFn,
-          onMutateSideEffect: sideEffect,
-        }),
-      { wrapper: makeWrapper(qc) },
-    );
-
-    act(() => {
-      result.current.mutate({ id: 'a', name: 'Renamed' });
-    });
-    reject(new Error('server said no'));
-    await waitFor(() => expect(result.current.isError).toBe(true));
-
-    // Ran once, observed the already-patched cache, stayed ran after rollback.
-    expect(sideEffect).toHaveBeenCalledTimes(1);
-    expect(seenDuringSideEffect).toEqual(['Renamed']);
-    expect(qc.getQueryData<Item[]>(itemsKey)).toEqual(seed());
   });
 
   it('runs beforeRollback before the snapshots are restored', async () => {

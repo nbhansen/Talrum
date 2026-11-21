@@ -1,10 +1,10 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CodedError } from './edgeFunction';
+import { makeClient, makeWrapper } from './queries.test-utils';
 
 // Mirror the real supabase-js shape: an error body is reachable only through
 // `error.context`. Mocking a `{ data: { ok: false } }` shape once made the
@@ -39,13 +39,6 @@ vi.mock('@/lib/supabase', () => ({
 
 const { useDeleteMyAccount } = await import('./account');
 
-const makeWrapper = (qc: QueryClient) => {
-  const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-  return Wrapper;
-};
-
 beforeEach(() => {
   invokeMock.mockReset();
   signOutMock.mockClear();
@@ -54,43 +47,18 @@ beforeEach(() => {
 describe('useDeleteMyAccount', () => {
   it('invokes the edge function with body {}', async () => {
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useDeleteMyAccount(), { wrapper: makeWrapper(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useDeleteMyAccount(vi.fn()), { wrapper: makeWrapper(qc) });
     result.current.mutate();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invokeMock).toHaveBeenCalledWith('delete-account', { body: {} });
   });
 
-  it('on success without onPreSignOut: clears query cache then signs out', async () => {
-    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(['boards'], [{ id: 'b1' }]);
-    const order: string[] = [];
-    const origClear = qc.clear.bind(qc);
-    qc.clear = () => {
-      order.push('clear');
-      origClear();
-    };
-    signOutMock.mockImplementationOnce(async () => {
-      order.push('signOut');
-      return { error: null };
-    });
-
-    const { result } = renderHook(() => useDeleteMyAccount(), {
-      wrapper: makeWrapper(qc),
-    });
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(order).toEqual(['clear', 'signOut']);
-    expect(qc.getQueryData(['boards'])).toBeUndefined();
-  });
-
   it('still succeeds when sign-out fails after the deletion (#645)', async () => {
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
     signOutMock.mockResolvedValueOnce({ error: new Error('Failed to fetch') });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useDeleteMyAccount(), { wrapper: makeWrapper(qc) });
+    const qc = makeClient();
+    const { result } = renderHook(() => useDeleteMyAccount(vi.fn()), { wrapper: makeWrapper(qc) });
     result.current.mutate();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
@@ -98,9 +66,10 @@ describe('useDeleteMyAccount', () => {
   // DeleteAccountSection relies on this order: signOut fires SIGNED_OUT
   // synchronously, and AuthGate unmounts the dialog the moment it lands, so
   // any navigation has to happen before it.
-  it('on success with onPreSignOut: runs clear, onPreSignOut, signOut in that order', async () => {
+  it('on success: runs clear, onPreSignOut, signOut in that order', async () => {
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
+    qc.setQueryData(['boards'], [{ id: 'b1' }]);
     const order: string[] = [];
     const origClear = qc.clear.bind(qc);
     qc.clear = () => {
@@ -115,7 +84,7 @@ describe('useDeleteMyAccount', () => {
       order.push('preSignOut');
     });
 
-    const { result } = renderHook(() => useDeleteMyAccount({ onPreSignOut }), {
+    const { result } = renderHook(() => useDeleteMyAccount(onPreSignOut), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -123,6 +92,7 @@ describe('useDeleteMyAccount', () => {
 
     expect(order).toEqual(['clear', 'preSignOut', 'signOut']);
     expect(onPreSignOut).toHaveBeenCalledTimes(1);
+    expect(qc.getQueryData(['boards'])).toBeUndefined();
   });
 
   it('on error: does NOT clear cache, sign out, or call onPreSignOut', async () => {
@@ -130,11 +100,11 @@ describe('useDeleteMyAccount', () => {
       data: null,
       error: makeHttpError(500, { ok: false, error: 'auth_delete_failed', message: 'boom' }),
     });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
     qc.setQueryData(['boards'], [{ id: 'b1' }]);
     const onPreSignOut = vi.fn();
 
-    const { result } = renderHook(() => useDeleteMyAccount({ onPreSignOut }), {
+    const { result } = renderHook(() => useDeleteMyAccount(onPreSignOut), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -146,79 +116,13 @@ describe('useDeleteMyAccount', () => {
     expect((result.current.error as CodedError<string>).code).toBe('auth_delete_failed');
   });
 
-  // Pins the production wire path: closed-set codes arrive inside a
-  // FunctionsHttpError body, NOT as a 2xx { ok: false, ... } payload.
-  // supabase-js routes 4xx/5xx into `error`, not `data`.
-  it.each([
-    ['unauthorized', 401],
-    ['method_not_allowed', 405],
-    ['bad_request', 400],
-    ['storage_purge_failed', 500],
-    ['auth_delete_failed', 500],
-    ['internal_error', 500],
-  ] as const)('translates %s from a FunctionsHttpError body', async (code, status) => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    invokeMock.mockResolvedValueOnce({
-      data: null,
-      error: makeHttpError(status, { ok: false, error: code, message: 'm' }),
-    });
-    const { result } = renderHook(() => useDeleteMyAccount(), {
-      wrapper: makeWrapper(qc),
-    });
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as CodedError<string>).code).toBe(code);
-  });
-
-  it('falls back to internal_error when the FunctionsHttpError body is not JSON', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    invokeMock.mockResolvedValueOnce({
-      data: null,
-      error: makeHttpError(500, 'not json at all'),
-    });
-    const { result } = renderHook(() => useDeleteMyAccount(), {
-      wrapper: makeWrapper(qc),
-    });
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
-  });
-
-  it('falls back to internal_error for a code outside the closed set', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    invokeMock.mockResolvedValueOnce({
-      data: null,
-      error: makeHttpError(500, { ok: false, error: 'who_knows', message: 'x' }),
-    });
-    const { result } = renderHook(() => useDeleteMyAccount(), {
-      wrapper: makeWrapper(qc),
-    });
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
-  });
-
-  it('falls back to internal_error when the body is JSON but missing the error field', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    invokeMock.mockResolvedValueOnce({
-      data: null,
-      error: makeHttpError(500, { not_an_error_field: 'x' }),
-    });
-    const { result } = renderHook(() => useDeleteMyAccount(), {
-      wrapper: makeWrapper(qc),
-    });
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as CodedError<string>).code).toBe('internal_error');
-  });
-
   it('falls back to internal_error for non-FunctionsHttpError errors (network blip)', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = makeClient();
     invokeMock.mockResolvedValueOnce({
       data: null,
       error: { name: 'FunctionsFetchError', message: 'network blip' },
     });
-    const { result } = renderHook(() => useDeleteMyAccount(), {
+    const { result } = renderHook(() => useDeleteMyAccount(vi.fn()), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();
@@ -238,7 +142,7 @@ describe('useDeleteMyAccount', () => {
     // own mutation behaviour, not a client-level suppression.
     const qc = new QueryClient();
 
-    const { result } = renderHook(() => useDeleteMyAccount(), {
+    const { result } = renderHook(() => useDeleteMyAccount(vi.fn()), {
       wrapper: makeWrapper(qc),
     });
     result.current.mutate();

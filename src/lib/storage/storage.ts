@@ -56,11 +56,10 @@ export const uploadBlob = async (bucket: string, path: string, blob: Blob): Prom
   invalidateSignedUrl(bucket, path);
 };
 
-export const removeFromBucket = async (bucket: string, paths: readonly string[]): Promise<void> => {
-  if (paths.length === 0) return;
-  const { error } = await supabase.storage.from(bucket).remove([...paths]);
+export const removeFromBucket = async (bucket: string, path: string): Promise<void> => {
+  const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) throw error;
-  for (const path of paths) invalidateSignedUrl(bucket, path);
+  invalidateSignedUrl(bucket, path);
 };
 
 /**

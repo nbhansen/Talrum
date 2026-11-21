@@ -4,7 +4,7 @@ import { ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
 import { buildBoardSteps, reorderBoardSteps } from '@/lib/boardSteps';
 import { type BoardFields, useUpdateBoard } from '@/lib/queries/boards';
-import { usePictogramsById, usePictogramsBySlug } from '@/lib/queries/pictograms';
+import { usePictogramsById, usePictogramsForSlugs } from '@/lib/queries/pictograms';
 import { useSearchParamFlag } from '@/lib/useSearchParamFlag';
 import type { Board, BoardKind, Pictogram } from '@/types/domain';
 import { Button } from '@/ui/Button/Button';
@@ -43,7 +43,7 @@ export const BoardBuilder = ({
   onKidMode,
 }: BoardBuilderProps): JSX.Element => {
   const pictogramsById = usePictogramsById();
-  const pictogramsBySlug = usePictogramsBySlug();
+  const quickAdd = usePictogramsForSlugs(QUICK_ADD_SLUGS);
   const picker = useSearchParamFlag('picker');
   const share = useSearchParamFlag('share');
 
@@ -94,10 +94,6 @@ export const BoardBuilder = ({
   const steps = useMemo(
     () => buildBoardSteps(board.stepIds, pictogramsById),
     [board.stepIds, pictogramsById],
-  );
-
-  const quickAdd = QUICK_ADD_SLUGS.map((slug) => pictogramsBySlug.get(slug)).filter(
-    (p): p is Pictogram => Boolean(p),
   );
 
   const removeAt = (stepIndex: number): void =>

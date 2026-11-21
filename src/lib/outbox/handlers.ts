@@ -58,7 +58,6 @@ const TRANSIENT_DB_CODES = new Set([
   '57P03', // cannot_connect_now
   '57014', // query_canceled — statement_timeout, so contention; it rolled back
 ]);
-const isTransientDbCode = (code: string): boolean => TRANSIENT_DB_CODES.has(code);
 
 const classifyAndThrow = (err: unknown): never => {
   if (err instanceof UnretryableOutboxError) throw err;
@@ -71,7 +70,7 @@ const classifyAndThrow = (err: unknown): never => {
     // postgrest-js reports a fetch that got no response with an empty code.
     if (code === '') throw new Error(`network: ${message}`, { cause: err });
     if (typeof code === 'string') {
-      if (isTransientDbCode(code)) {
+      if (TRANSIENT_DB_CODES.has(code)) {
         // A raw rethrow would drop the SQLSTATE from `lastError`, or record
         // 'unknown error' when the value is a plain object, not an Error.
         throw new Error(`db ${code}: ${message}`, { cause: err });
@@ -102,34 +101,27 @@ export const BOARD_CONFLICT_MESSAGE = "couldn't sync — board changed on anothe
 
 const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
   const expected = resolveExpectedUpdatedAt(entry.boardId, entry.expectedUpdatedAt);
-  if (expected === undefined) {
-    // Unguarded last-write-wins, and zero rows stays a silent success. The
-    // clock note is not optional: an unguarded replay bumps `updated_at` like
-    // any write, and queued guarded entries must not self-conflict with it.
-    const { data, error } = await supabase
-      .from('boards')
-      .update(entry.patch)
-      .eq('id', entry.boardId)
-      .select('updated_at');
-    if (error) throw error;
-    const row = data?.[0];
-    if (row !== undefined) noteBoardUpdatedAt(entry.boardId, row.updated_at);
-    return;
-  }
-  // Zero rows means `updated_at` moved, so another device wrote the board
-  // since this baseline. Fail permanently and offer Retry or Discard rather
-  // than clobber the other side (#281).
-  const { data, error } = await supabase
-    .from('boards')
-    .update(entry.patch)
-    .match({ id: entry.boardId, updated_at: expected })
-    .select('updated_at');
+  const update = supabase.from('boards').update(entry.patch);
+  const { data, error } = await (
+    expected === undefined
+      ? update.eq('id', entry.boardId)
+      : update.match({ id: entry.boardId, updated_at: expected })
+  ).select('updated_at');
   if (error) throw error;
   const row = data?.[0];
-  if (row === undefined) {
+  // The clock note is not optional, guarded or not: an unguarded replay bumps
+  // `updated_at` like any write, and queued guarded entries must not
+  // self-conflict with it.
+  if (row !== undefined) {
+    noteBoardUpdatedAt(entry.boardId, row.updated_at);
+    return;
+  }
+  // Guarded, zero rows: `updated_at` moved, so another device wrote the board
+  // since this baseline. Fail permanently and offer Retry or Discard rather
+  // than clobber the other side (#281). Unguarded, zero rows is a success.
+  if (expected !== undefined) {
     throw new UnretryableOutboxError(BOARD_CONFLICT_MESSAGE, { failureKind: 'conflict' });
   }
-  noteBoardUpdatedAt(entry.boardId, row.updated_at);
 };
 
 /**
@@ -208,7 +200,7 @@ const replaceRowObject = async (
   // is not replay-idempotent: a crash between the two orphans the old object,
   // a named residual in docs/outbox.md.
   if (isUploadedStoragePath(previous) && previous !== path) {
-    await removeFromBucket(bucket, [previous]).catch(reportCleanupFailure);
+    await removeFromBucket(bucket, previous).catch(reportCleanupFailure);
   }
 };
 
@@ -229,7 +221,7 @@ const handleClearPictogramAudio = async (
   // Remove after the row stops referencing the object: a failure between the
   // two then leaves an orphan, not a row pointing at nothing.
   if (isUploadedStoragePath(previous)) {
-    await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
+    await removeFromBucket(AUDIO_BUCKET, previous).catch(reportCleanupFailure);
   }
 };
 
@@ -252,12 +244,12 @@ const handleDeletePictogram = async (
   throwIfCancelled(signal);
   const imagePath = row?.image_path ?? undefined;
   if (isUploadedStoragePath(imagePath)) {
-    await removeFromBucket(IMAGES_BUCKET, [imagePath]);
+    await removeFromBucket(IMAGES_BUCKET, imagePath);
     throwIfCancelled(signal);
   }
   const audioPath = row?.audio_path ?? undefined;
   if (isUploadedStoragePath(audioPath)) {
-    await removeFromBucket(AUDIO_BUCKET, [audioPath]);
+    await removeFromBucket(AUDIO_BUCKET, audioPath);
     throwIfCancelled(signal);
   }
   const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);

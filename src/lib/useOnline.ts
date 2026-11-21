@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 
 /** Tracks `navigator.onLine` through the `online`/`offline` window events. */
 export const useOnline = (): boolean => {
-  const [online, setOnline] = useState<boolean>(() =>
-    typeof navigator === 'undefined' ? true : navigator.onLine,
-  );
+  const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const up = (): void => setOnline(true);
     const down = (): void => setOnline(false);

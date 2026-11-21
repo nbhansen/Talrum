@@ -1,11 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import type { ProcessedImage } from '@/lib/image';
+import { TestProviders } from '@/lib/queries/queries.test-utils';
 
 interface MockError {
   code?: string;
@@ -55,15 +54,10 @@ const generatedEnvelope = (): { data: unknown; error: null } => ({
 });
 
 const renderGenerate = (opts: { strict?: boolean } = {}): ReturnType<typeof render> => {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
   const tree = (
-    <QueryClientProvider client={qc}>
-      <TestSessionProvider>
-        <PictogramGenerate />
-      </TestSessionProvider>
-    </QueryClientProvider>
+    <TestProviders>
+      <PictogramGenerate />
+    </TestProviders>
   );
   return render(opts.strict ? <StrictMode>{tree}</StrictMode> : tree);
 };

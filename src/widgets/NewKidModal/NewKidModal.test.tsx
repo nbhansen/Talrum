@@ -1,12 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { JSX } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mutateMock = vi.fn();
+const resetMock = vi.fn();
 const useCreateKidMock = vi.fn(() => ({
   mutate: mutateMock,
+  reset: resetMock,
   isPending: false,
+  isError: false,
 }));
 
 vi.mock('@/lib/queries/kids', () => ({
@@ -15,13 +17,13 @@ vi.mock('@/lib/queries/kids', () => ({
 
 const { NewKidModal } = await import('./NewKidModal');
 
-const renderModal = (onClose: () => void = vi.fn()): JSX.Element => {
+const renderModal = (onClose: () => void = vi.fn()): void => {
   render(<NewKidModal onClose={onClose} />);
-  return <></>;
 };
 
 afterEach(() => {
   mutateMock.mockReset();
+  resetMock.mockReset();
   // mockClear (not mockReset) preserves the factory implementation; mockReset
   // would drop it back to `vi.fn(() => undefined)` and the next render would
   // crash with "cannot read property 'mutate' of undefined".
@@ -63,20 +65,19 @@ describe('NewKidModal', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
-  it('renders an inline error when the mutation fails', async () => {
-    const onClose = vi.fn();
-    mutateMock.mockImplementation((_input: unknown, opts?: { onError?: (e: Error) => void }) => {
-      opts?.onError?.(new Error('boom'));
+  it('shows an inline error when the mutation fails, until the user types', async () => {
+    useCreateKidMock.mockReturnValue({
+      mutate: mutateMock,
+      reset: resetMock,
+      isPending: false,
+      isError: true,
     });
-
     const user = userEvent.setup();
-    renderModal(onClose);
-
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Mira');
-    await user.click(screen.getByRole('button', { name: /save/i }));
+    renderModal();
 
     expect(screen.getByRole('alert')).toHaveTextContent(/couldn.?t add the kid/i);
-    expect(onClose).not.toHaveBeenCalled();
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'M');
+    expect(resetMock).toHaveBeenCalled();
   });
 
   it('Cancel calls onClose without saving', async () => {

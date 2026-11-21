@@ -40,7 +40,7 @@ const toastFor = (err: DeleteAccountError | null): string => {
 export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Element => {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [phrase, setPhrase] = useState('');
-  const mutation = useDeleteMyAccount({ onPreSignOut });
+  const mutation = useDeleteMyAccount(onPreSignOut);
 
   const matches = phrase.trim().toLowerCase() === REQUIRED_PHRASE;
   const disabled = mutation.isPending;

@@ -14,12 +14,9 @@ export const SessionContext = createContext<Session | null>(null);
 export const useSession = (): Session => {
   const session = useContext(SessionContext);
   if (!session) {
-    throw new Error('useSession used outside SessionProvider — wrap your tree in AuthGate.');
+    throw new Error('useSession used outside AuthGate.');
   }
   return session;
 };
 
 export const useSessionUser = (): User => useSession().user;
-
-/** Returns undefined for phone-only auth sessions, which have no email. */
-export const useUserEmail = (): string | undefined => useSessionUser().email;

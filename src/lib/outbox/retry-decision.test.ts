@@ -4,10 +4,8 @@ import { RETRY_BASE_DELAY_MS, RETRY_MAX_DELAY_MS } from './drain-state';
 import { decideRetry, type DrainPass, MAX_STALLED_DRAINS } from './retry-decision';
 
 const pass = (over: Partial<DrainPass> = {}): DrainPass => ({
-  sawTransient: false,
   sawProgress: false,
-  sawUncleared: false,
-  passThrew: false,
+  stoppedBy: undefined,
   fromTimer: false,
   online: true,
   pendingDrain: false,
@@ -26,7 +24,7 @@ describe('decideRetry', () => {
   });
 
   it('arms the current delay and doubles it after a transient failure', () => {
-    expect(decideRetry(pass({ sawTransient: true }), schedule)).toEqual({
+    expect(decideRetry(pass({ stoppedBy: 'transient' }), schedule)).toEqual({
       retryInMs: 8_000,
       retryDelayMs: 16_000,
       stalledDrains: 0,
@@ -34,7 +32,7 @@ describe('decideRetry', () => {
   });
 
   it('caps the doubled delay', () => {
-    const decision = decideRetry(pass({ sawTransient: true }), {
+    const decision = decideRetry(pass({ stoppedBy: 'transient' }), {
       ...schedule,
       retryDelayMs: 16_000,
     });
@@ -45,7 +43,7 @@ describe('decideRetry', () => {
   // A queue that lands entries each pass is not the sustained-failure case
   // the doubling exists for (#391).
   it('restarts the backoff when the pass also made progress', () => {
-    expect(decideRetry(pass({ sawTransient: true, sawProgress: true }), schedule)).toEqual({
+    expect(decideRetry(pass({ stoppedBy: 'transient', sawProgress: true }), schedule)).toEqual({
       retryInMs: RETRY_BASE_DELAY_MS,
       retryDelayMs: RETRY_BASE_DELAY_MS * 2,
       stalledDrains: 0,
@@ -54,13 +52,13 @@ describe('decideRetry', () => {
 
   // The same write re-landing every pass is not queue progress (#449).
   it('keeps walking the backoff up for an uncleared entry, progress or not', () => {
-    const decision = decideRetry(pass({ sawUncleared: true, sawProgress: true }), schedule);
+    const decision = decideRetry(pass({ stoppedBy: 'uncleared', sawProgress: true }), schedule);
     expect(decision.retryInMs).toBe(8_000);
     expect(decision.retryDelayMs).toBe(16_000);
   });
 
   it('arms no timer offline and keeps the delay for the online event', () => {
-    expect(decideRetry(pass({ sawTransient: true, online: false }), schedule)).toEqual({
+    expect(decideRetry(pass({ stoppedBy: 'transient', online: false }), schedule)).toEqual({
       retryInMs: undefined,
       retryDelayMs: 8_000,
       stalledDrains: 0,
@@ -68,13 +66,13 @@ describe('decideRetry', () => {
   });
 
   it('leaves the retry to the follow-up drain that is already queued', () => {
-    const decision = decideRetry(pass({ sawTransient: true, pendingDrain: true }), schedule);
+    const decision = decideRetry(pass({ stoppedBy: 'transient', pendingDrain: true }), schedule);
     expect(decision.retryInMs).toBeUndefined();
     expect(decision.retryDelayMs).toBe(8_000);
   });
 
   describe('stalled drains (#458)', () => {
-    const stalled = pass({ sawTransient: true, passThrew: true });
+    const stalled = pass({ stoppedBy: 'threw' });
 
     it('counts only timer wakes towards the give-up bound', () => {
       expect(decideRetry(stalled, schedule).stalledDrains).toBe(0);
@@ -88,11 +86,12 @@ describe('decideRetry', () => {
       expect(decision.retryInMs).toBeUndefined();
     });
 
-    it('resets the count when a pass makes progress or lands an uncleared entry', () => {
+    it('resets the count when a pass makes progress or does not throw', () => {
       const walked = { ...schedule, stalledDrains: 3 };
       expect(decideRetry({ ...stalled, sawProgress: true }, walked).stalledDrains).toBe(0);
-      expect(decideRetry({ ...stalled, sawUncleared: true }, walked).stalledDrains).toBe(0);
-      expect(decideRetry(pass({ sawTransient: true }), walked).stalledDrains).toBe(0);
+      expect(decideRetry(pass({ stoppedBy: 'uncleared' }), walked).stalledDrains).toBe(0);
+      expect(decideRetry(pass({ stoppedBy: 'transient' }), walked).stalledDrains).toBe(0);
+      expect(decideRetry(pass(), walked).stalledDrains).toBe(0);
     });
   });
 });

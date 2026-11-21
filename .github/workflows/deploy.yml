@@ -36,16 +36,12 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-      DO_NOT_TRACK: '1'
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ env.DEPLOY_SHA }}
-      - uses: supabase/setup-cli@v2
-        with:
-          # Same pin as ci.yml; the sync check below greps CLI output, so
-          # bump deliberately, not via `latest`.
-          version: 2.105.0
+      # The sync check below greps CLI output, so the action pins the version.
+      - uses: ./.github/actions/setup-supabase
       # Link + push are idempotent, so one retry covers transient
       # runner/network failures (#337) without double-applying a migration.
       - name: Link and push migrations
@@ -117,16 +113,13 @@ jobs:
         id: changed
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] ||
-             git diff --name-only HEAD^ HEAD | grep -qE '^supabase/functions/|^\.github/workflows/deploy\.yml$'; then
+             git diff --name-only HEAD^ HEAD | grep -qE '^supabase/functions/|^\.github/workflows/deploy\.yml$|^\.github/actions/'; then
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "deploy=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: supabase/setup-cli@v2
+      - uses: ./.github/actions/setup-supabase
         if: steps.changed.outputs.deploy == 'true'
-        with:
-          # Same pin as ci.yml and the migrations job.
-          version: 2.105.0
       # No function name: deploy everything under supabase/functions/, so a
       # new function cannot be forgotten here (#433).
       - if: steps.changed.outputs.deploy == 'true'

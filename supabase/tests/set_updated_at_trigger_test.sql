@@ -3,7 +3,7 @@
 -- lets a later conflict pass silently. The board is seeded backdated
 -- because now() is frozen per transaction. Run with: supabase test db
 BEGIN;
-SELECT plan(5);
+SELECT plan(4);
 
 INSERT INTO auth.users (id, email)
 VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'alice@test.local');
@@ -29,7 +29,7 @@ SELECT is(
   'setup: the board starts backdated'
 );
 
--- ── 1-2. A plain UPDATE bumps updated_at to now ────────────────────────────
+-- ── 1. A plain UPDATE bumps updated_at to now ──────────────────────────────
 
 UPDATE public.boards SET name = 'Renamed'
  WHERE id = 'eeeeeeee-0000-4000-8000-000000000401';
@@ -40,14 +40,8 @@ SELECT is(
   now(),
   'UPDATE sets updated_at to now()'
 );
-SELECT cmp_ok(
-  (SELECT updated_at FROM public.boards
-    WHERE id = 'eeeeeeee-0000-4000-8000-000000000401'),
-  '>', now() - interval '1 hour',
-  'UPDATE moves updated_at forward'
-);
 
--- ── 3-4. A client cannot backdate updated_at through the API path ──────────
+-- ── 2-3. A client cannot backdate updated_at through the API path ──────────
 -- Run as authenticated Alice, the production write path. A stale client
 -- sending its own updated_at must not win — the trigger overrides it, so
 -- every landed write stales the #281 guard on other clients.

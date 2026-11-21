@@ -1,41 +1,29 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const useDeleteMyAccountSpy = vi.fn<(opts?: { onPreSignOut?: () => void }) => unknown>();
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/queries/account', () => ({
-  useDeleteMyAccount: (opts?: { onPreSignOut?: () => void }) => {
-    useDeleteMyAccountSpy(opts);
-    return {
-      mutate: vi.fn(),
-      isPending: false,
-      isError: false,
-      isSuccess: false,
-      error: null,
-    };
-  },
+  useDeleteMyAccount: (onPreSignOut: () => void) => ({
+    mutate: onPreSignOut,
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    error: null,
+  }),
 }));
 
 const { DeleteAccountSection } = await import('./DeleteAccountSection');
 
 describe('DeleteAccountSection', () => {
-  beforeEach(() => {
-    useDeleteMyAccountSpy.mockReset();
-  });
-
   const renderIt = (): void => {
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/settings']}>
-          <Routes>
-            <Route path="/settings" element={<DeleteAccountSection />} />
-            <Route path="/account-deleted" element={<div data-testid="deleted" />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+      <MemoryRouter initialEntries={['/settings']}>
+        <Routes>
+          <Route path="/settings" element={<DeleteAccountSection />} />
+          <Route path="/account-deleted" element={<div data-testid="deleted" />} />
+        </Routes>
+      </MemoryRouter>,
     );
   };
 
@@ -56,14 +44,12 @@ describe('DeleteAccountSection', () => {
     expect(link.getAttribute('href')).toBe('/privacy-policy');
   });
 
-  // The section's whole reason for existing on this branch is to wire a
-  // navigate() into onPreSignOut. If the option goes missing, the user
-  // lands on Login after deletion (the Phase G AuthGate race).
-  it('passes onPreSignOut to useDeleteMyAccount when the dialog opens', async () => {
+  // Without this navigation the user lands on Login after the deletion.
+  it('goes to the account-deleted page before the sign-out', async () => {
     renderIt();
     await userEvent.click(screen.getByRole('button', { name: /delete my account/i }));
-    expect(useDeleteMyAccountSpy).toHaveBeenCalled();
-    const lastCallArg = useDeleteMyAccountSpy.mock.calls.at(-1)?.[0];
-    expect(typeof lastCallArg?.onPreSignOut).toBe('function');
+    await userEvent.type(screen.getByLabelText(/type/i), 'delete my account');
+    await userEvent.click(screen.getByRole('button', { name: /delete forever/i }));
+    expect(screen.getByTestId('deleted')).toBeInTheDocument();
   });
 });

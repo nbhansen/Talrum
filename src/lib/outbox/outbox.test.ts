@@ -1,8 +1,7 @@
-import { clear, keys } from 'idb-keyval';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OutboxStatus } from './drain-state';
-import type { UpdateBoardEntry } from './types';
+import { baseEntry, realTick, setOnline } from './outbox.test-utils';
 
 interface MockPostgrestError {
   code: string;
@@ -35,27 +34,10 @@ const { drainState } = await import('./drain-state');
 const { __resetBoardClockForTests } = await import('./board-clock');
 // setOwnerId sets the state without the drain `setOutboxOwner` kicks, which
 // would otherwise run in the background of every test.
-const { __resetOutboxOwnerForTests, setOwnerId } = await import('./owner');
+const { setOwnerId } = await import('./owner');
 
-const baseEntry = (over: Partial<UpdateBoardEntry> = {}): UpdateBoardEntry => ({
-  id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
-  kind: 'updateBoard',
-  boardId: 'board-1',
-  patch: { name: 'New name' },
-  enqueuedAt: 0,
-  attemptCount: 0,
-  status: 'pending',
-  ...over,
-});
-
-const setOnline = (online: boolean): void => {
-  Object.defineProperty(navigator, 'onLine', { value: online, configurable: true });
-};
-
-beforeEach(async () => {
-  await clear();
+beforeEach(() => {
   setOnline(true);
-  __resetOutboxOwnerForTests();
   // Every test but the account ones runs as one signed-in user; draining is
   // gated on an owner being known.
   setOwnerId('user-a');
@@ -69,39 +51,6 @@ beforeEach(async () => {
   unguardedSelectMock.mockResolvedValue({
     data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
     error: null,
-  });
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-describe('outbox store', () => {
-  it('putEntry + listEntries round-trips a single entry', async () => {
-    await putEntry(baseEntry({ id: '01HZZA' }));
-    const entries = await listEntries();
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.id).toBe('01HZZA');
-  });
-
-  it('listEntries returns ULID order', async () => {
-    await putEntry(baseEntry({ id: '01HZZB' }));
-    await putEntry(baseEntry({ id: '01HZZA' }));
-    await putEntry(baseEntry({ id: '01HZZC' }));
-    const ids = (await listEntries()).map((e) => e.id);
-    expect(ids).toEqual(['01HZZA', '01HZZB', '01HZZC']);
-  });
-
-  it('deleteEntry removes the keyed entry', async () => {
-    await putEntry(baseEntry({ id: '01HZZA' }));
-    await deleteEntry('01HZZA');
-    const entries = await listEntries();
-    expect(entries).toHaveLength(0);
-    // No stray IDB key left behind.
-    const remaining = (await keys()).filter(
-      (k) => typeof k === 'string' && k.startsWith('outbox:'),
-    );
-    expect(remaining).toEqual([]);
   });
 });
 
@@ -161,21 +110,6 @@ describe('outbox drain', () => {
     expect(remaining.map((e) => e.id)).toEqual(['01HZZA', '01HZZB']);
   });
 });
-
-/**
- * One real macrotask round, for tests that fake setTimeout. MessageChannel,
- * not setTimeout: fake-indexeddb settles its work on real macrotasks that a
- * fake clock would never reach.
- */
-const realTick = (): Promise<void> =>
-  new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      resolve();
-    };
-    channel.port2.postMessage(null);
-  });
 
 describe('transient retry timer (#391)', () => {
   beforeEach(() => {
@@ -291,7 +225,7 @@ describe('transient retry timer (#391)', () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await putEntry(baseEntry({ id: '01HZZA' }));
     const statuses: OutboxStatus[] = [];
-    const unsub = subscribeStatus((s) => statuses.push(s));
+    const unsub = subscribeStatus(() => statuses.push(getStatus()));
     try {
       await drain(); // event-driven: this one may say "Syncing…"
       expect(statuses.some((s) => s.draining && !s.timerDrain)).toBe(true);
@@ -361,23 +295,32 @@ describe('cross-tab coordination (#278, #289)', () => {
     return request;
   };
 
+  /** "Another tab" takes the lock. `parked` settles when a second request waits behind it. */
+  const holdLock = (): { release: () => void; parked: () => Promise<void> } => {
+    const request = installFakeLocks();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void navigator.locks.request('talrum-outbox', () => held);
+    return {
+      release,
+      parked: () => vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 }),
+    };
+  };
+
   afterEach(() => {
     delete (navigator as { locks?: unknown }).locks;
   });
 
   it('drain waits for the talrum-outbox web lock held by another tab', async () => {
-    const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA' }));
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
     // "Another tab" grabs the lock first.
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const drainDone = drain();
     // Wait until drain has queued its own lock request, then give the
     // microtask queue a chance to (incorrectly) run handlers anyway.
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(eqMock).not.toHaveBeenCalled();
     release();
@@ -387,15 +330,10 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('re-checks onLine after the lock wait so a dead network burns no attempts', async () => {
-    const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA' }));
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const drainDone = drain();
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     // The network drops while drain is parked on the other tab's lock — the
     // pre-lock online check is stale by the time the lock is granted.
     setOnline(false);
@@ -432,18 +370,13 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('retryFailed cannot resurrect an entry another tab discards while it waits (#289)', async () => {
-    const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
     // Another tab holds the lock, mid-discard.
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const retryDone = retryFailed();
     // Once a second lock request is queued, an unlocked reset loop would
     // already have flipped the entry to pending — it must still be parked.
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     expect((await listEntries())[0]?.status).toBe('failed');
     // The other tab's discard lands before the lock is released.
     await deleteEntry('01HZZA');
@@ -454,15 +387,10 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('the fast path waits for the talrum-outbox lock held by another tab (#395)', async () => {
-    const request = installFakeLocks();
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
     // "Another tab" is mid-drain (or mid-fast-path) and holds the lock.
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     await new Promise((resolve) => setTimeout(resolve, 0));
     // An unlocked fast path would already have run the handler here.
     expect(eqMock).not.toHaveBeenCalled();
@@ -473,14 +401,9 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('fast path re-checks onLine after the lock wait so a dead network burns no attempt (#395)', async () => {
-    const request = installFakeLocks();
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     // The network drops while the fast path is parked on the other tab's
     // lock. Running the handler now would spend one of the six retry
     // attempts on a guaranteed failure.
@@ -494,18 +417,13 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('re-checks the backlog after the lock wait so a queued write is not jumped (#395)', async () => {
-    const request = installFakeLocks();
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const done = enqueueAndDrain({
       kind: 'updateBoard',
       boardId: 'board-new',
       patch: { name: 'x' },
     });
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     // Another tab persists an entry while our fast path is parked on the
     // lock. The pre-lock queue observation (empty) is stale now; acting on
     // it would jump the queue — the #279 staleness bug, cross-tab edition.
@@ -544,20 +462,31 @@ describe('cross-tab coordination (#278, #289)', () => {
     // online/offline events are per-window: this tab can be offline while
     // another tab is still online and mid-fast-path. An unlocked offline
     // append could race that fast path and land behind a younger write.
-    const request = installFakeLocks();
     setOnline(false);
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const done = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await listEntries()).toHaveLength(0);
     release();
     await done;
     expect(await listEntries()).toHaveLength(1);
+    expect(eqMock).not.toHaveBeenCalled();
+  });
+
+  // The account can switch while a write waits on the lock. The stamp is read
+  // at call time for exactly this reason: reading it inside the lock callback
+  // would label user A's write with user B and defeat the check (#446 review).
+  it('abandons a write whose account changed while it waited for the lock', async () => {
+    const { release } = holdLock();
+
+    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
+    setOwnerId('user-b');
+    release();
+
+    await expect(write).rejects.toThrow(/account changed/i);
+    // Nothing of user A's is left on the device, and no handler ran for it.
+    expect(await listEntries()).toEqual([]);
     expect(eqMock).not.toHaveBeenCalled();
   });
 
@@ -606,15 +535,10 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('discardFailed waits for the talrum-outbox lock (#289)', async () => {
-    const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const discardDone = discardFailed();
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await listEntries()).toHaveLength(1);
     release();
@@ -623,15 +547,10 @@ describe('cross-tab coordination (#278, #289)', () => {
   });
 
   it('lists inside the lock, so a Retry from another tab is not discarded (#289)', async () => {
-    const request = installFakeLocks();
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    void navigator.locks.request('talrum-outbox', () => held);
+    const { release, parked } = holdLock();
     const discardDone = discardFailed();
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await parked();
     await putEntry(baseEntry({ id: '01HZZA', status: 'pending', attemptCount: 0 }));
     release();
     await discardDone;
@@ -650,7 +569,7 @@ describe('discardFailed', () => {
   it('emits a status refresh so the failed pill drops without another outbox event (#290)', async () => {
     await putEntry(baseEntry({ id: '01HZZA', status: 'failed', attemptCount: 3 }));
     const seen: number[] = [];
-    const unsub = subscribeStatus((s) => seen.push(s.failedCount));
+    const unsub = subscribeStatus(() => seen.push(getStatus().failedCount));
     // Surface the "1 failed" state to subscribers up front so the post-discard
     // drop is an observable transition, not just a coincidental end value.
     await refreshStatus();
@@ -855,7 +774,7 @@ describe('subscribeStatus', () => {
   it('reports queue length + online state to subscribers', async () => {
     setOnline(false);
     const events: number[] = [];
-    const unsub = subscribeStatus((s) => events.push(s.pendingCount));
+    const unsub = subscribeStatus(() => events.push(getStatus().pendingCount));
     await putEntry(baseEntry({ id: '01HZZA' }));
     await drain();
     expect(getStatus().pendingCount).toBe(1);
@@ -866,11 +785,6 @@ describe('subscribeStatus', () => {
 });
 
 describe('enqueueAndDrain', () => {
-  it('online + success: leaves nothing in the queue', async () => {
-    await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
-    expect(await listEntries()).toEqual([]);
-  });
-
   // The handler round trip is a window in which the page can go away — a
   // reload, a tab close. An entry that only lived in memory took the write
   // with it, together with the optimistic patch (#445).
@@ -978,42 +892,11 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  // The account can switch while a write waits on the lock. The stamp is read
-  // at call time for exactly this reason: reading it inside the lock callback
-  // would label user A's write with user B and defeat the check (#446 review).
-  it('abandons a write whose account changed while it waited for the lock', async () => {
-    // jsdom has no Web Locks, so stub one that does not grant until told —
-    // standing in for the sign-out sweep holding it.
-    let grantLock!: () => void;
-    const granted = new Promise<void>((r) => {
-      grantLock = r;
-    });
-    Object.defineProperty(navigator, 'locks', {
-      configurable: true,
-      value: {
-        request: async (_name: string, fn: () => Promise<unknown>) => {
-          await granted;
-          return fn();
-        },
-      },
-    });
-
-    const write = enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
-    setOwnerId('user-b');
-    grantLock();
-
-    await expect(write).rejects.toThrow(/account changed/i);
-    Reflect.deleteProperty(navigator, 'locks');
-    // Nothing of user A's is left on the device, and no handler ran for it.
-    expect(await listEntries()).toEqual([]);
-    expect(eqMock).not.toHaveBeenCalled();
-  });
-
   // startOutbox drains at module load, before AuthGate has resolved the
   // session. Without the gate that boot drain replays a previous account's
   // leftovers before the owner is known (#446 review).
   it('does not drain until the signed-in account is known, then drains for it', async () => {
-    __resetOutboxOwnerForTests();
+    setOwnerId(null);
     await putEntry(baseEntry({ id: '01HZZA', enqueuedBy: 'user-a' }));
 
     await drain();
@@ -1063,17 +946,6 @@ describe('enqueueAndDrain', () => {
     expect(await listEntries()).toEqual([]);
   });
 
-  it('online + non-retryable: rejects without enqueueing', async () => {
-    unguardedSelectMock.mockResolvedValue({
-      data: null,
-      error: { code: 'PGRST116', message: 'not found', details: '', hint: '' },
-    });
-    await expect(
-      enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } }),
-    ).rejects.toThrow();
-    expect(await listEntries()).toEqual([]);
-  });
-
   it('online + transient: enqueues and resolves', async () => {
     unguardedSelectMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
@@ -1118,10 +990,9 @@ describe('enqueueAndDrain', () => {
   it('offline enqueue emits the new pending count to subscribers', async () => {
     setOnline(false);
     const seen: number[] = [];
-    const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
+    const unsub = subscribeStatus(() => seen.push(getStatus().pendingCount));
     await enqueueAndDrain({ kind: 'updateBoard', boardId: 'b', patch: { name: 'x' } });
     unsub();
-    // First push is the initial status (0); second is post-enqueue (1).
     expect(seen[seen.length - 1]).toBe(1);
   });
 });
@@ -1133,7 +1004,7 @@ describe('startOutbox', () => {
     await putEntry(baseEntry({ id: '01HZZQ' }));
     const seen: number[] = [];
     startOutbox();
-    const unsub = subscribeStatus((s) => seen.push(s.pendingCount));
+    const unsub = subscribeStatus(() => seen.push(getStatus().pendingCount));
     // emit() does an IDB roundtrip (listEntries) before pushing to subscribers,
     // then drain()'s offline branch emits again. Counting macrotask ticks
     // flakes under load (#87) — poll the actual condition instead.

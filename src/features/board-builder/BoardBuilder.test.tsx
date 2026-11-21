@@ -4,6 +4,7 @@ import type { ComponentProps, JSX, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeBoard } from '@/lib/queries/queries.test-utils';
 import type { Board, Pictogram } from '@/types/domain';
 
 interface BoardUpdate {
@@ -39,7 +40,7 @@ vi.mock('@/lib/queries/board-members', () => ({
 
 vi.mock('@/lib/queries/pictograms', () => ({
   usePictogramsById: () => pictogramsById,
-  usePictogramsBySlug: () => new Map(),
+  usePictogramsForSlugs: () => [],
 }));
 
 vi.mock('./pictogram-picker/PictoPicker', () => ({
@@ -89,18 +90,7 @@ vi.mock('@/layouts/ParentShell', () => ({
 
 const { BoardBuilder } = await import('./BoardBuilder');
 
-const baseBoard: Board = {
-  id: 'board-1',
-  ownerId: 'owner-1',
-  kidId: 'kid-1',
-  name: 'Morning routine',
-  kind: 'sequence',
-  labelsVisible: true,
-  voiceMode: 'tts',
-  stepIds: [],
-  kidReorderable: false,
-  accent: 'peach',
-};
+const baseBoard = makeBoard({ id: 'board-1', ownerId: 'owner-1', name: 'Morning routine' });
 
 const noop = (): void => undefined;
 
@@ -132,7 +122,7 @@ describe('BoardBuilder title', () => {
   it('flushes a pending rename when it unmounts', () => {
     vi.useFakeTimers();
     try {
-      const { unmount } = render(<BoardBuilderAt board={baseBoard} isOwner />);
+      const { unmount } = render(<BoardBuilderAt />);
       fireEvent.change(screen.getByDisplayValue('Morning routine'), {
         target: { value: 'Evening routine' },
       });
@@ -151,9 +141,9 @@ describe('BoardBuilder title', () => {
 
 describe('BoardBuilder title after a refetch (#766)', () => {
   it('shows the refetched name when no rename is waiting', () => {
-    const { rerender } = render(<BoardBuilderAt board={baseBoard} isOwner />);
+    const { rerender } = render(<BoardBuilderAt />);
 
-    rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} isOwner />);
+    rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} />);
 
     expect(screen.getByDisplayValue('Server name')).toBeInTheDocument();
   });
@@ -161,12 +151,12 @@ describe('BoardBuilder title after a refetch (#766)', () => {
   it('keeps what the user types while their rename waits', () => {
     vi.useFakeTimers();
     try {
-      const { rerender, unmount } = render(<BoardBuilderAt board={baseBoard} isOwner />);
+      const { rerender, unmount } = render(<BoardBuilderAt />);
       fireEvent.change(screen.getByDisplayValue('Morning routine'), {
         target: { value: 'Evening routine' },
       });
 
-      rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} isOwner />);
+      rerender(<BoardBuilderAt board={{ ...baseBoard, name: 'Server name' }} />);
 
       expect(screen.getByDisplayValue('Evening routine')).toBeInTheDocument();
       unmount();
@@ -178,15 +168,12 @@ describe('BoardBuilder title after a refetch (#766)', () => {
 });
 
 describe('BoardBuilder blank title', () => {
-  const renderBuilder = (): ReturnType<typeof render> =>
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
-
   // A blank name reached the row on a 300 ms pause or a back tap, and the
   // create path refuses one (#480).
   it('never writes a blank name, and cancels the write it replaces', () => {
     vi.useFakeTimers();
     try {
-      const { unmount } = renderBuilder();
+      const { unmount } = render(<BoardBuilderAt />);
       const input = screen.getByDisplayValue('Morning routine');
       fireEvent.change(input, { target: { value: 'Evening routine' } });
       fireEvent.change(input, { target: { value: '   ' } });
@@ -203,7 +190,7 @@ describe('BoardBuilder blank title', () => {
   it('trims the name it writes, like the create path', () => {
     vi.useFakeTimers();
     try {
-      renderBuilder();
+      render(<BoardBuilderAt />);
       fireEvent.change(screen.getByDisplayValue('Morning routine'), {
         target: { value: '  Evening routine  ' },
       });
@@ -217,7 +204,7 @@ describe('BoardBuilder blank title', () => {
   });
 
   it('puts the saved name back when a blank field loses focus', () => {
-    renderBuilder();
+    render(<BoardBuilderAt />);
     const input = screen.getByDisplayValue('Morning routine');
     fireEvent.change(input, { target: { value: '' } });
     expect(input).toHaveValue('');
@@ -230,12 +217,12 @@ describe('BoardBuilder blank title', () => {
 
 describe('BoardBuilder Share button', () => {
   it('renders the Share button when isOwner=true', () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
   });
 
   it('hides the Share button when isOwner=false', () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner={false} />);
+    render(<BoardBuilderAt isOwner={false} />);
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
   });
 
@@ -252,22 +239,18 @@ describe('BoardBuilder Share button', () => {
 });
 
 describe('BoardBuilder Delete board (#520)', () => {
-  const renderOwner = (isOwner: boolean): void => {
-    render(<BoardBuilderAt board={baseBoard} isOwner={isOwner} />);
-  };
-
   it('renders the Delete board button when isOwner=true', () => {
-    renderOwner(true);
+    render(<BoardBuilderAt />);
     expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument();
   });
 
   it('hides the Delete board button when isOwner=false', () => {
-    renderOwner(false);
+    render(<BoardBuilderAt isOwner={false} />);
     expect(screen.queryByRole('button', { name: 'Delete board' })).not.toBeInTheDocument();
   });
 
   it('opens the confirm dialog without deleting', async () => {
-    renderOwner(true);
+    render(<BoardBuilderAt />);
     await userEvent.click(screen.getByRole('button', { name: 'Delete board' }));
     expect(screen.getByRole('dialog', { name: /delete "morning routine"/i })).toBeInTheDocument();
     expect(deleteBoardMock).not.toHaveBeenCalled();
@@ -275,17 +258,13 @@ describe('BoardBuilder Delete board (#520)', () => {
 });
 
 describe('BoardBuilder Leave board (#666)', () => {
-  const renderOwner = (isOwner: boolean): void => {
-    render(<BoardBuilderAt board={baseBoard} isOwner={isOwner} />);
-  };
-
   it('hides the Leave board button on an own board', () => {
-    renderOwner(true);
+    render(<BoardBuilderAt />);
     expect(screen.queryByRole('button', { name: 'Leave board' })).not.toBeInTheDocument();
   });
 
   it('opens the confirm dialog on a shared board without leaving', async () => {
-    renderOwner(false);
+    render(<BoardBuilderAt isOwner={false} />);
     await userEvent.click(screen.getByRole('button', { name: 'Leave board' }));
     expect(screen.getByRole('dialog', { name: /leave "morning routine"/i })).toBeInTheDocument();
     expect(leaveBoardMock).not.toHaveBeenCalled();
@@ -294,7 +273,7 @@ describe('BoardBuilder Leave board (#666)', () => {
 
 describe('BoardBuilder kind switch confirm (#233)', () => {
   it('clicking the other kind tab opens a confirm modal without mutating', async () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Switch to Choice/i })).toBeInTheDocument();
@@ -302,7 +281,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
   });
 
   it('confirming the modal mutates the kind once', async () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: /Switch to Choice/i }));
     expect(updateBoardMock).toHaveBeenCalledTimes(1);
@@ -311,7 +290,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
   });
 
   it('cancelling the modal leaves kind unchanged', async () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     await userEvent.click(screen.getByRole('radio', { name: /Choice/i }));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(updateBoardMock).not.toHaveBeenCalled();
@@ -319,7 +298,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
   });
 
   it('clicking the already-active tab does not open the modal', async () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     await userEvent.click(screen.getByRole('radio', { name: /Sequence/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(updateBoardMock).not.toHaveBeenCalled();
@@ -328,7 +307,7 @@ describe('BoardBuilder kind switch confirm (#233)', () => {
 
 describe('BoardBuilder track (#522)', () => {
   const renderKind = (kind: Board['kind'], stepIds: string[]): void => {
-    render(<BoardBuilderAt board={{ ...baseBoard, kind, stepIds }} isOwner />);
+    render(<BoardBuilderAt board={{ ...baseBoard, kind, stepIds }} />);
   };
 
   it('shows the step count hint for sequence boards', () => {
@@ -375,7 +354,7 @@ describe('BoardBuilder steps with a missing pictogram', () => {
       [apple.id, apple],
       [cup.id, cup],
     ]);
-    render(<BoardBuilderAt board={{ ...baseBoard, stepIds }} isOwner />);
+    render(<BoardBuilderAt board={{ ...baseBoard, stepIds }} />);
   };
 
   afterEach(() => {
@@ -402,7 +381,7 @@ describe('BoardBuilder steps with a missing pictogram', () => {
 
 describe('BoardBuilder Quick add section (#234)', () => {
   it('hides the "Add from the library" section when no slugs resolve', () => {
-    render(<BoardBuilderAt board={baseBoard} isOwner />);
+    render(<BoardBuilderAt />);
     expect(screen.queryByRole('heading', { name: /add from the library/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /browse all/i })).toBeNull();
   });

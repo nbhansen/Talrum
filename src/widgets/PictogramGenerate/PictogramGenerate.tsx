@@ -122,12 +122,13 @@ export const PictogramGenerate = ({ ownerId }: PictogramGenerateProps): JSX.Elem
           <div className={styles.formActions}>
             <Button
               variant="primary"
+              icon={<SparkleIcon size={14} />}
               onClick={() => {
                 void generate();
               }}
               disabled={busy || !label.trim()}
             >
-              <SparkleIcon size={14} /> {generating ? 'Generating…' : 'Generate image'}
+              {generating ? 'Generating…' : 'Generate image'}
             </Button>
           </div>
           {generating && (

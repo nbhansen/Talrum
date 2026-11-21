@@ -58,17 +58,18 @@ export const usePictogramsById = (): Map<string, Pictogram> => {
 };
 
 /**
- * Lookup by seed slug ('apple', 'book') — useful for the few client-side
- * lists that reference specific seed pictograms by name. User-uploaded
- * pictograms have no slug and aren't in this map. Memoized on `data`.
+ * The seed pictograms with these slugs ('apple', 'book'), in the order of
+ * `slugs`. A missing slug is dropped. Pass a module-level array: the result
+ * is memoised on its identity.
  */
-export const usePictogramsBySlug = (): Map<string, Pictogram> => {
+export const usePictogramsForSlugs = (slugs: readonly string[]): Pictogram[] => {
   const { data } = usePictograms();
-  return useMemo(() => {
-    const out = new Map<string, Pictogram>();
-    for (const p of data ?? []) {
-      if (p.slug) out.set(p.slug, p);
-    }
-    return out;
-  }, [data]);
+  return useMemo(
+    () =>
+      slugs.flatMap((slug) => {
+        const picto = data?.find((p) => p.slug === slug);
+        return picto ? [picto] : [];
+      }),
+    [data, slugs],
+  );
 };

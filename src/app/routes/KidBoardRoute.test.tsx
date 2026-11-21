@@ -1,11 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import type { QueryClient } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
 import type { JSX } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { TestSessionProvider } from '@/lib/auth/session.test-utils';
 import { boardsQueryKey } from '@/lib/queries/boards';
+import { makeClient, TestProviders } from '@/lib/queries/queries.test-utils';
 import type { BoardKind } from '@/types/domain';
 
 const singleMock = vi.fn();
@@ -19,11 +19,6 @@ const fromMock = vi.fn(() => ({ select: selectMock }));
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => fromMock(),
-    auth: {
-      signOut: vi.fn(),
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-    },
   },
 }));
 
@@ -42,63 +37,45 @@ const { KidBoardRoute } = await import('./KidBoardRoute');
 
 const BOARD_ID = '00000000-0000-0000-0000-000000000000';
 
-const makeWrap = (qc: QueryClient): (() => JSX.Element) => {
-  return (): JSX.Element => (
-    <TestSessionProvider>
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[`/kid/${BOARD_ID}`]}>
-          <Routes>
-            <Route path="/kid/:boardId" element={<KidBoardRoute />} />
-            <Route path="/" element={<div data-testid="parent-home" />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </TestSessionProvider>
+const renderRoute = (client: QueryClient): void => {
+  render(
+    <TestProviders client={client}>
+      <MemoryRouter initialEntries={[`/kid/${BOARD_ID}`]}>
+        <Routes>
+          <Route path="/kid/:boardId" element={<KidBoardRoute />} />
+          <Route path="/" element={<div data-testid="parent-home" />} />
+        </Routes>
+      </MemoryRouter>
+    </TestProviders>,
   );
 };
 
 describe('KidBoardRoute stale-board recovery', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
+  it('redirects to / and clears the last-board record when the board is gone (PGRST116)', async () => {
+    localStorage.setItem('talrum:last-board', JSON.stringify({ id: BOARD_ID }));
+    // Or the / route redirects back into the now-missing board on landing.
+    sessionStorage.setItem('talrum:auto-launched', '1');
+
+    const qc = makeClient();
+    qc.setQueryData(boardsQueryKey, []);
+    singleMock.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'JSON object requested, multiple (or no) rows returned',
+        code: 'PGRST116',
+      },
+    });
+
+    renderRoute(qc);
+    expect(await screen.findByTestId('parent-home')).toBeInTheDocument();
+    expect(localStorage.getItem('talrum:last-board')).toBeNull();
   });
-  afterEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-
-  it.each<BoardKind>(['choice', 'sequence'])(
-    '%s: redirects to / and clears the last-board record when the board is gone (PGRST116)',
-    async (_kind) => {
-      localStorage.setItem('talrum:last-board', JSON.stringify({ id: BOARD_ID }));
-      // Or the / route redirects back into the now-missing board on landing.
-      sessionStorage.setItem('talrum:auto-launched', '1');
-
-      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      qc.setQueryData(boardsQueryKey, []);
-      singleMock.mockResolvedValueOnce({
-        data: null,
-        error: {
-          message: 'JSON object requested, multiple (or no) rows returned',
-          code: 'PGRST116',
-        },
-      });
-
-      const Wrap = makeWrap(qc);
-      render(<Wrap />);
-      await waitFor(() => {
-        expect(screen.getByTestId('parent-home')).toBeInTheDocument();
-      });
-      expect(localStorage.getItem('talrum:last-board')).toBeNull();
-    },
-  );
 });
 
 describe('KidBoardRoute screen', () => {
   it.each<BoardKind>(['choice', 'sequence'])(
     'renders the %s screen from the loaded board, not the URL',
     async (kind) => {
-      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       singleMock.mockResolvedValueOnce({
         data: {
           id: BOARD_ID,
@@ -117,8 +94,7 @@ describe('KidBoardRoute screen', () => {
         },
         error: null,
       });
-      const Wrap = makeWrap(qc);
-      render(<Wrap />);
+      renderRoute(makeClient());
       expect(await screen.findByTestId(`${kind}-screen`)).toBeInTheDocument();
       expect(localStorage.getItem('talrum:last-board')).toBe(JSON.stringify({ id: BOARD_ID }));
     },

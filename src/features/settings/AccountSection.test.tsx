@@ -13,34 +13,26 @@ vi.mock('@/lib/supabase', () => ({
 const { TestSessionProvider } = await import('@/lib/auth/session.test-utils');
 const { AccountSection } = await import('./AccountSection');
 
+const renderSection = (): void => {
+  render(<AccountSection />, { wrapper: TestSessionProvider });
+};
+
 describe('AccountSection', () => {
   it('shows the signed-in email', () => {
-    render(
-      <TestSessionProvider>
-        <AccountSection />
-      </TestSessionProvider>,
-    );
+    renderSection();
     expect(screen.getByText('parent@example.com')).toBeInTheDocument();
   });
 
   it('clicking Sign out calls supabase.auth.signOut', async () => {
     signOutMock.mockClear();
-    render(
-      <TestSessionProvider>
-        <AccountSection />
-      </TestSessionProvider>,
-    );
+    renderSection();
     await userEvent.click(screen.getByRole('button', { name: /^sign out$/i }));
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 
   it('shows an error and enables the button again when sign-out fails (#645)', async () => {
     signOutMock.mockResolvedValueOnce({ error: new Error('Failed to fetch') });
-    render(
-      <TestSessionProvider>
-        <AccountSection />
-      </TestSessionProvider>,
-    );
+    renderSection();
     await userEvent.click(screen.getByRole('button', { name: /^sign out$/i }));
     expect(
       await screen.findByText('Could not sign out. Check your connection and try again.'),

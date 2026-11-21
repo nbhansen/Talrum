@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeBoard } from '@/lib/queries/queries.test-utils';
 import type { Board, Kid } from '@/types/domain';
 
 const useKidsMock = vi.fn<() => { data: Kid[] | undefined; isPending: boolean }>();
@@ -26,18 +27,7 @@ const KIDS: Kid[] = [
   { id: 'k2', ownerId: 'owner', name: 'Mira' },
 ];
 
-const board = (id: string, kidId: string): Board => ({
-  id,
-  ownerId: 'owner',
-  kidId,
-  name: 'B',
-  kind: 'sequence',
-  labelsVisible: true,
-  voiceMode: 'tts',
-  stepIds: [],
-  kidReorderable: false,
-  accent: 'sage',
-});
+const board = (id: string, kidId: string): Board => makeBoard({ id, kidId });
 
 beforeEach(() => {
   useKidsMock.mockReset();

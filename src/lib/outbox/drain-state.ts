@@ -68,7 +68,7 @@ const initialState = (): DrainState => ({
 
 export const drainState = initialState();
 
-export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
+export const drainSubscribers = new Set<() => void>();
 export const flushSubscribers = new Set<() => void>();
 
 export const __resetDrainForTests = (): void => {

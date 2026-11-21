@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeBoard } from '@/lib/queries/queries.test-utils';
 import type { Board } from '@/types/domain';
 import type { Kid } from '@/types/domain';
 
@@ -26,20 +27,8 @@ const { useKidModeNav } = await import('./useKidModeNav');
 
 // Boards arrive from useBoards sorted by updated_at desc; fixtures below are
 // listed in that order.
-const board = (over: Partial<Board>): Board => ({
-  id: 'b1',
-  ownerId: 'owner',
-  kidId: 'k1',
-  name: 'Board',
-  kind: 'sequence',
-  labelsVisible: true,
-  voiceMode: 'tts',
-  stepIds: ['p1'],
-  kidReorderable: false,
-  accent: 'sage',
-  serverUpdatedAt: '2026-01-01T00:00:00Z',
-  ...over,
-});
+const board = (over: Partial<Board>): Board =>
+  makeBoard({ id: 'b1', kidId: 'k1', stepIds: ['p1'], ...over });
 
 const kid = (id: string): Kid => ({ id, ownerId: 'owner', name: id });
 

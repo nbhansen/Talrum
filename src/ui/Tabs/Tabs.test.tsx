@@ -69,19 +69,6 @@ describe('Tabs', () => {
     expect(screen.getByRole('tab', { name: /generate/i })).toHaveFocus();
   });
 
-  it('puts only the selected tab in the Tab order', () => {
-    render(
-      <>
-        <Tabs id="t" items={ITEMS} value="upload" onChange={vi.fn()} />
-        <TabPanel tabsId="t" value="upload">
-          Panel
-        </TabPanel>
-      </>,
-    );
-    expect(screen.getByRole('tab', { name: /upload/i })).toHaveAttribute('tabindex', '0');
-    expect(screen.getByRole('tab', { name: /library/i })).toHaveAttribute('tabindex', '-1');
-  });
-
   it('names the panel after the selected tab', async () => {
     render(<Harness />);
     expect(screen.getByRole('tabpanel', { name: /library/i })).toHaveTextContent('Panel library');

@@ -64,7 +64,17 @@ vi.mock('@/features/login/Login', () => ({
 const { AuthGate } = await import('./AuthGate');
 const { useSessionUser } = await import('@/lib/auth/session');
 
-const UserIdProbe = (): JSX.Element => <div data-testid="probe-user-id">{useSessionUser().id}</div>;
+const UserIdProbe = (): JSX.Element => <div>{useSessionUser().id}</div>;
+
+const renderGate = (child: JSX.Element = <UserIdProbe />): void => {
+  render(<AuthGate>{child}</AuthGate>);
+};
+
+const atPath = (path: string): void => {
+  const originalPath = window.location.pathname;
+  history.replaceState(null, '', path);
+  onTestFinished(() => history.replaceState(null, '', originalPath));
+};
 
 // A stored language, so LanguageGate shows the children.
 beforeEach(() => {
@@ -76,17 +86,12 @@ afterEach(() => {
   onAuthStateChangeMock.mockClear();
   clearPersistedCacheMock.mockClear();
   captureExceptionMock.mockReset();
-  window.localStorage.clear();
 });
 
 describe('AuthGate', () => {
   it('shows the loading copy while getSession is pending', () => {
     getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
-    render(
-      <AuthGate>
-        <div>app body</div>
-      </AuthGate>,
-    );
+    renderGate(<div>app body</div>);
     expect(screen.getByText('Loading…')).toBeInTheDocument();
     expect(screen.queryByText('app body')).not.toBeInTheDocument();
   });
@@ -94,14 +99,8 @@ describe('AuthGate', () => {
   it('shows an error screen with Retry when getSession rejects', async () => {
     const failure = new Error('fetch failed: net::ERR');
     getSessionMock.mockRejectedValueOnce(failure);
-    render(
-      <AuthGate>
-        <div>app body</div>
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByText('Could not reach the server')).toBeInTheDocument();
-    });
+    renderGate(<div>app body</div>);
+    await screen.findByText('Could not reach the server');
     expect(screen.getByText('Talrum could not start your session.')).toBeInTheDocument();
     expect(screen.queryByText(/fetch failed/)).not.toBeInTheDocument();
     expect(captureExceptionMock).toHaveBeenCalledWith(failure, {
@@ -112,9 +111,7 @@ describe('AuthGate', () => {
 
     getSessionMock.mockResolvedValueOnce({ data: { session: null } });
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => {
-      expect(screen.getByText('login screen')).toBeInTheDocument();
-    });
+    await screen.findByText('login screen');
   });
 
   describe('getSession hangs while offline', () => {
@@ -134,11 +131,7 @@ describe('AuthGate', () => {
         Object.defineProperty(navigator, 'onLine', { value: originalOnline, configurable: true });
         Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
       });
-      render(
-        <AuthGate>
-          <div>app body</div>
-        </AuthGate>,
-      );
+      renderGate(<div>app body</div>);
       expect(screen.getByText('Loading…')).toBeInTheDocument();
       act(() => {
         vi.advanceTimersByTime(5000);
@@ -176,11 +169,7 @@ describe('AuthGate', () => {
     getSessionMock.mockReturnValueOnce(new Promise(() => undefined));
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      render(
-        <AuthGate>
-          <div>app body</div>
-        </AuthGate>,
-      );
+      renderGate(<div>app body</div>);
       expect(screen.queryByRole('button', { name: 'Reload' })).not.toBeInTheDocument();
       act(() => {
         vi.advanceTimersByTime(5000);
@@ -194,121 +183,60 @@ describe('AuthGate', () => {
     }
   });
 
-  it('renders children (not Login) when out and on a public path', async () => {
-    const originalPath = window.location.pathname;
-    history.replaceState(null, '', '/account-deleted');
-    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
-    try {
-      render(
-        <AuthGate>
-          <div data-testid="public-child">deleted page</div>
-        </AuthGate>,
-      );
-      await waitFor(() => {
-        expect(screen.getByTestId('public-child')).toBeInTheDocument();
-      });
+  it.each(['/account-deleted', '/account-deleted/'])(
+    'renders children (not Login) when out and on the public path %s',
+    async (path) => {
+      atPath(path);
+      getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+      renderGate(<div>deleted page</div>);
+      expect(await screen.findByText('deleted page')).toBeInTheDocument();
       expect(screen.queryByText('login screen')).not.toBeInTheDocument();
-    } finally {
-      history.replaceState(null, '', originalPath);
-    }
-  });
-
-  it('renders children (not Login) when out and on a public path with trailing slash', async () => {
-    const originalPath = window.location.pathname;
-    history.replaceState(null, '', '/account-deleted/');
-    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
-    try {
-      render(
-        <AuthGate>
-          <div data-testid="public-child">deleted page</div>
-        </AuthGate>,
-      );
-      await waitFor(() => {
-        expect(screen.getByTestId('public-child')).toBeInTheDocument();
-      });
-      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
-    } finally {
-      history.replaceState(null, '', originalPath);
-    }
-  });
+    },
+  );
 
   // Fails if the PUBLIC_PATHS check leaves the `out` branch: at the moment
   // SIGNED_OUT lands, a user already on /account-deleted must keep seeing it
   // rather than bounce to <Login />.
   it('keeps showing children on /account-deleted when SIGNED_OUT fires after navigation', async () => {
-    const originalPath = window.location.pathname;
-    history.replaceState(null, '', '/account-deleted');
+    atPath('/account-deleted');
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
-    try {
-      render(
-        <AuthGate>
-          <div data-testid="public-children">deleted page</div>
-        </AuthGate>,
-      );
-      await waitFor(() => {
-        expect(screen.getByTestId('public-children')).toBeInTheDocument();
-      });
-
-      act(() => {
-        lastAuthListener?.('SIGNED_OUT', null);
-      });
-      await waitFor(() => {
-        expect(screen.getByTestId('public-children')).toBeInTheDocument();
-      });
-      expect(screen.queryByText('login screen')).not.toBeInTheDocument();
-    } finally {
-      history.replaceState(null, '', originalPath);
-    }
-  });
-
-  it('still shows Login when out and on a non-public path', async () => {
-    const originalPath = window.location.pathname;
-    history.replaceState(null, '', '/');
-    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
-    try {
-      render(
-        <AuthGate>
-          <div data-testid="public-child">should not render</div>
-        </AuthGate>,
-      );
-      await waitFor(() => {
-        expect(screen.getByText('login screen')).toBeInTheDocument();
-      });
-      expect(screen.queryByTestId('public-child')).not.toBeInTheDocument();
-    } finally {
-      history.replaceState(null, '', originalPath);
-    }
-  });
-
-  // Signing back in as a different user must carry the new user.id through
-  // SessionProvider, or dependent hooks keep reading the old one.
-  it('propagates a new session.user when onAuthStateChange fires after re-auth', async () => {
-    const sessionA = makeSession('user-a-id', 'a@example.com');
-    const sessionB = makeSession('user-b-id', 'b@example.com');
-    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
-    });
+    renderGate(<div>deleted page</div>);
+    await screen.findByText('deleted page');
 
     act(() => {
       lastAuthListener?.('SIGNED_OUT', null);
     });
-    await waitFor(() => {
-      expect(screen.getByText('login screen')).toBeInTheDocument();
+    expect(await screen.findByText('deleted page')).toBeInTheDocument();
+    expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+  });
+
+  it('still shows Login when out and on a non-public path', async () => {
+    atPath('/');
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    renderGate(<div>should not render</div>);
+    expect(await screen.findByText('login screen')).toBeInTheDocument();
+    expect(screen.queryByText('should not render')).not.toBeInTheDocument();
+  });
+
+  // Signing back in as a different user must carry the new user.id through
+  // SessionContext, or dependent hooks keep reading the old one.
+  it('propagates a new session.user when onAuthStateChange fires after re-auth', async () => {
+    const sessionA = makeSession('user-a-id', 'a@example.com');
+    const sessionB = makeSession('user-b-id', 'b@example.com');
+    getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
+    renderGate();
+    await screen.findByText('user-a-id');
+
+    act(() => {
+      lastAuthListener?.('SIGNED_OUT', null);
     });
+    await screen.findByText('login screen');
 
     act(() => {
       lastAuthListener?.('SIGNED_IN', sessionB);
     });
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
-    });
+    await screen.findByText('user-b-id');
   });
 
   // getSession can lag (it refreshes an expired token over the network). A
@@ -322,23 +250,17 @@ describe('AuthGate', () => {
       }),
     );
     const sessionB = makeSession('user-b-id', 'b@example.com');
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
+    renderGate();
 
     act(() => {
       lastAuthListener?.('SIGNED_IN', sessionB);
     });
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
-    });
+    await screen.findByText('user-b-id');
 
     await act(async () => {
       resolveGetSession({ data: { session: null } });
     });
-    expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+    expect(screen.getByText('user-b-id')).toBeInTheDocument();
     expect(screen.queryByText('login screen')).not.toBeInTheDocument();
   });
 
@@ -350,14 +272,8 @@ describe('AuthGate', () => {
     localStorage.setItem('talrum:pin-hash', 'hash-of-1234');
     localStorage.setItem('talrum:last-board', '{"id":"abc","kind":"sequence"}');
 
-    render(
-      <AuthGate>
-        <div data-testid="app-body">app</div>
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('app-body')).toBeInTheDocument();
-    });
+    renderGate(<div>app</div>);
+    await screen.findByText('app');
 
     act(() => {
       lastAuthListener?.('SIGNED_OUT', null);
@@ -375,14 +291,8 @@ describe('AuthGate', () => {
     const sessionB = makeSession('user-b-id', 'b@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
 
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
-    });
+    renderGate();
+    await screen.findByText('user-a-id');
 
     localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
     localStorage.setItem('talrum:last-board', '{"id":"a-board","kind":"choice"}');
@@ -392,7 +302,7 @@ describe('AuthGate', () => {
       lastAuthListener?.('SIGNED_IN', sessionB);
     });
     await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(screen.getByText('user-b-id')).toBeInTheDocument();
       expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
       expect(localStorage.getItem('talrum:last-board')).toBeNull();
     });
@@ -404,20 +314,14 @@ describe('AuthGate', () => {
     localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
     localStorage.setItem('talrum:last-board', '{"id":"a-board","kind":"choice"}');
 
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByText('login screen')).toBeInTheDocument();
-    });
+    renderGate();
+    await screen.findByText('login screen');
 
     act(() => {
       lastAuthListener?.('SIGNED_IN', makeSession('user-b-id', 'b@example.com'));
     });
     await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(screen.getByText('user-b-id')).toBeInTheDocument();
       expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
       expect(localStorage.getItem('talrum:last-board')).toBeNull();
     });
@@ -428,19 +332,13 @@ describe('AuthGate', () => {
     localStorage.setItem('talrum:store-owner', 'user-a-id');
     localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
 
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByText('login screen')).toBeInTheDocument();
-    });
+    renderGate();
+    await screen.findByText('login screen');
 
     await act(async () => {
       lastAuthListener?.('SIGNED_IN', makeSession('user-a-id', 'a@example.com'));
     });
-    expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
+    expect(screen.getByText('user-a-id')).toBeInTheDocument();
     expect(localStorage.getItem('talrum:pin-hash')).toBe('user-a-pin-hash');
   });
 
@@ -448,14 +346,8 @@ describe('AuthGate', () => {
     getSessionMock.mockResolvedValueOnce({
       data: { session: makeSession('user-a-id', 'a@example.com') },
     });
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
-    });
+    renderGate();
+    await screen.findByText('user-a-id');
     localStorage.setItem('talrum:store-owner', 'user-b-id');
     localStorage.setItem('talrum:pin-hash', 'user-a-pin-hash');
 
@@ -463,7 +355,7 @@ describe('AuthGate', () => {
       lastAuthListener?.('SIGNED_IN', makeSession('user-b-id', 'b@example.com'));
     });
     await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-b-id');
+      expect(screen.getByText('user-b-id')).toBeInTheDocument();
       expect(localStorage.getItem('talrum:pin-hash')).toBeNull();
     });
   });
@@ -477,14 +369,8 @@ describe('AuthGate', () => {
     onTestFinished(() => spy.mockRestore());
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
-    });
+    renderGate();
+    await screen.findByText('user-a-id');
     localStorage.setItem('talrum:pin-hash', 'should-survive-refresh');
 
     await act(async () => {
@@ -497,11 +383,7 @@ describe('AuthGate', () => {
     getSessionMock.mockResolvedValueOnce({
       data: { session: makeSession('user-a-id', 'a@example.com') },
     });
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
+    renderGate();
     await waitFor(() => {
       expect(localStorage.getItem('talrum:store-owner')).toBe('user-a-id');
     });
@@ -518,14 +400,8 @@ describe('AuthGate', () => {
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
 
-    render(
-      <AuthGate>
-        <UserIdProbe />
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('probe-user-id')).toHaveTextContent('user-a-id');
-    });
+    renderGate();
+    await screen.findByText('user-a-id');
 
     localStorage.setItem('talrum:pin-hash', 'should-survive-refresh');
     localStorage.setItem('talrum:last-board', '{"id":"keep","kind":"sequence"}');
@@ -546,14 +422,8 @@ describe('AuthGate', () => {
     clearPersistedCacheMock.mockRejectedValueOnce(cacheError);
     const sessionA = makeSession('user-a-id', 'a@example.com');
     getSessionMock.mockResolvedValueOnce({ data: { session: sessionA } });
-    render(
-      <AuthGate>
-        <div data-testid="app-body">app</div>
-      </AuthGate>,
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId('app-body')).toBeInTheDocument();
-    });
+    renderGate(<div>app</div>);
+    await screen.findByText('app');
     act(() => {
       lastAuthListener?.('SIGNED_OUT', null);
     });
@@ -574,27 +444,21 @@ describe('AuthGate', () => {
   it('sweeps stale sb-*-auth-token keys on mount, preserving the current project key (#184)', async () => {
     // CI does not load .env.local, so the real env var would be undefined.
     vi.stubEnv('VITE_SUPABASE_URL', 'https://testref.supabase.co');
-    const currentKey = 'sb-testref-auth-token';
-
-    try {
-      localStorage.setItem(currentKey, '{"current":1}');
-      localStorage.setItem('sb-some-other-ref-auth-token', '{"stale":1}');
-      localStorage.setItem('sb-127-auth-token', '{"stale":2}');
-
-      getSessionMock.mockResolvedValueOnce({ data: { session: null } });
-      render(
-        <AuthGate>
-          <div>app</div>
-        </AuthGate>,
-      );
-
-      await waitFor(() => {
-        expect(localStorage.getItem('sb-some-other-ref-auth-token')).toBeNull();
-        expect(localStorage.getItem('sb-127-auth-token')).toBeNull();
-      });
-      expect(localStorage.getItem(currentKey)).toBe('{"current":1}');
-    } finally {
+    onTestFinished(() => {
       vi.unstubAllEnvs();
-    }
+    });
+    const currentKey = 'sb-testref-auth-token';
+    localStorage.setItem(currentKey, '{"current":1}');
+    localStorage.setItem('sb-some-other-ref-auth-token', '{"stale":1}');
+    localStorage.setItem('sb-127-auth-token', '{"stale":2}');
+
+    getSessionMock.mockResolvedValueOnce({ data: { session: null } });
+    renderGate(<div>app</div>);
+
+    await waitFor(() => {
+      expect(localStorage.getItem('sb-some-other-ref-auth-token')).toBeNull();
+      expect(localStorage.getItem('sb-127-auth-token')).toBeNull();
+    });
+    expect(localStorage.getItem(currentKey)).toBe('{"current":1}');
   });
 });

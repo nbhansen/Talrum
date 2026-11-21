@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   clearLastBoard,
@@ -10,15 +10,6 @@ import {
 } from './lastBoard';
 
 describe('lastBoard', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-  afterEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-
   it('returns null when nothing is stored', () => {
     expect(getLastBoardId()).toBeNull();
   });

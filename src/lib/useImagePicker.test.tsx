@@ -28,7 +28,9 @@ const pick = async (
   name = 'photo.jpg',
 ): Promise<void> => {
   await act(async () => {
-    result.current.onInputChange(changeEventFor(new File(['x'], name, { type: 'image/jpeg' })));
+    result.current.inputProps.onChange(
+      changeEventFor(new File(['x'], name, { type: 'image/jpeg' })),
+    );
   });
 };
 

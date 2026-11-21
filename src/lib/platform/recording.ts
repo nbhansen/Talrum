@@ -33,9 +33,7 @@ export interface Recording {
 }
 
 export const isRecordingSupported = (): boolean =>
-  typeof navigator !== 'undefined' &&
-  Boolean(navigator.mediaDevices?.getUserMedia) &&
-  typeof MediaRecorder !== 'undefined';
+  Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
 
 export const startRecording = async (): Promise<Recording> => {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

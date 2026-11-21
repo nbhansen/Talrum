@@ -27,11 +27,6 @@ export const listCache = <Item, Input>(
   },
 });
 
-export interface OptimisticListContext {
-  /** Pre-mutation snapshot per cache, index-aligned with `caches`. */
-  snapshots: (unknown[] | undefined)[];
-}
-
 /**
  * List-keyed sibling of `useUpdateBoard` (boards.mutations.ts): the
  * cancel → snapshot → patch → rollback → invalidate triad for whole-list
@@ -40,8 +35,6 @@ export interface OptimisticListContext {
 export const useOptimisticListMutation = <Input>(options: {
   caches: readonly ListCache<Input>[];
   mutationFn: (input: Input) => Promise<void>;
-  /** Runs after the cache patches in onMutate; NOT rolled back on error. */
-  onMutateSideEffect?: (input: Input) => void;
   /**
    * Runs at the top of onError, BEFORE the snapshots are restored. For
    * cleanup that must observe the still-patched cache — e.g. revoking
@@ -50,16 +43,15 @@ export const useOptimisticListMutation = <Input>(options: {
   beforeRollback?: () => void;
   /** Runs in onSettled, before the invalidation, and is skipped with it. */
   beforeInvalidate?: () => void;
-}): UseMutationResult<void, Error, Input, OptimisticListContext> => {
+}): UseMutationResult<void, Error, Input> => {
   const qc = useQueryClient();
-  const { caches, mutationFn, onMutateSideEffect, beforeRollback, beforeInvalidate } = options;
+  const { caches, mutationFn, beforeRollback, beforeInvalidate } = options;
   return useMutation({
     mutationFn,
     onMutate: async (input) => {
       await Promise.all(caches.map((c) => qc.cancelQueries({ queryKey: c.queryKey })));
       const snapshots = caches.map((c) => qc.getQueryData<unknown[]>(c.queryKey));
       for (const c of caches) c.apply(qc, input);
-      onMutateSideEffect?.(input);
       return { snapshots };
     },
     onError: (_err, _input, ctx) => {
