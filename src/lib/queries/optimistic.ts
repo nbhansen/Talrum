@@ -5,6 +5,8 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { hasQueuedWrites } from '@/lib/outbox';
+
 /**
  * One optimistic list cache touched by a mutation. Built via `listCache` so
  * each cache keeps its own item type without leaking a generic into the
@@ -46,8 +48,8 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
    * planted `blob:` URLs, which are unreachable once the rollback lands.
    */
   beforeRollback?: () => void;
-  /** Runs in onSettled, before every cache key is invalidated. */
-  beforeInvalidate?: (input: Input, error: Error | null) => void;
+  /** Runs in onSettled, before the invalidation, and is skipped with it. */
+  beforeInvalidate?: () => void;
 }): UseMutationResult<Result, Error, Input, OptimisticListContext> => {
   const qc = useQueryClient();
   const { caches, mutationFn, onMutateSideEffect, beforeRollback, beforeInvalidate } = options;
@@ -73,8 +75,9 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
         else qc.removeQueries({ queryKey: c.queryKey, exact: true });
       });
     },
-    onSettled: (_result, err, input) => {
-      beforeInvalidate?.(input, err);
+    onSettled: async () => {
+      if (await hasQueuedWrites()) return;
+      beforeInvalidate?.();
       for (const c of caches) qc.invalidateQueries({ queryKey: c.queryKey });
     },
   });

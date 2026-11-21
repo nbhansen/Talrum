@@ -52,7 +52,11 @@ lifecycle. The steps:
 3. **`onError`**: restore the snapshot from context. Transient network errors
    never reach here — the outbox absorbs them and the optimistic patch stands.
 4. **`onSettled`** (or `onSuccess`): invalidate every key the write touched —
-   per-id _and_ list — so the next refetch reconciles with the server.
+   per-id _and_ list — so the next refetch reconciles with the server. Skip
+   this while the outbox holds a waiting write (`hasQueuedWrites`): the
+   refetch would replace the patch with the old row (#773). A drain that
+   sends writes and leaves none waiting invalidates every query instead
+   (`onQueueFlushed`, wired in `main.tsx`).
 
 Every board field edit goes through `useUpdateBoard`, which also threads the
 board's `serverUpdatedAt` into the entry as the conflict-guard baseline (#281).
@@ -87,6 +91,9 @@ scan, and each has a different symptom:
   not-yet-reconciled mutation. Error paths only run on the online fast path, so
   the settle invalidation refetches real paths immediately; the cost is the same
   brief flash as the first case.
+- **Queued upload.** The sweep is skipped with the settle invalidation while a
+  write waits, so the planted URL stays live offline. The drain's refetch then
+  replaces it without a revoke, and the blob stays in memory until a reload.
 
 ## Choosing a write path
 

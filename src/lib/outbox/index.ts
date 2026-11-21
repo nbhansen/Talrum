@@ -6,6 +6,8 @@ import {
   drain,
   entryAfterFailure,
   getStatus,
+  hasQueuedWrites,
+  onQueueFlushed,
   type OutboxStatus,
   reconcileQueue,
   refreshStatus,
@@ -22,7 +24,7 @@ import type { OutboxEntry } from './types';
 
 export { OUTBOX_KEY_PREFIX } from './store';
 export type { BoardRowPatch } from './types';
-export { startOutbox };
+export { hasQueuedWrites, onQueueFlushed, startOutbox };
 
 /**
  * Tell the outbox which account it works for. Draining is gated on a known
