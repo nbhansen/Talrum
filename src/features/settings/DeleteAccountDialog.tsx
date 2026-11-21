@@ -11,7 +11,6 @@ import { TextField } from '@/ui/TextField/TextField';
 import styles from './DeleteAccountDialog.module.css';
 
 const REQUIRED_PHRASE = 'delete my account';
-const TITLE_ID = 'del-acct-title';
 
 interface Props {
   onCancel: () => void;
@@ -57,13 +56,11 @@ export const DeleteAccountDialog = ({ onCancel, onPreSignOut }: Props): JSX.Elem
   };
 
   return (
-    <Modal onClose={handleClose} labelledBy={TITLE_ID} size="sm" padded>
+    <Modal onClose={handleClose} size="sm" padded>
       <div className={styles.wrap}>
         <DialogHeader
           title="Delete your account?"
           subtitle="This is permanent and cannot be undone."
-          titleId={TITLE_ID}
-          onClose={handleClose}
         />
         <p className={styles.lead}>This permanently deletes:</p>
         <ul className={styles.list}>

@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ProcessedImage } from '@/lib/image';
 import type { Board, Pictogram } from '@/types/domain';
 
 interface MockPostgrestError {
@@ -60,7 +61,7 @@ const { boardsQueryKey } = await import('./boards.read');
 const {
   __test_revokePictogramBlobs,
   useClearPictogramAudio,
-  useCreatePhotoPictogram,
+  useAddPhotoPictogram,
   useDeletePictogram,
   useRenamePictogram,
   useReplacePictogramImage,
@@ -114,7 +115,6 @@ const boardSeed = (): Board[] => [
     stepIds: ['p1', 'p2'],
     kidReorderable: false,
     accent: 'peach',
-    updatedLabel: 'Edited just now',
   },
   {
     id: 'evening',
@@ -127,7 +127,6 @@ const boardSeed = (): Board[] => [
     stepIds: ['p2'],
     kidReorderable: false,
     accent: 'peach',
-    updatedLabel: 'Edited just now',
   },
 ];
 
@@ -431,13 +430,19 @@ describe('useSetPictogramAudio', () => {
   });
 });
 
-describe('useCreatePhotoPictogram', () => {
+describe('useAddPhotoPictogram', () => {
+  const image = (): ProcessedImage => ({
+    blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    extension: 'jpg',
+    previewUrl: 'blob:preview',
+  });
+
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => 'blob:planted-photo');
     URL.revokeObjectURL = vi.fn();
   });
 
-  it('appends an optimistic row, uploads + inserts, and resolves with the real path', async () => {
+  it('appends an optimistic row, then uploads and inserts under a versioned path', async () => {
     const qc = makeClient();
     qc.setQueryData(pictogramsQueryKey, pictogramSeed());
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
@@ -448,40 +453,37 @@ describe('useCreatePhotoPictogram', () => {
     uploadMock.mockReturnValue(new Promise((r) => (resolveUpload = r)));
     upsertMock.mockResolvedValue({ error: null });
 
-    const { result } = renderHook(() => useCreatePhotoPictogram(), {
+    const { result } = renderHook(() => useAddPhotoPictogram(), {
       wrapper: makeSessionWrapper(qc),
     });
 
-    const blob = new Blob(['jpeg'], { type: 'image/jpeg' });
-    let created: { id: string; imagePath: string } | undefined;
+    let done = false;
     act(() => {
-      void result.current
-        .mutateAsync({ id: crypto.randomUUID(), label: '  Cereal bowl  ', blob, extension: 'jpg' })
-        .then((r) => (created = r));
+      void result.current.add('  Cereal bowl  ', image()).then(() => (done = true));
     });
 
     // Optimistic window: the new tile renders from the local blob, trimmed label.
+    let id = '';
     await waitFor(() => {
       const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
       const optimistic = list?.find((p) => p.label === 'Cereal bowl');
       expect(optimistic).toMatchObject({ style: 'photo', imagePath: 'blob:planted-photo' });
+      id = optimistic?.id ?? '';
     });
 
     resolveUpload({ error: null });
-    await waitFor(() => expect(created).toBeDefined());
+    await waitFor(() => expect(done).toBe(true));
 
-    // The resolved path is the real server path the refetch will serve.
     // Versioned path (#415): owner/<id>-<ulid>.jpg, unique per upload.
-    expect(created?.imagePath).toMatch(
-      new RegExp(`/${created?.id ?? ''}-[0-9A-HJKMNP-TV-Z]{26}\\.jpg$`),
-    );
     expect(upsertMock).toHaveBeenCalledWith(
       {
-        id: created?.id,
+        id,
         owner_id: expect.any(String) as unknown,
         label: 'Cereal bowl',
         style: 'photo',
-        image_path: created?.imagePath,
+        image_path: expect.stringMatching(
+          new RegExp(`/${id}-[0-9A-HJKMNP-TV-Z]{26}\\.jpg$`),
+        ) as unknown,
       },
       { ignoreDuplicates: true },
     );
@@ -496,20 +498,14 @@ describe('useCreatePhotoPictogram', () => {
     upsertMock.mockResolvedValue({ error: rlsError });
     removeMock.mockResolvedValue({ error: null });
 
-    const { result } = renderHook(() => useCreatePhotoPictogram(), {
+    const { result } = renderHook(() => useAddPhotoPictogram(), {
       wrapper: makeSessionWrapper(qc),
     });
 
-    act(() => {
-      result.current.mutate({
-        id: crypto.randomUUID(),
-        label: 'Cereal bowl',
-        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
-        extension: 'jpg',
-      });
+    await act(async () => {
+      await expect(result.current.add('Cereal bowl', image())).rejects.toBeDefined();
     });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
     // No rollback delete (#414 review): a run abandoned by the handler
     // timeout could delete the blob its own retry just re-uploaded. The
     // orphaned object is the accepted, cheaper failure.

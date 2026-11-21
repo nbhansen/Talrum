@@ -35,11 +35,6 @@ describe('rowToBoard', () => {
     expect(b.accent).toBe('peach');
   });
 
-  it('derives a human updatedLabel from updated_at', () => {
-    const recent = rowToBoard(row({ updated_at: new Date().toISOString() }));
-    expect(recent.updatedLabel).toMatch(/just now|m ago/);
-  });
-
   it('exposes the raw updated_at as serverUpdatedAt — the conflict-guard baseline (#281)', () => {
     const b = rowToBoard(row({ updated_at: '2026-06-11T10:00:00.000001+00:00' }));
     expect(b.serverUpdatedAt).toBe('2026-06-11T10:00:00.000001+00:00');

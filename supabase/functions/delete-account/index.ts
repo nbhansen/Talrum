@@ -2,19 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 
 import {
   authenticate,
+  type AuthLike,
   errorResponse as sharedErrorResponse,
   jsonResponse,
   logFailure as sharedLogFailure,
   rejectNonPost,
 } from '../_shared/http.ts';
 import { type AdminClient, deleteAccount } from './deleteAccount.ts';
-import { type DeleteResponse, DeletionError, type ErrorCode } from './types.ts';
-
-// Handler only needs auth.getUser to identify the caller. The full deletion
-// is handed off to deleteFn, so the handler's view of the admin client is
-// narrower than deleteAccount's. AdminLike is structurally a subset of
-// AdminClient, so a real client is assignable to AdminLike without casting.
-type AdminLike = Pick<AdminClient, 'auth'>;
+import { DeletionError, type ErrorCode } from './types.ts';
 
 // Narrowed to this function's closed code set (types.ts).
 const errorResponse: (code: ErrorCode, message: string, status: number) => Response =
@@ -46,7 +41,7 @@ const logSuccess = (
 // cannot silently bypass deletion.
 export const handleRequest = async (
   req: Request,
-  admin: AdminLike,
+  admin: AuthLike,
   deleteFn: (uid: string) => Promise<{ audioCount: number; imageCount: number }>,
 ): Promise<Response> => {
   const start = Date.now();
@@ -71,7 +66,7 @@ export const handleRequest = async (
     const result = await deleteFn(userId);
 
     logSuccess(userId, result.audioCount, result.imageCount, Date.now() - start);
-    return jsonResponse({ ok: true } satisfies DeleteResponse, 200);
+    return jsonResponse({ ok: true }, 200);
   } catch (err) {
     if (err instanceof DeletionError) {
       logFailure(userId, err.step, err);

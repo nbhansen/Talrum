@@ -15,8 +15,8 @@ interface StepTileProps {
   kind: BoardKind;
   labelsVisible: boolean;
   onRemove: () => void;
-  /** Optional — when provided, a pencil button opens the edit sheet for this picto. */
-  onEdit?: () => void;
+  /** Opens the edit sheet for this pictogram. */
+  onEdit: () => void;
   drag: DragBindings;
 }
 
@@ -48,22 +48,20 @@ export const StepTile = ({
       <div className={styles.body}>
         <PictoCard picto={picto} size={116} showLabel={labelsVisible} />
       </div>
-      {onEdit && (
-        <IconButton
-          size="sm"
-          variant="raised"
-          className={styles.edit}
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label={`Edit ${picto.label}`}
-          title="Edit"
-        >
-          <PencilIcon size={11} />
-        </IconButton>
-      )}
+      <IconButton
+        size="sm"
+        variant="raised"
+        className={styles.edit}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label={`Edit ${picto.label}`}
+        title="Edit"
+      >
+        <PencilIcon size={11} />
+      </IconButton>
       <IconButton
         size="sm"
         variant="raised"

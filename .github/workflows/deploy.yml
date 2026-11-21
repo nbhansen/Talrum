@@ -11,6 +11,11 @@ on:
 concurrency:
   group: deploy
   cancel-in-progress: false
+env:
+  # The exact commit the gating ci run verified. Under workflow_run,
+  # github.sha is the branch tip at event time, which can already be
+  # newer than the tested commit.
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 jobs:
   # Schema first, SPA and functions second — `needs:` makes it impossible to
   # ship code against a database that missed its migration (#337).
@@ -32,10 +37,6 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       DO_NOT_TRACK: '1'
-      # The exact commit the gating ci run verified. Under workflow_run,
-      # github.sha is the branch tip at event time, which can already be
-      # newer than the tested commit.
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -75,8 +76,6 @@ jobs:
       contents: read
       deployments: write
     env:
-      # Same commit the gating ci run verified — see the migrations job.
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -108,8 +107,6 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-      # Same commit the gating ci run verified — see the migrations job.
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -147,7 +144,6 @@ jobs:
       - name: File issue on failure
         env:
           GH_TOKEN: ${{ github.token }}
-          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           {
             echo "A deploy job failed. A failed migrations job skips the SPA and function deploys, so production keeps serving the previous release (see #337 for the failure mode this prevents)."

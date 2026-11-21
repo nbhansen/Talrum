@@ -34,7 +34,7 @@ vi.mock('@/lib/platform/telemetry', () => ({ captureException: vi.fn() }));
 const { boardQueryKey, boardsQueryKey } = await import('./boards.read');
 const { boardMembersQueryKey } = await import('./board-members');
 const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
-const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
+const { clearLastBoard, getLastBoardId, setLastBoardId } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
 const { queryClient: appQueryClient } = await import('@/lib/queryClient');
 const { onQueueFlushed, setOutboxOwner, useOutboxStatus } = await import('@/lib/outbox');
@@ -52,7 +52,6 @@ const seed: Board = {
   stepIds: ['wakeup'],
   kidReorderable: false,
   accent: 'peach',
-  updatedLabel: 'Edited just now',
 };
 
 const appendB = {
@@ -504,18 +503,18 @@ describe('useDeleteBoard (#520)', () => {
     });
     qc.setQueryData(boardsQueryKey, [seed, other]);
     deleteEqMock.mockResolvedValue({ error: null });
-    setLastBoard({ id: 'bedtime' });
+    setLastBoardId('bedtime');
 
     const { result } = renderHook(() => useDeleteBoard(), { wrapper: makeWrapper(qc) });
     act(() => {
       result.current.mutate({ boardId: 'morning' });
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(getLastBoard()?.id).toBe('bedtime');
+    expect(getLastBoardId()).toBe('bedtime');
 
     act(() => {
       result.current.mutate({ boardId: 'bedtime' });
     });
-    await waitFor(() => expect(getLastBoard()).toBeNull());
+    await waitFor(() => expect(getLastBoardId()).toBeNull());
   });
 });

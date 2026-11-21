@@ -1,6 +1,5 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { formatUpdated } from '@/lib/formatUpdated';
 import { hasPgCode } from '@/lib/hasPgCode';
 import type { BoardRowPatch } from '@/lib/outbox';
 import { fetchAllRows } from '@/lib/queries/fetchAllRows';
@@ -27,7 +26,6 @@ export const rowToBoard = (row: BoardRow): Board => ({
   stepIds: [...row.step_ids],
   kidReorderable: row.kid_reorderable,
   accent: row.accent as AccentBg,
-  updatedLabel: formatUpdated(row.updated_at),
   serverUpdatedAt: row.updated_at,
 });
 

@@ -39,11 +39,8 @@ of them is a button: the sidebar `KID` button (via `useKidModeNav`),
 Auto-launch checks the precondition itself as well, so a device without a PIN
 lands on parent home instead of bouncing through a kid route into Settings.
 
-This is the fix for #353. The gate used to create a PIN on demand: with none
-stored, the first exit tap opened a two-step setup flow, so a child could
-choose `1111`, confirm it, and land in the board builder — the screen with a
-Remove button on every step. A gate that hands out keys to whoever asks first
-is not a gate.
+The gate never creates a PIN on demand: a child could then choose one and
+walk into the board builder (#353).
 
 Consequence worth knowing: signing out wipes the PIN along with the rest of
 device state (`clearPin` in `src/lib/queryClient.ts`), so kid mode is
@@ -101,12 +98,11 @@ through to `kidRouteFallback` in `src/app/routes.tsx`, which is rendered by
 the `ErrorBoundary` outside `KidModeLayout` — if the crash came from the
 layout, re-rendering it would re-throw.
 
-That fallback used to be a single full-screen `<Link to="/">` labelled "Tap
-to go back", which made a crash the last ungated route from kid mode into
-parent UI. A crash is exactly when a child taps repeatedly, so it was
-reliably the fastest way into the board builder (#371).
+The fallback is PIN-gated like every other exit: a crash is when a child
+taps repeatedly, so an ungated link there is the fastest way into parent UI
+(#371).
 
-`KidRouteFallback` (`src/widgets/KidModeGate/`) now offers two things:
+`KidRouteFallback` (`src/widgets/KidModeGate/`) offers two things:
 
 - **The big one reloads the current URL.** It does not navigate, so the child
   stays on a kid route — which `RequireKidPin` guards. A full reload rather

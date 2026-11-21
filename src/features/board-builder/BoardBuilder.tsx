@@ -15,10 +15,9 @@ import { PictoTile } from '@/widgets/PictoTile/PictoTile';
 
 import styles from './BoardBuilder.module.css';
 import { BoardErrorBanner } from './BoardErrorBanner';
-import { DeleteBoardConfirm } from './DeleteBoardConfirm';
 import { KindSwitchConfirm } from './KindSwitchConfirm';
-import { LeaveBoardConfirm } from './LeaveBoardConfirm';
 import { PictoPicker } from './pictogram-picker/PictoPicker';
+import { RemoveBoardConfirm } from './RemoveBoardConfirm';
 import { SettingsRow } from './SettingsRow';
 import { ShareModal } from './ShareModal';
 import { StepTile } from './StepTile';
@@ -54,8 +53,7 @@ export const BoardBuilder = ({
 
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingRemoval, setConfirmingRemoval] = useState(false);
   const [titleDraft, setTitleDraft] = useState(board.name);
   const pendingTitleWrite = useRef<{
     timer: ReturnType<typeof setTimeout>;
@@ -133,7 +131,7 @@ export const BoardBuilder = ({
         <div className={styles.crumbActions}>
           {isOwner ? (
             <>
-              <Button variant="pill" onClick={() => setConfirmingDelete(true)}>
+              <Button variant="pill" onClick={() => setConfirmingRemoval(true)}>
                 Delete board
               </Button>
               <Button variant="pill" onClick={share.open}>
@@ -141,26 +139,19 @@ export const BoardBuilder = ({
               </Button>
             </>
           ) : (
-            <Button variant="pill" onClick={() => setConfirmingLeave(true)}>
+            <Button variant="pill" onClick={() => setConfirmingRemoval(true)}>
               Leave board
             </Button>
           )}
         </div>
       </div>
-      {confirmingDelete && (
-        <DeleteBoardConfirm
+      {confirmingRemoval && (
+        <RemoveBoardConfirm
           boardId={board.id}
           boardName={board.name}
-          onCancel={() => setConfirmingDelete(false)}
-          onDeleted={onRemoved}
-        />
-      )}
-      {confirmingLeave && (
-        <LeaveBoardConfirm
-          boardId={board.id}
-          boardName={board.name}
-          onCancel={() => setConfirmingLeave(false)}
-          onLeft={onRemoved}
+          isOwner={isOwner}
+          onCancel={() => setConfirmingRemoval(false)}
+          onRemoved={onRemoved}
         />
       )}
 

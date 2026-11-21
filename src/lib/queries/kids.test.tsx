@@ -200,7 +200,6 @@ const boardSeed = (): Board[] => [
     stepIds: ['wakeup'],
     kidReorderable: false,
     accent: 'peach',
-    updatedLabel: 'Edited just now',
   },
   {
     id: 'play',
@@ -213,7 +212,6 @@ const boardSeed = (): Board[] => [
     stepIds: ['swing'],
     kidReorderable: false,
     accent: 'peach',
-    updatedLabel: 'Edited just now',
   },
 ];
 

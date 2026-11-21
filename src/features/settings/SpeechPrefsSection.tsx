@@ -18,6 +18,7 @@ import { Button } from '@/ui/Button/Button';
 import { Select } from '@/ui/Select/Select';
 import { Slider } from '@/ui/Slider/Slider';
 
+import shared from './settings.module.css';
 import styles from './SpeechPrefsSection.module.css';
 
 interface VoiceOption {
@@ -69,7 +70,7 @@ export const SpeechPrefsSection = (): JSX.Element => {
     return (
       <section>
         <h2>Speech</h2>
-        <p className={styles.muted}>Your browser doesn't support text-to-speech.</p>
+        <p className={shared.muted}>Your browser doesn't support text-to-speech.</p>
       </section>
     );
   }
@@ -77,10 +78,10 @@ export const SpeechPrefsSection = (): JSX.Element => {
   return (
     <section>
       <h2>Speech</h2>
-      <p className={styles.muted}>
+      <p className={shared.muted}>
         How pictograms sound when tapped. Changes apply on the next tap.
       </p>
-      <div className={styles.row}>
+      <div className={shared.row}>
         <Select
           label="Voice"
           layout="row"
@@ -89,7 +90,7 @@ export const SpeechPrefsSection = (): JSX.Element => {
           options={[{ value: '', label: 'Default (auto-pick)' }, ...voices]}
         />
       </div>
-      <div className={styles.row}>
+      <div className={shared.row}>
         <Slider
           label="Rate"
           value={prefs.rate}
@@ -99,7 +100,7 @@ export const SpeechPrefsSection = (): JSX.Element => {
           onChange={(rate) => update({ ...prefs, rate })}
         />
       </div>
-      <div className={styles.row}>
+      <div className={shared.row}>
         <Slider
           label="Pitch"
           value={prefs.pitch}

@@ -8,10 +8,6 @@ import { FormError } from '@/ui/FormError/FormError';
 import { Modal } from '@/ui/Modal/Modal';
 import { TextField } from '@/ui/TextField/TextField';
 
-import styles from './NewKidModal.module.css';
-
-const TITLE_ID = 'new-kid-modal-title';
-
 interface NewKidModalProps {
   onClose: () => void;
 }
@@ -38,12 +34,10 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm" padded>
+    <Modal onClose={onClose} size="sm" padded>
       <DialogHeader
         title="New kid"
         subtitle="Each kid has their own boards. You can add more later."
-        titleId={TITLE_ID}
-        onClose={onClose}
       />
       <form onSubmit={submit}>
         <TextField
@@ -58,7 +52,7 @@ export const NewKidModal = ({ onClose }: NewKidModalProps): JSX.Element => {
           }}
           placeholder="Liam"
         />
-        {error && <FormError className={styles.errorGap}>{error}</FormError>}
+        {error && <FormError spaced>{error}</FormError>}
         <DialogActions>
           <Button type="button" variant="ghost" onClick={onClose} disabled={createKid.isPending}>
             Cancel

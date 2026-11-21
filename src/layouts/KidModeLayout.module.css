@@ -28,16 +28,12 @@
 }
 
 .title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--tal-ink);
   /* Sub-scale negative pull to optically align the title baseline. */
   /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin-top: -2px;
-}
-
-.titleLarge {
-  font-size: 20px;
 }
 
 .exit {

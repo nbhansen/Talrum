@@ -80,21 +80,17 @@ export function connectivityHint(reason: string): string | null {
 
 function runSupabaseMigrationList(): { ok: true; stdout: string } | { ok: false; reason: string } {
   const args = migrationListArgs(process.env.SUPABASE_DB_URL || undefined);
-  // Single retry with 5s backoff. CI flakes on transient network errors are common enough
-  // that a one-shot retry is worth it; deeper than that and the failure is real.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt > 0) spawnSync('sleep', ['5']);
-    const res = spawnSync('supabase', args, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    if (res.status === 0) return { ok: true, stdout: res.stdout };
-    if (attempt === 1) {
-      const stderr = (res.stderr ?? '').trim();
-      return { ok: false, reason: stderr || `supabase CLI exited with ${res.status}` };
-    }
+  const run = () =>
+    spawnSync('supabase', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  let res = run();
+  if (res.status !== 0) {
+    // One retry: transient network errors are common in CI.
+    spawnSync('sleep', ['5']);
+    res = run();
   }
-  /* istanbul ignore next */ return { ok: false, reason: 'unreachable' };
+  if (res.status === 0) return { ok: true, stdout: res.stdout };
+  const stderr = (res.stderr ?? '').trim();
+  return { ok: false, reason: stderr || `supabase CLI exited with ${res.status}` };
 }
 
 export function main(): number {

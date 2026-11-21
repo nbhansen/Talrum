@@ -22,8 +22,6 @@ interface Props {
   onClose: () => void;
 }
 
-const TITLE_ID = 'tal-voice-recorder-title';
-
 export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.Element => {
   // Hosts capture the pictogram at tap time; saved audio lands in the cache.
   const picto = usePictograms().data?.find((p) => p.id === snapshot.id) ?? snapshot;
@@ -70,7 +68,7 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
     clearMut.isPending;
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
+    <Modal onClose={onClose} size="md">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Record voice"
@@ -80,8 +78,6 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
               {voiceModeLabel('tts')}&rdquo; or &ldquo;{voiceModeLabel('none')}&rdquo;.
             </>
           }
-          titleId={TITLE_ID}
-          onClose={onClose}
         />
       </div>
       <div className={styles.body}>

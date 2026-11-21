@@ -9,7 +9,7 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signOut: signOutMock } },
 }));
 
-const { performSignOut, useSession, useSessionUser, useSignOut } = await import('./session');
+const { performSignOut, useSession, useSessionUser } = await import('./session');
 const { TestSessionProvider } = await import('./session.test-utils');
 
 describe('session hooks', () => {
@@ -21,12 +21,6 @@ describe('session hooks', () => {
   it('useSessionUser exposes the user', () => {
     const { result } = renderHook(() => useSessionUser(), { wrapper: TestSessionProvider });
     expect(result.current.email).toBe('parent@example.com');
-  });
-
-  it('useSignOut calls supabase.auth.signOut', async () => {
-    const { result } = renderHook(() => useSignOut(), { wrapper: TestSessionProvider });
-    await result.current();
-    expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 
   it('performSignOut rejects when signOut returns an error (#645)', async () => {

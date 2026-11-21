@@ -2,7 +2,6 @@ import { captureException } from '@/lib/platform/telemetry';
 import {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
-  invalidateSignedUrl,
   isUploadedStoragePath,
   removeFromBucket,
   uploadBlob,
@@ -27,7 +26,7 @@ import type {
 
 /**
  * Permanent failure (RLS denial, validation, not-found, 4xx). The drain marks
- * these `failed` and stops. Anything else is transient and stays pending.
+ * these `failed`. Anything else is transient and stays pending.
  */
 export class UnretryableOutboxError extends Error {
   /** Persisted onto the failed entry by the drain loop (#392). */
@@ -98,7 +97,7 @@ const reportCleanupFailure = (err: unknown): void => {
   });
 };
 
-/** Display only. Conflict behaviour keys off `failureKind`, never this (#392). */
+/** Diagnostic only. Conflict behaviour keys off `failureKind`, never this (#392). */
 export const BOARD_CONFLICT_MESSAGE = "couldn't sync — board changed on another device";
 
 const handleUpdateBoard = async (entry: UpdateBoardEntry): Promise<void> => {
@@ -158,7 +157,6 @@ const handleCreatePhotoPictogram = async (
   const { path } = entry;
   await uploadBlob(IMAGES_BUCKET, path, entry.blob);
   throwIfCancelled(signal);
-  invalidateSignedUrl(IMAGES_BUCKET, path);
   // ON CONFLICT DO NOTHING. The id is client-minted, so a duplicate can only
   // be our own earlier attempt; a plain insert would raise 23505 and flip a
   // succeeded create to failed (#393). It also leaves later edits alone.
@@ -197,7 +195,6 @@ const replaceRowObject = async (
   const { path } = entry;
   await uploadBlob(bucket, path, entry.blob);
   throwIfCancelled(signal);
-  invalidateSignedUrl(bucket, path);
   // Read before the update — afterwards the row already points at `path`.
   const previous = (await readRowPaths(entry.pictogramId))?.[column] ?? undefined;
   throwIfCancelled(signal);
@@ -212,7 +209,6 @@ const replaceRowObject = async (
   // a named residual in docs/outbox.md.
   if (isUploadedStoragePath(previous) && previous !== path) {
     await removeFromBucket(bucket, [previous]).catch(reportCleanupFailure);
-    invalidateSignedUrl(bucket, previous);
   }
 };
 
@@ -234,7 +230,6 @@ const handleClearPictogramAudio = async (
   // two then leaves an orphan, not a row pointing at nothing.
   if (isUploadedStoragePath(previous)) {
     await removeFromBucket(AUDIO_BUCKET, [previous]).catch(reportCleanupFailure);
-    invalidateSignedUrl(AUDIO_BUCKET, previous);
   }
 };
 
@@ -259,13 +254,11 @@ const handleDeletePictogram = async (
   if (isUploadedStoragePath(imagePath)) {
     await removeFromBucket(IMAGES_BUCKET, [imagePath]);
     throwIfCancelled(signal);
-    invalidateSignedUrl(IMAGES_BUCKET, imagePath);
   }
   const audioPath = row?.audio_path ?? undefined;
   if (isUploadedStoragePath(audioPath)) {
     await removeFromBucket(AUDIO_BUCKET, [audioPath]);
     throwIfCancelled(signal);
-    invalidateSignedUrl(AUDIO_BUCKET, audioPath);
   }
   const { error } = await supabase.from('pictograms').delete().eq('id', entry.pictogramId);
   if (error) throw error;

@@ -31,7 +31,7 @@ const ownerOf = (qc: QueryClient, pictogramId: string, fallback: string): string
  * Revoke every `blob:` URL an optimistic mutation planted, before the settle
  * refetch replaces the rows with signed URLs. Scanning all blobs rather than
  * tracking ids per mutation costs three accepted races — one of them silent
- * audio. They are named in docs/queries.md, "Accepted races in the blob sweep".
+ * audio — and one leak. They are named in docs/queries.md, "Accepted races in the blob sweep".
  */
 const revokePictogramBlobs = (qc: QueryClient): void => {
   const list = qc.getQueryData<Pictogram[]>(pictogramsQueryKey);
@@ -69,10 +69,9 @@ const useReplaceBlob = (
   const me = useSessionUser().id;
   return useOptimisticListMutation({
     caches: [
-      listCache<Pictogram, ReplaceBlobInput>(pictogramsQueryKey, (list, { pictogramId, blob }) => {
-        if (!list) return list;
-        return patchPictogramInList(list, pictogramId, (p) => patch(p, blob));
-      }),
+      listCache<Pictogram, ReplaceBlobInput>(pictogramsQueryKey, (list, { pictogramId, blob }) =>
+        patchPictogramInList(list, pictogramId, (p) => patch(p, blob)),
+      ),
     ],
     // No previous-path snapshot: the handler reads the row to find the
     // superseded object (#418 review) — the cache here can hold a stale
@@ -102,78 +101,52 @@ interface ClearAudioInput {
 }
 
 interface CreatePhotoInput {
-  /** Minted by the caller (crypto.randomUUID): the optimistic patch in
-   * onMutate needs the new row's id before mutationFn runs. */
   id: string;
+  /** Library to create in. From a shared board this is the board owner (#490). */
+  ownerId: string;
   label: string;
   blob: Blob;
   extension: string;
-  /** Library to create in. From a shared board this is the board owner (#490). */
-  ownerId?: string;
 }
 
-interface CreatedPhotoPictogram {
-  id: string;
-  imagePath: string;
-}
-
-export const useCreatePhotoPictogram = (): UseMutationResult<
-  CreatedPhotoPictogram,
-  Error,
-  CreatePhotoInput,
-  OptimisticListContext
-> => {
+/** Adds a cropped photo to a library. `ownerId` defaults to the caller. */
+export const useAddPhotoPictogram = (
+  ownerId?: string,
+): { add: (label: string, image: ProcessedImage) => Promise<void>; isPending: boolean } => {
   const qc = useQueryClient();
   const me = useSessionUser().id;
-  return useOptimisticListMutation<CreatePhotoInput, CreatedPhotoPictogram>({
+  const create = useOptimisticListMutation<CreatePhotoInput>({
     caches: [
       listCache<Pictogram, CreatePhotoInput>(
         pictogramsQueryKey,
-        (list, { id, label, blob, ownerId = me }) => [
+        // A voice recorded before the settle refetch reads `ownerId` to mint
+        // its path under the right prefix (#490).
+        (list, { id, ownerId, label, blob }) => [
           ...(list ?? []),
-          {
-            id,
-            // A voice recorded before the settle refetch reads this to mint
-            // its path under the right prefix (#490).
-            ownerId,
-            label: label.trim(),
-            style: 'photo',
-            imagePath: URL.createObjectURL(blob),
-          },
+          { id, ownerId, label, style: 'photo', imagePath: URL.createObjectURL(blob) },
         ],
       ),
     ],
-    mutationFn: async ({ id, label, blob, extension, ownerId = me }) => {
-      const path = mintStoragePath(ownerId, id, extension);
-      await enqueueAndDrain({
+    mutationFn: ({ id, ownerId, label, blob, extension }) =>
+      enqueueAndDrain({
         kind: 'createPhotoPicto',
         pictogramId: id,
         ownerId,
-        label: label.trim(),
+        label,
         blob,
-        path,
-      });
-      // Real path the server will end up serving; the settle invalidation
-      // refetches and replaces the blob URL with the signed path.
-      return { id, imagePath: path };
-    },
+        path: mintStoragePath(ownerId, id, extension),
+      }),
     beforeRollback: () => revokePictogramBlobs(qc),
     beforeInvalidate: () => revokePictogramBlobs(qc),
   });
-};
-
-/** Adds a cropped photo to a library, minting the id the optimistic row needs. */
-export const useAddPhotoPictogram = (
-  ownerId?: string,
-): { add: (label: string, image: ProcessedImage) => Promise<unknown>; isPending: boolean } => {
-  const create = useCreatePhotoPictogram();
-  const add = (label: string, image: ProcessedImage): Promise<unknown> =>
+  const add = (label: string, image: ProcessedImage): Promise<void> =>
     create.mutateAsync({
+      // Minted here: the optimistic patch needs the row id before the write.
       id: crypto.randomUUID(),
-      label,
+      ownerId: ownerId ?? me,
+      label: label.trim(),
       blob: image.blob,
       extension: image.extension,
-      ...(ownerId ? { ownerId } : {}),
     });
   return { add, isPending: create.isPending };
 };
@@ -205,7 +178,7 @@ export const useReplacePictogramImage = (): ReplaceBlobMutation =>
     p.style === 'photo' ? { ...p, imagePath: URL.createObjectURL(blob) } : p,
   );
 
-export interface DeletePictogramInput {
+interface DeletePictogramInput {
   pictogramId: string;
 }
 

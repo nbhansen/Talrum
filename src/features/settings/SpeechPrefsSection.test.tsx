@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { __resetSpeechForTests } from '@/lib/platform/speech';
 import { getSpeechPrefs } from '@/lib/speechPrefs';
 
 import { SpeechPrefsSection } from './SpeechPrefsSection';
@@ -42,7 +41,6 @@ const originalUtter = (globalThis as { SpeechSynthesisUtterance?: unknown })
 beforeEach(() => {
   window.localStorage.removeItem('talrum:speech-prefs');
   window.localStorage.removeItem('talrum:language');
-  __resetSpeechForTests();
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
 });
 

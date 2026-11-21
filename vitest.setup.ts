@@ -13,7 +13,6 @@ import { afterEach, expect, vi } from 'vitest';
 
 import { __resetBoardClockForTests } from './src/lib/outbox/board-clock';
 import { __resetDrainForTests } from './src/lib/outbox/drain-state';
-import { __resetSpeechForTests } from './src/lib/platform/speech';
 import { clearSignedUrlMemCache } from './src/lib/storage/storage-cache';
 
 // A floor mock for every test file. Without it, a test that seeds the cache
@@ -84,7 +83,6 @@ afterEach(async () => {
 
   await clear();
   clearSignedUrlMemCache();
-  __resetSpeechForTests();
   __resetDrainForTests();
   __resetBoardClockForTests();
 

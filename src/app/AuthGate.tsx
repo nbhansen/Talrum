@@ -75,19 +75,21 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       writeStoredOwner(userId);
       clearStores();
     };
-    // A deliberate sync reset for an async init effect, not a cascading render.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({ status: 'loading' });
+    const applySession = (session: Session | null): void => {
+      const userId = session?.user.id ?? null;
+      if (userId !== null) claimStores(userId);
+      // The same path as the sweep, so the queue's owner and the boundary
+      // that wipes it can never disagree (#446).
+      setOutboxOwner(userId);
+      setState(session ? { status: 'in', session } : { status: 'out' });
+    };
     // Stale keys from a previous VITE_SUPABASE_URL (#184). Idempotent.
     sweepStaleAuthTokens(import.meta.env.VITE_SUPABASE_URL);
     supabase.auth
       .getSession()
       .then(({ data }) => {
         if (cancelled || sawAuthEvent) return;
-        const userId = data.session?.user.id ?? null;
-        if (userId !== null) claimStores(userId);
-        setOutboxOwner(userId);
-        setState(data.session ? { status: 'in', session: data.session } : { status: 'out' });
+        applySession(data.session);
       })
       .catch((err: unknown) => {
         if (cancelled || sawAuthEvent) return;
@@ -99,18 +101,12 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
       });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       sawAuthEvent = true;
-      const newUserId = session?.user.id ?? null;
       if (event === 'SIGNED_OUT') {
         clearStores();
         ownerRef.current = null;
         writeStoredOwner(null);
-      } else if (newUserId !== null) {
-        claimStores(newUserId);
       }
-      // The same listener as the sweep, so the queue's owner and the boundary
-      // that wipes it can never disagree (#446).
-      setOutboxOwner(newUserId);
-      setState(session ? { status: 'in', session } : { status: 'out' });
+      applySession(session);
     });
     return () => {
       cancelled = true;
@@ -118,7 +114,10 @@ export const AuthGate = ({ children }: { children: ReactNode }): JSX.Element => 
     };
   }, [retryCount]);
 
-  const retry = useCallback(() => setRetryCount((n) => n + 1), []);
+  const retry = useCallback(() => {
+    setState({ status: 'loading' });
+    setRetryCount((n) => n + 1);
+  }, []);
 
   if (state.status === 'loading') return <AuthGateLoading />;
   if (state.status === 'error') return <AuthGateError onRetry={retry} />;

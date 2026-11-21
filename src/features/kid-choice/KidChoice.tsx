@@ -5,7 +5,7 @@ import { buildBoardSteps } from '@/lib/boardSteps';
 import { getKidCopy } from '@/lib/kidCopy';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { speakPictogram } from '@/lib/voiceOut';
-import { accentForIndex, cssVar } from '@/theme/tokens';
+import { accentForIndex, cssVar, inkForAccent } from '@/theme/tokens';
 import type { Board, Pictogram } from '@/types/domain';
 import { EmptyState } from '@/ui/EmptyState/EmptyState';
 import { CheckIcon, ChoiceConnectorIcon } from '@/ui/icons';
@@ -41,7 +41,6 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
     <KidModeLayout
       eyebrow={board.name.toUpperCase()}
       title={kidCopy.choice.title}
-      titleSize="large"
       onExit={onExit}
       logo={{ tint: 'sky', content: <ChoiceConnectorIcon size={22} /> }}
     >
@@ -52,15 +51,16 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
           <div className={styles.choices}>
             {options.map(({ key, picto: p }, idx) => {
               const accent = accentForIndex(idx);
+              const ink = cssVar(inkForAccent(accent));
               const isPicked = pickedKey === key;
               const isOther = pickedKey !== null && !isPicked;
               const markerStyle = {
-                background: cssVar(accent.bg),
-                color: cssVar(accent.ink),
+                background: cssVar(accent),
+                color: ink,
               };
-              const choiceStyle = isPicked ? { borderColor: cssVar(accent.ink) } : {};
+              const choiceStyle = isPicked ? { borderColor: ink } : {};
               const mediaStyle = {
-                background: p.style === 'photo' ? 'var(--tal-surface-alt)' : cssVar(accent.bg),
+                background: p.style === 'photo' ? 'var(--tal-surface-alt)' : cssVar(accent),
               };
               return (
                 <button
@@ -85,10 +85,7 @@ export const KidChoice = ({ board, onExit }: KidChoiceProps): JSX.Element => {
                   <div className={styles.mediaWrap} style={mediaStyle}>
                     <PictogramMedia picto={p} size={260} radius="0" labelShown />
                     {isPicked && (
-                      <div
-                        className={styles.pickedBadge}
-                        style={{ background: cssVar(accent.ink) }}
-                      >
+                      <div className={styles.pickedBadge} style={{ background: ink }}>
                         <CheckIcon size={26} />
                       </div>
                     )}

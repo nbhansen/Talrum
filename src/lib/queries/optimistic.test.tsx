@@ -187,11 +187,10 @@ describe('useOptimisticListMutation', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: mirrorKey });
   });
 
-  it('leaves a cache that was empty pre-mutation unrestored on error and relies on invalidation', async () => {
+  it('removes a cache that was empty pre-mutation on error', async () => {
     const qc = makeClient();
     qc.setQueryData(itemsKey, seed());
-    // mirrorKey never seeded: its snapshot is undefined, so rollback skips it
-    // and the settle invalidation is what heals it.
+    // mirrorKey never seeded: its snapshot is undefined.
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
     const { mutationFn, reject } = deferredMutation();
 

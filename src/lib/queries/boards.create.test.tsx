@@ -113,7 +113,7 @@ describe('useCreateBoard', () => {
         name: 'Bedtime',
         kind: 'choice',
         kidId: 'k1',
-        accent: { bg: 'lavender', ink: 'lavender-ink' },
+        accent: 'lavender',
       });
     });
 

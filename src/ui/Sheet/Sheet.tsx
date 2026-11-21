@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useId, useState } from 'react';
+import { type JSX, type ReactNode, useState } from 'react';
 
 import { Button } from '@/ui/Button/Button';
 import { DialogHeader } from '@/ui/DialogHeader/DialogHeader';
@@ -14,17 +14,14 @@ interface SheetProps {
   children: ReactNode;
 }
 
-export const Sheet = ({ title, subtitle, onClose, children }: SheetProps): JSX.Element => {
-  const titleId = useId();
-  return (
-    <Modal onClose={onClose} labelledBy={titleId} size="md">
-      <div className={styles.headerWrap}>
-        <DialogHeader title={title} subtitle={subtitle} titleId={titleId} onClose={onClose} />
-      </div>
-      <div className={styles.body}>{children}</div>
-    </Modal>
-  );
-};
+export const Sheet = ({ title, subtitle, onClose, children }: SheetProps): JSX.Element => (
+  <Modal onClose={onClose} size="md">
+    <div className={styles.headerWrap}>
+      <DialogHeader title={title} subtitle={subtitle} />
+    </div>
+    <div className={styles.body}>{children}</div>
+  </Modal>
+);
 
 interface SheetSectionProps {
   label?: string;

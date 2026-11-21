@@ -30,18 +30,10 @@ A fourth, smaller stripe rides alongside: `src/lib/storage/storage.ts` persists
 minted signed URLs to IndexedDB under `signed-url:` keys, so a reload
 re-issues the same URL and the SW cache key stays stable.
 
-That fourth stripe is what makes the third one work offline, and the two
-are easy to mistake for redundant. A signed URL carries a `?token=` that
-rotates hourly, and the SW cache keys include it — deliberately, see the
-`matchOptions` note in vite.config.ts. Offline the app never mints:
-`signedUrlFor` fails to re-mint and returns the last URL it persisted.
-When that URL also served the last successful load — the common case — it
-reproduces the exact cache key and the bytes come back, expired token and
-all. The two stripes can desync: a mint that succeeds right before a load
-that fails strands the bytes under the previous key for up to an hour
-(see [storage.md](./storage.md)). The cost is a placeholder or the TTS
-fallback, never an error. That is the whole mechanism behind "kid mode
-works in the car".
+That fourth stripe is what makes the third one work offline: offline,
+`signedUrlFor` returns the last URL it persisted, which reproduces the SW
+cache key. [storage.md](./storage.md) ("Offline: stale URLs are fine")
+describes the mechanism and how the two stripes can desync.
 
 Two things about this cache are easy to break and impossible to see from a
 test (#355), so both are asserted at build time by
@@ -96,11 +88,8 @@ device from the server, and no stale-shaped data can leak into new code:
 rename a column or reshape a query result and the old snapshot is simply
 gone.
 
-It was `__APP_VERSION__` — package.json's version — until #356. That reads
-like the more disciplined choice, and it was the wrong one: this repo
-deploys continuously from main and never bumps the version, so the buster
-was the constant `0.1.0` and the escape hatch could not fire. `#302` added
-the commit readout in Settings for exactly that reason.
+The buster is the commit, not package.json's version, because this repo
+deploys continuously from main and never bumps the version (#356).
 
 Invalidating per deploy over-invalidates, deliberately. A device only ever
 sees a new buster by having just downloaded the build that carries it, so
@@ -134,6 +123,7 @@ The scrub wipes every per-user stripe, not just the query cache:
   mode by A's PIN.
 - The last-board pointer (`clearLastBoard`, #178) — otherwise B's
   auto-launch lands on A's board UUID, which 404s under RLS.
+- The active-kid pointer (`setActiveKidId(null)`) — it names one of A's kids.
 - The SW storage cache (#380) — A's photo and recording bytes, keyed by
   signed URL. Deleted by prefix (`talrum-storage`) rather than the literal
   name in vite.config.ts, so a future `-v2` bump cannot orphan the old

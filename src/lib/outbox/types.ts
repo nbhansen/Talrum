@@ -27,11 +27,11 @@ type OutboxEntryStatus = 'pending' | 'attempting' | 'failed';
 
 /**
  * Program state: `conflictCount` and the Retry guard-strip key off it.
- * `lastError` is display copy and must never be compared against (#392).
+ * `lastError` is a diagnostic and must never be compared against (#392).
  */
 export type OutboxFailureKind = 'conflict' | 'permanent';
 
-interface OutboxEntryBase {
+export interface OutboxEntryBase {
   /** ULID — monotonically sortable, stable across reloads. */
   id: string;
   /**
@@ -43,7 +43,7 @@ interface OutboxEntryBase {
   enqueuedAt: number;
   attemptCount: number;
   status: OutboxEntryStatus;
-  /** Display copy for the failed-pill. See {@link OutboxFailureKind}. */
+  /** Diagnostic only; no screen shows it. See {@link OutboxFailureKind}. */
   lastError?: string;
   /** Set whenever `status` is `failed`. See {@link OutboxFailureKind}. */
   failureKind?: OutboxFailureKind;

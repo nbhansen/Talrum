@@ -2,6 +2,7 @@ import { Fragment, type JSX, type MouseEventHandler } from 'react';
 
 import { kindLabel } from '@/lib/boardKindVocab';
 import { buildBoardSteps } from '@/lib/boardSteps';
+import { formatUpdated } from '@/lib/formatUpdated';
 import { usePictogramsById } from '@/lib/queries/pictograms';
 import { cssVar, inkForAccent } from '@/theme/tokens';
 import type { Board } from '@/types/domain';
@@ -12,7 +13,7 @@ import styles from './BoardCard.module.css';
 
 interface BoardCardProps {
   board: Board;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
+  onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
 const PREVIEW_LIMIT = 4;
@@ -30,7 +31,9 @@ export const BoardCard = ({ board, onClick }: BoardCardProps): JSX.Element => {
         >
           {kindLabel(board.kind)} · {board.stepIds.length}
         </span>
-        <span className={styles.updated}>{board.updatedLabel}</span>
+        {board.serverUpdatedAt && (
+          <span className={styles.updated}>{formatUpdated(board.serverUpdatedAt)}</span>
+        )}
       </div>
       <span className={styles.name}>{board.name}</span>
       <div className={styles.preview}>

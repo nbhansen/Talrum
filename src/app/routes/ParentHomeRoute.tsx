@@ -2,7 +2,7 @@ import { type JSX, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { ParentHome } from '@/features/parent-home/ParentHome';
-import { getLastBoard, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
+import { getLastBoardId, hasAutoLaunched, kidPathFor, markAutoLaunched } from '@/lib/lastBoard';
 import { kidModeNeedsPinSetup } from '@/lib/pin';
 import { useBoards, useCreateBoard } from '@/lib/queries/boards';
 import { useActiveKid } from '@/lib/queries/kids';
@@ -24,8 +24,8 @@ export const ParentHomeRoute = (): JSX.Element => {
     // Without a PIN the kid route bounces to Settings, so auto-launching would
     // yank the parent there on boot (#353).
     if (kidModeNeedsPinSetup()) return null;
-    const last = getLastBoard();
-    return last ? kidPathFor(last.id) : null;
+    const last = getLastBoardId();
+    return last ? kidPathFor(last) : null;
   });
   useEffect(() => {
     markAutoLaunched();

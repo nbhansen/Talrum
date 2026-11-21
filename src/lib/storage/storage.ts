@@ -40,17 +40,27 @@ const readPersisted = async (cacheKey: string): Promise<SignedUrlEntry | null> =
 const writePersisted = (cacheKey: string, entry: SignedUrlEntry): Promise<void> =>
   set(idbKey(cacheKey), entry);
 
+const invalidateSignedUrl = (bucket: string, path: string): void => {
+  const cacheKey = `${bucket}/${path}`;
+  memCache.delete(cacheKey);
+  void del(idbKey(cacheKey));
+};
+
+// Each Storage write drops the cached signed URL of its path, so no caller
+// has to keep the cache correct.
 export const uploadBlob = async (bucket: string, path: string, blob: Blob): Promise<void> => {
   const { error } = await supabase.storage
     .from(bucket)
     .upload(path, blob, { upsert: true, contentType: blob.type });
   if (error) throw error;
+  invalidateSignedUrl(bucket, path);
 };
 
 export const removeFromBucket = async (bucket: string, paths: readonly string[]): Promise<void> => {
   if (paths.length === 0) return;
   const { error } = await supabase.storage.from(bucket).remove([...paths]);
   if (error) throw error;
+  for (const path of paths) invalidateSignedUrl(bucket, path);
 };
 
 /**
@@ -97,10 +107,4 @@ export const signedUrlFor = async (bucket: string, path: string): Promise<string
     if (fallback) return fallback.url;
     throw err;
   }
-};
-
-export const invalidateSignedUrl = (bucket: string, path: string): void => {
-  const cacheKey = `${bucket}/${path}`;
-  memCache.delete(cacheKey);
-  void del(idbKey(cacheKey));
 };

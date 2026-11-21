@@ -263,8 +263,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
       // attempting on a dropped network burns the retry budget for nothing.
       if (!isOnline()) return;
       let queue = await reconcileQueue();
-      let stop = false;
-      while (!stop) {
+      pass: for (;;) {
         const entries = queue.filter((e) => e.status === 'pending');
         if (entries.length === 0) break;
         for (const entry of entries) {
@@ -273,16 +272,9 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
           // An uncleared entry is still queued for replay, so anything behind
           // it must wait: landing the newer write first lets the replay put the
           // older one back on top of it (#449).
-          if (outcome === 'ok-uncleared') {
-            sawUncleared = true;
-            stop = true;
-            break;
-          }
-          if (outcome === 'transient') {
-            sawTransient = true;
-            stop = true;
-            break;
-          }
+          if (outcome === 'ok-uncleared') sawUncleared = true;
+          if (outcome === 'transient') sawTransient = true;
+          if (outcome === 'ok-uncleared' || outcome === 'transient') break pass;
         }
         // Re-read: this pass deleted what it landed, and an enqueue may have
         // appended behind it.

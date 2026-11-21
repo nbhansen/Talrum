@@ -56,20 +56,16 @@ Everything is resolved **at call time**: `speak()` re-reads prefs per
 utterance and `getKidCopy()` per render, so a settings change applies on the
 next tap or render, no reload.
 
-## Picking and caching the default voice
+## Picking the default voice
 
 `speechSynthesis.getVoices()` is empty on first call in Chromium — voices
-arrive later via `voiceschanged`. `ensureVoice` in `speech.ts` handles this:
-pick from whatever list exists now, or attach a one-shot listener and pick
-when the list lands. The pick (`pickVoice`) prefers voices matching
-`getAppLanguage()`, then English (the app's own copy), then anything, with
-a bias toward common female system voices. The result is cached keyed on the
-target language, so a language change in settings invalidates it on the next
-tap while ordinary taps skip the lookup. A saved `voiceURI` from prefs
-overrides the heuristic; if that voice has vanished (voice lists differ
-across platforms), the heuristic silently takes over. The settings UI uses
-`subscribeVoices` / `getAvailableVoices` to re-render when the async list
-arrives, and tests reset module state with `__resetSpeechForTests`.
+arrive later via `voiceschanged` — so `speak()` reads the list on each tap.
+The pick (`pickVoice`) prefers voices matching `getAppLanguage()`, then
+English (the app's own copy), then anything, with a bias toward common female
+system voices. A saved `voiceURI` from prefs overrides the heuristic; if that
+voice has vanished (voice lists differ across platforms), the heuristic
+silently takes over. The settings UI uses `subscribeVoices` /
+`getAvailableVoices` to re-render when the async list arrives.
 
 ## Generated voices (#422)
 

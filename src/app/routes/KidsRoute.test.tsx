@@ -91,7 +91,6 @@ describe('KidsRoute', () => {
           stepIds: ['p1'],
           kidReorderable: false,
           accent: 'sage',
-          updatedLabel: 'just now',
         },
       ],
       isPending: false,

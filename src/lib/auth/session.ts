@@ -3,31 +3,23 @@ import { createContext, useContext } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
-export interface SessionContextValue {
-  session: Session;
-  user: User;
-  signOut: () => Promise<void>;
-}
-
 /** The one call site for `supabase.auth.signOut` (#126). */
 export const performSignOut = async (): Promise<void> => {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 };
 
-export const SessionContext = createContext<SessionContextValue | null>(null);
+export const SessionContext = createContext<Session | null>(null);
 
-const useSessionContext = (): SessionContextValue => {
-  const ctx = useContext(SessionContext);
-  if (!ctx) {
+export const useSession = (): Session => {
+  const session = useContext(SessionContext);
+  if (!session) {
     throw new Error('useSession used outside SessionProvider — wrap your tree in AuthGate.');
   }
-  return ctx;
+  return session;
 };
 
-export const useSession = (): Session => useSessionContext().session;
-export const useSessionUser = (): User => useSessionContext().user;
-export const useSignOut = (): (() => Promise<void>) => useSessionContext().signOut;
+export const useSessionUser = (): User => useSession().user;
 
 /** Returns undefined for phone-only auth sessions, which have no email. */
 export const useUserEmail = (): string | undefined => useSessionUser().email;

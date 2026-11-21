@@ -5,3 +5,7 @@
   padding: var(--tal-space-2) var(--tal-space-3);
   border-radius: var(--tal-r-md);
 }
+
+.spaced {
+  margin-top: var(--tal-space-2);
+}

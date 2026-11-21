@@ -180,7 +180,6 @@ export const KidSequence = ({ board, onExit }: KidSequenceProps): JSX.Element =>
     <KidModeLayout
       eyebrow={board.name.toUpperCase()}
       title={steps.length === 0 ? '' : title}
-      titleSize="large"
       logo={allDone ? { tint: 'sage', content: <CheckIcon size={22} /> } : undefined}
       onExit={onExit}
     >

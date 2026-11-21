@@ -8,7 +8,6 @@ import { PictogramUpload } from '@/widgets/PictogramUpload/PictogramUpload';
 
 import styles from './NewPictogramModal.module.css';
 
-const TITLE_ID = 'new-pictogram-modal-title';
 const TABS_ID = 'new-pictogram-modal-tabs';
 
 type Source = 'upload' | 'generate';
@@ -25,13 +24,11 @@ interface NewPictogramModalProps {
 export const NewPictogramModal = ({ onClose }: NewPictogramModalProps): JSX.Element => {
   const [source, setSource] = useState<Source>('upload');
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md">
+    <Modal onClose={onClose} size="md">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="New pictogram"
           subtitle="Upload a photo or generate an image — it lands in your library, ready for any board."
-          titleId={TITLE_ID}
-          onClose={onClose}
         />
       </div>
       <div className={styles.tabs}>

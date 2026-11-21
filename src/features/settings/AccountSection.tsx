@@ -1,13 +1,13 @@
 import { type JSX, useState } from 'react';
 
-import { useSignOut, useUserEmail } from '@/lib/auth/session';
+import { performSignOut, useUserEmail } from '@/lib/auth/session';
 import { Button } from '@/ui/Button/Button';
 
 import styles from './AccountSection.module.css';
+import shared from './settings.module.css';
 
 export const AccountSection = (): JSX.Element => {
   const email = useUserEmail();
-  const signOut = useSignOut();
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -15,7 +15,7 @@ export const AccountSection = (): JSX.Element => {
   const handleSignOut = (): void => {
     setPending(true);
     setFailed(false);
-    signOut().catch(() => {
+    performSignOut().catch(() => {
       setFailed(true);
       setPending(false);
     });
@@ -25,11 +25,11 @@ export const AccountSection = (): JSX.Element => {
     <section>
       <h2>Signed in</h2>
       {email && (
-        <p className={styles.email}>
-          You are signed in as <span className={styles.emailValue}>{email}</span>.
+        <p className={shared.muted}>
+          You are signed in as <span className={shared.strong}>{email}</span>.
         </p>
       )}
-      <div className={styles.actions}>
+      <div className={shared.row}>
         <Button variant="ghost" onClick={handleSignOut} disabled={pending}>
           {pending ? 'Signing out…' : 'Sign out'}
         </Button>

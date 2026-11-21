@@ -1,7 +1,7 @@
 import { useMutation, type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 
 import { useSessionUser } from '@/lib/auth/session';
-import { clearLastBoard, getLastBoard } from '@/lib/lastBoard';
+import { forgetLastBoard } from '@/lib/lastBoard';
 import { enqueueAndDrain, hasQueuedWrites } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
 import { boardMembersQueryKey } from '@/lib/queries/board-members';
@@ -18,7 +18,7 @@ import {
   useOptimisticListMutation,
 } from '@/lib/queries/optimistic';
 import { supabase } from '@/lib/supabase';
-import { type Accent } from '@/theme/tokens';
+import type { AccentBg } from '@/theme/tokens';
 import type { Board, BoardKind } from '@/types/domain';
 
 /**
@@ -32,54 +32,40 @@ export interface BoardUpdate {
 }
 
 /**
- * onMutate's result never reaches mutationFn, so the fields it derived travel
- * here, keyed by the input object TanStack passes to both.
- */
-const derivedFields = new WeakMap<BoardUpdate, Partial<BoardFields>>();
-
-/**
  * Every board write: optimistic patch, outbox enqueue, then invalidate both
  * caches. A non-retryable error rolls the snapshot back; a transient one is
  * absorbed by the outbox and the patch stands.
  */
-export const useUpdateBoard = (): UseMutationResult<void, Error, BoardUpdate, BoardContext> => {
+export const useUpdateBoard = (): UseMutationResult<void, Error, BoardUpdate> => {
   const qc = useQueryClient();
   return useMutation({
-    onMutate: async (input) => {
-      const { boardId } = input;
-      await qc.cancelQueries({ queryKey: boardQueryKey(boardId) });
-      const previous = qc.getQueryData<Board>(boardQueryKey(boardId));
-      if (previous) {
-        const fields = input.update(previous);
-        derivedFields.set(input, fields);
-        qc.setQueryData<Board>(boardQueryKey(boardId), { ...previous, ...fields });
-      }
-      return { previous };
-    },
-    mutationFn: async (input) => {
-      const fields = derivedFields.get(input);
-      const baseline = qc.getQueryData<Board>(boardQueryKey(input.boardId))?.serverUpdatedAt;
-      if (!fields) {
+    mutationFn: async ({ boardId, update }) => {
+      const key = boardQueryKey(boardId);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<Board>(key);
+      if (!previous) {
         // Every caller gates on a loaded board, so a miss means a future wiring
         // fired this before its data. The write is dropped; report it (#365).
-        const err = new Error(
-          `useUpdateBoard: no cached board for ${input.boardId}; write skipped`,
-        );
+        const err = new Error(`useUpdateBoard: no cached board for ${boardId}; write skipped`);
         if (import.meta.env.DEV) console.warn(err.message);
         captureException(err, { tags: { component: 'useUpdateBoard' } });
         return;
       }
-      // The conflict-guard baseline (#281), safe to read after the patch
-      // because `fields` cannot hold serverUpdatedAt. None means last-write-wins.
-      await enqueueAndDrain({
-        kind: 'updateBoard',
-        boardId: input.boardId,
-        patch: boardFieldsToRow(fields),
-        ...(baseline === undefined ? {} : { expectedUpdatedAt: baseline }),
-      });
-    },
-    onError: (_err, { boardId }, ctx) => {
-      if (ctx?.previous) qc.setQueryData(boardQueryKey(boardId), ctx.previous);
+      const fields = update(previous);
+      qc.setQueryData<Board>(key, { ...previous, ...fields });
+      // The conflict-guard baseline (#281). None means last-write-wins.
+      const baseline = previous.serverUpdatedAt;
+      try {
+        await enqueueAndDrain({
+          kind: 'updateBoard',
+          boardId,
+          patch: boardFieldsToRow(fields),
+          ...(baseline === undefined ? {} : { expectedUpdatedAt: baseline }),
+        });
+      } catch (err) {
+        qc.setQueryData(key, previous);
+        throw err;
+      }
     },
     onSettled: async (_data, _err, { boardId }) => {
       if (await hasQueuedWrites()) return;
@@ -89,19 +75,13 @@ export const useUpdateBoard = (): UseMutationResult<void, Error, BoardUpdate, Bo
   });
 };
 
-interface BoardContext {
-  previous: Board | undefined;
-}
-
 interface CreateBoardInput {
   name: string;
   kind: BoardKind;
   kidId: string;
-  /** Defaults to the first slot of the accent cycle (sage / sage-ink). */
-  accent?: Accent;
+  /** Defaults to the first slot of the accent cycle. */
+  accent?: AccentBg;
 }
-
-const DEFAULT_ACCENT: Accent = { bg: 'sage', ink: 'sage-ink' };
 
 /**
  * Direct insert, no outbox, like `useCreateKid`. Create-then-navigate needs the
@@ -112,7 +92,7 @@ export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInp
   const qc = useQueryClient();
   const ownerId = useSessionUser().id;
   return useMutation({
-    mutationFn: async ({ name, kind, kidId, accent = DEFAULT_ACCENT }) => {
+    mutationFn: async ({ name, kind, kidId, accent = 'sage' }) => {
       const { data, error } = await supabase
         .from('boards')
         .insert({
@@ -124,7 +104,7 @@ export const useCreateBoard = (): UseMutationResult<Board, Error, CreateBoardInp
           voice_mode: 'parent',
           step_ids: [],
           kid_reorderable: false,
-          accent: accent.bg,
+          accent,
         })
         .select()
         .single();
@@ -159,9 +139,7 @@ export const useDeleteBoard = (): UseMutationResult<
         list?.filter((b) => b.id !== boardId),
       ),
     ],
-    onMutateSideEffect: ({ boardId }) => {
-      if (getLastBoard()?.id === boardId) clearLastBoard();
-    },
+    onMutateSideEffect: ({ boardId }) => forgetLastBoard(boardId),
     // On error the board still exists and the builder still shows it, so only
     // a successful delete may evict its caches.
     mutationFn: async ({ boardId }) => {

@@ -26,7 +26,6 @@ const board: Board = {
   stepIds: [park.id, zoo.id],
   kidReorderable: false,
   accent: 'sky',
-  updatedLabel: 'just now',
 };
 
 const Wrap = ({ children, qc }: { children: ReactNode; qc: QueryClient }): JSX.Element => (

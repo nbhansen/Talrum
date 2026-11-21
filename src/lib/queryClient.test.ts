@@ -4,7 +4,7 @@ import { persistQueryClientRestore } from '@tanstack/react-query-persist-client'
 import { del, get, keys, set } from 'idb-keyval';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getLastBoard, setLastBoard } from './lastBoard';
+import { getLastBoardId, setLastBoardId } from './lastBoard';
 import { hasPin, setPin } from './pin';
 import { clearPersistedCache, onCacheRestored, persistOptions, queryClient } from './queryClient';
 import { signedUrlMemCache } from './storage/storage-cache';
@@ -179,7 +179,7 @@ describe('clearPersistedCache', () => {
     // Simulate user A's device state.
     queryClient.setQueryData(['boards'], [{ id: 'b1' }]);
     await setPin('1234');
-    setLastBoard({ id: 'b1' });
+    setLastBoardId('b1');
     await set('outbox:01ARZ', { id: '01ARZ', kind: 'renamePicto' });
     await set('signed-url:pictogram-images/o/p.jpg', { url: 'https://x', expiresAt: 1 });
     await set('talrum-react-query', '{"clientState":{}}');
@@ -190,7 +190,7 @@ describe('clearPersistedCache', () => {
 
     expect(queryClient.getQueryData(['boards'])).toBeUndefined();
     expect(hasPin()).toBe(false);
-    expect(getLastBoard()).toBeNull();
+    expect(getLastBoardId()).toBeNull();
     const remaining = await keys();
     expect(remaining.filter((k) => typeof k === 'string' && k.startsWith('outbox:'))).toEqual([]);
     expect(remaining.filter((k) => typeof k === 'string' && k.startsWith('signed-url:'))).toEqual(

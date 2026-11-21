@@ -36,38 +36,11 @@ export type ColorToken =
 
 export const cssVar = (token: ColorToken): string => `var(--tal-${token})`;
 
-/**
- * Narrower than ColorToken so a non-accent token cannot reach an accent slot,
- * and so `inkForAccent` can be total.
- */
-export type AccentBg = 'sage' | 'sky' | 'peach' | 'lavender' | 'sun';
+const ACCENTS = ['sage', 'sky', 'peach', 'lavender', 'sun'] as const;
 
-export interface Accent {
-  bg: AccentBg;
-  ink: ColorToken;
-}
+/** Narrower than ColorToken so a non-accent token cannot reach an accent slot. */
+export type AccentBg = (typeof ACCENTS)[number];
 
-const ACCENT_CYCLE: readonly Accent[] = [
-  { bg: 'sage', ink: 'sage-ink' },
-  { bg: 'sky', ink: 'sky-ink' },
-  { bg: 'peach', ink: 'peach-ink' },
-  { bg: 'lavender', ink: 'lavender-ink' },
-  { bg: 'sun', ink: 'sun-ink' },
-];
+export const accentForIndex = (i: number): AccentBg => ACCENTS[i % ACCENTS.length] ?? 'sage';
 
-export const accentForIndex = (i: number): Accent => {
-  const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
-  if (!accent) {
-    throw new Error('accentForIndex: empty cycle');
-  }
-  return accent;
-};
-
-/** Total: every AccentBg is present in ACCENT_CYCLE by construction. */
-export const inkForAccent = (bg: AccentBg): ColorToken => {
-  const accent = ACCENT_CYCLE.find((a) => a.bg === bg);
-  if (!accent) {
-    throw new Error(`inkForAccent: AccentBg '${bg}' missing from ACCENT_CYCLE`);
-  }
-  return accent.ink;
-};
+export const inkForAccent = (bg: AccentBg): ColorToken => `${bg}-ink`;

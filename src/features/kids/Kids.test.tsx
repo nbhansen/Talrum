@@ -37,7 +37,6 @@ const board = (id: string, kidId: string): Board => ({
   stepIds: [],
   kidReorderable: false,
   accent: 'sage',
-  updatedLabel: 'today',
 });
 
 beforeEach(() => {
