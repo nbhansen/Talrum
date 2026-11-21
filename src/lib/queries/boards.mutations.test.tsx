@@ -1,5 +1,6 @@
 import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { clear as clearIdb } from 'idb-keyval';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +37,8 @@ const { boardMembersQueryKey } = await import('./board-members');
 const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
 const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
+const { queryClient: appQueryClient } = await import('@/lib/queryClient');
+const { useOutboxStatus } = await import('@/lib/outbox');
 
 const seed: Board = {
   id: 'morning',
@@ -123,21 +126,28 @@ describe('useUpdateBoard', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Morning routine');
   });
-  it('patches the cache while offline, when TanStack holds mutationFn back', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  it('queues an offline edit in the outbox under the app mutation defaults (#756)', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { ...appQueryClient.getDefaultOptions(), queries: { retry: false } },
+    });
     qc.setQueryData(boardQueryKey('morning'), seed);
-    const { result } = renderHook(() => useUpdateBoard(), { wrapper: makeWrapper(qc) });
+    const { result } = renderHook(() => ({ update: useUpdateBoard(), outbox: useOutboxStatus() }), {
+      wrapper: makeWrapper(qc),
+    });
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
     onlineManager.setOnline(false);
     try {
       act(() => {
-        result.current.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
+        result.current.update.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
       });
-      await waitFor(() => {
-        expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Sunrise');
-      });
+      await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+      expect(qc.getQueryData<Board>(boardQueryKey('morning'))?.name).toBe('Sunrise');
+      await waitFor(() => expect(result.current.outbox.pendingCount).toBe(1));
       expect(updateMock).not.toHaveBeenCalled();
     } finally {
       onlineManager.setOnline(true);
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+      await clearIdb();
     }
   });
 
