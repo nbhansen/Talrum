@@ -12,8 +12,6 @@ import { SelectField, TextField } from '@/ui/TextField/TextField';
 
 import styles from './NewBoardModal.module.css';
 
-const TITLE_ID = 'new-board-modal-title';
-
 interface NewBoardModalProps {
   onClose: () => void;
   onCreated: (boardId: string) => void;
@@ -63,12 +61,10 @@ export const NewBoardModal = ({ onClose, onCreated }: NewBoardModalProps): JSX.E
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="sm" padded>
+    <Modal onClose={onClose} size="sm" padded>
       <DialogHeader
         title="New board"
         subtitle="You can add steps and tweak settings after the board is created."
-        titleId={TITLE_ID}
-        onClose={onClose}
       />
       <form onSubmit={submit} className={styles.form}>
         {noKids && (

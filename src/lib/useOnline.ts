@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/**
- * Tracks `navigator.onLine`. Updates via the `online`/`offline` window
- * events. Used by the login + auth-error screens to swap a generic spinner
- * for a clearer "you're offline" message — sign-in fundamentally needs
- * network, but the rest of the app doesn't.
- */
+/** Tracks `navigator.onLine` through the `online`/`offline` window events. */
 export const useOnline = (): boolean => {
   const [online, setOnline] = useState<boolean>(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine,

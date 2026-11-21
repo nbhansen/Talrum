@@ -15,20 +15,8 @@ export type ErrorCode =
   | 'auth_delete_failed'
   | 'internal_error';
 
-export interface SuccessResponse {
-  ok: true;
-}
-
-export interface ErrorResponse {
-  ok: false;
-  error: ErrorCode;
-  message: string;
-}
-
-export type DeleteResponse = SuccessResponse | ErrorResponse;
-
 // Thrown by the pure deleteAccount() function for the handler to catch and
-// translate into ErrorResponse. Carries the `step` for structured logging.
+// translate into an error response. Carries the `step` for structured logging.
 export class DeletionError extends Error {
   constructor(
     public readonly code: ErrorCode,

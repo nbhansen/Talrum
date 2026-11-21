@@ -6,7 +6,8 @@
 const STORAGE_KEY = 'talrum:pin-hash';
 
 // Dev-only so the flag can never bypass kid mode in a production build (#365).
-const isDisabled = (): boolean => import.meta.env.DEV && import.meta.env.VITE_DISABLE_PIN === '1';
+export const pinGateDisabled = (): boolean =>
+  import.meta.env.DEV && import.meta.env.VITE_DISABLE_PIN === '1';
 
 const listeners = new Set<() => void>();
 
@@ -38,8 +39,6 @@ const hashPin = async (pin: string): Promise<string> => {
   return toHex(digest);
 };
 
-export const pinGateDisabled = (): boolean => isDisabled();
-
 // Blocked storage reads as "no PIN", so kid mode fails closed to PIN setup.
 const readHash = (): string | null => {
   try {
@@ -50,7 +49,7 @@ const readHash = (): string | null => {
 };
 
 export const hasPin = (): boolean => {
-  if (isDisabled()) return true;
+  if (pinGateDisabled()) return true;
   return readHash() !== null;
 };
 
@@ -66,7 +65,7 @@ export const setPin = async (pin: string): Promise<void> => {
 };
 
 export const verifyPin = async (pin: string): Promise<boolean> => {
-  if (isDisabled()) return true;
+  if (pinGateDisabled()) return true;
   const stored = readHash();
   if (!stored) return false;
   return (await hashPin(pin)) === stored;

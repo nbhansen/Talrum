@@ -100,7 +100,6 @@ const baseBoard: Board = {
   stepIds: [],
   kidReorderable: false,
   accent: 'peach',
-  updatedLabel: 'Edited just now',
 };
 
 const noop = (): void => undefined;

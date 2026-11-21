@@ -106,7 +106,3 @@
 .input:focus {
   border-color: var(--tal-ink-soft);
 }
-
-.errorGap {
-  margin-top: var(--tal-space-2);
-}

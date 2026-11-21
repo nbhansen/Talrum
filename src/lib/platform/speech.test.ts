@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLanguagePref } from '@/lib/language';
 import { setSpeechPrefs } from '@/lib/speechPrefs';
 
-import { __resetSpeechForTests, getAvailableVoices, isSpeechSupported, speak } from './speech';
+import { getAvailableVoices, isSpeechSupported, speak } from './speech';
 
 interface FakeVoice {
   name: string;
@@ -46,7 +46,6 @@ beforeEach(() => {
   (globalThis as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = StubUtterance;
   window.localStorage.removeItem('talrum:speech-prefs');
   window.localStorage.removeItem('talrum:language');
-  __resetSpeechForTests();
 });
 
 afterEach(() => {

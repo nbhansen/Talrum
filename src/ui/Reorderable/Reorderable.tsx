@@ -70,7 +70,7 @@ export const Reorderable = <T extends Identified>({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={keys} strategy={rectSortingStrategy}>
         {items.map((item, i) => (
-          <SortableItem key={keys[i]} itemKey={keys[i] ?? item.id} handle={handle}>
+          <SortableItem key={item.id} itemKey={item.id} handle={handle}>
             {(drag) => renderItem(item, i, drag)}
           </SortableItem>
         ))}

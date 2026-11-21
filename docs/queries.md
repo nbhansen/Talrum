@@ -20,14 +20,12 @@ re-exporting both so existing import sites don't churn. Smaller domains
   re-typed literal.
 - **A private `fetchX` helper** that calls supabase, does
   `if (error) throw error`, and maps rows.
-- **An exported `rowToX` mapper** narrowing the generated `Database` row type
+- **A `rowToX` mapper** narrowing the generated `Database` row type
   (snake_case, `string`, nullable) into the domain type in `src/types/domain`.
-  Casts are documented where they're safe — `rowToBoard` can cast `kind`
-  because writes only ever supply domain-typed values; `rowToPictogram` leans
-  on the init migration's CHECK constraints.
+  Each cast has a comment that names the CHECK constraint behind it.
 - **A thin `useX` hook**: `useQuery({ queryKey, queryFn })` and nothing else.
 
-Global defaults live in `src/lib/queryClient.ts`: a long stale time, minimal
+Global defaults live in `src/lib/queryClient.ts`: a 30 s stale time, minimal
 retries, no refetch-on-focus — AAC use is calm, an iPad tap away shouldn't
 churn. Rely on them. Override per-query only with a written reason: `useBoard`
 in `boards.read.ts` supplies a custom `retry` because PGRST116 (the `.single()`
@@ -43,14 +41,15 @@ writes, `useOptimisticListMutation` (`optimistic.ts`) for whole-list caches.
 Every outbox hook goes through one of them; no hook hand-rolls the
 lifecycle. The steps:
 
-1. **`onMutate`**: cancel in-flight queries for the key, snapshot the current
-   cache value, write the expected result in, return `{ previous }`.
-2. **`mutationFn`**: `enqueueAndDrain({ kind: ..., ...payload })`. It resolves
+1. **Patch**: cancel in-flight queries for the key, snapshot the current
+   cache value, write the expected result in.
+2. **Write**: `enqueueAndDrain({ kind: ..., ...payload })`. It resolves
    once the write lands (online fast path) or is durably queued (offline);
    it rejects only on _permanent_ failures — RLS, validation (#279 covers
    the fast-path rules).
-3. **`onError`**: restore the snapshot from context. Transient network errors
-   never reach here — the outbox absorbs them and the optimistic patch stands.
+3. **Roll back**: on a rejection, restore the snapshot. Transient network
+   errors never reach here — the outbox absorbs them and the optimistic patch
+   stands.
 4. **`onSettled`** (or `onSuccess`): invalidate every key the write touched —
    per-id _and_ list — so the next refetch reconciles with the server. Skip
    this while the outbox holds a waiting write (`hasQueuedWrites`): the
@@ -58,12 +57,16 @@ lifecycle. The steps:
    sends writes and leaves none waiting invalidates every query instead
    (`onQueueFlushed`, wired in `main.tsx`).
 
+`useOptimisticListMutation` runs steps 1 and 3 in `onMutate` and `onError`.
+`useUpdateBoard` runs steps 1 to 3 inside `mutationFn`, because the fields it
+writes come from the snapshot.
+
 Every board field edit goes through `useUpdateBoard`, which also threads the
 board's `serverUpdatedAt` into the entry as the conflict-guard baseline (#281).
 Mutations that touch two caches (`useDeletePictogram`, `useDeleteKid`)
 snapshot, patch, roll back, and invalidate both.
 
-Blob-planting hooks (`useSetPictogramAudio`, `useCreatePhotoPictogram`,
+Blob-planting hooks (`useSetPictogramAudio`, `useAddPhotoPictogram`,
 `useReplacePictogramImage`) use two extra wrapper options: `beforeRollback`
 revokes the planted `blob:` URL while it is still in the cache — after the
 rollback the URL is unreachable and would leak — and `beforeInvalidate` sweeps
@@ -74,8 +77,8 @@ stale blob URLs before the default invalidation.
 `revokePictogramBlobs` (`pictograms.mutations.ts`) scans every pictogram in the
 cache rather than tracking ids per mutation. Tracking ids exactly would mean
 threading them through the `onSuccess`/`onError` contexts of every blob hook,
-which is not worth it at this app's write volume. Three races follow from the
-scan, and each has a different symptom:
+which is not worth it at this app's write volume. Three races and one leak
+follow, and each has a different symptom:
 
 - **Two concurrent uploads.** The earlier sweep revokes the later upload's
   still-pending blob, so the second tile flashes a broken image until
@@ -118,7 +121,7 @@ when the user has long since moved on. Board sharing adds its own reason:
 it's rare and low-throughput, and failing loudly when offline is fine — the
 user re-pastes the ID later.
 
-**Outbox creates, when a file is involved.** `useCreatePhotoPictogram` is a
+**Outbox creates, when a file is involved.** `useAddPhotoPictogram` is a
 create that goes through the outbox anyway, because the upload (a `Blob` to
 Storage plus the row insert) is exactly what the queue exists for: it must
 survive going offline mid-flight and replay. The hook generates the UUID

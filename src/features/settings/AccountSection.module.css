@@ -1,18 +1,3 @@
-.email {
-  margin: 0;
-  font-size: 14px;
-  color: var(--tal-ink-soft);
-}
-
-.emailValue {
-  color: var(--tal-ink);
-  font-weight: 600;
-}
-
-.actions {
-  margin-top: var(--tal-space-3);
-}
-
 .error {
   margin: var(--tal-space-2) 0 0;
   font-size: 14px;

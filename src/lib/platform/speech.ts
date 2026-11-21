@@ -1,17 +1,5 @@
-/**
- * `getVoices()` is async on the first Chromium call — voices arrive on a
- * `voiceschanged` event — so the picked voice is cached, keyed by language.
- * A saved `voiceURI` overrides the heuristic.
- */
-
-// Relative (not @/lib) imports: vitest.setup.ts imports this module, and
-// tsconfig.node.json has no @ path alias. Same constraint as storage-cache.ts.
-import { getAppLanguage, primarySubtag } from '../language';
-import { getSpeechPrefs } from '../speechPrefs';
-
-let cachedVoice: SpeechSynthesisVoice | null = null;
-let cachedVoiceLang: string | null = null;
-let listenerAttached = false;
+import { getAppLanguage, primarySubtag } from '@/lib/language';
+import { getSpeechPrefs } from '@/lib/speechPrefs';
 
 const getSynth = (): SpeechSynthesis | null =>
   typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
@@ -33,38 +21,19 @@ const pickVoice = (
   return pool.find((v) => /female|samantha|karen|victoria/i.test(v.name)) ?? pool[0] ?? null;
 };
 
-const ensureVoice = (synth: SpeechSynthesis): void => {
-  const targetLang = getAppLanguage();
-  if (cachedVoice && cachedVoiceLang === targetLang) return;
-  const voices = synth.getVoices();
-  if (voices.length > 0) {
-    cachedVoice = pickVoice(voices, targetLang);
-    cachedVoiceLang = targetLang;
-    return;
-  }
-  if (listenerAttached) return;
-  listenerAttached = true;
-  synth.addEventListener(
-    'voiceschanged',
-    () => {
-      const lang = getAppLanguage();
-      cachedVoice = pickVoice(synth.getVoices(), lang);
-      cachedVoiceLang = lang;
-    },
-    { once: true },
-  );
-};
-
+/**
+ * A saved `voiceURI` overrides the heuristic. The list is read on each call:
+ * it is empty on the first Chromium call and fills in later.
+ */
 const resolveVoice = (
   synth: SpeechSynthesis,
   voiceURI: string | null,
 ): SpeechSynthesisVoice | null => {
-  if (voiceURI) {
-    const match = synth.getVoices().find((v) => v.voiceURI === voiceURI);
-    if (match) return match;
-  }
-  ensureVoice(synth);
-  return cachedVoice;
+  const voices = synth.getVoices();
+  return (
+    voices.find((v) => voiceURI !== null && v.voiceURI === voiceURI) ??
+    pickVoice(voices, getAppLanguage())
+  );
 };
 
 export const isSpeechSupported = (): boolean => getSynth() !== null;
@@ -78,7 +47,7 @@ const noop = (): void => undefined;
 
 /**
  * Subscribe to voice-list updates. Browsers populate the voice list async on
- * first access (see `ensureVoice`), so the settings UI needs to re-read after
+ * first access, so the settings UI needs to re-read after
  * the `voiceschanged` event fires. Returns an unsubscribe function.
  */
 export const subscribeVoices = (cb: () => void): (() => void) => {
@@ -99,10 +68,4 @@ export const speak = (text: string): void => {
   utter.rate = prefs.rate;
   utter.pitch = prefs.pitch;
   synth.speak(utter);
-};
-
-export const __resetSpeechForTests = (): void => {
-  cachedVoice = null;
-  cachedVoiceLang = null;
-  listenerAttached = false;
 };

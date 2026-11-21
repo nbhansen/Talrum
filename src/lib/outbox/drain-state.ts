@@ -55,7 +55,7 @@ const initialStatus = (): OutboxStatus => ({
   queueUnreadable: false,
 });
 
-export const drainState: DrainState = {
+const initialState = (): DrainState => ({
   draining: false,
   timerDrain: false,
   pendingDrain: false,
@@ -64,21 +64,16 @@ export const drainState: DrainState = {
   retryTimer: undefined,
   retryDelayMs: RETRY_BASE_DELAY_MS,
   stalledDrains: 0,
-};
+});
+
+export const drainState = initialState();
 
 export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
 export const flushSubscribers = new Set<() => void>();
 
 export const __resetDrainForTests = (): void => {
   clearTimeout(drainState.retryTimer);
-  drainState.draining = false;
-  drainState.timerDrain = false;
-  drainState.pendingDrain = false;
-  drainState.listenersAttached = false;
-  drainState.lastStatus = initialStatus();
-  drainState.retryTimer = undefined;
-  drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
-  drainState.stalledDrains = 0;
+  Object.assign(drainState, initialState());
   drainSubscribers.clear();
   flushSubscribers.clear();
 };

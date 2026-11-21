@@ -103,8 +103,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: npm ci
       - uses: supabase/setup-cli@v2
         with:
           # Same pin as the verify job — keep both jobs on one CLI version.

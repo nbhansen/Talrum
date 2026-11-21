@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { KidChoice } from '@/features/kid-choice/KidChoice';
 import { KidSequence } from '@/features/kid-sequence/KidSequence';
-import { clearLastBoard, setLastBoard } from '@/lib/lastBoard';
+import { clearLastBoard, setLastBoardId } from '@/lib/lastBoard';
 import { isNotFoundError, useBoard } from '@/lib/queries/boards';
 import { KidModeGate } from '@/widgets/KidModeGate/KidModeGate';
 
@@ -15,7 +15,7 @@ export const KidBoardRoute = (): JSX.Element | null => {
   const navigate = useNavigate();
   const stale = isNotFoundError(error);
   useEffect(() => {
-    if (board) setLastBoard({ id: board.id });
+    if (board) setLastBoardId(board.id);
     else if (stale) clearLastBoard();
   }, [board, stale]);
   if (stale) return <Navigate to="/" replace />;

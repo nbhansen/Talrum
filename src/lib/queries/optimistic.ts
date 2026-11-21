@@ -12,7 +12,7 @@ import { hasQueuedWrites } from '@/lib/outbox';
  * each cache keeps its own item type without leaking a generic into the
  * heterogeneous `caches` array — the item type lives inside the closure.
  */
-export interface ListCache<Input> {
+interface ListCache<Input> {
   queryKey: readonly unknown[];
   apply: (qc: QueryClient, input: Input) => void;
 }
@@ -37,9 +37,9 @@ export interface OptimisticListContext {
  * cancel → snapshot → patch → rollback → invalidate triad for whole-list
  * caches, over one or more caches per mutation.
  */
-export const useOptimisticListMutation = <Input, Result = void>(options: {
+export const useOptimisticListMutation = <Input>(options: {
   caches: readonly ListCache<Input>[];
-  mutationFn: (input: Input) => Promise<Result>;
+  mutationFn: (input: Input) => Promise<void>;
   /** Runs after the cache patches in onMutate; NOT rolled back on error. */
   onMutateSideEffect?: (input: Input) => void;
   /**
@@ -50,7 +50,7 @@ export const useOptimisticListMutation = <Input, Result = void>(options: {
   beforeRollback?: () => void;
   /** Runs in onSettled, before the invalidation, and is skipped with it. */
   beforeInvalidate?: () => void;
-}): UseMutationResult<Result, Error, Input, OptimisticListContext> => {
+}): UseMutationResult<void, Error, Input, OptimisticListContext> => {
   const qc = useQueryClient();
   const { caches, mutationFn, onMutateSideEffect, beforeRollback, beforeInvalidate } = options;
   return useMutation({

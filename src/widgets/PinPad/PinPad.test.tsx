@@ -3,17 +3,20 @@ import userEvent from '@testing-library/user-event';
 import type { JSX } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Modal } from '@/ui/Modal/Modal';
+
 import { PinPad } from './PinPad';
 
 const renderPad = (props: Partial<Parameters<typeof PinPad>[0]> = {}): void => {
   render(
-    <PinPad
-      title="Enter PIN"
-      subtitle="Parents only"
-      onSubmit={() => Promise.resolve(false)}
-      onCancel={vi.fn()}
-      {...props}
-    />,
+    <Modal onClose={vi.fn()} size="sm">
+      <PinPad
+        title="Enter PIN"
+        subtitle="Parents only"
+        onSubmit={() => Promise.resolve(false)}
+        {...props}
+      />
+    </Modal>,
   );
 };
 
@@ -37,13 +40,14 @@ describe('PinPad announcements (#683)', () => {
     const user = userEvent.setup();
     const message = (s: number): string => `Wait ${s}s`;
     const view = (lock?: { until: number; message: typeof message }): JSX.Element => (
-      <PinPad
-        title="Enter PIN"
-        subtitle="Parents only"
-        onSubmit={() => Promise.resolve(false)}
-        onCancel={vi.fn()}
-        {...(lock ? { lock } : {})}
-      />
+      <Modal onClose={vi.fn()} size="sm">
+        <PinPad
+          title="Enter PIN"
+          subtitle="Parents only"
+          onSubmit={() => Promise.resolve(false)}
+          {...(lock ? { lock } : {})}
+        />
+      </Modal>
     );
     const { rerender } = render(view());
     for (const d of '1111') await user.click(screen.getByRole('button', { name: d }));

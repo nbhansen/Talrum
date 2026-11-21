@@ -24,11 +24,6 @@ const makeAdminStub = (
 ) => ({
   auth: {
     getUser: override.getUser ?? (async () => ({ data: { user: { id: 'u-good' } }, error: null })),
-    admin: {
-      // Unused by the handler (deletion goes through deleteFn), but the
-      // AdminLike type requires the full auth shape for assignability.
-      deleteUser: async (_uid: string) => ({ error: null }),
-    },
   },
 });
 

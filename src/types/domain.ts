@@ -67,7 +67,6 @@ export interface Board {
   /** Caregiver-controlled, and off by default: not every kid wants the surface. */
   kidReorderable: boolean;
   accent: AccentBg;
-  updatedLabel: string;
   /**
    * The conflict-guard baseline (#281). Optional: a board rehydrated from a
    * cache persisted before this existed degrades to last-write-wins.

@@ -90,7 +90,6 @@ const board = (id: string, stepIds: string[]): Board => ({
   stepIds,
   kidReorderable: false,
   accent: 'sage',
-  updatedLabel: 'today',
 });
 
 beforeEach(() => {

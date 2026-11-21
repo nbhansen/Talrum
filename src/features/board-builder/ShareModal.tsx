@@ -13,8 +13,6 @@ import { Modal } from '@/ui/Modal/Modal';
 import styles from './ShareModal.module.css';
 import { useShareSubmit } from './useShareSubmit';
 
-const TITLE_ID = 'share-modal-title';
-
 interface ShareModalProps {
   boardId: string;
   isOwner: boolean;
@@ -32,7 +30,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
   });
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="md" padded>
+    <Modal onClose={onClose} size="md" padded>
       <DialogHeader
         title="Share this board"
         subtitle={
@@ -40,8 +38,6 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
             ? 'People you share with see this board on their own iPad and can change it like you. Only you can share or delete it.'
             : 'This board is shared with you. You can change it; only its owner can share or delete it.'
         }
-        titleId={TITLE_ID}
-        onClose={onClose}
       />
       <section className={styles.section}>
         <span className={styles.sectionLabel}>Your sharing ID</span>
@@ -51,7 +47,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
             {copied ? 'Copied' : 'Copy'}
           </Button>
         </div>
-        {copyError && <FormError className={styles.errorGap}>{copyError}</FormError>}
+        {copyError && <FormError spaced>{copyError}</FormError>}
       </section>
 
       {isOwner && (
@@ -103,7 +99,7 @@ export const ShareModal = ({ boardId, isOwner, onClose }: ShareModalProps): JSX.
                 {submitting ? 'Adding…' : 'Add'}
               </Button>
             </form>
-            {submitError && <FormError className={styles.errorGap}>{submitError}</FormError>}
+            {submitError && <FormError spaced>{submitError}</FormError>}
           </section>
         </>
       )}

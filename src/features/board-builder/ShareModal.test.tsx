@@ -53,13 +53,7 @@ const renderModal = (
   const onClose = vi.fn();
   useBoardMembersMock.mockReturnValue({ data: members, isSuccess: true });
   const Wrapper = ({ children }: { children: JSX.Element }): JSX.Element => (
-    <SessionContext.Provider
-      value={{
-        session: {} as Session,
-        user: fakeUser(meId),
-        signOut: async () => undefined,
-      }}
-    >
+    <SessionContext.Provider value={{ user: fakeUser(meId) } as Session}>
       {children}
     </SessionContext.Provider>
   );
@@ -134,13 +128,7 @@ describe('ShareModal — members loading state (#35)', () => {
     const onClose = vi.fn();
     useBoardMembersMock.mockReturnValue({ data: undefined, isPending: true });
     render(
-      <SessionContext.Provider
-        value={{
-          session: {} as Session,
-          user: fakeUser(ME_ID),
-          signOut: async () => undefined,
-        }}
-      >
+      <SessionContext.Provider value={{ user: fakeUser(ME_ID) } as Session}>
         <ShareModal boardId="board-1" isOwner onClose={onClose} />
       </SessionContext.Provider>,
     );

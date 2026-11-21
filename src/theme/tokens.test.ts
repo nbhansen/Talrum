@@ -10,11 +10,11 @@ describe('cssVar', () => {
 });
 
 describe('accentForIndex', () => {
-  it('cycles through the five accent pairs', () => {
-    expect(accentForIndex(0)).toEqual({ bg: 'sage', ink: 'sage-ink' });
-    expect(accentForIndex(1)).toEqual({ bg: 'sky', ink: 'sky-ink' });
-    expect(accentForIndex(2)).toEqual({ bg: 'peach', ink: 'peach-ink' });
-    expect(accentForIndex(5)).toEqual(accentForIndex(0));
+  it('cycles through the five accents', () => {
+    expect(accentForIndex(0)).toBe('sage');
+    expect(accentForIndex(1)).toBe('sky');
+    expect(accentForIndex(2)).toBe('peach');
+    expect(accentForIndex(5)).toBe(accentForIndex(0));
   });
 });
 

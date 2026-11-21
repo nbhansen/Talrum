@@ -26,7 +26,7 @@ export type DeleteAccountError = CodedError<DeleteAccountErrorCode>;
 
 type DeleteResponse = { ok: true } | { ok: false; error: string; message: string };
 
-export interface UseDeleteMyAccountOptions {
+interface UseDeleteMyAccountOptions {
   /**
    * Fired before signOut. supabase-js fires onAuthStateChange synchronously
    * from inside signOut(), so anything after it runs on an unmounted tree.

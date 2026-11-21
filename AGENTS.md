@@ -198,7 +198,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 
 ### Layout
 
-- Source lives in: `src/` — layered `app → routes → features → widgets → lib/ui/layouts → theme/types`; ESLint forbids upward imports. See the README architecture section.
+- Source lives in: `src/` — layered `app → routes → features → widgets/layouts → ui/lib → theme/types`; ESLint forbids upward imports. See the README architecture section.
 - Tests live in: colocated `*.test.ts(x)` next to source; pgTAP SQL tests in `supabase/tests/`.
 - Do not modify: `src/types/supabase.ts` (generated — regenerate with `npm run types:db`).
 - Checks, not text, enforce the rest: ESLint (layer imports, cross-feature imports, supabase-client plumbing), Stylelint (theme tokens), pgTAP (REST surface, grants, `search_path`), CI (generated-types drift, migration drift, PR base, AI-session attribution). Claude Code hooks in `.claude/settings.json` run ESLint/Stylelint on each edit and the related tests at turn end.

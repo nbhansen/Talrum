@@ -57,6 +57,8 @@ const SUPABASE_PLUMBING_MSG =
 const allLib = ['lib', 'lib-sub', 'lib-queries', 'lib-outbox', 'lib-storage'];
 const sharedBottom = ['theme', 'types', 'glyphs'];
 
+const belowFeature = ['widgets', 'layouts', 'ui', ...allLib, ...sharedBottom, 'assets'];
+
 const layerPolicies = [
   // ---- The layer map: what each tier MAY import. ----
   {
@@ -65,31 +67,15 @@ const layerPolicies = [
       to: {
         element: {
           types: {
-            anyOf: ['feature', 'widgets', 'layouts', 'ui', ...allLib, ...sharedBottom, 'assets'],
+            anyOf: ['feature', ...belowFeature],
           },
         },
       },
     },
   },
   {
-    from: { element: { type: 'feature' } },
-    allow: {
-      to: {
-        element: {
-          types: { anyOf: ['widgets', 'layouts', 'ui', ...allLib, ...sharedBottom, 'assets'] },
-        },
-      },
-    },
-  },
-  {
-    from: { element: { types: { anyOf: ['widgets', 'layouts'] } } },
-    allow: {
-      to: {
-        element: {
-          types: { anyOf: ['widgets', 'layouts', 'ui', ...allLib, ...sharedBottom, 'assets'] },
-        },
-      },
-    },
+    from: { element: { types: { anyOf: ['feature', 'widgets', 'layouts'] } } },
+    allow: { to: { element: { types: { anyOf: belowFeature } } } },
   },
   {
     // ui/ is the dumb tier (#282): presentational primitives only. Root lib
@@ -219,19 +205,6 @@ export default tseslint.config(
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: {
-        window: 'readonly',
-        document: 'readonly',
-        console: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        HTMLElement: 'readonly',
-        HTMLButtonElement: 'readonly',
-        HTMLInputElement: 'readonly',
-        HTMLTextAreaElement: 'readonly',
-        HTMLDivElement: 'readonly',
-        KeyboardEvent: 'readonly',
-      },
     },
     plugins: {
       'react-hooks': reactHooks,

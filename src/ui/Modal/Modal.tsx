@@ -1,7 +1,8 @@
 import type { JSX, ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import styles from './Modal.module.css';
+import { ModalContext } from './modalContext';
 
 type ModalSize = 'sm' | 'md' | 'full';
 
@@ -19,19 +20,14 @@ const isDisplayed = (el: HTMLElement, root: HTMLElement): boolean => {
 interface ModalProps {
   onClose: () => void;
   children: ReactNode;
-  labelledBy: string;
   size: ModalSize;
   /** Wraps the content in the standard dialog padding. */
   padded?: boolean;
 }
 
-export const Modal = ({
-  onClose,
-  children,
-  labelledBy,
-  size,
-  padded = false,
-}: ModalProps): JSX.Element => {
+export const Modal = ({ onClose, children, size, padded = false }: ModalProps): JSX.Element => {
+  const titleId = useId();
+  const header = useMemo(() => ({ titleId, onClose }), [titleId, onClose]);
   const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   // Read in render: autoFocus moves focus at commit, before an effect runs.
@@ -93,9 +89,11 @@ export const Modal = ({
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        aria-labelledby={labelledBy}
+        aria-labelledby={titleId}
       >
-        {padded ? <div className={styles.padded}>{children}</div> : children}
+        <ModalContext.Provider value={header}>
+          {padded ? <div className={styles.padded}>{children}</div> : children}
+        </ModalContext.Provider>
       </div>
     </div>
   );

@@ -39,7 +39,6 @@ const board: Board = {
   stepIds: [apple.id, cup.id],
   kidReorderable: false,
   accent: 'peach',
-  updatedLabel: 'just now',
 };
 
 const Wrap = ({ children, qc }: { children: ReactNode; qc: QueryClient }): JSX.Element => (

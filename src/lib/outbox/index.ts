@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { ulid } from 'ulid';
 
 import { bestEffort } from './best-effort';
@@ -20,7 +20,7 @@ import { runHandler, UnretryableOutboxError } from './handlers';
 import { isOnline } from './online';
 import { getOutboxOwner, setOwnerId } from './owner';
 import { deleteEntry, listEntries, putEntry } from './store';
-import type { OutboxEntry } from './types';
+import type { OutboxEntry, OutboxEntryBase } from './types';
 
 export { OUTBOX_KEY_PREFIX } from './store';
 export type { BoardRowPatch } from './types';
@@ -42,10 +42,7 @@ export const setOutboxOwner = (id: string | null): void => {
  * fields. A plain `Omit<OutboxEntry, ...>` collapses to the common props.
  */
 type DistributiveOmit<T, K extends keyof OutboxEntry> = T extends OutboxEntry ? Omit<T, K> : never;
-type EntryInput = DistributiveOmit<
-  OutboxEntry,
-  'id' | 'enqueuedAt' | 'attemptCount' | 'status' | 'lastError' | 'failureKind'
->;
+type EntryInput = DistributiveOmit<OutboxEntry, keyof OutboxEntryBase>;
 
 /**
  * The hot path for every mutation. Online with an empty queue: persist, run the
@@ -175,8 +172,4 @@ export const discardFailed = async (): Promise<void> => {
   await refreshStatus();
 };
 
-export const useOutboxStatus = (): OutboxStatus => {
-  const [status, setStatus] = useState<OutboxStatus>(getStatus());
-  useEffect(() => subscribeStatus(setStatus), []);
-  return status;
-};
+export const useOutboxStatus = (): OutboxStatus => useSyncExternalStore(subscribeStatus, getStatus);

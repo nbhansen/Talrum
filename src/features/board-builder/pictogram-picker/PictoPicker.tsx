@@ -22,7 +22,6 @@ interface PictoPickerProps {
   onConfirm: (selectedIds: readonly string[]) => void;
 }
 
-const TITLE_ID = 'tal-picker-title';
 const TABS_ID = 'tal-picker-tabs';
 
 export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): JSX.Element => {
@@ -52,13 +51,11 @@ export const PictoPicker = ({ ownerId, onClose, onConfirm }: PictoPickerProps): 
   };
 
   return (
-    <Modal onClose={onClose} labelledBy={TITLE_ID} size="full">
+    <Modal onClose={onClose} size="full">
       <div className={styles.headerWrap}>
         <DialogHeader
           title="Add pictograms"
           subtitle="Pick from the library, upload a photo, or generate an image."
-          titleId={TITLE_ID}
-          onClose={onClose}
           closeLabel="Close picker"
         />
       </div>

@@ -9,7 +9,6 @@ import styles from './KidModeLayout.module.css';
 interface KidModeLayoutProps {
   eyebrow: string;
   title: string;
-  titleSize?: 'default' | 'large';
   onExit: () => void;
   logo?: LogoTile | undefined;
   children: ReactNode;
@@ -18,7 +17,6 @@ interface KidModeLayoutProps {
 export const KidModeLayout = ({
   eyebrow,
   title,
-  titleSize = 'default',
   onExit,
   logo,
   children,
@@ -29,13 +27,7 @@ export const KidModeLayout = ({
         <TalrumLogo tile={logo} />
         <div>
           <div className={styles.eyebrow}>{eyebrow}</div>
-          <div
-            className={[styles.title, titleSize === 'large' && styles.titleLarge]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {title}
-          </div>
+          <div className={styles.title}>{title}</div>
         </div>
       </div>
       <button type="button" className={styles.exit} onClick={onExit}>

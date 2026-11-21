@@ -4,7 +4,6 @@
 export {
   AUDIO_BUCKET,
   IMAGES_BUCKET,
-  invalidateSignedUrl,
   isUploadedStoragePath,
   mintStoragePath,
   removeFromBucket,

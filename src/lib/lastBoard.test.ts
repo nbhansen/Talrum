@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   clearLastBoard,
-  getLastBoard,
+  getLastBoardId,
   hasAutoLaunched,
   kidPathFor,
   markAutoLaunched,
-  setLastBoard,
+  setLastBoardId,
 } from './lastBoard';
 
 describe('lastBoard', () => {
@@ -20,33 +20,38 @@ describe('lastBoard', () => {
   });
 
   it('returns null when nothing is stored', () => {
-    expect(getLastBoard()).toBeNull();
+    expect(getLastBoardId()).toBeNull();
   });
 
   it('round-trips a board id', () => {
-    setLastBoard({ id: 'abc' });
-    expect(getLastBoard()).toEqual({ id: 'abc' });
+    setLastBoardId('abc');
+    expect(getLastBoardId()).toBe('abc');
+  });
+
+  it('stores the id in a JSON record, the format that devices already hold', () => {
+    setLastBoardId('abc');
+    expect(localStorage.getItem('talrum:last-board')).toBe(JSON.stringify({ id: 'abc' }));
   });
 
   it('reads only the id of a record that also stores a kind', () => {
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 'abc', kind: 'choice' }));
-    expect(getLastBoard()).toEqual({ id: 'abc' });
+    expect(getLastBoardId()).toBe('abc');
   });
 
   it('returns null on malformed JSON', () => {
     localStorage.setItem('talrum:last-board', '{not json');
-    expect(getLastBoard()).toBeNull();
+    expect(getLastBoardId()).toBeNull();
   });
 
   it('returns null when the stored id is not a string', () => {
     localStorage.setItem('talrum:last-board', JSON.stringify({ id: 7 }));
-    expect(getLastBoard()).toBeNull();
+    expect(getLastBoardId()).toBeNull();
   });
 
   it('clearLastBoard removes the entry', () => {
-    setLastBoard({ id: 'a' });
+    setLastBoardId('a');
     clearLastBoard();
-    expect(getLastBoard()).toBeNull();
+    expect(getLastBoardId()).toBeNull();
   });
 
   it('auto-launch flag flips after marking', () => {

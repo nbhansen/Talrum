@@ -1,20 +1,22 @@
-import { type JSX, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
 
 import { clearPin, hasPin, pinGateDisabled, setPin, subscribePin, verifyPin } from '@/lib/pin';
 import { captureException } from '@/lib/platform/telemetry';
 import { Button } from '@/ui/Button/Button';
 import { Modal } from '@/ui/Modal/Modal';
-import { PIN_PAD_TITLE_ID, PinPad } from '@/widgets/PinPad/PinPad';
+import { PinPad } from '@/widgets/PinPad/PinPad';
 
 import styles from './PinManagementSection.module.css';
+import shared from './settings.module.css';
 
 /**
  * Both flows share these steps. Setting a first PIN starts at 'enter-new'
  * (there is no current PIN to verify); changing one starts at 'verify'.
  */
-type PinStage = 'verify' | 'enter-new' | 'confirm-new';
-
-type ModalState = { kind: 'closed' } | { kind: 'pin'; stage: PinStage };
+type PinFlow =
+  | { stage: 'verify' }
+  | { stage: 'enter-new' }
+  | { stage: 'confirm-new'; newPin: string };
 
 interface PinManagementSectionProps {
   /**
@@ -28,10 +30,9 @@ interface PinManagementSectionProps {
 export const PinManagementSection = ({
   pinRequiredForKidMode = false,
 }: PinManagementSectionProps): JSX.Element => {
-  const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
+  const [flow, setFlow] = useState<PinFlow | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const newPinRef = useRef<string>('');
   const hasPinNow = useSyncExternalStore(subscribePin, hasPin, () => false);
 
   useEffect(() => {
@@ -40,28 +41,24 @@ export const PinManagementSection = ({
     return () => window.clearTimeout(id);
   }, [flash]);
 
-  const close = (): void => {
-    setModal({ kind: 'closed' });
-    newPinRef.current = '';
-  };
+  const close = (): void => setFlow(null);
 
   const handleVerify = async (pin: string): Promise<boolean> => {
     const ok = await verifyPin(pin).catch((err: unknown) => {
       captureException(err, { tags: { component: 'PinManagementSection', op: 'verifyPin' } });
       throw new Error('Talrum cannot check the PIN on this device. Reload the page and try again.');
     });
-    if (ok) setModal({ kind: 'pin', stage: 'enter-new' });
+    if (ok) setFlow({ stage: 'enter-new' });
     return ok;
   };
 
   const handleEnterNew = async (pin: string): Promise<boolean> => {
-    newPinRef.current = pin;
-    setModal({ kind: 'pin', stage: 'confirm-new' });
+    setFlow({ stage: 'confirm-new', newPin: pin });
     return true;
   };
 
-  const handleConfirmNew = async (pin: string): Promise<boolean> => {
-    if (pin !== newPinRef.current) return false;
+  const handleConfirmNew = async (pin: string, newPin: string): Promise<boolean> => {
+    if (pin !== newPin) return false;
     const wasFirstPin = !hasPinNow;
     try {
       await setPin(pin);
@@ -85,7 +82,7 @@ export const PinManagementSection = ({
     return (
       <section>
         <h2>Parent PIN</h2>
-        <p className={styles.muted}>
+        <p className={shared.muted}>
           PIN gate is disabled in this build (<code>VITE_DISABLE_PIN=1</code>).
         </p>
       </section>
@@ -101,25 +98,25 @@ export const PinManagementSection = ({
         </p>
       )}
       {!hasPinNow && (
-        <p className={styles.muted}>
+        <p className={shared.muted}>
           No PIN set, so kid mode is unavailable. The PIN is the only way back out of a kid screen —
           without it a child could tap straight into parent mode.
         </p>
       )}
       {hasPinNow && (
-        <p className={styles.muted}>
+        <p className={shared.muted}>
           Your 4-digit PIN unlocks parent mode from a kid screen. Forgot it? Clear it and set a new
           one here.
         </p>
       )}
       <div className={styles.actions}>
         {!hasPinNow && (
-          <Button variant="ghost" onClick={() => setModal({ kind: 'pin', stage: 'enter-new' })}>
+          <Button variant="ghost" onClick={() => setFlow({ stage: 'enter-new' })}>
             Set a PIN
           </Button>
         )}
         {hasPinNow && (
-          <Button variant="ghost" onClick={() => setModal({ kind: 'pin', stage: 'verify' })}>
+          <Button variant="ghost" onClick={() => setFlow({ stage: 'verify' })}>
             Change PIN
           </Button>
         )}
@@ -145,17 +142,16 @@ export const PinManagementSection = ({
           {flash}
         </p>
       )}
-      {modal.kind === 'pin' && (
-        <Modal onClose={close} labelledBy={PIN_PAD_TITLE_ID} size="sm">
-          {modal.stage === 'verify' && (
+      {flow && (
+        <Modal onClose={close} size="sm">
+          {flow.stage === 'verify' && (
             <PinPad
               title="Enter current PIN"
               subtitle="Verify it's you before setting a new one."
               onSubmit={handleVerify}
-              onCancel={close}
             />
           )}
-          {modal.stage === 'enter-new' && (
+          {flow.stage === 'enter-new' && (
             <PinPad
               title={hasPinNow ? 'Enter new PIN' : 'Set a parent PIN'}
               subtitle={
@@ -164,15 +160,13 @@ export const PinManagementSection = ({
                   : "Choose a 4-digit PIN. You'll need it to leave kid mode."
               }
               onSubmit={handleEnterNew}
-              onCancel={close}
             />
           )}
-          {modal.stage === 'confirm-new' && (
+          {flow.stage === 'confirm-new' && (
             <PinPad
               title={hasPinNow ? 'Confirm new PIN' : 'Confirm your PIN'}
               subtitle="Enter the same 4 digits again."
-              onSubmit={handleConfirmNew}
-              onCancel={close}
+              onSubmit={(pin) => handleConfirmNew(pin, flow.newPin)}
               errorMessage="PINs don't match"
             />
           )}

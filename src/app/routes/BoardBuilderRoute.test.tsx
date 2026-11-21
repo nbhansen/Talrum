@@ -104,7 +104,6 @@ describe('BoardBuilderRoute', () => {
       stepIds: [],
       kidReorderable: false,
       accent: 'peach',
-      updatedLabel: 'Edited just now',
     });
     qc.setQueryData(boardQueryKey('board-a'), board('board-a', 'Morning'));
     qc.setQueryData(boardQueryKey('board-b'), board('board-b', 'Bedtime'));

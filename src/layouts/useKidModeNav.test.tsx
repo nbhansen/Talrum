@@ -37,7 +37,6 @@ const board = (over: Partial<Board>): Board => ({
   stepIds: ['p1'],
   kidReorderable: false,
   accent: 'sage',
-  updatedLabel: 'just now',
   serverUpdatedAt: '2026-01-01T00:00:00Z',
   ...over,
 });

@@ -18,18 +18,14 @@ import styles from './ParentHome.module.css';
 const RECENT_STRIP_SLUGS = ['wakeup', 'apple', 'zoo', 'bag', 'bath', 'book', 'play'];
 
 interface ParentHomeProps {
-  onOpenBoard?: (id: string) => void;
-  onNewKid?: () => void;
+  onOpenBoard: (id: string) => void;
+  onNewKid: () => void;
   /** Opens the full New board modal (name + kind + kid picker). */
-  onNewBoard?: () => void;
-  /**
-   * Fast path: creates a board with default values immediately and navigates
-   * into the BoardBuilder. Disabled when no kids are loaded yet (the route
-   * passes a no-op or omits the prop while waiting on the kids query).
-   */
-  onNewBlankBoard?: () => void;
-  onSeeAll?: () => void;
-  newBlankPending?: boolean;
+  onNewBoard: () => void;
+  /** Fast path: creates a board with default values and opens the builder. */
+  onNewBlankBoard: () => void;
+  onSeeAll: () => void;
+  newBlankPending: boolean;
 }
 
 export const ParentHome = ({
@@ -38,7 +34,7 @@ export const ParentHome = ({
   onNewBoard,
   onNewBlankBoard,
   onSeeAll,
-  newBlankPending = false,
+  newBlankPending,
 }: ParentHomeProps): JSX.Element => {
   const boardsQuery = useBoards();
   const pictogramsBySlug = usePictogramsBySlug();
@@ -90,7 +86,7 @@ export const ParentHome = ({
       ) : (
         <div className={styles.grid}>
           {boards.map((b) => (
-            <BoardCard key={b.id} board={b} onClick={() => onOpenBoard?.(b.id)} />
+            <BoardCard key={b.id} board={b} onClick={() => onOpenBoard(b.id)} />
           ))}
           <button
             type="button"

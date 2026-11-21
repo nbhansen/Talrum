@@ -6,13 +6,11 @@ import styles from './PinPad.module.css';
 import { MAX_LOCK_MS } from './pinThrottle';
 
 const PIN_LENGTH = 4;
-export const PIN_PAD_TITLE_ID = 'pin-pad-title';
 
 interface PinPadProps {
   title: string;
   subtitle: string;
   onSubmit: (pin: string) => Promise<boolean>;
-  onCancel: () => void;
   errorMessage?: string;
   /**
    * Throttle lock (#372): keys disable until `until` (epoch ms) and the pad
@@ -28,7 +26,6 @@ export const PinPad = ({
   title,
   subtitle,
   onSubmit,
-  onCancel,
   errorMessage,
   lock,
 }: PinPadProps): JSX.Element => {
@@ -91,12 +88,7 @@ export const PinPad = ({
 
   return (
     <div className={styles.wrap}>
-      <DialogHeader
-        title={title}
-        subtitle={subtitle}
-        titleId={PIN_PAD_TITLE_ID}
-        onClose={onCancel}
-      />
+      <DialogHeader title={title} subtitle={subtitle} />
       <div className={styles.dots} role="status">
         <span className={styles.count}>
           {digits.length} of {PIN_LENGTH} digits entered

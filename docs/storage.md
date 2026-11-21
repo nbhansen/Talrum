@@ -87,9 +87,9 @@ guard the rest of the codebase uses to tell real paths from sentinels.
 
 Uploads and deletes go through `uploadBlob` / `removeFromBucket` in
 `src/lib/storage/storage.ts`, called only from outbox handlers (see
-[outbox.md](./outbox.md)). Handlers call `invalidateSignedUrl` after
-replacing or deleting an object, dropping the memory and IDB entries so the
-next render can't sign a URL for bytes that changed underneath it.
+[outbox.md](./outbox.md)). Each of the two drops the memory and IDB entries
+for the paths it wrote, so the next render can't sign a URL for bytes that
+changed underneath it.
 
 ## Sign-out
 
@@ -105,7 +105,7 @@ the `generate-image` edge function returns JPEG bytes from an image model,
 and the client crops them through the same `cropToSquareJpeg` pipeline as
 an uploaded photo. The parent sees the cropped result as a preview; nothing
 is written anywhere until they save, and saving goes through the same
-`useCreatePhotoPictogram` outbox path as an upload — downstream (outbox,
+`useAddPhotoPictogram` outbox path as an upload — downstream (outbox,
 caching, signed URLs) cannot tell the two apart.
 
 Every prompt goes through one fixed style template

@@ -69,8 +69,8 @@ describe('KidBoardRoute stale-board recovery', () => {
 
   it.each<BoardKind>(['choice', 'sequence'])(
     '%s: redirects to / and clears the last-board record when the board is gone (PGRST116)',
-    async (kind) => {
-      localStorage.setItem('talrum:last-board', JSON.stringify({ id: BOARD_ID, kind }));
+    async (_kind) => {
+      localStorage.setItem('talrum:last-board', JSON.stringify({ id: BOARD_ID }));
       // Or the / route redirects back into the now-missing board on landing.
       sessionStorage.setItem('talrum:auto-launched', '1');
 
