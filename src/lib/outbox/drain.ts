@@ -5,7 +5,7 @@ import { resolveExpectedUpdatedAt } from './board-clock';
 import {
   drainState,
   drainSubscribers,
-  landedSubscribers,
+  flushSubscribers,
   type OutboxStatus,
   RETRY_BASE_DELAY_MS,
 } from './drain-state';
@@ -71,11 +71,24 @@ export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => 
 
 export const getStatus = (): OutboxStatus => drainState.lastStatus;
 
-/** Runs after a drain pass sends at least one write to the server. */
-export const onWritesLanded = (fn: () => void): (() => void) => {
-  landedSubscribers.add(fn);
+/**
+ * A refetch while a write waits returns the row without it and replaces the
+ * optimistic patch (#773). The drain refetches once the queue is empty. An
+ * unreadable queue reads as empty, so the refetch runs at once as before.
+ */
+export const hasQueuedWrites = async (): Promise<boolean> => {
+  let queued = false;
+  await bestEffort('has-queued-writes', async () => {
+    queued = (await listEntries()).some((e) => e.status !== 'failed');
+  });
+  return queued;
+};
+
+/** Runs after a drain pass sends writes and leaves none waiting (#773). */
+export const onQueueFlushed = (fn: () => void): (() => void) => {
+  flushSubscribers.add(fn);
   return () => {
-    landedSubscribers.delete(fn);
+    flushSubscribers.delete(fn);
   };
 };
 
@@ -304,7 +317,9 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     drainState.draining = false;
     drainState.timerDrain = false;
     await emit();
-    if (sawProgress || sawUncleared) landedSubscribers.forEach((fn) => fn());
+    if ((sawProgress || sawUncleared) && !(await hasQueuedWrites())) {
+      flushSubscribers.forEach((fn) => fn());
+    }
     if (drainState.pendingDrain) {
       // The immediate follow-up drain owns the retry decision.
       drainState.pendingDrain = false;

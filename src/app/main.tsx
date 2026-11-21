@@ -5,7 +5,7 @@ import '@/theme/reset.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { onWritesLanded, startOutbox } from '@/lib/outbox';
+import { onQueueFlushed, startOutbox } from '@/lib/outbox';
 import { installPreloadErrorRecovery } from '@/lib/platform/preloadError';
 import { registerServiceWorker } from '@/lib/platform/serviceWorker';
 import { initTelemetry } from '@/lib/platform/telemetry';
@@ -19,7 +19,7 @@ initTelemetry();
 installPreloadErrorRecovery();
 registerServiceWorker();
 startOutbox();
-onWritesLanded(() => void queryClient.invalidateQueries());
+onQueueFlushed(() => void queryClient.invalidateQueries());
 
 const root = document.getElementById('root');
 if (!root) {

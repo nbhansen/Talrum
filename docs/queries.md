@@ -54,9 +54,9 @@ lifecycle. The steps:
 4. **`onSettled`** (or `onSuccess`): invalidate every key the write touched —
    per-id _and_ list — so the next refetch reconciles with the server. Skip
    this while the outbox holds a waiting write (`hasQueuedWrites`): the
-   refetch would replace the patch with the old row (#773). Each drain that
-   sends a write invalidates every query instead (`onWritesLanded`, wired in
-   `main.tsx`).
+   refetch would replace the patch with the old row (#773). A drain that
+   sends writes and leaves none waiting invalidates every query instead
+   (`onQueueFlushed`, wired in `main.tsx`).
 
 Every board field edit goes through `useUpdateBoard`, which also threads the
 board's `serverUpdatedAt` into the entry as the conflict-guard baseline (#281).

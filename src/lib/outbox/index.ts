@@ -6,7 +6,8 @@ import {
   drain,
   entryAfterFailure,
   getStatus,
-  onWritesLanded,
+  hasQueuedWrites,
+  onQueueFlushed,
   type OutboxStatus,
   reconcileQueue,
   refreshStatus,
@@ -23,7 +24,7 @@ import type { OutboxEntry } from './types';
 
 export { OUTBOX_KEY_PREFIX } from './store';
 export type { BoardRowPatch } from './types';
-export { onWritesLanded, startOutbox };
+export { hasQueuedWrites, onQueueFlushed, startOutbox };
 
 /**
  * Tell the outbox which account it works for. Draining is gated on a known
@@ -132,19 +133,6 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // indicator updates without waiting for the next online event.
     await drain();
   }
-};
-
-/**
- * A refetch while a write waits returns the row without it and replaces the
- * optimistic patch (#773). The drain refetches when it sends the write. An
- * unreadable queue reads as empty, so the refetch runs at once as before.
- */
-export const hasQueuedWrites = async (): Promise<boolean> => {
-  let queued = false;
-  await bestEffort('has-queued-writes', async () => {
-    queued = (await listEntries()).some((e) => e.status !== 'failed');
-  });
-  return queued;
 };
 
 /**

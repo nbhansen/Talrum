@@ -37,7 +37,7 @@ const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
 const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
 const { queryClient: appQueryClient } = await import('@/lib/queryClient');
-const { onWritesLanded, setOutboxOwner, useOutboxStatus } = await import('@/lib/outbox');
+const { onQueueFlushed, setOutboxOwner, useOutboxStatus } = await import('@/lib/outbox');
 const { drain } = await import('@/lib/outbox/drain');
 const { putEntry } = await import('@/lib/outbox/store');
 
@@ -156,23 +156,38 @@ describe('useUpdateBoard', () => {
       defaultOptions: { ...appQueryClient.getDefaultOptions(), queries: { retry: false } },
     });
     let serverName = seed.name;
+    let failingBoard: string | null = 'b';
     const fetchBoard = vi.fn(() => Promise.resolve({ ...seed, name: serverName }));
     qc.setQueryData(boardQueryKey('morning'), seed);
-    setOutboxOwner('owner-uuid');
-    const stopRefetch = onWritesLanded(() => void qc.invalidateQueries());
-    await putEntry({
-      kind: 'updateBoard',
-      boardId: 'other',
-      patch: { name: 'Older edit' },
-      id: '00000000000000000000000000',
-      enqueuedAt: 0,
-      attemptCount: 0,
-      status: 'pending',
-      enqueuedBy: 'owner-uuid',
-    });
-    unguardedSelectMock.mockResolvedValue({
-      data: null,
-      error: { code: '', message: 'TypeError: Failed to fetch', details: '', hint: '' },
+    const stopRefetch = onQueueFlushed(() => void qc.invalidateQueries());
+    for (const [id, boardId] of [
+      ['00000000000000000000000001', 'a'],
+      ['00000000000000000000000002', 'b'],
+    ] as const) {
+      await putEntry({
+        kind: 'updateBoard',
+        boardId,
+        patch: { name: 'Older edit' },
+        id,
+        enqueuedAt: 0,
+        attemptCount: 0,
+        status: 'pending',
+        enqueuedBy: 'owner-uuid',
+      });
+    }
+    unguardedSelectMock.mockImplementation(() => {
+      const boardId = eqMock.mock.lastCall?.[1];
+      if (boardId === failingBoard) {
+        return Promise.resolve({
+          data: null,
+          error: { code: '', message: 'TypeError: Failed to fetch', details: '', hint: '' },
+        });
+      }
+      if (boardId === 'morning') serverName = 'Sunrise';
+      return Promise.resolve({
+        data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+        error: null,
+      });
     });
     const { result } = renderHook(
       () => ({
@@ -189,17 +204,14 @@ describe('useUpdateBoard', () => {
         result.current.update.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
       });
       await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+      // The pass sends `a`, then `b` fails and holds the edit in the queue.
+      act(() => setOutboxOwner('owner-uuid'));
+      await waitFor(() => expect(eqMock.mock.calls.map((c) => c[1])).toContain('b'));
       await waitFor(() => expect(result.current.board.isFetching).toBe(false));
       expect(result.current.board.data?.name).toBe('Sunrise');
 
       const fetchesBeforeSend = fetchBoard.mock.calls.length;
-      unguardedSelectMock.mockImplementation(() => {
-        serverName = 'Sunrise';
-        return Promise.resolve({
-          data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
-          error: null,
-        });
-      });
+      failingBoard = null;
       await act(() => drain());
       await waitFor(() => expect(fetchBoard.mock.calls.length).toBeGreaterThan(fetchesBeforeSend));
       expect(result.current.board.data?.name).toBe('Sunrise');
