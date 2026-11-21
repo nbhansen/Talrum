@@ -1,6 +1,5 @@
 import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { clear as clearIdb } from 'idb-keyval';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -147,7 +146,6 @@ describe('useUpdateBoard', () => {
     } finally {
       onlineManager.setOnline(true);
       Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
-      await clearIdb();
     }
   });
 
