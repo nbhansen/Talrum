@@ -17,6 +17,8 @@ import { useSaveVoice } from './useSaveVoice';
 import { useVoiceRecording } from './useVoiceRecording';
 import styles from './VoiceRecorderDialog.module.css';
 
+type DialogMode = 'recording' | 'generating' | 'preview' | 'saved' | 'empty';
+
 interface Props {
   picto: Pictogram;
   onClose: () => void;
@@ -33,8 +35,16 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
   const clearMut = useClearPictogramAudio();
   const supported = isRecordingSupported();
   const hasAudio = Boolean(picto.audioPath);
-  const isRecording = recording.status === 'recording';
-  const { preview } = generated;
+  const mode: DialogMode =
+    recording.status === 'recording'
+      ? 'recording'
+      : generated.status === 'generating'
+        ? 'generating'
+        : generated.preview
+          ? 'preview'
+          : hasAudio
+            ? 'saved'
+            : 'empty';
 
   const play = async (): Promise<void> => {
     if (!picto.audioPath) return;
@@ -85,19 +95,19 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
           <PictogramMedia picto={picto} size={180} />
         </div>
         <div className={styles.status}>
-          {isRecording ? (
+          {mode === 'recording' ? (
             <span className={styles.recDot} aria-live="polite">
               Recording… Stops after {MAX_RECORDING_MS / 1000} seconds.
             </span>
-          ) : generated.status === 'generating' ? (
+          ) : mode === 'generating' ? (
             <span className={styles.empty} aria-live="polite">
               Generating a voice…
             </span>
-          ) : preview ? (
+          ) : mode === 'preview' ? (
             <span className={styles.ok} aria-live="polite">
               Voice ready — listen, then save or discard.
             </span>
-          ) : hasAudio ? (
+          ) : mode === 'saved' ? (
             <span className={styles.ok}>Recording saved ✓</span>
           ) : (
             <span className={styles.empty}>No recording yet.</span>
@@ -111,7 +121,7 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
         )}
       </div>
       <footer className={styles.footer}>
-        {preview ? (
+        {mode === 'preview' ? (
           // A generated clip is waiting. Nothing else until the parent
           // decides — saving and re-recording over an unheard preview are
           // both mistakes this layout makes impossible.
@@ -145,10 +155,19 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
               </Button>
             </div>
           </>
+        ) : mode === 'recording' ? (
+          <>
+            <div className={styles.footerLeft} />
+            <div className={styles.footerRight}>
+              <Button variant="primary" icon={<StopIcon size={14} />} onClick={recording.stop}>
+                Stop
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             <div className={styles.footerLeft}>
-              {hasAudio && !isRecording && (
+              {hasAudio && (
                 <>
                   <Button
                     variant="ghost"
@@ -170,30 +189,22 @@ export const VoiceRecorderDialog = ({ picto: snapshot, onClose }: Props): JSX.El
               )}
             </div>
             <div className={styles.footerRight}>
-              {isRecording ? (
-                <Button variant="primary" icon={<StopIcon size={14} />} onClick={recording.stop}>
-                  Stop
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    icon={<SparkleIcon size={14} />}
-                    onClick={generated.generate}
-                    disabled={busy}
-                  >
-                    Generate voice
-                  </Button>
-                  <Button
-                    variant="primary"
-                    icon={<MicIcon size={14} />}
-                    onClick={recording.start}
-                    disabled={!supported || busy}
-                  >
-                    {hasAudio ? 'Re-record' : 'Record'}
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="ghost"
+                icon={<SparkleIcon size={14} />}
+                onClick={generated.generate}
+                disabled={busy}
+              >
+                Generate voice
+              </Button>
+              <Button
+                variant="primary"
+                icon={<MicIcon size={14} />}
+                onClick={recording.start}
+                disabled={!supported || busy}
+              >
+                {hasAudio ? 'Re-record' : 'Record'}
+              </Button>
             </div>
           </>
         )}

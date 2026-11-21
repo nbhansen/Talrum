@@ -14,3 +14,15 @@ export const bestEffort = async (op: string, work: () => Promise<void>): Promise
     return false;
   }
 };
+
+/** A read through {@link bestEffort}: undefined when the read failed. */
+export const bestEffortRead = async <T>(
+  op: string,
+  read: () => Promise<T>,
+): Promise<T | undefined> => {
+  let value: T | undefined;
+  await bestEffort(op, async () => {
+    value = await read();
+  });
+  return value;
+};
