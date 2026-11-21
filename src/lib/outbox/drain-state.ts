@@ -67,6 +67,7 @@ export const drainState: DrainState = {
 };
 
 export const drainSubscribers = new Set<(s: OutboxStatus) => void>();
+export const landedSubscribers = new Set<() => void>();
 
 export const __resetDrainForTests = (): void => {
   clearTimeout(drainState.retryTimer);
@@ -79,4 +80,5 @@ export const __resetDrainForTests = (): void => {
   drainState.retryDelayMs = RETRY_BASE_DELAY_MS;
   drainState.stalledDrains = 0;
   drainSubscribers.clear();
+  landedSubscribers.clear();
 };

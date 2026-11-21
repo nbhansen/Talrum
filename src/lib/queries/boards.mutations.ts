@@ -2,7 +2,7 @@ import { useMutation, type UseMutationResult, useQueryClient } from '@tanstack/r
 
 import { useSessionUser } from '@/lib/auth/session';
 import { clearLastBoard, getLastBoard } from '@/lib/lastBoard';
-import { enqueueAndDrain } from '@/lib/outbox';
+import { enqueueAndDrain, hasQueuedWrites } from '@/lib/outbox';
 import { captureException } from '@/lib/platform/telemetry';
 import { boardMembersQueryKey } from '@/lib/queries/board-members';
 import {
@@ -81,7 +81,8 @@ export const useUpdateBoard = (): UseMutationResult<void, Error, BoardUpdate, Bo
     onError: (_err, { boardId }, ctx) => {
       if (ctx?.previous) qc.setQueryData(boardQueryKey(boardId), ctx.previous);
     },
-    onSettled: (_data, _err, { boardId }) => {
+    onSettled: async (_data, _err, { boardId }) => {
+      if (await hasQueuedWrites()) return;
       qc.invalidateQueries({ queryKey: boardQueryKey(boardId) });
       qc.invalidateQueries({ queryKey: boardsQueryKey });
     },
@@ -141,9 +142,9 @@ interface DeleteBoardInput {
 }
 
 /**
- * The per-board and members caches go on settle, not in onMutate: the builder
- * still observes the per-board key until the route navigates away, and a
- * removed-while-observed query refetches into BoardNotFound.
+ * The per-board and members caches go after the write, not in onMutate: the
+ * builder still observes the per-board key until the route navigates away, and
+ * a removed-while-observed query refetches into BoardNotFound.
  */
 export const useDeleteBoard = (): UseMutationResult<
   void,
@@ -161,11 +162,10 @@ export const useDeleteBoard = (): UseMutationResult<
     onMutateSideEffect: ({ boardId }) => {
       if (getLastBoard()?.id === boardId) clearLastBoard();
     },
-    mutationFn: ({ boardId }) => enqueueAndDrain({ kind: 'deleteBoard', boardId }),
     // On error the board still exists and the builder still shows it, so only
     // a successful delete may evict its caches.
-    beforeInvalidate: ({ boardId }, error) => {
-      if (error) return;
+    mutationFn: async ({ boardId }) => {
+      await enqueueAndDrain({ kind: 'deleteBoard', boardId });
       qc.removeQueries({ queryKey: boardQueryKey(boardId) });
       qc.removeQueries({ queryKey: boardMembersQueryKey(boardId) });
     },

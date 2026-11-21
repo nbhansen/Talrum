@@ -5,6 +5,7 @@ import { resolveExpectedUpdatedAt } from './board-clock';
 import {
   drainState,
   drainSubscribers,
+  landedSubscribers,
   type OutboxStatus,
   RETRY_BASE_DELAY_MS,
 } from './drain-state';
@@ -69,6 +70,14 @@ export const subscribeStatus = (fn: (s: OutboxStatus) => void): (() => void) => 
 };
 
 export const getStatus = (): OutboxStatus => drainState.lastStatus;
+
+/** Runs after a drain pass sends at least one write to the server. */
+export const onWritesLanded = (fn: () => void): (() => void) => {
+  landedSubscribers.add(fn);
+  return () => {
+    landedSubscribers.delete(fn);
+  };
+};
 
 /**
  * A landed updateBoard stales the guard on every queued entry for the same
@@ -295,6 +304,7 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
     drainState.draining = false;
     drainState.timerDrain = false;
     await emit();
+    if (sawProgress || sawUncleared) landedSubscribers.forEach((fn) => fn());
     if (drainState.pendingDrain) {
       // The immediate follow-up drain owns the retry decision.
       drainState.pendingDrain = false;

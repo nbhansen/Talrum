@@ -1,4 +1,4 @@
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,7 +37,9 @@ const { useDeleteBoard, useUpdateBoard } = await import('./boards.mutations');
 const { clearLastBoard, getLastBoard, setLastBoard } = await import('@/lib/lastBoard');
 const { captureException } = await import('@/lib/platform/telemetry');
 const { queryClient: appQueryClient } = await import('@/lib/queryClient');
-const { useOutboxStatus } = await import('@/lib/outbox');
+const { onWritesLanded, setOutboxOwner, useOutboxStatus } = await import('@/lib/outbox');
+const { drain } = await import('@/lib/outbox/drain');
+const { putEntry } = await import('@/lib/outbox/store');
 
 const seed: Board = {
   id: 'morning',
@@ -146,6 +148,64 @@ describe('useUpdateBoard', () => {
     } finally {
       onlineManager.setOnline(true);
       Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    }
+  });
+
+  it('keeps a queued edit on screen until the queue sends it (#773)', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { ...appQueryClient.getDefaultOptions(), queries: { retry: false } },
+    });
+    let serverName = seed.name;
+    const fetchBoard = vi.fn(() => Promise.resolve({ ...seed, name: serverName }));
+    qc.setQueryData(boardQueryKey('morning'), seed);
+    setOutboxOwner('owner-uuid');
+    const stopRefetch = onWritesLanded(() => void qc.invalidateQueries());
+    await putEntry({
+      kind: 'updateBoard',
+      boardId: 'other',
+      patch: { name: 'Older edit' },
+      id: '00000000000000000000000000',
+      enqueuedAt: 0,
+      attemptCount: 0,
+      status: 'pending',
+      enqueuedBy: 'owner-uuid',
+    });
+    unguardedSelectMock.mockResolvedValue({
+      data: null,
+      error: { code: '', message: 'TypeError: Failed to fetch', details: '', hint: '' },
+    });
+    const { result } = renderHook(
+      () => ({
+        update: useUpdateBoard(),
+        board: useQuery({
+          queryKey: boardQueryKey('morning'),
+          queryFn: fetchBoard,
+        }),
+      }),
+      { wrapper: makeWrapper(qc) },
+    );
+    try {
+      act(() => {
+        result.current.update.mutate({ boardId: 'morning', update: () => ({ name: 'Sunrise' }) });
+      });
+      await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+      await waitFor(() => expect(result.current.board.isFetching).toBe(false));
+      expect(result.current.board.data?.name).toBe('Sunrise');
+
+      const fetchesBeforeSend = fetchBoard.mock.calls.length;
+      unguardedSelectMock.mockImplementation(() => {
+        serverName = 'Sunrise';
+        return Promise.resolve({
+          data: [{ updated_at: '2026-06-11T09:00:00.000001+00:00' }],
+          error: null,
+        });
+      });
+      await act(() => drain());
+      await waitFor(() => expect(fetchBoard.mock.calls.length).toBeGreaterThan(fetchesBeforeSend));
+      expect(result.current.board.data?.name).toBe('Sunrise');
+    } finally {
+      stopRefetch();
+      setOutboxOwner(null);
     }
   });
 
