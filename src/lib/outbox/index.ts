@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { ulid } from 'ulid';
 
-import { bestEffort } from './best-effort';
+import { bestEffort, bestEffortRead } from './best-effort';
 import {
   drain,
   entryAfterFailure,
@@ -62,10 +62,7 @@ export const enqueueAndDrain = async (input: EntryInput): Promise<void> => {
     // Reconcile before the check below: inside the lock an `attempting` entry
     // has no live owner, and promoting it must be visible here or this write
     // fast-paths past an older one (#279).
-    let entries: OutboxEntry[] | undefined;
-    await bestEffort('reconcile-before-write', async () => {
-      entries = await reconcileQueue();
-    });
+    const entries = await bestEffortRead('reconcile-before-write', reconcileQueue);
     // Read `onLine` inside the lock: a pre-check goes stale during the wait.
     // An unreadable queue is not an empty queue: the fast path would run this
     // write ahead of entries it cannot see, and they overwrite it on replay
