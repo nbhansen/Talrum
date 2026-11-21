@@ -1,4 +1,4 @@
-import { Fragment, type JSX, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type JSX, useMemo, useState } from 'react';
 
 import { ParentShell } from '@/layouts/ParentShell';
 import { kindUnit } from '@/lib/boardKindVocab';
@@ -21,10 +21,9 @@ import { RemoveBoardConfirm } from './RemoveBoardConfirm';
 import { SettingsRow } from './SettingsRow';
 import { ShareModal } from './ShareModal';
 import { StepTile } from './StepTile';
+import { useTitleDraft } from './useTitleDraft';
 
 const QUICK_ADD_SLUGS = ['apple', 'cup', 'shoes', 'park', 'book', 'play', 'bath', 'heart', 'store'];
-
-const TITLE_DEBOUNCE_MS = 300;
 
 interface BoardBuilderProps {
   board: Board;
@@ -54,42 +53,7 @@ export const BoardBuilder = ({
   const [editTarget, setEditTarget] = useState<Pictogram | null>(null);
   const [pendingKind, setPendingKind] = useState<BoardKind | null>(null);
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(board.name);
-  const pendingTitleWrite = useRef<{
-    timer: ReturnType<typeof setTimeout>;
-    write: () => void;
-  } | null>(null);
-  // A refetch can bring a newer name (#766). While a rename waits, the
-  // user's typing wins: their write will replace the server name anyway.
-  useEffect(() => {
-    if (!pendingTitleWrite.current) setTitleDraft(board.name);
-  }, [board.name]);
-  const queueTitleWrite = (next: string): void => {
-    setTitleDraft(next);
-    if (pendingTitleWrite.current) clearTimeout(pendingTitleWrite.current.timer);
-    pendingTitleWrite.current = null;
-    // Same rule as NewBoardModal: a blank name is never written (#480).
-    const name = next.trim();
-    if (name === '') return;
-    const write = (): void => {
-      pendingTitleWrite.current = null;
-      writeBoard(() => ({ name }));
-    };
-    pendingTitleWrite.current = { timer: setTimeout(write, TITLE_DEBOUNCE_MS), write };
-  };
-  const restoreTitleIfBlank = (): void => {
-    if (titleDraft.trim() === '') setTitleDraft(board.name);
-  };
-  // Flush, not cancel: a back tap inside the debounce window dropped the last
-  // edit (#444).
-  useEffect(
-    () => () => {
-      if (!pendingTitleWrite.current) return;
-      clearTimeout(pendingTitleWrite.current.timer);
-      pendingTitleWrite.current.write();
-    },
-    [],
-  );
+  const title = useTitleDraft(board.name, (name) => writeBoard(() => ({ name })));
 
   const steps = useMemo(
     () => buildBoardSteps(board.stepIds, pictogramsById),
@@ -154,9 +118,9 @@ export const BoardBuilder = ({
       <input
         className={styles.titleInput}
         aria-label="Board name"
-        value={titleDraft}
-        onChange={(e) => queueTitleWrite(e.target.value)}
-        onBlur={restoreTitleIfBlank}
+        value={title.draft}
+        onChange={(e) => title.change(e.target.value)}
+        onBlur={title.restoreIfBlank}
       />
 
       <SettingsRow

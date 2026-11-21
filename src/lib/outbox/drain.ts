@@ -1,6 +1,6 @@
 import { captureException } from '@/lib/platform/telemetry';
 
-import { bestEffort } from './best-effort';
+import { bestEffort, bestEffortRead } from './best-effort';
 import { resolveExpectedUpdatedAt } from './board-clock';
 import {
   drainState,
@@ -28,20 +28,21 @@ export type { OutboxStatus };
 
 type StatusCounts = Pick<OutboxStatus, 'pendingCount' | 'failedCount' | 'conflictCount'>;
 
+const countStatuses = (entries: OutboxEntry[]): StatusCounts => {
+  const failed = entries.filter((e) => e.status === 'failed');
+  return {
+    pendingCount: entries.filter((e) => e.status === 'pending').length,
+    failedCount: failed.length,
+    conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
+  };
+};
+
 /** Also for `discardFailed`, which does no draining and so must push counts (#290). */
 export const refreshStatus = async (): Promise<void> => {
-  let counts: StatusCounts | undefined;
   // `drain` awaits this in its finally, where a throw would skip the flush
   // and the follow-up drain (#458).
-  await bestEffort('emit-list-entries', async () => {
-    const entries = await listEntries();
-    const failed = entries.filter((e) => e.status === 'failed');
-    counts = {
-      pendingCount: entries.filter((e) => e.status === 'pending').length,
-      failedCount: failed.length,
-      conflictCount: failed.filter((e) => e.failureKind === 'conflict').length,
-    };
-  });
+  const entries = await bestEffortRead('emit-list-entries', listEntries);
+  const counts = entries && countStatuses(entries);
   const next: OutboxStatus = {
     // A read that failed keeps its last counts rather than reporting zero,
     // which would clear the pill for writes that are still queued (#458).
@@ -72,13 +73,9 @@ export const getStatus = (): OutboxStatus => drainState.lastStatus;
  * optimistic patch (#773). The drain refetches once the queue is empty. An
  * unreadable queue reads as empty, so the refetch runs at once as before.
  */
-export const hasQueuedWrites = async (): Promise<boolean> => {
-  let queued = false;
-  await bestEffort('has-queued-writes', async () => {
-    queued = (await listEntries()).some((e) => e.status !== 'failed');
-  });
-  return queued;
-};
+export const hasQueuedWrites = async (): Promise<boolean> =>
+  (await bestEffortRead('has-queued-writes', listEntries))?.some((e) => e.status !== 'failed') ??
+  false;
 
 /** Runs after a drain pass sends writes and leaves none waiting (#773). */
 export const onQueueFlushed = (fn: () => void): (() => void) => {
@@ -144,7 +141,7 @@ export const entryAfterFailure = (current: OutboxEntry, err: unknown): OutboxEnt
   return { ...current, attemptCount, status: 'pending', lastError };
 };
 
-type RunOutcome = 'ok' | 'ok-uncleared' | 'transient' | 'failed';
+type RunOutcome = 'ok' | 'uncleared' | 'transient' | 'failed';
 
 const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
   try {
@@ -169,7 +166,7 @@ const runOne = async (entry: OutboxEntry): Promise<RunOutcome> => {
   await bestEffort('drain-forward-board-guards', () => forwardBoardGuards(entry));
   // An uncleared entry re-lands every pass. Reported apart from `ok` so it
   // cannot pass for queue progress and hold the backoff at its base (#449).
-  return cleared ? 'ok' : 'ok-uncleared';
+  return cleared ? 'ok' : 'uncleared';
 };
 
 /**
@@ -266,8 +263,8 @@ export const drain = async ({ fromTimer = false } = {}): Promise<void> => {
           // An uncleared entry is still queued for replay, so anything behind
           // it must wait: landing the newer write first lets the replay put the
           // older one back on top of it (#449).
-          if (outcome === 'ok-uncleared' || outcome === 'transient') {
-            stoppedBy = outcome === 'transient' ? 'transient' : 'uncleared';
+          if (outcome === 'uncleared' || outcome === 'transient') {
+            stoppedBy = outcome;
             break pass;
           }
         }
